@@ -419,6 +419,106 @@
             </form>
           </article>
 
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Capability Package <span class="help-tip" tabindex="0" data-tip="Builds an administrative package from safe metadata, policy templates and capability records. It cannot enable execution.">?</span></h2>
+              <span class="pill phantom">Lifecycle</span>
+            </div>
+            <form id="phantom-package-form">
+              <label>Name <input name="name" value="PHANTOM Admin Lifecycle Package"></label>
+              <label>Description <input name="description" value="Administrative readiness and evidence lifecycle only"></label>
+              <label>Policy Template <select name="policyTemplateId" id="phantom-package-template-select"></select></label>
+              <label>Capability <select name="capabilityId" id="phantom-package-capability-select"></select></label>
+              <label>Tier
+                <select name="tierMinimum">
+                  <option>STANDARD</option>
+                  <option selected>PRO</option>
+                  <option>SOVEREIGN</option>
+                </select>
+              </label>
+              <button type="submit">Create Package</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Evidence Bundle <span class="help-tip" tabindex="0" data-tip="Stores sealed references to review evidence. Do not paste secrets, content, or operational parameters.">?</span></h2>
+              <span class="pill">Sealed refs</span>
+            </div>
+            <form id="phantom-evidence-form">
+              <label>Package <select name="packageId" id="phantom-evidence-package-select"></select></label>
+              <label>Summary <input name="summary" value="Review evidence references for HUMAN GATE"></label>
+              <label>Evidence refs <input name="evidenceRefs" value="legal-memo-ref,ciso-risk-note-ref,architect-boundary-note-ref"></label>
+              <label>Controls satisfied <input name="controlsSatisfied" value="Human gate ownership,No baseline execution"></label>
+              <label>Retention
+                <select name="retentionClass">
+                  <option selected>worm_audit</option>
+                  <option>legal_hold</option>
+                  <option>short_review</option>
+                </select>
+              </label>
+              <button type="submit">Seal Evidence</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Approval Pack <span class="help-tip" tabindex="0" data-tip="Bundles owners, approval records and evidence for HUMAN GATE review. Approval still does not execute PHANTOM.">?</span></h2>
+              <span class="pill warn">HUMAN GATE</span>
+            </div>
+            <form id="phantom-approval-pack-form">
+              <label>Package <select name="packageId" id="phantom-approval-pack-package-select"></select></label>
+              <label>Summary <input name="summary" value="Owners and evidence ready for HUMAN GATE review"></label>
+              <button type="submit">Build Approval Pack</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Readiness Gate <span class="help-tip" tabindex="0" data-tip="Evaluates administrative completeness and subscription fit. The gate reports readiness but baseline execution stays disabled.">?</span></h2>
+              <span class="pill warn">No execution</span>
+            </div>
+            <form id="phantom-readiness-form">
+              <label>Package <select name="packageId" id="phantom-readiness-package-select"></select></label>
+              <label>Approval Pack <select name="approvalPackId" id="phantom-readiness-approval-pack-select"></select></label>
+              <label>Evidence <select name="evidenceBundleId" id="phantom-readiness-evidence-select"></select></label>
+              <label>Operator <select name="operatorId" id="phantom-readiness-operator-select"></select></label>
+              <button type="submit">Evaluate Gate</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Simulation <span class="help-tip" tabindex="0" data-tip="Runs a simulation-only review scenario. It has no live connector and no side effects.">?</span></h2>
+              <span class="pill">Simulation only</span>
+            </div>
+            <form id="phantom-simulation-form">
+              <label>Package <select name="packageId" id="phantom-simulation-package-select"></select></label>
+              <label>Scenario
+                <select name="scenario">
+                  <option selected>readiness_review</option>
+                  <option>tier_fit</option>
+                  <option>operator_assignment</option>
+                  <option>audit_correlation</option>
+                </select>
+              </label>
+              <label>Assumptions <input name="assumptions" value="No live connector,Panel review only"></label>
+              <button type="submit">Run Simulation</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Assignment Plan <span class="help-tip" tabindex="0" data-tip="Checks operator eligibility against tier and baseline constraints such as 3 VPS and mandatory CDR.">?</span></h2>
+              <span class="pill">Tier-aware</span>
+            </div>
+            <form id="phantom-assignment-form">
+              <label>Package <select name="packageId" id="phantom-assignment-package-select"></select></label>
+              <label>Operator <select name="operatorId" id="phantom-assignment-operator-select"></select></label>
+              <button type="submit">Plan Assignment</button>
+            </form>
+          </article>
+
           <article class="panel wide">
             <div class="panel-head">
               <h2>Capabilities</h2>
@@ -439,6 +539,62 @@
               <span class="pill warn">Residual risk</span>
             </div>
             <div class="cards" id="phantom-risk-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Policy Templates</h2>
+              <span class="pill">Safe templates</span>
+            </div>
+            <div class="cards" id="phantom-template-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Packages</h2>
+              <span class="pill phantom">Lifecycle</span>
+            </div>
+            <div class="cards" id="phantom-package-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Evidence Bundles</h2>
+              <span class="pill">Sealed refs</span>
+            </div>
+            <div class="cards" id="phantom-evidence-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Approval Packs</h2>
+              <span class="pill warn">HUMAN GATE</span>
+            </div>
+            <div class="cards" id="phantom-approval-pack-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Readiness</h2>
+              <span class="pill warn">Execution blocked</span>
+            </div>
+            <div class="cards" id="phantom-readiness-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Simulation Runs</h2>
+              <span class="pill">No side effects</span>
+            </div>
+            <div class="cards" id="phantom-simulation-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Assignment Plans</h2>
+              <span class="pill">Subscription fit</span>
+            </div>
+            <div class="cards" id="phantom-assignment-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Audit Correlation</h2>
+              <span class="pill">Hash chain</span>
+            </div>
+            <div class="cards" id="phantom-audit-correlation-cards"></div>
           </article>
         </section>
 

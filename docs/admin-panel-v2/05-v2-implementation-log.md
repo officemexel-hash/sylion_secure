@@ -823,3 +823,85 @@ PHANTOM pozostaje separate track [A], poza certyfikowalnym baseline SYLION.
 Execution remains blocked by HUMAN GATE and baseline sideEffectAllowed=false.
 Zakazane szczegoly operacyjne pozostaja poza UI/API/docs.
 ```
+
+## Step 3.6 - PHANTOM Full Administrative Lifecycle And Execution-Readiness Gates
+
+Status: implemented
+Data: 2026-05-20
+
+Zaimplementowano Step 3.6:
+
+```text
+PHANTOM policy template library
+PHANTOM capability package builder
+PHANTOM evidence bundle store with sealed references
+PHANTOM approval pack builder
+PHANTOM readiness/gate evaluator
+PHANTOM simulation-only runner
+PHANTOM subscription-aware operator assignment planner
+PHANTOM audit correlation summary
+SDK methods for PHANTOM lifecycle endpoints
+Admin Web PHANTOM full lifecycle controls
+Step 3.6 security and lifecycle tests
+```
+
+Dodane endpointy:
+
+```text
+GET  /phantom/policy-templates
+POST /phantom/policy-templates
+GET  /phantom/packages
+POST /phantom/packages
+POST /phantom/packages/:id/stage
+GET  /phantom/evidence-bundles
+POST /phantom/evidence-bundles
+GET  /phantom/approval-packs
+POST /phantom/approval-packs
+GET  /phantom/readiness
+POST /phantom/readiness/evaluate
+GET  /phantom/simulations
+POST /phantom/simulations
+GET  /phantom/assignment-plans
+POST /phantom/assignment-plans
+GET  /phantom/audit-correlation
+```
+
+Zmodyfikowane pliki:
+
+```text
+apps/admin-web/app.js
+apps/admin-web/index.html
+services/admin-api/src/app.js
+services/admin-api/src/domain/constants.js
+services/admin-api/src/modules/phantom/phantomGovernanceService.js
+services/admin-api/src/modules/rbac/rbacService.js
+services/admin-api/src/sdk/adminApiClient.js
+services/admin-api/test/admin-web-static.test.js
+services/admin-api/test/phantom-lifecycle-step3-6.test.js
+services/admin-api/IMPLEMENTATION_STATUS.md
+services/admin-api/contracts/openapi-lite.md
+```
+
+Security notes:
+
+```text
+PHANTOM v3.0 pozostaje separate track [A]
+Step 3.6 implementuje pelny lifecycle administracyjny, nie operational execution
+sideEffectAllowed=false dla wszystkich nowych rekordow PHANTOM
+executionAllowed=false i executionEnabled=false w readiness, simulation, package, evidence, approval pack i assignment plan
+readiness gate moze zwrocic ready_for_human_gate, ale nadal nie wlacza execution
+simulation runner ma mode=simulation_only
+assignment planner sprawdza tier i baseline 3 VPS/CDR, ale nie wykonuje zmian
+audit correlation pokazuje metadane hash-chain bez tresci komunikacji lub sekretow
+RBAC blokuje support readonly
+prohibited operational details sa odrzucane przed zapisem audytu
+```
+
+Test:
+
+```text
+npm.cmd test
+45 tests
+45 passing
+0 failing
+```

@@ -155,6 +155,70 @@ export class AdminApiClient {
     return this.request(`/phantom/risks/${riskId}/status`, { method: "POST", body });
   }
 
+  listPhantomPolicyTemplates() {
+    return this.request("/phantom/policy-templates");
+  }
+
+  createPhantomPolicyTemplate(body) {
+    return this.request("/phantom/policy-templates", { method: "POST", body });
+  }
+
+  listPhantomPackages() {
+    return this.request("/phantom/packages");
+  }
+
+  createPhantomPackage(body) {
+    return this.request("/phantom/packages", { method: "POST", body });
+  }
+
+  updatePhantomPackageStage(packageId, body) {
+    return this.request(`/phantom/packages/${packageId}/stage`, { method: "POST", body });
+  }
+
+  listPhantomEvidenceBundles() {
+    return this.request("/phantom/evidence-bundles");
+  }
+
+  createPhantomEvidenceBundle(body) {
+    return this.request("/phantom/evidence-bundles", { method: "POST", body });
+  }
+
+  listPhantomApprovalPacks() {
+    return this.request("/phantom/approval-packs");
+  }
+
+  createPhantomApprovalPack(body) {
+    return this.request("/phantom/approval-packs", { method: "POST", body });
+  }
+
+  listPhantomReadinessEvaluations() {
+    return this.request("/phantom/readiness");
+  }
+
+  evaluatePhantomReadiness(body) {
+    return this.request("/phantom/readiness/evaluate", { method: "POST", body });
+  }
+
+  listPhantomSimulationRuns() {
+    return this.request("/phantom/simulations");
+  }
+
+  runPhantomSimulation(body) {
+    return this.request("/phantom/simulations", { method: "POST", body });
+  }
+
+  listPhantomAssignmentPlans() {
+    return this.request("/phantom/assignment-plans");
+  }
+
+  createPhantomAssignmentPlan(body) {
+    return this.request("/phantom/assignment-plans", { method: "POST", body });
+  }
+
+  getPhantomAuditCorrelation(packageId = null) {
+    return this.request(`/phantom/audit-correlation${packageId ? `?packageId=${encodeURIComponent(packageId)}` : ""}`);
+  }
+
   isStepUpRequired(error) {
     return error?.payload?.error?.code === "step_up_required";
   }

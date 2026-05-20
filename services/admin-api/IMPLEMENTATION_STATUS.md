@@ -2,7 +2,7 @@
 
 Status na 2026-05-20.
 
-V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2, Step 3.3, Step 3.4 i Step 3.5 sa zaimplementowane:
+V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2, Step 3.3, Step 3.4, Step 3.5 i Step 3.6 sa zaimplementowane:
 
 ```text
 Step 1: API SDK + SQLite persistence foundation
@@ -12,6 +12,7 @@ Step 3.2: Step-up enforcement for provider secrets and orchestrator execution
 Step 3.3: Recovery request workflow, account lockout and break-glass placeholder model
 Step 3.4: WebAuthn verifier boundary, credential lifecycle and auth hardening
 Step 3.5: PHANTOM governance-only boundary and premium admin UX foundation
+Step 3.6: PHANTOM full administrative lifecycle and execution-readiness gates
 ```
 
 ## Zaimplementowane Moduly Domenowe
@@ -70,6 +71,8 @@ credential list/suspend/revoke with step-up protection
 auth policy matrix visibility
 PHANTOM governance boundary as separate track
 PHANTOM capability/approval/risk governance records without execution
+PHANTOM policy templates, packages, evidence bundles, approval packs and readiness gates
+PHANTOM simulation-only runs, subscription-aware assignment planning and audit correlation
 premium dashboard status strip and HelpTip anchors
 ```
 
@@ -99,6 +102,11 @@ webauthn-hardening-step3-4.test.js
 phantom-governance-step3-5.test.js
   PHANTOM governance boundary, capability registry, approval workflow, risk register,
   RBAC denial, no side effects, HUMAN GATE and prohibited operational detail rejection.
+
+phantom-lifecycle-step3-6.test.js
+  PHANTOM policy templates, capability packages, evidence bundles, approval packs,
+  readiness gate, simulation-only runner, tier-aware assignment plans, audit correlation,
+  RBAC denial, prohibited operational detail rejection and no execution enablement.
 
 full-admin-human-flow.e2e.test.js
   Pelny przeplyw przez HTTP:
@@ -140,17 +148,16 @@ npm.cmd test
 Aktualny wynik:
 
 ```text
-42 tests
-42 passing
+45 tests
+45 passing
 0 failing
 ```
 
 ## Nastepny Priorytet
 
 ```text
-1. Wdrozyc Step 3.6 - PHANTOM Full Administrative Lifecycle And Execution-Readiness Gates.
-2. Zaczac od capability package builder i policy template library.
-3. Dodac readiness/gate engine, evidence bundles i approval packs.
-4. Dodac simulation-only runner, entitlement hooks, operator planning i audit correlation.
-5. Rozszerzyc PHANTOM UI o pelny lifecycle bez execution.
+1. Zamrozic Step 3.6 po przegladzie UI/API.
+2. Zaplanowac Step 3.7: operator subscription and workload environment management.
+3. Rozszerzyc panel o widoki limitow aplikacji, microVM allocation i tenant billing state.
+4. Utrzymac PHANTOM v3.0 jako separate track bez baseline execution.
 ```

@@ -99,7 +99,7 @@ export function createApp({ store = null, authOptions = {} } = {}) {
   const matrix = new MatrixServerService({ audit, rbac, entitlements, store });
   const devices = new DeviceInventoryService({ audit, rbac, operators, store });
   const imageFactory = new ImageFactoryService({ audit, rbac, devices, appCatalog, store });
-  const phantom = new PhantomGovernanceService({ audit, rbac, store });
+  const phantom = new PhantomGovernanceService({ audit, rbac, entitlements, operators, monitoring, store });
   const orchestrator = new OrchestratorService({
     audit,
     rbac,
@@ -369,6 +369,97 @@ export function createApp({ store = null, authOptions = {} } = {}) {
           correlationId
         });
         return send(res, 200, { risk });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/policy-templates") {
+        return send(res, 200, { templates: phantom.listPolicyTemplates({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/policy-templates") {
+        const body = await readJson(req);
+        const template = phantom.createPolicyTemplate({ actor, ...body, correlationId });
+        return send(res, 201, { template });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/packages") {
+        return send(res, 200, { packages: phantom.listPackages({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/packages") {
+        const body = await readJson(req);
+        const packageRecord = phantom.createPackage({ actor, ...body, correlationId });
+        return send(res, 201, { package: packageRecord });
+      }
+
+      const phantomPackageStageMatch = url.pathname.match(/^\/phantom\/packages\/([^/]+)\/stage$/);
+      if (req.method === "POST" && phantomPackageStageMatch) {
+        const body = await readJson(req);
+        const packageRecord = phantom.updatePackageStage({
+          actor,
+          packageId: phantomPackageStageMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { package: packageRecord });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/evidence-bundles") {
+        return send(res, 200, { bundles: phantom.listEvidenceBundles({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/evidence-bundles") {
+        const body = await readJson(req);
+        const bundle = phantom.createEvidenceBundle({ actor, ...body, correlationId });
+        return send(res, 201, { bundle });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/approval-packs") {
+        return send(res, 200, { packs: phantom.listApprovalPacks({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/approval-packs") {
+        const body = await readJson(req);
+        const pack = phantom.createApprovalPack({ actor, ...body, correlationId });
+        return send(res, 201, { pack });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/readiness") {
+        return send(res, 200, { evaluations: phantom.listReadinessEvaluations({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/readiness/evaluate") {
+        const body = await readJson(req);
+        const evaluation = phantom.evaluateReadiness({ actor, ...body, correlationId });
+        return send(res, 201, { evaluation });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/simulations") {
+        return send(res, 200, { runs: phantom.listSimulationRuns({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/simulations") {
+        const body = await readJson(req);
+        const run = phantom.runSimulation({ actor, ...body, correlationId });
+        return send(res, 201, { run });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/assignment-plans") {
+        return send(res, 200, { plans: phantom.listAssignmentPlans({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/assignment-plans") {
+        const body = await readJson(req);
+        const plan = phantom.createAssignmentPlan({ actor, ...body, correlationId });
+        return send(res, 201, { plan });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/audit-correlation") {
+        const summary = phantom.auditCorrelation({
+          actor,
+          packageId: url.searchParams.get("packageId"),
+          correlationId
+        });
+        return send(res, 200, { summary });
       }
 
       if (req.method === "GET" && url.pathname === "/audit/events") {

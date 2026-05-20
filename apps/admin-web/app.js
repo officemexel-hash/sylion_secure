@@ -15,6 +15,14 @@ const state = {
   phantomCapabilities: [],
   phantomApprovals: [],
   phantomRisks: [],
+  phantomPolicyTemplates: [],
+  phantomPackages: [],
+  phantomEvidenceBundles: [],
+  phantomApprovalPacks: [],
+  phantomReadiness: [],
+  phantomSimulations: [],
+  phantomAssignmentPlans: [],
+  phantomAuditCorrelation: null,
   lastPlanId: null,
   lastPlanOperatorId: null,
   credentialId: localStorage.getItem("sylion.admin.credentialId") || null,
@@ -165,7 +173,15 @@ async function refreshAll() {
     phantomBoundary,
     phantomCapabilities,
     phantomApprovals,
-    phantomRisks
+    phantomRisks,
+    phantomPolicyTemplates,
+    phantomPackages,
+    phantomEvidenceBundles,
+    phantomApprovalPacks,
+    phantomReadiness,
+    phantomSimulations,
+    phantomAssignmentPlans,
+    phantomAuditCorrelation
   ] = await Promise.all([
     api("/health"),
     api("/auth/session"),
@@ -182,7 +198,15 @@ async function refreshAll() {
     api("/phantom/boundary").catch(() => ({ boundary: null })),
     api("/phantom/capabilities").catch(() => ({ capabilities: [] })),
     api("/phantom/approvals").catch(() => ({ approvals: [] })),
-    api("/phantom/risks").catch(() => ({ risks: [] }))
+    api("/phantom/risks").catch(() => ({ risks: [] })),
+    api("/phantom/policy-templates").catch(() => ({ templates: [] })),
+    api("/phantom/packages").catch(() => ({ packages: [] })),
+    api("/phantom/evidence-bundles").catch(() => ({ bundles: [] })),
+    api("/phantom/approval-packs").catch(() => ({ packs: [] })),
+    api("/phantom/readiness").catch(() => ({ evaluations: [] })),
+    api("/phantom/simulations").catch(() => ({ runs: [] })),
+    api("/phantom/assignment-plans").catch(() => ({ plans: [] })),
+    api("/phantom/audit-correlation").catch(() => ({ summary: null }))
   ]);
   $("#api-status").textContent = health.status === "ok" ? "API Healthy" : "API Degraded";
   state.session = session.session;
@@ -200,6 +224,14 @@ async function refreshAll() {
   state.phantomCapabilities = phantomCapabilities.capabilities;
   state.phantomApprovals = phantomApprovals.approvals;
   state.phantomRisks = phantomRisks.risks;
+  state.phantomPolicyTemplates = phantomPolicyTemplates.templates;
+  state.phantomPackages = phantomPackages.packages;
+  state.phantomEvidenceBundles = phantomEvidenceBundles.bundles;
+  state.phantomApprovalPacks = phantomApprovalPacks.packs;
+  state.phantomReadiness = phantomReadiness.evaluations;
+  state.phantomSimulations = phantomSimulations.runs;
+  state.phantomAssignmentPlans = phantomAssignmentPlans.plans;
+  state.phantomAuditCorrelation = phantomAuditCorrelation.summary;
   render();
 }
 
@@ -220,6 +252,17 @@ function render() {
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#plan-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#job-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#phantom-package-template-select", state.phantomPolicyTemplates, "No templates", "name");
+  renderSelect("#phantom-package-capability-select", state.phantomCapabilities, "No capabilities", "displayName");
+  renderSelect("#phantom-evidence-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#phantom-approval-pack-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#phantom-readiness-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#phantom-readiness-approval-pack-select", state.phantomApprovalPacks, "No approval packs", "summary");
+  renderSelect("#phantom-readiness-evidence-select", state.phantomEvidenceBundles, "No evidence bundles", "summary");
+  renderSelect("#phantom-readiness-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#phantom-simulation-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#phantom-assignment-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#phantom-assignment-operator-select", state.operators, "No operators", "displayName");
 
   $("#operator-cards").innerHTML = state.operators.map((operator) => card(operator.displayName, [
     ["Tier", operator.tier],
@@ -307,6 +350,62 @@ function render() {
     ["Residual", item.residualRisk],
     ["Gate", String(item.humanGateRequired)]
   ])).join("") || empty("No PHANTOM risks recorded.");
+
+  $("#phantom-template-cards").innerHTML = state.phantomPolicyTemplates.map((item) => card(item.name, [
+    ["Tier", item.tierMinimum],
+    ["Controls", String(item.controlObjectives?.length || 0)],
+    ["Evidence", String(item.requiredEvidenceTypes?.length || 0)],
+    ["Execution", String(item.executionAllowed)]
+  ])).join("") || empty("No PHANTOM policy templates visible.");
+
+  $("#phantom-package-cards").innerHTML = state.phantomPackages.map((item) => card(item.name, [
+    ["Stage", item.stage],
+    ["Tier", item.tierMinimum],
+    ["Readiness", item.readinessState],
+    ["Execution", String(item.executionAllowed)]
+  ])).join("") || empty("No PHANTOM packages recorded.");
+
+  $("#phantom-evidence-cards").innerHTML = state.phantomEvidenceBundles.map((item) => card(item.summary, [
+    ["Package", item.packageId],
+    ["Retention", item.retentionClass],
+    ["Sealed", String(item.sealed)],
+    ["Hash", String(item.sealedHash || "").slice(0, 14)]
+  ])).join("") || empty("No PHANTOM evidence bundles recorded.");
+
+  $("#phantom-approval-pack-cards").innerHTML = state.phantomApprovalPacks.map((item) => card(item.summary, [
+    ["Status", item.status],
+    ["Owners", item.requiredOwners?.join(", ")],
+    ["Evidence", String(item.evidenceBundleIds?.length || 0)],
+    ["Execution", String(item.executionAllowed)]
+  ])).join("") || empty("No PHANTOM approval packs recorded.");
+
+  $("#phantom-readiness-cards").innerHTML = state.phantomReadiness.map((item) => card(item.gateState, [
+    ["Package", item.packageId],
+    ["Score", String(item.readinessScore)],
+    ["Blockers", String(item.blockers?.length || 0)],
+    ["Execution", String(item.executionAllowed)]
+  ])).join("") || empty("No PHANTOM readiness evaluations recorded.");
+
+  $("#phantom-simulation-cards").innerHTML = state.phantomSimulations.map((item) => card(item.scenario, [
+    ["Mode", item.mode],
+    ["Result", item.result],
+    ["Findings", String(item.findings?.length || 0)],
+    ["Side effect", String(item.sideEffectAllowed)]
+  ])).join("") || empty("No PHANTOM simulations recorded.");
+
+  $("#phantom-assignment-cards").innerHTML = state.phantomAssignmentPlans.map((item) => card(item.status, [
+    ["Package", item.packageId],
+    ["Operators", String(item.operators?.length || 0)],
+    ["Execution", String(item.executionAllowed)],
+    ["Gate", String(item.humanGateRequired)]
+  ])).join("") || empty("No PHANTOM assignment plans recorded.");
+
+  $("#phantom-audit-correlation-cards").innerHTML = state.phantomAuditCorrelation ? card("PHANTOM audit correlation", [
+    ["Events", String(state.phantomAuditCorrelation.eventCount)],
+    ["Actions", String(state.phantomAuditCorrelation.actions?.length || 0)],
+    ["Latest hash", String(state.phantomAuditCorrelation.latestHash || "").slice(0, 14)],
+    ["Execution", String(state.phantomAuditCorrelation.executionAllowed)]
+  ]) : empty("PHANTOM audit correlation unavailable.");
 
   const recent = state.audit.slice(-8).reverse();
   $("#audit-table").innerHTML = recent.map((event) => `
@@ -673,6 +772,101 @@ async function createPhantomRisk(event) {
   await refreshAll();
 }
 
+async function createPhantomPackage(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/packages", {
+    method: "POST",
+    body: {
+      name: data.name,
+      description: data.description,
+      policyTemplateId: data.policyTemplateId,
+      capabilityIds: data.capabilityId ? [data.capabilityId] : [],
+      tierMinimum: data.tierMinimum
+    }
+  });
+  toast("PHANTOM package recorded; execution remains blocked");
+  await refreshAll();
+}
+
+async function createPhantomEvidenceBundle(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/evidence-bundles", {
+    method: "POST",
+    body: {
+      packageId: data.packageId,
+      summary: data.summary,
+      evidenceRefs: splitCsv(data.evidenceRefs),
+      controlsSatisfied: splitCsv(data.controlsSatisfied),
+      retentionClass: data.retentionClass
+    }
+  });
+  toast("PHANTOM evidence bundle sealed");
+  await refreshAll();
+}
+
+async function createPhantomApprovalPack(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/approval-packs", {
+    method: "POST",
+    body: {
+      packageId: data.packageId,
+      approvalIds: state.phantomApprovals.map((item) => item.id),
+      evidenceBundleIds: state.phantomEvidenceBundles.map((item) => item.id),
+      summary: data.summary
+    }
+  });
+  toast("PHANTOM approval pack recorded for HUMAN GATE");
+  await refreshAll();
+}
+
+async function evaluatePhantomReadiness(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/readiness/evaluate", {
+    method: "POST",
+    body: {
+      packageId: data.packageId,
+      approvalPackId: data.approvalPackId,
+      evidenceBundleId: data.evidenceBundleId,
+      operatorId: data.operatorId
+    }
+  });
+  toast("PHANTOM readiness evaluated; execution still blocked");
+  await refreshAll();
+}
+
+async function runPhantomSimulation(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/simulations", {
+    method: "POST",
+    body: {
+      packageId: data.packageId,
+      scenario: data.scenario,
+      assumptions: splitCsv(data.assumptions)
+    }
+  });
+  toast("PHANTOM simulation-only run recorded");
+  await refreshAll();
+}
+
+async function createPhantomAssignmentPlan(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/assignment-plans", {
+    method: "POST",
+    body: {
+      packageId: data.packageId,
+      operatorIds: data.operatorId ? [data.operatorId] : []
+    }
+  });
+  toast("PHANTOM assignment plan recorded");
+  await refreshAll();
+}
+
 async function handleCredentialAction(event) {
   const action = event.target.dataset.credentialAction;
   if (!action) return;
@@ -830,6 +1024,12 @@ function bind() {
   $("#phantom-capability-form").addEventListener("submit", (event) => createPhantomCapability(event).catch(showError));
   $("#phantom-approval-form").addEventListener("submit", (event) => createPhantomApproval(event).catch(showError));
   $("#phantom-risk-form").addEventListener("submit", (event) => createPhantomRisk(event).catch(showError));
+  $("#phantom-package-form").addEventListener("submit", (event) => createPhantomPackage(event).catch(showError));
+  $("#phantom-evidence-form").addEventListener("submit", (event) => createPhantomEvidenceBundle(event).catch(showError));
+  $("#phantom-approval-pack-form").addEventListener("submit", (event) => createPhantomApprovalPack(event).catch(showError));
+  $("#phantom-readiness-form").addEventListener("submit", (event) => evaluatePhantomReadiness(event).catch(showError));
+  $("#phantom-simulation-form").addEventListener("submit", (event) => runPhantomSimulation(event).catch(showError));
+  $("#phantom-assignment-form").addEventListener("submit", (event) => createPhantomAssignmentPlan(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));

@@ -373,6 +373,129 @@ Response 200:
 }
 ```
 
+## PHANTOM Step 3.6 Administrative Lifecycle
+
+PHANTOM v3.0 is a separate `[A]` track outside the certifiable SYLION baseline. These endpoints provide administrative lifecycle, evidence, readiness and audit controls only. They do not execute PHANTOM behavior.
+
+Invariant for all PHANTOM lifecycle responses:
+
+```text
+humanGateRequired=true
+sideEffectAllowed=false
+executionAllowed=false
+executionEnabled=false where applicable
+```
+
+### GET /phantom/policy-templates
+
+Returns safe policy templates such as Legal/CISO/Architect Review, Simulation-Only Readiness and Sovereign Exception Review.
+
+### POST /phantom/policy-templates
+
+Creates a safe administrative template.
+
+Request:
+
+```json
+{
+  "name": "Legal/CISO/Architect Review",
+  "tierMinimum": "PRO",
+  "controlObjectives": ["Separate track claim review"],
+  "requiredEvidenceTypes": ["legal memo"]
+}
+```
+
+### POST /phantom/packages
+
+Builds an administrative capability package from policy templates and redacted capability metadata.
+
+Request:
+
+```json
+{
+  "name": "PHANTOM Lifecycle Admin Package",
+  "description": "Administrative readiness and evidence lifecycle only",
+  "policyTemplateId": "phantom_template_legal_ciso_architect",
+  "capabilityIds": ["phantom_capability_uuid"],
+  "tierMinimum": "PRO"
+}
+```
+
+Response 201 includes `stage`, `readinessState`, `sideEffectAllowed: false` and `executionAllowed: false`.
+
+### POST /phantom/evidence-bundles
+
+Stores sealed evidence references. The request must contain references only, not secrets, communication content, or operational PHANTOM parameters.
+
+```json
+{
+  "packageId": "phantom_package_uuid",
+  "summary": "Review evidence references for HUMAN GATE",
+  "evidenceRefs": ["legal-memo-ref", "ciso-risk-note-ref"],
+  "controlsSatisfied": ["Human gate ownership"],
+  "retentionClass": "worm_audit"
+}
+```
+
+### POST /phantom/approval-packs
+
+Bundles approvals and evidence for HUMAN GATE review.
+
+```json
+{
+  "packageId": "phantom_package_uuid",
+  "approvalIds": ["phantom_approval_uuid"],
+  "evidenceBundleIds": ["phantom_evidence_uuid"],
+  "summary": "Owners and evidence are ready for HUMAN GATE review"
+}
+```
+
+### POST /phantom/readiness/evaluate
+
+Evaluates completeness and subscription fit. Even `ready_for_human_gate` remains non-executable in baseline.
+
+```json
+{
+  "packageId": "phantom_package_uuid",
+  "approvalPackId": "phantom_approval_pack_uuid",
+  "evidenceBundleId": "phantom_evidence_uuid",
+  "operatorId": "op_uuid"
+}
+```
+
+Response 201 includes `readinessState`, `readinessScore`, `blockers`, `warnings`, `gateState`, and always `executionAllowed: false`.
+
+### POST /phantom/simulations
+
+Creates a simulation-only review run.
+
+```json
+{
+  "packageId": "phantom_package_uuid",
+  "scenario": "readiness_review",
+  "assumptions": ["No live connector", "Panel review only"]
+}
+```
+
+Response includes `mode: "simulation_only"`, `sideEffectAllowed: false`, and `executionAllowed: false`.
+
+### POST /phantom/assignment-plans
+
+Checks operator eligibility against tier and baseline constraints.
+
+```json
+{
+  "packageId": "phantom_package_uuid",
+  "operatorIds": ["op_uuid"]
+}
+```
+
+Response includes operator summaries with `vpsPerOperator`, `cdrMandatory`, router baseline and eligibility state. It does not create, rotate, delete, or execute infrastructure.
+
+### GET /phantom/audit-correlation
+
+Returns PHANTOM audit metadata summary and latest hash reference. Optional query parameter: `packageId`.
+
 ## Devices
 
 ### POST /devices

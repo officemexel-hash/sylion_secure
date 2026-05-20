@@ -40,7 +40,14 @@ export const RESOURCE_TYPES = Object.freeze({
   PHANTOM_BOUNDARY: "phantom_boundary",
   PHANTOM_CAPABILITY: "phantom_capability",
   PHANTOM_APPROVAL: "phantom_approval",
-  PHANTOM_RISK: "phantom_risk"
+  PHANTOM_RISK: "phantom_risk",
+  PHANTOM_POLICY_TEMPLATE: "phantom_policy_template",
+  PHANTOM_PACKAGE: "phantom_package",
+  PHANTOM_EVIDENCE_BUNDLE: "phantom_evidence_bundle",
+  PHANTOM_APPROVAL_PACK: "phantom_approval_pack",
+  PHANTOM_READINESS: "phantom_readiness",
+  PHANTOM_SIMULATION: "phantom_simulation",
+  PHANTOM_ASSIGNMENT_PLAN: "phantom_assignment_plan"
 });
 
 export const DEVICE_TYPES = Object.freeze({
