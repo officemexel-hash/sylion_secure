@@ -1,0 +1,38 @@
+flowchart LR
+    subgraph UI["Admin Web"]
+        Overview["Status Matrix"]
+        Approvals["Approvals View"]
+        PhantomUI["PHANTOM Workflow View"]
+        TestUI["Dashboard Smoke Evidence"]
+    end
+    subgraph API["Admin API"]
+        Approval["Approval Enforcement"]
+        Readiness["Persistent Readiness"]
+        Lifecycle["Approval-Bound Lifecycle"]
+        ProviderDryRun["Provider Dry-Run Planner"]
+        PhantomWorkflow["PHANTOM Review Workflow"]
+        PhantomCoverage["PHANTOM Evidence Coverage"]
+        TestReport["Test Reporting"]
+    end
+    subgraph Core["Existing Core"]
+        Auth["WebAuthn Step-Up"]
+        Subs["Subscription Limits"]
+        Devices["Pixel/Puli/FIDO2"]
+        Orch["Orchestrator"]
+        Audit["Audit Hash Chain"]
+    end
+
+    UI --> API
+    Approval --> Auth
+    Approval --> Orch
+    Readiness --> Subs
+    Readiness --> Devices
+    Lifecycle --> Approval
+    ProviderDryRun --> Readiness
+    PhantomWorkflow --> PhantomCoverage
+    PhantomCoverage --> Audit
+    Approval --> Audit
+    Readiness --> Audit
+    Lifecycle --> Audit
+    TestReport --> Audit
+

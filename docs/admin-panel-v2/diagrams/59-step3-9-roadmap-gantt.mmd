@@ -1,0 +1,22 @@
+gantt
+    title SYLION Admin V2 Step 3.9 Roadmap
+    dateFormat  YYYY-MM-DD
+    axisFormat  %m-%d
+    section Approval Hardening
+    Mandatory approval enforcement          :a1, 2026-05-20, 1d
+    Approval lifecycle binding              :a2, after a1, 1d
+    section Readiness And Status
+    Persistent readiness evidence           :r1, 2026-05-20, 1d
+    Dashboard status matrix                 :r2, after r1, 1d
+    section Provider Boundary
+    Provider dry-run adapters               :p1, after r1, 1d
+    section PHANTOM Maturity
+    Review workflow owners                  :ph1, 2026-05-20, 1d
+    Evidence coverage map                   :ph2, after ph1, 1d
+    Exception linkage and expiry            :ph3, after ph2, 1d
+    section Tests And Freeze
+    Browser test harness                    :t1, after r2, 1d
+    Mobile visual checks                    :t2, after t1, 1d
+    CI test reporting                       :t3, after t2, 1d
+    SDK contract docs freeze                :t4, after t3, 1d
+

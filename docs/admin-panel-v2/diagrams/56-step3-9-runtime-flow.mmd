@@ -1,0 +1,28 @@
+sequenceDiagram
+    actor Admin
+    participant UI as Admin Web
+    participant API as Admin API
+    participant Ready as Readiness Evidence
+    participant Approval as Approval Gate
+    participant Life as Workload Lifecycle
+    participant Orch as Orchestrator
+    participant Audit as Audit
+
+    Admin->>UI: Review operator status
+    UI->>API: GET readiness/latest
+    API->>Ready: load persisted snapshot
+    Ready-->>API: blockers, warnings, evidence hash
+    Admin->>UI: Approve provisioning
+    UI->>API: POST approval status
+    API->>Approval: approved_for_execution
+    Approval->>Audit: approval.status_changed
+    Admin->>UI: Activate workload
+    UI->>API: POST lifecycle with approvalId
+    API->>Life: validate transition and approval binding
+    Life->>Audit: workload.lifecycle_transitioned
+    Admin->>UI: Execute plan
+    UI->>API: POST orchestrator job with approvalId
+    API->>Approval: mandatory preflight
+    API->>Orch: execute only after approval + step-up
+    Orch->>Audit: orchestrator.job_created
+

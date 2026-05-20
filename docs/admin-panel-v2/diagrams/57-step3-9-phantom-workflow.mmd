@@ -1,0 +1,23 @@
+stateDiagram-v2
+    [*] --> intake
+    intake --> legal_review
+    legal_review --> ciso_review
+    ciso_review --> architect_review
+    architect_review --> compliance_review
+    compliance_review --> evidence_coverage
+    evidence_coverage --> approved_placeholder
+    evidence_coverage --> blocked
+    approved_placeholder --> expiry_monitoring
+    expiry_monitoring --> review_required
+    review_required --> legal_review
+    blocked --> closed
+    approved_placeholder --> closed
+    closed --> [*]
+
+    note right of approved_placeholder
+      humanGateRequired=true
+      sideEffectAllowed=false
+      executionAllowed=false
+      executionEnabled=false
+    end note
+

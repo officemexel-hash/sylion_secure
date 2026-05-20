@@ -1,0 +1,41 @@
+flowchart TD
+    Freeze["Step 3.8 Freeze"]
+    A["S3.9-A Mandatory Orchestrator Approval"]
+    B["S3.9-B Persistent Readiness Evidence"]
+    C["S3.9-C Approval-To-Lifecycle Binding"]
+    D["S3.9-D Dashboard Status Matrix"]
+    E["S3.9-E Browser Test Harness"]
+    F["S3.9-F Mobile Visual Checks"]
+    G["S3.9-G Provider Dry-Run Boundary"]
+    H["S3.9-H PHANTOM Review Workflow"]
+    I["S3.9-I PHANTOM Evidence Coverage"]
+    J["S3.9-J PHANTOM Exception Expiry"]
+    K["S3.9-K CI Test Reporting"]
+    L["S3.9-L SDK Contract Docs Freeze"]
+    Release["Step 3.9 Release Gate"]
+
+    Freeze --> A
+    Freeze --> B
+    Freeze --> H
+    A --> C
+    B --> C
+    B --> D
+    C --> D
+    G --> D
+    H --> I
+    I --> J
+    J --> D
+    D --> E
+    E --> F
+    E --> K
+    F --> K
+    A --> L
+    B --> L
+    C --> L
+    G --> L
+    H --> L
+    I --> L
+    J --> L
+    K --> Release
+    L --> Release
+

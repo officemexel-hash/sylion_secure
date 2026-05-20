@@ -1,0 +1,32 @@
+flowchart TD
+    Browser["Admin Browser"]
+    Web["Admin Web Static App"]
+    API["Admin API"]
+    Store["Persistent Store"]
+    Audit["Audit Hash Chain"]
+    Approval["Mandatory Approval Gate"]
+    Ready["Readiness Evidence Store"]
+    DryRun["Provider Dry-Run Adapter"]
+    Phantom["PHANTOM Governance Store"]
+    Orchestrator["Orchestrator Metadata Executor"]
+    CI["CI / Test Runner"]
+
+    Browser --> Web
+    Web --> API
+    CI --> API
+    CI --> Web
+    API --> Approval
+    API --> Ready
+    API --> DryRun
+    API --> Phantom
+    Approval --> Orchestrator
+    Approval --> Store
+    Ready --> Store
+    DryRun --> Store
+    Phantom --> Store
+    Approval --> Audit
+    Ready --> Audit
+    DryRun --> Audit
+    Phantom --> Audit
+    Orchestrator --> Audit
+

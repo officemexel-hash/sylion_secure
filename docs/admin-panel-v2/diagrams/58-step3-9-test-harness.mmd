@@ -1,0 +1,26 @@
+flowchart TD
+    Start["Start local Admin API"]
+    Login["Login through dashboard"]
+    Operators["Click Operators"]
+    Providers["Click Providers"]
+    Devices["Click Devices"]
+    Subscriptions["Click Subscriptions"]
+    Approvals["Click Approvals"]
+    Provisioning["Click Provisioning"]
+    Phantom["Click PHANTOM"]
+    Audit["Click Audit"]
+    Screens["Capture screenshots"]
+    Report["Write smoke summary"]
+
+    Start --> Login
+    Login --> Operators
+    Operators --> Providers
+    Providers --> Devices
+    Devices --> Subscriptions
+    Subscriptions --> Approvals
+    Approvals --> Provisioning
+    Provisioning --> Phantom
+    Phantom --> Audit
+    Audit --> Screens
+    Screens --> Report
+
