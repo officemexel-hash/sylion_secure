@@ -543,3 +543,95 @@ Ksiega 3.4 pozostaje baseline dla wymagan admin authentication hardening.
 PHANTOM v3.0 pozostaje oddzielna sciezka i nie jest implementowany w baseline.
 Production attestation policy, authenticator trust list i break-glass semantics wymagaja HUMAN GATE.
 ```
+
+## Step 3.4 - Real WebAuthn/FIDO2 Browser Binding And Auth Hardening
+
+Status: implemented
+Data: 2026-05-20
+
+### Zakres
+
+Zaimplementowano Step 3.4:
+
+```text
+WebAuthnVerifier boundary
+LocalSimulatorVerifier jako jawny dev/test adapter
+BrowserWebAuthnVerifier placeholder z HUMAN GATE dla produkcyjnej attestation policy
+rpId policy dla lokalnego browser flow
+Auth Policy Matrix endpoint
+Credential Lifecycle endpoints: list/suspend/revoke
+step-up enforcement dla credential suspend/revoke
+Admin Web WebAuthn mode selector
+Admin Web WebAuthn capability status
+Admin Web credential list with suspend/revoke actions
+Admin Web auth policy matrix card
+SDK metody dla policy matrix i credential lifecycle
+manual browser/FIDO2 checklist
+negative tests dla unsupported browser payload, revoke bez step-up, revoked login block i leakage
+```
+
+### Endpointy
+
+```text
+GET  /auth/policy-matrix
+GET  /auth/credentials
+POST /auth/credentials/:id/suspend
+POST /auth/credentials/:id/revoke
+```
+
+### Pliki
+
+```text
+services/admin-api/src/modules/auth/webauthnVerifier.js
+services/admin-api/src/modules/auth/authPolicy.js
+services/admin-api/src/modules/auth/authService.js
+services/admin-api/src/app.js
+services/admin-api/src/modules/rbac/rbacService.js
+services/admin-api/src/sdk/adminApiClient.js
+services/admin-api/test/webauthn-hardening-step3-4.test.js
+services/admin-api/test/admin-web-static.test.js
+apps/admin-web/index.html
+apps/admin-web/app.js
+docs/admin-panel-v2/manual-tests/step3-4-webauthn-checklist.md
+services/admin-api/IMPLEMENTATION_STATUS.md
+```
+
+### Security Notes
+
+```text
+production WebAuthn attestation policy pozostaje za HUMAN GATE
+local simulator jest opisany jako dev/test path
+unsupported browser assertion payload jest odrzucany bez logowania raw blobow
+credential publicKey nie jest zwracany przez list endpoint
+credential suspend/revoke wymaga RBAC i fresh step-up
+revoked credential nie moze login/step-up
+recovery nadal nie wykonuje auto-unlock
+break-glass nadal ma sideEffectExecuted=false
+PHANTOM v3.0 pozostaje separate track i nie jest baseline behavior
+```
+
+### Test
+
+```text
+npm.cmd test
+39 tests
+39 passing
+0 failing
+```
+
+### Browser Verification
+
+```text
+/admin loads
+API Healthy
+WebAuthn mode selector exists
+credential cards container exists
+auth policy cards container exists
+HUMAN GATE and PHANTOM separation remain visible
+```
+
+### Nastepny Krok
+
+```text
+Step 3.4 Freeze / Step 3.5 Planning Package
+```

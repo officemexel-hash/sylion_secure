@@ -42,8 +42,15 @@
         <form id="login-form" class="panel form-panel">
           <div class="panel-head">
             <h2>Admin Login</h2>
-            <span class="pill warn">Local FIDO2 simulator</span>
+            <span class="pill warn" id="webauthn-capability">Checking WebAuthn</span>
           </div>
+          <label>
+            WebAuthn mode
+            <select id="webauthn-mode">
+              <option value="local_simulator">Dev/test simulator</option>
+              <option value="browser">Browser WebAuthn</option>
+            </select>
+          </label>
           <label>
             Email
             <input name="email" value="admin@sylion.local" autocomplete="username" required>
@@ -253,7 +260,7 @@
               <span class="pill warn">V2 boundary</span>
             </div>
             <div class="modules">
-              <span>WebAuthn-compatible flow active</span>
+              <span id="webauthn-capability-security">WebAuthn-compatible flow active</span>
               <span>Provider secrets write-time only</span>
               <span>SQLite persistence active</span>
               <span>Orchestrator idempotency active</span>
@@ -267,6 +274,20 @@
               <span class="pill" id="session-state">Checking</span>
             </div>
             <div class="cards" id="session-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Credentials</h2>
+              <span class="pill">Step-up protected</span>
+            </div>
+            <div class="cards" id="credential-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Auth Policy</h2>
+              <span class="pill">Baseline matrix</span>
+            </div>
+            <div class="cards" id="auth-policy-cards"></div>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">

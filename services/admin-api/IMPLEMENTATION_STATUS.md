@@ -2,7 +2,7 @@
 
 Status na 2026-05-20.
 
-V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2 i Step 3.3 sa zaimplementowane:
+V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2, Step 3.3 i Step 3.4 sa zaimplementowane:
 
 ```text
 Step 1: API SDK + SQLite persistence foundation
@@ -10,6 +10,7 @@ Step 2: Live Admin Shell served by Admin API under /admin
 Step 3.1: WebAuthn-compatible auth API, challenge store, credential registry, session and step-up endpoints
 Step 3.2: Step-up enforcement for provider secrets and orchestrator execution
 Step 3.3: Recovery request workflow, account lockout and break-glass placeholder model
+Step 3.4: WebAuthn verifier boundary, credential lifecycle and auth hardening
 ```
 
 ## Zaimplementowane Moduly Domenowe
@@ -63,6 +64,9 @@ demo flow end-to-end z poziomu przegladarki
 session status security view
 recovery request creation without automatic unlock
 break-glass placeholder creation with HUMAN GATE marker
+WebAuthn mode selector and capability status
+credential list/suspend/revoke with step-up protection
+auth policy matrix visibility
 ```
 
 ## Najwazniejsze Testy
@@ -83,6 +87,10 @@ recovery-lockout-step3-3.test.js
   Account lockout po powtarzalnych bledach, recovery request bez auto-unlock,
   review-only status workflow, RBAC denial dla support readonly oraz break-glass
   placeholder z HUMAN GATE i separacja PHANTOM v3.0.
+
+webauthn-hardening-step3-4.test.js
+  WebAuthn verifier boundary, auth policy matrix, credential lifecycle,
+  step-up dla revoke, revoked credential login block oraz audit leakage checks.
 
 full-admin-human-flow.e2e.test.js
   Pelny przeplyw przez HTTP:
@@ -124,17 +132,16 @@ npm.cmd test
 Aktualny wynik:
 
 ```text
-36 tests
-36 passing
+39 tests
+39 passing
 0 failing
 ```
 
 ## Nastepny Priorytet
 
 ```text
-1. Wdrozyc Step 3.4 - Real WebAuthn/FIDO2 Browser Binding And Auth Hardening.
-2. Zaczac od WebAuthnVerifier boundary i Auth Policy Matrix.
-3. Potem dodac Credential Lifecycle endpoints i Security UX upgrade.
-4. Rozszerzyc SQLite schema/repositories poza KV foundation po zamknieciu Step 3.4.
-5. Dodac ProviderAdapter boundary dla mock/Hetzner/OVH po auth hardening.
+1. Zamrozic Step 3.4 i przygotowac Step 3.5 plan z grafami Mermaid.
+2. Podjac HUMAN GATE dla production WebAuthn attestation policy.
+3. Rozszerzyc SQLite schema/repositories poza KV foundation po zamknieciu Step 3.4.
+4. Dodac ProviderAdapter boundary dla mock/Hetzner/OVH po auth hardening.
 ```

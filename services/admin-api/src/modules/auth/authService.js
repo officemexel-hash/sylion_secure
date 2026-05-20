@@ -3,6 +3,8 @@ import { ROLES, RESOURCE_TYPES } from "../../domain/constants.js";
 import { AppError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
+import { createWebAuthnVerifier } from "./webauthnVerifier.js";
+import { publicAuthPolicyMatrix } from "./authPolicy.js";
 
 function hashSecret(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -24,7 +26,7 @@ function challengeHash(value) {
   return hashSecret(`webauthn-challenge:${value}`);
 }
 
-function publicChallenge(challenge) {
+function publicChallenge(challenge, { rpId = "localhost" } = {}) {
   return {
     id: challenge.id,
     purpose: challenge.purpose,
@@ -33,7 +35,7 @@ function publicChallenge(challenge) {
     publicKey: {
       challenge: challenge.publicChallenge,
       timeout: challenge.ttlMs,
-      rpId: "sylion.local",
+      rpId,
       userVerification: "required"
     }
   };
@@ -47,7 +49,9 @@ export class AuthService {
     sessionTtlMs = 12 * 60 * 60 * 1000,
     stepUpTtlMs = 15 * 60 * 1000,
     lockoutThreshold = 5,
-    lockoutTtlMs = 15 * 60 * 1000
+    lockoutTtlMs = 15 * 60 * 1000,
+    webAuthnVerifier = null,
+    webAuthnVerifierOptions = {}
   }) {
     this.audit = audit;
     this.challengeTtlMs = challengeTtlMs;
@@ -55,6 +59,11 @@ export class AuthService {
     this.stepUpTtlMs = stepUpTtlMs;
     this.lockoutThreshold = lockoutThreshold;
     this.lockoutTtlMs = lockoutTtlMs;
+    this.webAuthnRpId = webAuthnVerifierOptions.rpId || "localhost";
+    this.webAuthnVerifier = webAuthnVerifier || createWebAuthnVerifier({
+      rpId: this.webAuthnRpId,
+      ...webAuthnVerifierOptions
+    });
     this.admins = new PersistentMap({ store, collection: "auth_admins" });
     this.sessions = new PersistentMap({ store, collection: "auth_sessions" });
     this.challenges = new PersistentMap({ store, collection: "auth_challenges" });
@@ -136,11 +145,12 @@ export class AuthService {
       newValue: { purpose: challenge.purpose, email: admin.email, expiresAt: challenge.expiresAt }
     });
     return {
-      challenge: publicChallenge(challenge),
+      challenge: publicChallenge(challenge, { rpId: this.webAuthnRpId }),
       user: { id: admin.id, email: admin.email },
       devSimulator: {
         mode: "local_webauthn_simulator",
-        verifyEndpoint: "/auth/webauthn/enrollment/verify"
+        verifyEndpoint: "/auth/webauthn/enrollment/verify",
+        production: false
       }
     };
   }
@@ -150,7 +160,7 @@ export class AuthService {
     const challenge = this.#consumeChallenge({ challengeId, purpose: "enrollment", correlationId: corr });
     const admin = this.admins.get(challenge.email);
     this.#assertNotLocked(admin, { correlationId: corr });
-    const credentialId = credential.id || newId("cred");
+    const credentialId = credential.id || credential.rawId || newId("cred");
     const record = {
       id: credentialId,
       adminId: admin.id,
@@ -158,8 +168,9 @@ export class AuthService {
       publicKey: credential.publicKey || `simulated-public-key:${credentialId}`,
       transports: Array.isArray(credential.transports) ? credential.transports : ["usb", "nfc"],
       attestation: {
-        format: credential.attestationFormat || "local-simulator",
-        trustPath: "dev-only"
+        format: credential.attestationFormat || credential.response?.attestationFormat || "local-simulator",
+        trustPath: credential.mode === "browser" ? "human-gate-required" : "dev-only",
+        mode: credential.mode || "local_simulator"
       },
       signCounter: Number(credential.signCounter || 0),
       status: "active",
@@ -199,9 +210,9 @@ export class AuthService {
     });
     return {
       challenge: {
-        ...publicChallenge(challenge),
+        ...publicChallenge(challenge, { rpId: this.webAuthnRpId }),
         publicKey: {
-          ...publicChallenge(challenge).publicKey,
+          ...publicChallenge(challenge, { rpId: this.webAuthnRpId }).publicKey,
           allowCredentials: credentials.map((credential) => ({
             id: credential.id,
             type: "public-key",
@@ -211,7 +222,8 @@ export class AuthService {
       },
       devSimulator: {
         mode: "local_webauthn_simulator",
-        signatureFormat: "simulated:<challengeId>:<credentialId>"
+        signatureFormat: "simulated:<challengeId>:<credentialId>",
+        production: false
       }
     };
   }
@@ -264,9 +276,9 @@ export class AuthService {
     });
     return {
       challenge: {
-        ...publicChallenge(challenge),
+        ...publicChallenge(challenge, { rpId: this.webAuthnRpId }),
         publicKey: {
-          ...publicChallenge(challenge).publicKey,
+          ...publicChallenge(challenge, { rpId: this.webAuthnRpId }).publicKey,
           allowCredentials: credentials.map((credential) => ({
             id: credential.id,
             type: "public-key",
@@ -276,7 +288,8 @@ export class AuthService {
       },
       devSimulator: {
         mode: "local_webauthn_simulator",
-        signatureFormat: "simulated:<challengeId>:<credentialId>"
+        signatureFormat: "simulated:<challengeId>:<credentialId>",
+        production: false
       }
     };
   }
@@ -422,6 +435,40 @@ export class AuthService {
 
   listBreakGlassRequests() {
     return [...this.breakGlassRequests.values()].map((request) => this.#publicBreakGlassRequest(request));
+  }
+
+  listCredentials({ actor }) {
+    const rows = [...this.credentials.values()];
+    const visible = actor?.role === ROLES.GLOBAL_SUPER_ADMIN || actor?.role === ROLES.SECURITY_ADMIN
+      ? rows
+      : rows.filter((credential) => credential.adminId === actor?.id);
+    return visible.map((credential) => this.#publicCredential(credential));
+  }
+
+  suspendCredential({ actor, credentialId, reasonCode = "admin_requested_suspend", correlationId }) {
+    return this.#transitionCredentialStatus({
+      actor,
+      credentialId,
+      status: "suspended",
+      reasonCode,
+      auditAction: "auth.credential_suspended",
+      correlationId
+    });
+  }
+
+  revokeCredential({ actor, credentialId, reasonCode = "admin_requested_revoke", correlationId }) {
+    return this.#transitionCredentialStatus({
+      actor,
+      credentialId,
+      status: "revoked",
+      reasonCode,
+      auditAction: "auth.credential_revoked",
+      correlationId
+    });
+  }
+
+  authPolicyMatrix() {
+    return publicAuthPolicyMatrix();
   }
 
   requireFreshStepUp(actor, action, { correlationId, resourceType = RESOURCE_TYPES.SESSION, resourceId = action } = {}) {
@@ -618,8 +665,14 @@ export class AuthService {
       this.#recordFailedAttempt({ admin, email: admin.email, reason: "invalid_credential", correlationId });
       throw new AppError("invalid_credential", "Invalid credential", 401);
     }
-    const expected = `simulated:${challengeId}:${credentialId}`;
-    if (assertion.signature !== expected) {
+    let verification;
+    try {
+      verification = this.webAuthnVerifier.verifyAssertion({
+        challenge: this.challenges.get(challengeId) || { id: challengeId },
+        credential,
+        assertion
+      });
+    } catch (error) {
       this.#recordAudit({
         actorId: admin.id,
         action: "auth.challenge_failed",
@@ -627,12 +680,16 @@ export class AuthService {
         correlationId,
         policyDecision: "deny",
         result: "denied",
-        newValue: { reason: "invalid_signature", credentialId }
+        newValue: {
+          reason: error instanceof AppError ? error.code : "invalid_assertion",
+          credentialId,
+          verificationMode: assertion.mode || "local_simulator"
+        }
       });
       this.#recordFailedAttempt({ admin, email: admin.email, reason: "invalid_assertion", correlationId });
-      throw new AppError("invalid_assertion", "Invalid WebAuthn assertion", 401);
+      throw error;
     }
-    const nextCounter = Number(assertion.signCounter || credential.signCounter + 1);
+    const nextCounter = Number(verification.signCounter || credential.signCounter + 1);
     const updated = {
       ...credential,
       signCounter: Math.max(nextCounter, credential.signCounter + 1),
@@ -640,6 +697,35 @@ export class AuthService {
     };
     this.credentials.set(updated.id, updated);
     return updated;
+  }
+
+  #transitionCredentialStatus({ actor, credentialId, status, reasonCode, auditAction, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const credential = this.credentials.get(credentialId);
+    if (!credential) {
+      throw new AppError("not_found", "Credential not found", 404, { credentialId });
+    }
+    const updated = {
+      ...credential,
+      status,
+      statusReason: reasonCode,
+      updatedAt: isoNow(),
+      updatedBy: actor.id
+    };
+    this.credentials.set(updated.id, updated);
+    this.#recordAudit({
+      actorId: actor.id,
+      action: auditAction,
+      resourceId: updated.id,
+      correlationId: corr,
+      newValue: {
+        credentialId: updated.id,
+        adminId: updated.adminId,
+        status: updated.status,
+        reasonCode
+      }
+    });
+    return this.#publicCredential(updated);
   }
 
   #createSession({ admin, authMethod, credentialId }) {

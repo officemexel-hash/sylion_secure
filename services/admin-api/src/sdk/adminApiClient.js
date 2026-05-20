@@ -75,6 +75,22 @@ export class AdminApiClient {
     return this.request("/auth/step-up/verify", { method: "POST", body });
   }
 
+  getAuthPolicyMatrix() {
+    return this.request("/auth/policy-matrix");
+  }
+
+  listCredentials() {
+    return this.request("/auth/credentials");
+  }
+
+  suspendCredential(credentialId, body = {}) {
+    return this.request(`/auth/credentials/${credentialId}/suspend`, { method: "POST", body });
+  }
+
+  revokeCredential(credentialId, body = {}) {
+    return this.request(`/auth/credentials/${credentialId}/revoke`, { method: "POST", body });
+  }
+
   createRecoveryRequest(body) {
     return this.request("/auth/recovery/request", { method: "POST", body });
   }

@@ -205,6 +205,59 @@ export function createApp({ store = null, authOptions = {} } = {}) {
         return send(res, 200, { session });
       }
 
+      if (req.method === "GET" && url.pathname === "/auth/policy-matrix") {
+        return send(res, 200, { policy: auth.authPolicyMatrix() });
+      }
+
+      if (req.method === "GET" && url.pathname === "/auth/credentials") {
+        rbac.assert(actor, "auth.credential.read", { correlationId });
+        return send(res, 200, { credentials: auth.listCredentials({ actor }) });
+      }
+
+      const credentialSuspendMatch = url.pathname.match(/^\/auth\/credentials\/([^/]+)\/suspend$/);
+      if (req.method === "POST" && credentialSuspendMatch) {
+        rbac.assert(actor, "auth.credential.suspend", {
+          correlationId,
+          resourceType: "auth_credential",
+          resourceId: credentialSuspendMatch[1]
+        });
+        auth.requireFreshStepUp(actor, "credential.suspend", {
+          correlationId,
+          resourceType: "auth_credential",
+          resourceId: credentialSuspendMatch[1]
+        });
+        const body = await readJson(req);
+        const credential = auth.suspendCredential({
+          actor,
+          credentialId: credentialSuspendMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { credential });
+      }
+
+      const credentialRevokeMatch = url.pathname.match(/^\/auth\/credentials\/([^/]+)\/revoke$/);
+      if (req.method === "POST" && credentialRevokeMatch) {
+        rbac.assert(actor, "auth.credential.revoke", {
+          correlationId,
+          resourceType: "auth_credential",
+          resourceId: credentialRevokeMatch[1]
+        });
+        auth.requireFreshStepUp(actor, "credential.revoke", {
+          correlationId,
+          resourceType: "auth_credential",
+          resourceId: credentialRevokeMatch[1]
+        });
+        const body = await readJson(req);
+        const credential = auth.revokeCredential({
+          actor,
+          credentialId: credentialRevokeMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { credential });
+      }
+
       if (req.method === "GET" && url.pathname === "/auth/recovery/requests") {
         rbac.assert(actor, "auth.recovery.read", { correlationId });
         return send(res, 200, { requests: auth.listRecoveryRequests() });

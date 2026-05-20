@@ -7,11 +7,15 @@ const state = {
   devices: [],
   jobs: [],
   audit: [],
+  credentials: [],
+  authPolicy: null,
   recoveryRequests: [],
   breakGlassRequests: [],
   lastPlanId: null,
   lastPlanOperatorId: null,
   credentialId: localStorage.getItem("sylion.admin.credentialId") || null,
+  webAuthnMode: localStorage.getItem("sylion.admin.webauthnMode") || "local_simulator",
+  webAuthnSupported: false,
   pendingStepUp: null
 };
 
@@ -67,6 +71,25 @@ function splitCsv(value) {
     .filter(Boolean);
 }
 
+function supportsBrowserWebAuthn() {
+  return Boolean(window.PublicKeyCredential && navigator.credentials?.create && navigator.credentials?.get);
+}
+
+function base64UrlToBuffer(value) {
+  const base64 = String(value).replaceAll("-", "+").replaceAll("_", "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+}
+
+function bufferToBase64Url(value) {
+  const bytes = new Uint8Array(value);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
 function card(title, rows) {
   return `
     <article class="mini-card">
@@ -98,12 +121,15 @@ async function login(event) {
   if (!credentialId) {
     throw new Error("Enroll a FIDO2 credential before signing in");
   }
+  const assertion = state.webAuthnMode === "browser"
+    ? await browserAssertion(options.challenge, credentialId)
+    : simulatedAssertion(options.challenge.id, credentialId);
   const result = await api("/auth/webauthn/login/verify", {
     method: "POST",
     body: {
       challengeId: options.challenge.id,
       credentialId,
-      assertion: simulatedAssertion(options.challenge.id, credentialId)
+      assertion
     }
   });
   state.session = result.session;
@@ -119,7 +145,7 @@ async function login(event) {
 
 async function refreshAll() {
   if (!state.token) return;
-  const [health, session, tenants, operators, providers, devices, jobs, audit, recovery, breakGlass] = await Promise.all([
+  const [health, session, tenants, operators, providers, devices, jobs, audit, credentials, policy, recovery, breakGlass] = await Promise.all([
     api("/health"),
     api("/auth/session"),
     api("/tenants"),
@@ -128,6 +154,8 @@ async function refreshAll() {
     api("/devices"),
     api("/orchestrator/jobs"),
     api("/audit/events"),
+    api("/auth/credentials").catch(() => ({ credentials: [] })),
+    api("/auth/policy-matrix").catch(() => ({ policy: null })),
     api("/auth/recovery/requests").catch(() => ({ requests: [] })),
     api("/auth/break-glass/requests").catch(() => ({ requests: [] }))
   ]);
@@ -139,6 +167,8 @@ async function refreshAll() {
   state.devices = devices.devices;
   state.jobs = jobs.jobs;
   state.audit = audit.events;
+  state.credentials = credentials.credentials;
+  state.authPolicy = policy.policy;
   state.recoveryRequests = recovery.requests;
   state.breakGlassRequests = breakGlass.requests;
   render();
@@ -150,6 +180,11 @@ function render() {
   $("#metric-jobs").textContent = state.jobs.length;
   $("#metric-audit").textContent = state.audit.length;
   $("#session-state").textContent = state.session?.authMethod || "Unknown";
+  $("#webauthn-capability").textContent = state.webAuthnSupported ? "Browser WebAuthn available" : "Dev/test simulator only";
+  $("#webauthn-capability-security").textContent = state.webAuthnSupported
+    ? "Browser WebAuthn capability available"
+    : "Dev/test simulator boundary active";
+  $("#webauthn-mode").value = state.webAuthnMode;
 
   renderSelect("#operator-tenant-select", state.tenants, "No tenants");
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
@@ -190,6 +225,16 @@ function render() {
     ["Expires", state.session.expiresAt],
     ["Step-up", state.session.stepUpValidUntil]
   ]) : empty("No active session.");
+
+  $("#credential-cards").innerHTML = state.credentials.map((credential) => credentialCard(credential)).join("")
+    || empty("No credentials visible.");
+
+  $("#auth-policy-cards").innerHTML = state.authPolicy ? card("Auth policy matrix", [
+    ["States", String(state.authPolicy.states?.length || 0)],
+    ["Actions", String(Object.keys(state.authPolicy.actions || {}).length)],
+    ["Recovery auto unlock", String(state.authPolicy.invariants?.recoveryAutoUnlock)],
+    ["Break-glass side effect", String(state.authPolicy.invariants?.breakGlassSideEffectAllowed)]
+  ]) : empty("Policy matrix not loaded.");
 
   $("#recovery-cards").innerHTML = state.recoveryRequests.map((request) => card(request.affectedEmail, [
     ["Status", request.status],
@@ -237,6 +282,23 @@ function empty(message) {
   return `<p class="empty">${escapeHtml(message)}</p>`;
 }
 
+function credentialCard(credential) {
+  const active = credential.status === "active";
+  return `
+    <article class="mini-card" data-credential-id="${escapeHtml(credential.id)}">
+      <strong>${escapeHtml(credential.id)}</strong>
+      <p><span>Admin</span>${escapeHtml(credential.adminId)}</p>
+      <p><span>Status</span>${escapeHtml(credential.status)}</p>
+      <p><span>Transports</span>${escapeHtml(credential.transports?.join(", ") || "-")}</p>
+      <p><span>Last used</span>${escapeHtml(credential.lastUsedAt || "-")}</p>
+      <div class="button-row">
+        <button type="button" class="secondary" data-credential-action="suspend" ${active ? "" : "disabled"}>Suspend</button>
+        <button type="button" data-credential-action="revoke" ${active ? "" : "disabled"}>Revoke</button>
+      </div>
+    </article>
+  `;
+}
+
 function tableEmpty(colspan, message) {
   return `<tr><td colspan="${colspan}" class="empty">${escapeHtml(message)}</td></tr>`;
 }
@@ -278,12 +340,15 @@ async function completeStepUp() {
     status.textContent = "Verifying";
     status.dataset.tone = "info";
     const options = await api("/auth/step-up/options", { method: "POST" });
+    const assertion = state.webAuthnMode === "browser"
+      ? await browserAssertion(options.challenge, state.credentialId)
+      : simulatedAssertion(options.challenge.id, state.credentialId);
     const result = await api("/auth/step-up/verify", {
       method: "POST",
       body: {
         challengeId: options.challenge.id,
         credentialId: state.credentialId,
-        assertion: simulatedAssertion(options.challenge.id, state.credentialId)
+        assertion
       }
     });
     state.session = result.session;
@@ -317,8 +382,75 @@ async function createTenant(event) {
 
 function simulatedAssertion(challengeId, credentialId, signCounter = Date.now()) {
   return {
+    mode: "local_simulator",
     signature: `simulated:${challengeId}:${credentialId}`,
     signCounter
+  };
+}
+
+async function browserEnrollmentCredential(options, credentialId) {
+  if (!state.webAuthnSupported) {
+    throw new Error("Browser WebAuthn is not available in this browser");
+  }
+  const publicKey = options.challenge.publicKey;
+  const credential = await navigator.credentials.create({
+    publicKey: {
+      challenge: base64UrlToBuffer(publicKey.challenge),
+      rp: { name: "SYLION Admin", id: publicKey.rpId },
+      user: {
+        id: new TextEncoder().encode(options.user.id),
+        name: options.user.email,
+        displayName: options.user.email
+      },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+      authenticatorSelection: { userVerification: "required" },
+      timeout: publicKey.timeout,
+      attestation: "none"
+    }
+  });
+  return {
+    mode: "browser",
+    id: credential.id || credentialId,
+    rawId: bufferToBase64Url(credential.rawId),
+    type: credential.type,
+    transports: ["browser"],
+    response: {
+      clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+      attestationObject: bufferToBase64Url(credential.response.attestationObject),
+      attestationFormat: "browser"
+    }
+  };
+}
+
+async function browserAssertion(challenge, credentialId) {
+  if (!state.webAuthnSupported) {
+    throw new Error("Browser WebAuthn is not available in this browser");
+  }
+  const assertion = await navigator.credentials.get({
+    publicKey: {
+      challenge: base64UrlToBuffer(challenge.publicKey.challenge),
+      timeout: challenge.publicKey.timeout,
+      rpId: challenge.publicKey.rpId,
+      userVerification: "required",
+      allowCredentials: [{
+        id: base64UrlToBuffer(credentialId),
+        type: "public-key"
+      }]
+    }
+  });
+  return {
+    mode: "browser",
+    id: assertion.id,
+    rawId: bufferToBase64Url(assertion.rawId),
+    type: assertion.type,
+    origin: window.location.origin,
+    rpId: challenge.publicKey.rpId,
+    response: {
+      clientDataJSON: bufferToBase64Url(assertion.response.clientDataJSON),
+      authenticatorData: bufferToBase64Url(assertion.response.authenticatorData),
+      signature: bufferToBase64Url(assertion.response.signature),
+      userHandle: assertion.response.userHandle ? bufferToBase64Url(assertion.response.userHandle) : null
+    }
   };
 }
 
@@ -333,20 +465,30 @@ async function enrollSecurityKey() {
     }
   });
   const credentialId = state.credentialId || `cred-ui-${crypto.randomUUID()}`;
+  const credential = state.webAuthnMode === "browser"
+    ? await browserEnrollmentCredential(options, credentialId)
+    : {
+        mode: "local_simulator",
+        id: credentialId,
+        publicKey: `simulated-public-key:${credentialId}`,
+        transports: ["usb", "nfc"]
+      };
   const result = await api("/auth/webauthn/enrollment/verify", {
     method: "POST",
     body: {
       challengeId: options.challenge.id,
-      credential: {
-        id: credentialId,
-        publicKey: `simulated-public-key:${credentialId}`,
-        transports: ["usb", "nfc"]
-      }
+      credential
     }
   });
   state.credentialId = result.credential.id;
   localStorage.setItem("sylion.admin.credentialId", result.credential.id);
   toast("FIDO2 credential enrolled locally");
+}
+
+function setWebAuthnMode(event) {
+  state.webAuthnMode = event.currentTarget.value;
+  localStorage.setItem("sylion.admin.webauthnMode", state.webAuthnMode);
+  render();
 }
 
 async function createOperator(event) {
@@ -421,6 +563,20 @@ async function createBreakGlassRequest(event) {
     }
   });
   toast("Break-glass placeholder recorded; HUMAN GATE required");
+  await refreshAll();
+}
+
+async function handleCredentialAction(event) {
+  const action = event.target.dataset.credentialAction;
+  if (!action) return;
+  const card = event.target.closest("[data-credential-id]");
+  const credentialId = card?.dataset.credentialId;
+  if (!credentialId) return;
+  await withStepUpRetry(() => api(`/auth/credentials/${credentialId}/${action}`, {
+    method: "POST",
+    body: { reasonCode: `ui_${action}` }
+  }), `Credential ${action}`);
+  toast(`Credential ${action} recorded`);
   await refreshAll();
 }
 
@@ -563,6 +719,8 @@ function bind() {
   $("#device-form").addEventListener("submit", (event) => registerDevice(event).catch(showError));
   $("#recovery-form").addEventListener("submit", (event) => createRecoveryRequest(event).catch(showError));
   $("#break-glass-form").addEventListener("submit", (event) => createBreakGlassRequest(event).catch(showError));
+  $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
+  $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));
   $("#job-form").addEventListener("submit", (event) => executeJob(event).catch(showError));
   $("#refresh-button").addEventListener("click", () => refreshAll().catch(showError));
@@ -581,6 +739,11 @@ function showError(error) {
 
 async function boot() {
   bind();
+  state.webAuthnSupported = supportsBrowserWebAuthn();
+  $("#webauthn-capability").textContent = state.webAuthnSupported ? "Browser WebAuthn available" : "Dev/test simulator only";
+  $("#webauthn-capability-security").textContent = state.webAuthnSupported
+    ? "Browser WebAuthn capability available"
+    : "Dev/test simulator boundary active";
   try {
     const health = await api("/health");
     $("#api-status").textContent = health.status === "ok" ? "API Healthy" : "API Degraded";
