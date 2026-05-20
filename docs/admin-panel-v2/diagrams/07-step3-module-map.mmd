@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph UI["Admin Web"]
+        E["S3-E Security UI"]
+        Modal["Step-up Modal"]
+        Status["Session Status"]
+    end
+
+    subgraph Auth["Auth Boundary"]
+        A["S3-A Auth API Contract"]
+        B["S3-B Challenge Store"]
+        C["S3-C Credential Registry"]
+        D["S3-D Session / Step-up Policy"]
+    end
+
+    subgraph Governance["Governance"]
+        F["S3-F Audit + RBAC"]
+        G["S3-G Recovery / Lockout / Break-glass"]
+    end
+
+    subgraph QA["Validation"]
+        H["S3-H Human Security Test Harness"]
+    end
+
+    E --> A
+    Modal --> A
+    Status --> A
+    A --> B
+    A --> C
+    B --> D
+    C --> D
+    D --> F
+    G --> F
+    H --> UI
+    H --> Auth
+    H --> Governance

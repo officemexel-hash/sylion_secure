@@ -1,0 +1,22 @@
+flowchart TD
+    Dev["Developer Workstation"]
+    API["Admin API"]
+    Web["Admin Web /admin"]
+    Store["SQLite Store"]
+    Sim["Local WebAuthn Simulator"]
+    Browser["Browser WebAuthn Boundary"]
+    Audit["Audit Hash Chain"]
+    Tests["API + Browser Tests"]
+
+    Dev --> API
+    Dev --> Web
+    API --> Store
+    API --> Audit
+    Web --> API
+    Web --> Browser
+    Browser --> Sim
+    Sim --> API
+    Tests --> Web
+    Tests --> API
+    Tests --> Store
+    Tests --> Audit

@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant UI as Admin Web
+    participant API as Admin API
+    participant Challenge as Challenge Store
+    participant Cred as Credential Registry
+    participant Session as Session Policy
+    participant Audit as Audit
+    participant Job as Orchestrator
+
+    UI->>API: POST /auth/webauthn/login/options
+    API->>Challenge: create login challenge with TTL
+    API->>Audit: auth.challenge_issued
+    API-->>UI: public challenge options
+
+    UI->>API: POST /auth/webauthn/login/verify
+    API->>Challenge: verify single-use challenge
+    API->>Cred: validate credential and sign counter
+    API->>Session: create session
+    API->>Audit: auth.session_created
+    API-->>UI: session token
+
+    UI->>Job: POST /orchestrator/jobs
+    Job->>Session: require fresh step-up
+    Job-->>UI: step_up_required
+    Job->>Audit: auth.step_up_required
+
+    UI->>API: POST /auth/step-up/options
+    API->>Challenge: create step-up challenge
+    API-->>UI: step-up options
+
+    UI->>API: POST /auth/step-up/verify
+    API->>Challenge: verify single-use challenge
+    API->>Session: refresh step-up freshness
+    API->>Audit: auth.step_up_completed
+    API-->>UI: step-up ok
+
+    UI->>Job: retry POST /orchestrator/jobs
+    Job-->>UI: job accepted/completed

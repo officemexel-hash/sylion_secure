@@ -1,5 +1,15 @@
 # SYLION Admin Panel V2 - Diagramy Mermaid
 
+Aktualizacja: diagramy kolejnego etapu po Step 2 sa w `STEP3_DIAGRAMS.md` oraz w plikach:
+
+```text
+diagrams/06-step3-module-dependencies.mmd
+diagrams/07-step3-module-map.mmd
+diagrams/08-step3-deployment-graph.mmd
+diagrams/09-step3-runtime-sequence.mmd
+diagrams/10-step3-roadmap-gantt.mmd
+```
+
 Ten plik zbiera diagramy w jednym miejscu. Te same diagramy są też zapisane jako osobne pliki `.mmd` w `docs/admin-panel-v2/diagrams/`.
 
 ## 1. Graf Zależności Modułów
@@ -208,4 +218,3 @@ gantt
     V2-J Human E2E Harness            :j1, after a1, 10d
     V2 Stabilization                  :j2, after j1, 7d
 ```
-

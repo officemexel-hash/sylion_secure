@@ -170,5 +170,31 @@ Puli AX nadal ma gate kwalifikacyjny do produkcji
 ### Następny Krok
 
 ```text
-V2-B WebAuthn/FIDO2 enrollment and step-up security UX
+V2 Step 3 - WebAuthn/FIDO2 enrollment and step-up security UX
+```
+
+## Step 2 Freeze / Step 3 Planning Package
+
+Status: planned
+Data: 2026-05-20
+
+Dodano pakiet planistyczny kolejnego etapu:
+
+```text
+06-step2-freeze-and-step3-scope.md
+07-step3-masterplan.md
+08-step3-prompt-pack.md
+09-step3-graphs-roadmap.md
+STEP3_DIAGRAMS.md
+diagrams/06-step3-module-dependencies.mmd
+diagrams/07-step3-module-map.mmd
+diagrams/08-step3-deployment-graph.mmd
+diagrams/09-step3-runtime-sequence.mmd
+diagrams/10-step3-roadmap-gantt.mmd
+```
+
+Kolejny etap zostal zdefiniowany jako:
+
+```text
+V2 Step 3 - WebAuthn/FIDO2 And Step-up Security
 ```

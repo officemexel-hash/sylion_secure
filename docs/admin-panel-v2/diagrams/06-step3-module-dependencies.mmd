@@ -1,0 +1,36 @@
+flowchart TD
+    Freeze["Step 2 Freeze<br/>Live Admin Shell + SQLite + SDK"]
+
+    A["S3-A Auth API Contract"]
+    B["S3-B Challenge Store"]
+    C["S3-C Credential Registry"]
+    D["S3-D Session And Step-up Policy"]
+    E["S3-E Admin Security UI"]
+    F["S3-F Audit And RBAC Integration"]
+    G["S3-G Recovery, Lockout And Break-glass"]
+    H["S3-H Human Security Test Harness"]
+
+    Freeze --> A
+    Freeze --> B
+    Freeze --> E
+
+    A --> B
+    A --> C
+    B --> C
+    C --> D
+    B --> D
+    D --> E
+    F --> A
+    F --> B
+    F --> C
+    F --> D
+    D --> G
+    F --> G
+
+    A --> H
+    B --> H
+    C --> H
+    D --> H
+    E --> H
+    F --> H
+    G --> H
