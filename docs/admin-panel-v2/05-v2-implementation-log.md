@@ -503,3 +503,43 @@ npm.cmd test
 ```text
 Step 3.3 Freeze / Step 3.4 Planning Package
 ```
+
+## Step 3.3 Freeze / Step 3.4 Planning Package
+
+Status: planned
+Data: 2026-05-20
+
+Zamrozono stan po:
+
+```text
+07877f4 Implement Step 3.3 recovery lockout placeholders
+```
+
+Dodano pakiet planistyczny kolejnego etapu:
+
+```text
+18-step3-3-freeze-and-step3-4-scope.md
+19-step3-4-masterplan.md
+20-step3-4-prompt-pack.md
+21-step3-4-graphs-roadmap.md
+STEP3_4_DIAGRAMS.md
+diagrams/21-step3-4-module-dependencies.mmd
+diagrams/22-step3-4-module-map.mmd
+diagrams/23-step3-4-deployment-graph.mmd
+diagrams/24-step3-4-runtime-flow.mmd
+diagrams/25-step3-4-roadmap-gantt.mmd
+```
+
+Kolejny etap zostal zdefiniowany jako:
+
+```text
+V2 Step 3.4 - Real WebAuthn/FIDO2 Browser Binding And Auth Hardening
+```
+
+Uwagi zgodnosci:
+
+```text
+Ksiega 3.4 pozostaje baseline dla wymagan admin authentication hardening.
+PHANTOM v3.0 pozostaje oddzielna sciezka i nie jest implementowany w baseline.
+Production attestation policy, authenticator trust list i break-glass semantics wymagaja HUMAN GATE.
+```

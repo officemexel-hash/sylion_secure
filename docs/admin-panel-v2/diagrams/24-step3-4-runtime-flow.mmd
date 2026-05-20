@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant Admin as Admin
+    participant UI as Admin Web
+    participant Browser as Browser WebAuthn
+    participant API as Admin API
+    participant Auth as Auth Service
+    participant Verifier as Verifier Boundary
+    participant Creds as Credential Store
+    participant Audit as Audit
+
+    Admin->>UI: Start enrollment/login/step-up
+    UI->>API: Request challenge
+    API->>Auth: create single-use challenge
+    Auth->>Audit: auth.challenge_issued
+    API-->>UI: publicKey options
+    UI->>Browser: navigator.credentials.create/get
+    Browser-->>UI: WebAuthn response
+    UI->>API: Verify ceremony payload
+    API->>Auth: verify challenge and credential binding
+    Auth->>Verifier: validate assertion/attestation boundary
+    Verifier-->>Auth: verified or denied
+    Auth->>Creds: update signCounter/lastUsedAt
+    Auth->>Audit: auth.credential_verified or auth.challenge_failed
+    API-->>UI: session/step-up success or denial
+
+    Admin->>UI: Revoke credential
+    UI->>API: POST /auth/credentials/:id/revoke
+    API->>Auth: require fresh step-up
+    Auth->>Creds: mark revoked
+    Auth->>Audit: auth.credential_revoked
+    API-->>UI: safe credential metadata

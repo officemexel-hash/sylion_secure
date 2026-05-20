@@ -1,0 +1,18 @@
+gantt
+    title SYLION Admin V2 Step 3.4 Roadmap
+    dateFormat  YYYY-MM-DD
+    axisFormat  %d.%m
+
+    section Auth Core
+    S3.4-B Verifier Boundary                  :b1, 2026-05-20, 2d
+    S3.4-D Policy Matrix                      :d1, 2026-05-20, 1d
+    S3.4-C Credential Lifecycle               :c1, after b1, 2d
+
+    section Browser UI
+    S3.4-A Browser Ceremony Adapter           :a1, after b1, 2d
+    S3.4-E Security UX Upgrade                :e1, after c1, 2d
+
+    section Validation
+    S3.4-F Compatibility Harness              :f1, after e1, 2d
+    S3.4-G Abuse-case Validation              :g1, after f1, 2d
+    Step 3.4 Stabilization                    :r1, after g1, 1d

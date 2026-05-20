@@ -1,0 +1,43 @@
+flowchart LR
+    subgraph Browser["Admin Browser"]
+        A["S3.4-A Browser Ceremony Adapter"]
+        Capability["WebAuthn Capability Status"]
+    end
+
+    subgraph API["Admin API Auth Boundary"]
+        B["S3.4-B Verification Boundary"]
+        C["S3.4-C Credential Lifecycle"]
+        D["S3.4-D Auth Policy Matrix"]
+    end
+
+    subgraph UI["Admin Web Security View"]
+        E["S3.4-E Security UX"]
+        Recovery["Recovery Queue"]
+        BreakGlass["Break-glass HUMAN GATE"]
+    end
+
+    subgraph QA["Validation"]
+        F["S3.4-F Compatibility Harness"]
+        G["S3.4-G Abuse-case Validation"]
+    end
+
+    subgraph Governance["Governance"]
+        Book["Ksiega 3.4 Baseline"]
+        Phantom["PHANTOM v3.0 Separate Track"]
+        HumanGate["HUMAN GATE"]
+    end
+
+    A --> B
+    Capability --> E
+    B --> C
+    D --> C
+    C --> E
+    Recovery --> E
+    BreakGlass --> E
+    E --> F
+    B --> G
+    C --> G
+    D --> G
+    G --> Book
+    G --> HumanGate
+    G -. "separation only" .-> Phantom

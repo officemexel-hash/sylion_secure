@@ -132,8 +132,9 @@ Aktualny wynik:
 ## Nastepny Priorytet
 
 ```text
-1. Zamrozic Step 3.3 i przygotowac Step 3.4 plan z grafami Mermaid.
-2. Podmienic local WebAuthn simulator na realny browser WebAuthn binding.
-3. Rozszerzyc SQLite schema/repositories poza KV foundation.
-4. Dodac ProviderAdapter boundary dla mock/Hetzner/OVH.
+1. Wdrozyc Step 3.4 - Real WebAuthn/FIDO2 Browser Binding And Auth Hardening.
+2. Zaczac od WebAuthnVerifier boundary i Auth Policy Matrix.
+3. Potem dodac Credential Lifecycle endpoints i Security UX upgrade.
+4. Rozszerzyc SQLite schema/repositories poza KV foundation po zamknieciu Step 3.4.
+5. Dodac ProviderAdapter boundary dla mock/Hetzner/OVH po auth hardening.
 ```

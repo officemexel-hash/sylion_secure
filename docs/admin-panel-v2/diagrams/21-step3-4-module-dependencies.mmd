@@ -1,0 +1,25 @@
+flowchart TD
+    Freeze["Step 3.3 Freeze<br/>Recovery, Lockout, Break-glass Placeholder"]
+
+    A["S3.4-A WebAuthn Browser Ceremony Adapter"]
+    B["S3.4-B Server Verification Boundary"]
+    C["S3.4-C Credential Lifecycle Policy"]
+    D["S3.4-D Auth Policy Matrix And State Machine"]
+    E["S3.4-E Admin Web Security UX Upgrade"]
+    F["S3.4-F Compatibility Test Harness"]
+    G["S3.4-G Audit, RBAC And Abuse-case Validation"]
+
+    Freeze --> B
+    Freeze --> D
+    B --> A
+    B --> C
+    D --> C
+    D --> G
+    C --> E
+    A --> E
+    A --> F
+    B --> F
+    C --> F
+    E --> F
+    F --> G
+    G --> Release["Step 3.4 Release Gate"]

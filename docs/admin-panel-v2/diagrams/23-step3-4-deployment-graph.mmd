@@ -1,0 +1,28 @@
+flowchart TD
+    Admin["Global Super Admin"]
+    Browser["Browser With WebAuthn Support"]
+    Web["Admin Web /admin"]
+    API["Admin API"]
+    Auth["Auth Service"]
+    Verifier["WebAuthn Verifier Boundary"]
+    Credentials["Credential Store"]
+    Policy["Auth Policy Matrix"]
+    Audit["Audit Hash Chain"]
+    Store["SQLite Store"]
+    Tests["Node + Browser + Manual Tests"]
+
+    Admin --> Browser
+    Browser --> Web
+    Web --> API
+    API --> Auth
+    Auth --> Verifier
+    Auth --> Credentials
+    Auth --> Policy
+    Verifier --> Audit
+    Credentials --> Audit
+    Policy --> Audit
+    Credentials --> Store
+    Audit --> Store
+    Tests --> Web
+    Tests --> API
+    Tests --> Audit
