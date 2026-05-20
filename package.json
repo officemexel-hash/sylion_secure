@@ -1,0 +1,11 @@
+{
+  "name": "sylion-secure",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start:admin-api": "node services/admin-api/src/server.js",
+    "test": "node --test services/admin-api/test/*.test.js"
+  }
+}
+
