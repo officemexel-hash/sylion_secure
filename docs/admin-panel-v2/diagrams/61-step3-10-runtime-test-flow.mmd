@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant Test as Playwright Runner
+    participant UI as Admin Web
+    participant API as Admin API
+    participant Audit as Audit
+    participant Report as Result Artifacts
+
+    Test->>UI: Login with WebAuthn simulator
+    Test->>UI: Run Demo Flow
+    UI->>API: Create tenant/operator/devices/provider/app/allocation
+    UI->>API: Create and approve provisioning approval
+    UI->>API: Execute orchestrator job with approvalId
+    API->>Audit: hash-chained audit events
+    Test->>UI: Click views and critical forms
+    Test->>Report: screenshots + JSON summary
+

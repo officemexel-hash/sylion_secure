@@ -16,6 +16,7 @@ import { MonitoringService } from "./modules/monitoring/monitoringService.js";
 import { IncidentService } from "./modules/incidents/incidentService.js";
 import { SecretManagerService } from "./modules/secrets/secretManagerService.js";
 import { ProviderRegistryService } from "./modules/providers/providerRegistryService.js";
+import { ProviderDryRunService } from "./modules/providers/dryRun/providerDryRunService.js";
 import { InventoryService } from "./modules/inventory/inventoryService.js";
 import { PkiService } from "./modules/pki/pkiService.js";
 import { JurisdictionPolicyService } from "./modules/jurisdiction/jurisdictionPolicyService.js";
@@ -96,6 +97,7 @@ export function createApp({ store = null, authOptions = {} } = {}) {
   const incidents = new IncidentService({ audit, rbac, monitoring, store });
   const secrets = new SecretManagerService({ audit, rbac, store });
   const providers = new ProviderRegistryService({ audit, rbac, secrets, store });
+  const providerDryRun = new ProviderDryRunService({ audit, rbac, providers, operators, store });
   const inventory = new InventoryService({ audit, rbac, operators, store });
   const pki = new PkiService({ audit, rbac, operators, inventory, store });
   const jurisdiction = new JurisdictionPolicyService({ audit, rbac, entitlements, store });
@@ -109,6 +111,7 @@ export function createApp({ store = null, authOptions = {} } = {}) {
     tenants,
     operators,
     providers,
+    providerDryRun,
     devices,
     subscriptions,
     store
@@ -500,6 +503,28 @@ export function createApp({ store = null, authOptions = {} } = {}) {
         return send(res, 200, { item });
       }
 
+      const phantomReviewBoardAckMatch = url.pathname.match(/^\/phantom\/review-board\/([^/]+)\/ack$/);
+      if (req.method === "POST" && phantomReviewBoardAckMatch) {
+        const body = await readJson(req);
+        const item = phantom.acknowledgeReviewBoardOwner({
+          actor,
+          itemId: phantomReviewBoardAckMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { item });
+      }
+
+      const phantomCoverageMatch = url.pathname.match(/^\/phantom\/packages\/([^/]+)\/evidence-coverage$/);
+      if (req.method === "GET" && phantomCoverageMatch) {
+        const coverage = phantom.evidenceCoverage({
+          actor,
+          packageId: phantomCoverageMatch[1],
+          correlationId
+        });
+        return send(res, 200, { coverage });
+      }
+
       if (req.method === "GET" && url.pathname === "/phantom/policy-simulations") {
         return send(res, 200, { simulations: phantom.listPolicySimulations({ actor, correlationId }) });
       }
@@ -704,6 +729,22 @@ export function createApp({ store = null, authOptions = {} } = {}) {
 
       if (req.method === "GET" && url.pathname === "/providers") {
         return send(res, 200, { providers: providers.list({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/providers/dry-run/vps-plans") {
+        return send(res, 200, {
+          plans: providerDryRun.list({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      if (req.method === "POST" && url.pathname === "/providers/dry-run/vps-plan") {
+        const body = await readJson(req);
+        const plan = providerDryRun.planVps({ actor, ...body, correlationId });
+        return send(res, 201, { plan });
       }
 
       const providerSecretMatch = url.pathname.match(/^\/providers\/([^/]+)\/secret-rotation$/);
@@ -916,6 +957,30 @@ export function createApp({ store = null, authOptions = {} } = {}) {
         return send(res, 200, { readiness });
       }
 
+      const operatorReadinessHistoryMatch = url.pathname.match(/^\/operators\/([^/]+)\/readiness\/history$/);
+      if (req.method === "GET" && operatorReadinessHistoryMatch) {
+        const readiness = approvals.listReadiness({
+          actor,
+          operatorId: operatorReadinessHistoryMatch[1],
+          correlationId
+        });
+        return send(res, 200, { readiness });
+      }
+
+      const readinessRecordMatch = url.pathname.match(/^\/readiness\/([^/]+)$/);
+      if (req.method === "GET" && readinessRecordMatch) {
+        const readiness = approvals.getReadiness({
+          actor,
+          readinessId: readinessRecordMatch[1],
+          correlationId
+        });
+        return send(res, 200, { readiness });
+      }
+
+      if (req.method === "GET" && url.pathname === "/system/status") {
+        return send(res, 200, { status: approvals.systemStatus({ actor, correlationId }) });
+      }
+
       if (req.method === "GET" && url.pathname === "/workload/lifecycle") {
         return send(res, 200, {
           lifecycle: approvals.listWorkloadLifecycle({
@@ -948,7 +1013,6 @@ export function createApp({ store = null, authOptions = {} } = {}) {
           actor,
           planId: body.planId,
           approvalId: body.approvalId,
-          requireApproval: body.approvalRequired === true || req.headers["x-sylion-require-approval"] === "true",
           correlationId
         });
         const job = orchestrator.executePlan({

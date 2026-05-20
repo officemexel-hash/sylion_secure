@@ -225,6 +225,22 @@ test("M20 executes provisioning plan idempotently and creates inventory, certs, 
       body: { requestedApps: ["Signal", "Telegram"] }
     });
     assert.equal(plan.status, 201);
+    const approval = await request(baseUrl, "/provisioning/approvals", {
+      method: "POST",
+      token,
+      body: {
+        operatorId: operator.id,
+        planId: plan.payload.plan.id,
+        evidenceRefs: ["orchestrator-readiness", "human-gate-complete"]
+      }
+    });
+    assert.equal(approval.status, 201);
+    const approved = await request(baseUrl, `/provisioning/approvals/${approval.payload.approval.id}/status`, {
+      method: "POST",
+      token,
+      body: { status: "approved_for_execution", note: "Provisioning execution approved" }
+    });
+    assert.equal(approved.status, 200);
 
     const executeBody = {
       planId: plan.payload.plan.id,
@@ -233,6 +249,7 @@ test("M20 executes provisioning plan idempotently and creates inventory, certs, 
       imageRef: "image://sylion/base/dev",
       pixelDeviceId: pixel.payload.device.id,
       routerDeviceId: router.payload.device.id,
+      approvalId: approval.payload.approval.id,
       idempotencyKey: "idem-orchestrator-test-001"
     };
     const job = await request(baseUrl, "/orchestrator/jobs", {

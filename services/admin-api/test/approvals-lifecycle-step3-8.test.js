@@ -240,7 +240,7 @@ test("Step 3.8 workload lifecycle enforces valid transitions and remains metadat
   const { baseUrl, close } = await startTestServer();
   try {
     const token = await login(baseUrl);
-    const { allocation } = await fixture(baseUrl, token);
+    const { operator, allocation } = await fixture(baseUrl, token);
 
     const invalid = await request(baseUrl, `/workload/allocations/${allocation.id}/lifecycle`, {
       method: "POST",
@@ -258,13 +258,35 @@ test("Step 3.8 workload lifecycle enforces valid transitions and remains metadat
     assert.equal(approvalRequired.payload.lifecycle.sideEffectAllowed, false);
     assert.equal(approvalRequired.payload.lifecycle.executionAllowed, false);
 
+    const approval = await request(baseUrl, "/provisioning/approvals", {
+      method: "POST",
+      token,
+      body: {
+        operatorId: operator.id,
+        allocationId: allocation.id,
+        evidenceRefs: ["activation-readiness", "human-gate-complete"]
+      }
+    });
+    assert.equal(approval.status, 201);
+    const approved = await request(baseUrl, `/provisioning/approvals/${approval.payload.approval.id}/status`, {
+      method: "POST",
+      token,
+      body: { status: "approved_for_execution", note: "Activation human gate complete" }
+    });
+    assert.equal(approved.status, 200);
+
     const activationApproved = await request(baseUrl, `/workload/allocations/${allocation.id}/lifecycle`, {
       method: "POST",
       token,
-      body: { status: "approved_for_activation", reasonCode: "human_gate_complete" }
+      body: {
+        status: "approved_for_activation",
+        approvalId: approval.payload.approval.id,
+        reasonCode: "human_gate_complete"
+      }
     });
     assert.equal(activationApproved.status, 200);
     assert.equal(activationApproved.payload.lifecycle.humanGateRequired, true);
+    assert.equal(activationApproved.payload.lifecycle.approvalId, approval.payload.approval.id);
 
     const list = await request(baseUrl, "/workload/lifecycle", { token });
     assert.equal(list.status, 200);

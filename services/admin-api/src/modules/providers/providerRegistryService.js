@@ -139,6 +139,10 @@ export class ProviderRegistryService {
     return [...this.providers.values()];
   }
 
+  get(providerId) {
+    return this.providers.get(providerId);
+  }
+
   rotateSecret({ actor, providerId, apiSecret, testConnection = { mode: "mock" }, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const provider = this.providers.get(providerId);

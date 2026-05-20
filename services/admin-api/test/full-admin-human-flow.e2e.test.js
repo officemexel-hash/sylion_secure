@@ -198,6 +198,23 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
     });
     assert.equal(router.status, 201);
 
+    const approval = await request(baseUrl, "/provisioning/approvals", {
+      method: "POST",
+      token,
+      body: {
+        operatorId: operator.payload.operator.id,
+        planId: plan.payload.plan.id,
+        evidenceRefs: ["full-flow-readiness", "full-flow-human-gate"]
+      }
+    });
+    assert.equal(approval.status, 201);
+    const approved = await request(baseUrl, `/provisioning/approvals/${approval.payload.approval.id}/status`, {
+      method: "POST",
+      token,
+      body: { status: "approved_for_execution", note: "Full flow human gate complete" }
+    });
+    assert.equal(approved.status, 200);
+
     const job = await request(baseUrl, "/orchestrator/jobs", {
       method: "POST",
       token,
@@ -209,6 +226,7 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
         imageRef: "image://sylion/base/dev",
         pixelDeviceId: pixel.payload.device.id,
         routerDeviceId: router.payload.device.id,
+        approvalId: approval.payload.approval.id,
         idempotencyKey: "idem-full-human-flow-001"
       }
     });
@@ -334,6 +352,8 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
       "cdr.decision_recorded",
       "provisioning_plan.generated",
       "device.registered",
+      "provisioning.approval_created",
+      "provisioning.approval_status_changed",
       "orchestrator.job.completed",
       "image_artifact.built",
       "inventory.vps_set.registered",

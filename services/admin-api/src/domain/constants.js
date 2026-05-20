@@ -58,7 +58,8 @@ export const RESOURCE_TYPES = Object.freeze({
   MICROVM_PLACEMENT_PLAN: "microvm_placement_plan",
   PROVISIONING_APPROVAL: "provisioning_approval",
   OPERATOR_READINESS: "operator_readiness",
-  WORKLOAD_LIFECYCLE: "workload_lifecycle"
+  WORKLOAD_LIFECYCLE: "workload_lifecycle",
+  PROVIDER_DRY_RUN_PLAN: "provider_dry_run_plan"
 });
 
 export const DEVICE_TYPES = Object.freeze({

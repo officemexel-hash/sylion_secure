@@ -15,6 +15,8 @@ const state = {
   provisioningApprovals: [],
   readinessResults: [],
   workloadLifecycle: [],
+  systemStatus: null,
+  providerDryRunPlans: [],
   lastAllocationId: null,
   credentials: [],
   authPolicy: null,
@@ -34,6 +36,7 @@ const state = {
   phantomReviewBoardItems: [],
   phantomPolicySimulations: [],
   phantomExceptions: [],
+  phantomCoverage: [],
   phantomAuditCorrelation: null,
   lastPlanId: null,
   lastPlanOperatorId: null,
@@ -201,7 +204,9 @@ async function refreshAll() {
     subscriptionPlans,
     quotaDecisions,
     provisioningApprovals,
-    workloadLifecycle
+    workloadLifecycle,
+    systemStatus,
+    providerDryRunPlans
   ] = await Promise.all([
     api("/health"),
     api("/auth/session"),
@@ -234,7 +239,9 @@ async function refreshAll() {
     api("/subscription/plans").catch(() => ({ plans: [] })),
     api("/subscription/quota-decisions").catch(() => ({ decisions: [] })),
     api("/provisioning/approvals").catch(() => ({ approvals: [] })),
-    api("/workload/lifecycle").catch(() => ({ lifecycle: [] }))
+    api("/workload/lifecycle").catch(() => ({ lifecycle: [] })),
+    api("/system/status").catch(() => ({ status: null })),
+    api("/providers/dry-run/vps-plans").catch(() => ({ plans: [] }))
   ]);
   $("#api-status").textContent = health.status === "ok" ? "API Healthy" : "API Degraded";
   state.session = session.session;
@@ -268,6 +275,8 @@ async function refreshAll() {
   state.quotaDecisions = quotaDecisions.decisions;
   state.provisioningApprovals = provisioningApprovals.approvals;
   state.workloadLifecycle = workloadLifecycle.lifecycle;
+  state.systemStatus = systemStatus.status;
+  state.providerDryRunPlans = providerDryRunPlans.plans;
   state.tenantSubscriptions = await Promise.all(
     state.tenants.map((tenant) => api(`/tenants/${tenant.id}/subscription`)
       .then((result) => result.subscription)
@@ -303,6 +312,9 @@ function render() {
   renderSelect("#approval-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#approval-status-select", state.provisioningApprovals, "No approvals", "reasonCode");
   renderSelect("#workload-lifecycle-allocation-select", state.workloadAllocations, "No allocations", "appName");
+  renderSelect("#workload-lifecycle-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#provider-dry-run-provider-select", state.providers, "No providers", "displayName");
+  renderSelect("#provider-dry-run-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#subscription-tenant-select", state.tenants, "No tenants");
   renderSelect("#subscription-plan-select", state.subscriptionPlans, "No plans", "name");
   renderSelect("#billing-tenant-select", state.tenants, "No tenants");
@@ -325,6 +337,20 @@ function render() {
   renderSelect("#phantom-assignment-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#phantom-review-board-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#phantom-policy-simulation-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#phantom-exception-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#phantom-exception-review-select", state.phantomReviewBoardItems, "No review items", "title");
+  renderSelect("#phantom-exception-evidence-select", state.phantomEvidenceBundles, "No evidence bundles", "summary");
+  renderSelect("#phantom-review-ack-select", state.phantomReviewBoardItems, "No review items", "title");
+  renderSelect("#phantom-coverage-package-select", state.phantomPackages, "No packages", "name");
+
+  $("#ksiega-status-cards").innerHTML = (state.systemStatus?.ksiega34 || []).map((item) => card(item.label, [
+    ["Status", item.status],
+    ["Next", item.nextAction || "-"]
+  ])).join("") || empty("Status matrix unavailable.");
+  $("#phantom-status-cards").innerHTML = (state.systemStatus?.phantom || []).map((item) => card(item.label, [
+    ["Status", item.status],
+    ["Execution", String(item.executionAllowed)]
+  ])).join("") || empty("PHANTOM status unavailable.");
 
   $("#operator-cards").innerHTML = state.operators.map((operator) => card(operator.displayName, [
     ["Tier", operator.tier],
@@ -339,6 +365,13 @@ function render() {
     ["Secret", provider.apiSecretReference?.secretReference],
     ["Connection", provider.connection?.status]
   ])).join("") || empty("No providers yet.");
+
+  $("#provider-dry-run-cards").innerHTML = state.providerDryRunPlans.map((plan) => card(plan.providerKey, [
+    ["Operator", plan.operatorId],
+    ["Region", plan.region],
+    ["Actions", String(plan.plannedActions?.length || 0)],
+    ["Side effect", String(plan.sideEffectAllowed)]
+  ])).join("") || empty("No dry-run plans yet.");
 
   $("#device-cards").innerHTML = state.devices.map((device) => card(`${device.model}`, [
     ["Type", device.type],
@@ -535,9 +568,17 @@ function render() {
   $("#phantom-exception-cards").innerHTML = state.phantomExceptions.map((item) => card(item.scope, [
     ["Status", item.status],
     ["Legal", item.legalOwner],
+    ["Expired", String(item.expired)],
     ["Compliance", item.complianceOwner],
     ["Execution", String(item.executionAllowed)]
   ])).join("") || empty("No PHANTOM exceptions recorded.");
+
+  $("#phantom-coverage-cards").innerHTML = state.phantomCoverage.map((item) => card(item.packageId, [
+    ["Coverage", `${item.coveragePercent}%`],
+    ["Status", item.status],
+    ["Blockers", item.blockers?.join(", ") || "-"],
+    ["Certification", String(item.certificationClaim)]
+  ])).join("") || empty("No PHANTOM coverage evaluations recorded.");
 
   $("#phantom-audit-correlation-cards").innerHTML = state.phantomAuditCorrelation ? card("PHANTOM audit correlation", [
     ["Events", String(state.phantomAuditCorrelation.eventCount)],
@@ -818,6 +859,23 @@ async function createProvider(event) {
   await refreshAll();
 }
 
+async function createProviderDryRunPlan(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/providers/dry-run/vps-plan", {
+    method: "POST",
+    body: {
+      providerId: data.providerId,
+      operatorId: data.operatorId,
+      region: data.region,
+      vpsPerOperator: 3,
+      mutationMode: "dry_run"
+    }
+  });
+  toast("Provider dry-run plan recorded; no cloud mutation performed");
+  await refreshAll();
+}
+
 async function createApprovedWorkloadApp(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -958,10 +1016,15 @@ async function updateProvisioningApprovalStatus(event) {
 async function transitionWorkloadLifecycle(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
+  if (!data.allocationId) {
+    toast("Create a workload allocation before lifecycle transition");
+    return;
+  }
   await api(`/workload/allocations/${data.allocationId}/lifecycle`, {
     method: "POST",
     body: {
       status: data.status,
+      approvalId: data.approvalId || undefined,
       reasonCode: data.reasonCode
     }
   });
@@ -1202,8 +1265,12 @@ async function createPhantomException(event) {
   await api("/phantom/exceptions", {
     method: "POST",
     body: {
+      packageId: data.packageId,
+      reviewBoardItemId: data.reviewBoardItemId,
+      evidenceBundleId: data.evidenceBundleId,
       scope: data.scope,
       justification: data.justification,
+      expiresAt: data.expiresAt,
       legalOwner: data.legalOwner,
       cisoOwner: data.cisoOwner,
       complianceOwner: data.complianceOwner
@@ -1211,6 +1278,26 @@ async function createPhantomException(event) {
   });
   toast("PHANTOM exception recorded without execution");
   await refreshAll();
+}
+
+async function acknowledgePhantomReviewOwner(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/phantom/review-board/${data.itemId}/ack`, {
+    method: "POST",
+    body: { owner: data.owner }
+  });
+  toast("PHANTOM review owner acknowledgement recorded");
+  await refreshAll();
+}
+
+async function evaluatePhantomCoverage(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const result = await api(`/phantom/packages/${data.packageId}/evidence-coverage`);
+  state.phantomCoverage = [result.coverage, ...state.phantomCoverage.filter((item) => item.packageId !== result.coverage.packageId)];
+  toast("PHANTOM evidence coverage evaluated without execution");
+  render();
 }
 
 async function handleCredentialAction(event) {
@@ -1317,9 +1404,52 @@ async function runDemoFlow() {
       qualificationStatus: "needs_evidence"
     }
   });
+  await api("/devices", {
+    method: "POST",
+    body: {
+      type: "fido2_key",
+      serial: `fido-demo-${suffix}`,
+      model: "YubiKey",
+      assignedOperatorId: operator.operator.id
+    }
+  });
+  const app = await api("/apps", {
+    method: "POST",
+    body: {
+      name: `Signal Demo ${suffix}`,
+      type: "messaging",
+      riskClass: "medium",
+      allowedTiers: ["STANDARD", "PRO", "SOVEREIGN"],
+      microVmDefaults: { vcpu: 2, memoryMiB: 2048, diskMiB: 8192 },
+      networkPolicy: { outbound: ["tcp/443"], inbound: [] },
+      storagePolicy: { persistent: false, maxEphemeralMiB: 1024 },
+      clipboardPolicy: { mode: "metadata_only", pasteIntoWorkload: false },
+      cdrRequired: true,
+      operatorResponsibility: "Operator must route all file exchange through CDR."
+    }
+  });
+  const approvedApp = await api(`/apps/${app.app.id}/approve`, { method: "POST" });
+  const allocation = await api(`/operators/${operator.operator.id}/workload-allocations`, {
+    method: "POST",
+    body: { appId: approvedApp.app.id, requestedCount: 1 }
+  });
   const plan = await api(`/operators/${operator.operator.id}/provisioning-plan`, {
     method: "POST",
     body: { requestedApps: ["Signal", "Telegram"] }
+  });
+  const approval = await api("/provisioning/approvals", {
+    method: "POST",
+    body: {
+      operatorId: operator.operator.id,
+      planId: plan.plan.id,
+      allocationId: allocation.allocation.id,
+      reasonCode: "demo_flow_execution_review",
+      evidenceRefs: ["demo-readiness", "demo-security-review"]
+    }
+  });
+  await api(`/provisioning/approvals/${approval.approval.id}/status`, {
+    method: "POST",
+    body: { status: "approved_for_execution", note: "Demo flow human gate simulation" }
   });
   state.lastPlanId = plan.plan.id;
   state.lastPlanOperatorId = operator.operator.id;
@@ -1333,6 +1463,7 @@ async function runDemoFlow() {
       imageRef: "image://sylion/base/dev",
       pixelDeviceId: pixel.device.id,
       routerDeviceId: router.device.id,
+      approvalId: approval.approval.id,
       idempotencyKey: `demo_${suffix}`
     }
   }), "Run Demo Flow job execution");
@@ -1370,6 +1501,7 @@ function bind() {
   $("#tenant-form").addEventListener("submit", (event) => createTenant(event).catch(showError));
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
+  $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
   $("#approved-app-form").addEventListener("submit", (event) => createApprovedWorkloadApp(event).catch(showError));
   $("#subscription-form").addEventListener("submit", (event) => updateTenantSubscription(event).catch(showError));
   $("#billing-form").addEventListener("submit", (event) => updateBillingState(event).catch(showError));
@@ -1395,6 +1527,8 @@ function bind() {
   $("#phantom-review-board-form").addEventListener("submit", (event) => createPhantomReviewBoardItem(event).catch(showError));
   $("#phantom-policy-simulation-form").addEventListener("submit", (event) => runPhantomPolicySimulation(event).catch(showError));
   $("#phantom-exception-form").addEventListener("submit", (event) => createPhantomException(event).catch(showError));
+  $("#phantom-review-ack-form").addEventListener("submit", (event) => acknowledgePhantomReviewOwner(event).catch(showError));
+  $("#phantom-coverage-form").addEventListener("submit", (event) => evaluatePhantomCoverage(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));

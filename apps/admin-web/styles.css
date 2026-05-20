@@ -23,6 +23,7 @@ body {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 260px 1fr;
+  overflow-x: hidden;
   color: var(--ink);
   background:
     linear-gradient(180deg, #f9fbfb 0%, var(--bg) 38%, #eef3f4 100%);
@@ -87,6 +88,7 @@ nav button:hover {
 }
 
 main {
+  min-width: 0;
   padding: 28px;
 }
 
@@ -121,6 +123,8 @@ td,
 th,
 label {
   color: var(--muted);
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .session {
@@ -553,6 +557,10 @@ code {
 
   .topbar {
     align-items: flex-start;
+  }
+
+  main {
+    padding: 28px 16px;
   }
 
   .session {

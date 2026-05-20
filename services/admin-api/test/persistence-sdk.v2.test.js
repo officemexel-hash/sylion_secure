@@ -93,6 +93,15 @@ test("V2 persistence foundation keeps admin flow data after restart and SDK can 
       requestedApps: ["Signal", "Telegram"]
     });
     planId = plan.plan.id;
+    const approval = await client.createProvisioningApproval({
+      operatorId,
+      planId,
+      evidenceRefs: ["persistent-readiness", "persistent-human-gate"]
+    });
+    await client.updateProvisioningApprovalStatus(approval.approval.id, {
+      status: "approved_for_execution",
+      note: "Persistent SDK execution gate approved"
+    });
     const job = await client.executeJob({
       planId,
       provider: "hetzner",
@@ -100,6 +109,7 @@ test("V2 persistence foundation keeps admin flow data after restart and SDK can 
       imageRef: "image://sylion/base/dev",
       pixelDeviceId: pixel.device.id,
       routerDeviceId: router.device.id,
+      approvalId: approval.approval.id,
       idempotencyKey: "idem-persistence-sdk-001"
     });
     assert.equal(job.job.status, "completed");

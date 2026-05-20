@@ -202,7 +202,7 @@ test("Step 3.2 blocks orchestrator execution without fresh step-up and preserves
   try {
     await enrollCredential(baseUrl);
     const token = await legacyLogin(baseUrl);
-    const { plan, pixel, router } = await createOperatorAndPlan(baseUrl, token);
+    const { operator, plan, pixel, router } = await createOperatorAndPlan(baseUrl, token);
     const body = {
       planId: plan.id,
       provider: "hetzner",
@@ -226,6 +226,24 @@ test("Step 3.2 blocks orchestrator execution without fresh step-up and preserves
     assert.equal(jobsBefore.payload.jobs.length, 0);
 
     await stepUp(baseUrl, token);
+    const approval = await request(baseUrl, "/provisioning/approvals", {
+      method: "POST",
+      token,
+      body: {
+        operatorId: operator.id,
+        planId: plan.id,
+        evidenceRefs: ["step-up-readiness", "step-up-human-gate"]
+      }
+    });
+    assert.equal(approval.status, 201);
+    const approved = await request(baseUrl, `/provisioning/approvals/${approval.payload.approval.id}/status`, {
+      method: "POST",
+      token,
+      body: { status: "approved_for_execution", note: "Step-up execution gate complete" }
+    });
+    assert.equal(approved.status, 200);
+    body.approvalId = approval.payload.approval.id;
+
     const job = await request(baseUrl, "/orchestrator/jobs", {
       method: "POST",
       token,

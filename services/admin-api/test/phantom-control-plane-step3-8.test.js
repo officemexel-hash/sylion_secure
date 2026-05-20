@@ -88,6 +88,17 @@ test("Step 3.8 PHANTOM review board records mandatory owners and never enables e
     assert.equal(item.payload.item.executionAllowed, false);
     assert.deepEqual(item.payload.item.requiredOwners, ["Architect", "CISO", "Legal", "Compliance/Product"]);
 
+    for (const owner of ["legal", "ciso", "architect", "compliance"]) {
+      const ack = await request(baseUrl, `/phantom/review-board/${item.payload.item.id}/ack`, {
+        method: "POST",
+        token,
+        body: { owner, note: `${owner} owner acknowledged` }
+      });
+      assert.equal(ack.status, 200);
+      assert.equal(ack.payload.item.ownerAcknowledgements[owner], true);
+      assert.equal(ack.payload.item.executionAllowed, false);
+    }
+
     const status = await request(baseUrl, `/phantom/review-board/${item.payload.item.id}/status`, {
       method: "POST",
       token,
@@ -151,6 +162,7 @@ test("Step 3.8 PHANTOM exceptions require owners and cannot request execution", 
         legalOwner: "legal@sylion.local",
         cisoOwner: "ciso@sylion.local",
         complianceOwner: "compliance@sylion.local",
+        expiresAt: "2026-12-31T23:00:00.000Z",
         executionRequested: true
       }
     });
@@ -165,6 +177,7 @@ test("Step 3.8 PHANTOM exceptions require owners and cannot request execution", 
         legalOwner: "legal@sylion.local",
         cisoOwner: "ciso@sylion.local",
         complianceOwner: "compliance@sylion.local",
+        expiresAt: "2026-12-31T23:00:00.000Z",
         evidenceRefs: ["compliance-note-ref"]
       }
     });

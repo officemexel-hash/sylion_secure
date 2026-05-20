@@ -223,6 +223,10 @@ export class AdminApiClient {
     return this.request("/phantom/review-board", { method: "POST", body });
   }
 
+  acknowledgePhantomReviewBoardOwner(itemId, body) {
+    return this.request(`/phantom/review-board/${itemId}/ack`, { method: "POST", body });
+  }
+
   updatePhantomReviewBoardStatus(itemId, body) {
     return this.request(`/phantom/review-board/${itemId}/status`, { method: "POST", body });
   }
@@ -241,6 +245,10 @@ export class AdminApiClient {
 
   createPhantomException(body) {
     return this.request("/phantom/exceptions", { method: "POST", body });
+  }
+
+  getPhantomEvidenceCoverage(packageId) {
+    return this.request(`/phantom/packages/${packageId}/evidence-coverage`);
   }
 
   getPhantomAuditCorrelation(packageId = null) {
@@ -307,6 +315,18 @@ export class AdminApiClient {
     return this.request(`/operators/${operatorId}/readiness`);
   }
 
+  listOperatorReadinessHistory(operatorId) {
+    return this.request(`/operators/${operatorId}/readiness/history`);
+  }
+
+  getReadiness(readinessId) {
+    return this.request(`/readiness/${readinessId}`);
+  }
+
+  getSystemStatus() {
+    return this.request("/system/status");
+  }
+
   listWorkloadLifecycle(operatorId = null) {
     return this.request(`/workload/lifecycle${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
   }
@@ -341,6 +361,14 @@ export class AdminApiClient {
 
   createProvider(body) {
     return this.request("/providers", { method: "POST", body });
+  }
+
+  listProviderDryRunPlans(operatorId = null) {
+    return this.request(`/providers/dry-run/vps-plans${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  createProviderDryRunVpsPlan(body) {
+    return this.request("/providers/dry-run/vps-plan", { method: "POST", body });
   }
 
   registerDevice(body) {

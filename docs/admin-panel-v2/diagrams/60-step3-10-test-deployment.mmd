@@ -1,0 +1,23 @@
+flowchart TD
+    Runner["Playwright Test Runner"]
+    Browser["Admin Browser"]
+    Web["Admin Web"]
+    API["Admin API"]
+    SDK["Admin SDK"]
+    Contract["openapi-lite"]
+    Screens["Screenshot Artifacts"]
+    JSON["Smoke Result JSON"]
+    Gate["Release Gate Matrix"]
+
+    Runner --> Browser
+    Browser --> Web
+    Web --> API
+    Runner --> SDK
+    SDK --> API
+    Runner --> Contract
+    Browser --> Screens
+    Runner --> JSON
+    Screens --> Gate
+    JSON --> Gate
+    Contract --> Gate
+

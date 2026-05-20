@@ -114,11 +114,23 @@ Request:
 }
 ```
 
-## Step 3.8 Approval Gates
+## Step 3.9 Approval Gates
 
 ### GET /operators/:operatorId/readiness
 
 Evaluates Księga 3.4 readiness for an operator. Response includes `readyForApproval`, `blockers`, `warnings`, `deviceCoverage`, provider secret references, `humanGateRequired: true`, and `sideEffectAllowed: false`.
+
+### GET /operators/:operatorId/readiness/history
+
+Returns persisted readiness snapshots for an operator. Snapshots are evidence records and must not contain plaintext provider secrets, workload secrets, communication content, or terminal operational data.
+
+### GET /readiness/:readinessId
+
+Returns one persisted readiness snapshot by id.
+
+### GET /system/status
+
+Returns dashboard status matrices for Księga 3.4 and PHANTOM v3.0, including blocked production gates such as real cloud mutation, real Firecracker execution, PHANTOM activation, and customer-facing security claims.
 
 ### POST /provisioning/approvals
 
@@ -147,29 +159,52 @@ Updates approval state. `approved_for_execution` unlocks only approval-gated bas
 ### POST /workload/allocations/:allocationId/lifecycle
 
 Transitions workload metadata through valid lifecycle states without starting or deleting real microVMs.
+Step 3.9 requires `approvalId` for `approved_for_activation` and `revoked`.
 
 ```json
 {
   "status": "approval_required",
+  "approvalId": "approval_uuid",
   "reasonCode": "operator_lifecycle_review"
 }
 ```
 
 ### POST /orchestrator/jobs
 
-For strict Step 3.8 execution, include:
+Step 3.9 requires `approvalId` for every orchestrator execution. The approval must be `approved_for_execution`, match the requested plan when bound, and cannot be a PHANTOM record.
 
 ```json
 {
   "planId": "plan_uuid",
-  "approvalRequired": true,
   "approvalId": "approval_uuid"
 }
 ```
 
-Legacy non-strict calls remain temporarily supported for migration and are tracked as a known Step 3.8 gap.
+Missing, pending, rejected, unrelated, or PHANTOM approvals return validation errors and do not create jobs.
 
-## Step 3.8 PHANTOM Control Plane
+## Step 3.9 Provider Dry-Run Boundary
+
+### GET /providers/dry-run/vps-plans
+
+Returns dry-run provider plans. Optional query parameter: `operatorId`.
+
+### POST /providers/dry-run/vps-plan
+
+Plans cloud actions for the required 3 VPS baseline without invoking real provider mutations.
+
+```json
+{
+  "providerId": "provider_uuid",
+  "operatorId": "op_uuid",
+  "region": "fsn1",
+  "vpsPerOperator": 3,
+  "mutationMode": "dry_run"
+}
+```
+
+Response 201 returns planned G1/G2/WORKLOAD actions with `sideEffectAllowed: false`, `executionAllowed: false`, and secret references only. Any non-`dry_run` mutation mode is blocked behind HUMAN GATE.
+
+## Step 3.9 PHANTOM Control Plane
 
 All PHANTOM Step 3.8 endpoints are governance/control-plane only. Responses must preserve `humanGateRequired: true`, `sideEffectAllowed: false`, `executionAllowed: false`, and `executionEnabled: false`.
 
@@ -177,13 +212,25 @@ All PHANTOM Step 3.8 endpoints are governance/control-plane only. Responses must
 
 Creates a PHANTOM review board item with mandatory Legal, CISO, Architect, and Compliance/Product ownership.
 
+### POST /phantom/review-board/:itemId/ack
+
+Records owner acknowledgement for `legal`, `ciso`, `architect`, or `compliance`. All four acknowledgements plus evidence references are required before `approved_placeholder`.
+
+### POST /phantom/review-board/:itemId/status
+
+Updates review board status. `approved_placeholder` remains non-executable and is blocked until required owner acknowledgements and evidence refs exist.
+
 ### POST /phantom/policy-simulations
 
 Runs a policy simulation only. No live connector or operational execution path is invoked.
 
 ### POST /phantom/exceptions
 
-Records an exception request for review. Requests with `executionRequested: true` are rejected.
+Records an exception request for review. Step 3.9 requires `expiresAt` and can link the exception to `packageId`, `reviewBoardItemId`, and `evidenceBundleId`. Requests with `executionRequested: true` are rejected.
+
+### GET /phantom/packages/:packageId/evidence-coverage
+
+Computes PHANTOM evidence coverage from policy template, evidence bundles, approval packs, review board items, policy simulations and exception expiry. The result is a governance metric only: `certificationClaim: false`, `sideEffectAllowed: false`, and `executionAllowed: false`.
 
 Response 201:
 

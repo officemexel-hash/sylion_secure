@@ -145,6 +145,20 @@
           </article>
           <article class="panel wide">
             <div class="panel-head">
+              <h2>Księga 3.4 Status <span class="help-tip" tabindex="0" data-tip="Shows implementation state for baseline controls. Blocked means HUMAN GATE before production execution.">?</span></h2>
+              <span class="pill">Step 3.9</span>
+            </div>
+            <div class="cards compact" id="ksiega-status-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>PHANTOM v3.0 Status <span class="help-tip" tabindex="0" data-tip="PHANTOM remains a separate governance track and cannot unlock baseline execution.">?</span></h2>
+              <span class="pill warn">Non-executable</span>
+            </div>
+            <div class="cards compact" id="phantom-status-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
               <h2>Recent Audit <span class="help-tip" tabindex="0" data-tip="Hash-chained evidence stream for sensitive policy and admin decisions.">?</span></h2>
               <span class="pill" id="audit-health">Live</span>
             </div>
@@ -221,9 +235,25 @@
               <button type="submit">Save Provider</button>
             </form>
           </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Provider Dry-Run <span class="help-tip" tabindex="0" data-tip="Plans G1/G2/WORKLOAD VPS actions without calling cloud APIs or mutating provider resources.">?</span></h2>
+              <span class="pill">No mutation</span>
+            </div>
+            <form id="provider-dry-run-form">
+              <label>Provider <select name="providerId" id="provider-dry-run-provider-select"></select></label>
+              <label>Operator <select name="operatorId" id="provider-dry-run-operator-select"></select></label>
+              <label>Region <input name="region" value="fsn1"></label>
+              <button type="submit">Plan Dry-Run VPS</button>
+            </form>
+          </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Providers</h2></div>
             <div class="cards" id="provider-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Dry-Run Plans</h2><span class="pill">No cloud mutation</span></div>
+            <div class="cards" id="provider-dry-run-cards"></div>
           </article>
         </section>
 
@@ -340,6 +370,7 @@
             </div>
             <form id="workload-lifecycle-form">
               <label>Allocation <select name="allocationId" id="workload-lifecycle-allocation-select"></select></label>
+              <label>Approval <select name="approvalId" id="workload-lifecycle-approval-select"></select></label>
               <label>Status
                 <select name="status">
                   <option selected>approval_required</option>
@@ -798,12 +829,44 @@
               <span class="pill warn">No execution</span>
             </div>
             <form id="phantom-exception-form">
+              <label>Package <select name="packageId" id="phantom-exception-package-select"></select></label>
+              <label>Review item <select name="reviewBoardItemId" id="phantom-exception-review-select"></select></label>
+              <label>Evidence <select name="evidenceBundleId" id="phantom-exception-evidence-select"></select></label>
               <label>Scope <input name="scope" value="Review timing exception"></label>
               <label>Justification <input name="justification" value="Administrative review sequencing exception only"></label>
+              <label>Expires <input name="expiresAt" value="2026-12-31T23:00:00.000Z"></label>
               <label>Legal Owner <input name="legalOwner" value="legal@sylion.local"></label>
               <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local"></label>
               <label>Compliance Owner <input name="complianceOwner" value="compliance@sylion.local"></label>
               <button type="submit">Create Exception</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Review Owner Ack <span class="help-tip" tabindex="0" data-tip="Records owner acknowledgement. All owners are required before approved_placeholder.">?</span></h2>
+              <span class="pill warn">HUMAN GATE</span>
+            </div>
+            <form id="phantom-review-ack-form">
+              <label>Review item <select name="itemId" id="phantom-review-ack-select"></select></label>
+              <label>Owner
+                <select name="owner">
+                  <option>legal</option>
+                  <option>ciso</option>
+                  <option>architect</option>
+                  <option>compliance</option>
+                </select>
+              </label>
+              <button type="submit">Acknowledge Owner</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Evidence Coverage <span class="help-tip" tabindex="0" data-tip="Calculates PHANTOM evidence coverage as a review metric, not a certification claim.">?</span></h2>
+              <span class="pill">Review metric</span>
+            </div>
+            <form id="phantom-coverage-form">
+              <label>Package <select name="packageId" id="phantom-coverage-package-select"></select></label>
+              <button type="submit">Evaluate Coverage</button>
             </form>
           </article>
 
@@ -897,6 +960,13 @@
               <span class="pill warn">No execution</span>
             </div>
             <div class="cards" id="phantom-exception-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Evidence Coverage</h2>
+              <span class="pill">No certification claim</span>
+            </div>
+            <div class="cards" id="phantom-coverage-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head">

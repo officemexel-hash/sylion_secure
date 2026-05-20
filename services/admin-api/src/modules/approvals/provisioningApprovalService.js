@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { DEVICE_TYPES, RESOURCE_TYPES } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
@@ -98,6 +99,7 @@ function publicLifecycle(record) {
     status: record.status,
     previousStatus: record.previousStatus,
     reasonCode: record.reasonCode,
+    approvalId: record.approvalId || null,
     humanGateRequired: record.humanGateRequired,
     sideEffectAllowed: false,
     executionAllowed: false,
@@ -119,6 +121,7 @@ export class ProvisioningApprovalService {
     this.subscriptions = subscriptions;
     this.approvals = new PersistentMap({ store, collection: "provisioning_approvals" });
     this.workloadLifecycle = new PersistentMap({ store, collection: "workload_lifecycle" });
+    this.readiness = new PersistentMap({ store, collection: "operator_readiness" });
   }
 
   listApprovals({ actor, operatorId = null, correlationId }) {
@@ -271,6 +274,21 @@ export class ProvisioningApprovalService {
       evaluatedAt: isoNow(),
       evaluatedBy: actor.id
     };
+    readiness.evidenceHash = createHash("sha256")
+      .update(JSON.stringify({
+        tenantId: readiness.tenantId,
+        operatorId: readiness.operatorId,
+        baseline: readiness.baseline,
+        subscription: readiness.subscription,
+        deviceCoverage: readiness.deviceCoverage,
+        providerReferences: readiness.providerReferences,
+        allocationCount: readiness.allocationCount,
+        blockers: readiness.blockers,
+        warnings: readiness.warnings,
+        readyForApproval: readiness.readyForApproval
+      }))
+      .digest("hex");
+    this.readiness.set(readiness.id, readiness);
     this.audit.record({
       actorId: actor.id,
       action: "operator.readiness_evaluated",
@@ -286,7 +304,64 @@ export class ProvisioningApprovalService {
     return readiness;
   }
 
-  transitionWorkloadLifecycle({ actor, allocationId, status, reasonCode = "operator_requested_lifecycle_change", evidenceRefs = [], correlationId }) {
+  listReadiness({ actor, operatorId = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "operator.readiness.read", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.OPERATOR_READINESS });
+    return [...this.readiness.values()].filter((item) => !operatorId || item.operatorId === operatorId);
+  }
+
+  getReadiness({ actor, readinessId, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const readiness = this.readiness.get(readinessId);
+    if (!readiness) throw notFound("operator_readiness", readinessId);
+    this.rbac.assert(actor, "operator.readiness.read", {
+      operatorId: readiness.operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.OPERATOR_READINESS,
+      resourceId: readinessId
+    });
+    return readiness;
+  }
+
+  latestReadinessForOperator({ actor, operatorId, correlationId }) {
+    const rows = this.listReadiness({ actor, operatorId, correlationId });
+    return rows.sort((a, b) => String(b.evaluatedAt).localeCompare(String(a.evaluatedAt)))[0] || null;
+  }
+
+  systemStatus({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "operator.readiness.read", { correlationId: corr, resourceType: RESOURCE_TYPES.OPERATOR_READINESS });
+    const approvals = [...this.approvals.values()];
+    const readiness = [...this.readiness.values()];
+    const lifecycle = [...this.workloadLifecycle.values()];
+    return {
+      ksiega34: [
+        { key: "approval_mandatory", label: "Mandatory orchestrator approval", status: "implemented", nextAction: "Keep all clients on approvalId path" },
+        { key: "readiness_evidence", label: "Persisted operator readiness evidence", status: "implemented", nextAction: "Review blockers before approval" },
+        { key: "puli_ax_gate", label: "Puli AX access router gate", status: "implemented", nextAction: "Add production hardware evidence later" },
+        { key: "cdr_mandatory", label: "CDR mandatory", status: "implemented", nextAction: "Keep CDR in all app/workload policies" },
+        { key: "provider_dry_run", label: "Provider adapter dry-run boundary", status: "implemented", nextAction: "Human gate before real cloud mutation" },
+        { key: "real_firecracker", label: "Real Firecracker execution", status: "blocked", nextAction: "HUMAN GATE before production execution" }
+      ],
+      phantom: [
+        { key: "separate_track", label: "PHANTOM separate [A] track", status: "implemented", executionAllowed: false },
+        { key: "review_workflow", label: "Review workflow and owner gates", status: "implemented", executionAllowed: false },
+        { key: "evidence_coverage", label: "Evidence coverage map", status: "implemented", executionAllowed: false },
+        { key: "production_activation", label: "Production PHANTOM activation", status: "blocked", executionAllowed: false }
+      ],
+      counters: {
+        approvals: approvals.length,
+        approvedForExecution: approvals.filter((item) => item.status === "approved_for_execution").length,
+        readinessSnapshots: readiness.length,
+        readyOperators: readiness.filter((item) => item.readyForApproval).length,
+        lifecycleTransitions: lifecycle.length
+      },
+      humanGateRequiredBefore: ["real_cloud_mutation", "real_firecracker_execution", "phantom_activation", "customer_security_claims"],
+      generatedAt: isoNow()
+    };
+  }
+
+  transitionWorkloadLifecycle({ actor, allocationId, status, approvalId = null, reasonCode = "operator_requested_lifecycle_change", evidenceRefs = [], correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const allocation = this.#requireAllocation(actor, allocationId, corr);
     this.rbac.assert(actor, "workload.lifecycle.manage", {
@@ -296,6 +371,17 @@ export class ProvisioningApprovalService {
       resourceId: allocationId
     });
     const nextStatus = requireStatus(status, WORKLOAD_LIFECYCLE_STATUSES, "status");
+    let approval = null;
+    if (["approved_for_activation", "revoked"].includes(nextStatus)) {
+      approval = this.#requireExecutionApproval({
+        actor,
+        approvalId,
+        planId: null,
+        allocationId,
+        operatorId: allocation.operatorId,
+        correlationId: corr
+      });
+    }
     const previous = this.workloadLifecycle.get(allocationId) || {
       id: `lifecycle_${allocationId}`,
       allocationId,
@@ -319,6 +405,7 @@ export class ProvisioningApprovalService {
       previousStatus: previous.status,
       status: nextStatus,
       reasonCode: requireText(reasonCode, "reasonCode"),
+      approvalId: approval?.id || previous.approvalId || null,
       evidenceRefs: safeArray(evidenceRefs, "evidenceRefs"),
       humanGateRequired: ["approval_required", "approved_for_activation", "revocation_required", "revoked", "closed"].includes(nextStatus),
       sideEffectAllowed: false,
@@ -350,35 +437,13 @@ export class ProvisioningApprovalService {
 
   assertExecutionApproved({ actor, planId = null, approvalId = null, requireApproval = false, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    if (!requireApproval && !approvalId) {
-      return { required: false, approved: false, mode: "legacy_non_strict" };
-    }
     if (!approvalId) {
       throw validationError("Provisioning approval is required before orchestrator execution", {
         planId,
         approvalRequired: true
       });
     }
-    const approval = this.approvals.get(approvalId);
-    if (!approval) throw notFound("provisioning_approval", approvalId);
-    this.rbac.assert(actor, "provisioning.approval.read", {
-      operatorId: approval.operatorId,
-      correlationId: corr,
-      resourceType: RESOURCE_TYPES.PROVISIONING_APPROVAL,
-      resourceId: approvalId
-    });
-    if (planId && approval.planId && approval.planId !== planId) {
-      throw validationError("Provisioning approval does not match requested plan", { planId, approvalPlanId: approval.planId });
-    }
-    if (approval.status !== "approved_for_execution") {
-      throw validationError("Provisioning approval is not approved for execution", {
-        approvalId,
-        status: approval.status
-      });
-    }
-    if (approval.resourceType === "phantom") {
-      throw validationError("PHANTOM approval records cannot unlock orchestrator execution", { approvalId });
-    }
+    const approval = this.#requireExecutionApproval({ actor, approvalId, planId, allocationId: null, operatorId: null, correlationId: corr });
     this.audit.record({
       actorId: actor.id,
       action: "provisioning.execution_approval_checked",
@@ -392,6 +457,36 @@ export class ProvisioningApprovalService {
       newValue: { approvalId, planId, approvalRequired: true, sideEffectAllowed: false }
     });
     return { required: true, approved: true, approval: publicApproval(approval) };
+  }
+
+  #requireExecutionApproval({ actor, approvalId, planId = null, allocationId = null, operatorId = null, correlationId }) {
+    if (!approvalId) {
+      throw validationError("Provisioning approval is required", { planId, allocationId, approvalRequired: true });
+    }
+    const approval = this.approvals.get(approvalId);
+    if (!approval) throw notFound("provisioning_approval", approvalId);
+    this.rbac.assert(actor, "provisioning.approval.read", {
+      operatorId: approval.operatorId,
+      correlationId,
+      resourceType: RESOURCE_TYPES.PROVISIONING_APPROVAL,
+      resourceId: approvalId
+    });
+    if (operatorId && approval.operatorId !== operatorId) {
+      throw validationError("Provisioning approval does not match operator", { approvalId, operatorId, approvalOperatorId: approval.operatorId });
+    }
+    if (planId && approval.planId && approval.planId !== planId) {
+      throw validationError("Provisioning approval does not match requested plan", { planId, approvalPlanId: approval.planId });
+    }
+    if (allocationId && approval.allocationId && approval.allocationId !== allocationId) {
+      throw validationError("Provisioning approval does not match workload allocation", { allocationId, approvalAllocationId: approval.allocationId });
+    }
+    if (approval.status !== "approved_for_execution") {
+      throw validationError("Provisioning approval is not approved for execution", { approvalId, status: approval.status });
+    }
+    if (approval.resourceType === "phantom") {
+      throw validationError("PHANTOM approval records cannot unlock execution", { approvalId });
+    }
+    return approval;
   }
 
   #requireOperator(operatorId) {

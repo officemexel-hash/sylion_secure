@@ -37,6 +37,7 @@ const REVIEW_BOARD_STATUSES = new Set([
 ]);
 const POLICY_SIMULATION_SCENARIOS = new Set(["control_gap", "tier_fit", "evidence_completeness", "review_path"]);
 const EXCEPTION_STATUSES = new Set(["draft", "legal_review", "ciso_review", "compliance_review", "approved_placeholder", "rejected", "closed"]);
+const REVIEW_OWNER_KEYS = new Set(["legal", "ciso", "architect", "compliance"]);
 const PROHIBITED_TERMS = [
   "imei",
   "imsi",
@@ -797,6 +798,12 @@ export class PhantomGovernanceService {
       evidenceRefs: safeArray(evidenceRefs, "evidenceRefs"),
       status: "intake",
       requiredOwners: ["Architect", "CISO", "Legal", "Compliance/Product"],
+      ownerAcknowledgements: {
+        legal: false,
+        ciso: false,
+        architect: false,
+        compliance: false
+      },
       humanGateRequired: true,
       sideEffectAllowed: false,
       executionAllowed: false,
@@ -823,9 +830,26 @@ export class PhantomGovernanceService {
     this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM, resourceId: itemId });
     const previous = this.reviewBoardItems.get(itemId);
     if (!previous) throw notFound("phantom_review_board_item", itemId);
+    const nextStatus = requireEnum(status, REVIEW_BOARD_STATUSES, "status");
+    if (nextStatus === "approved_placeholder") {
+      const acknowledgements = previous.ownerAcknowledgements || {};
+      const missing = [...REVIEW_OWNER_KEYS].filter((owner) => acknowledgements[owner] !== true);
+      if (missing.length) {
+        throw validationError("PHANTOM review board cannot reach approved_placeholder without all owner acknowledgements", {
+          missing,
+          executionAllowed: false
+        });
+      }
+      if (!previous.evidenceRefs?.length) {
+        throw validationError("PHANTOM review board requires evidence references before approved_placeholder", {
+          itemId,
+          executionAllowed: false
+        });
+      }
+    }
     const next = {
       ...previous,
-      status: requireEnum(status, REVIEW_BOARD_STATUSES, "status"),
+      status: nextStatus,
       note: optionalText(note, "note") || previous.note || null,
       humanGateRequired: true,
       sideEffectAllowed: false,
@@ -838,6 +862,39 @@ export class PhantomGovernanceService {
     this.audit.record({
       actorId: actor.id,
       action: "phantom.review_board_status_changed",
+      resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM,
+      resourceId: next.id,
+      correlationId: corr,
+      previousValue: this.#publicReviewBoardItem(previous),
+      newValue: this.#publicReviewBoardItem(next)
+    });
+    return this.#publicReviewBoardItem(next);
+  }
+
+  acknowledgeReviewBoardOwner({ actor, itemId, owner, note = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM, resourceId: itemId });
+    const previous = this.reviewBoardItems.get(itemId);
+    if (!previous) throw notFound("phantom_review_board_item", itemId);
+    const ownerKey = requireEnum(owner, REVIEW_OWNER_KEYS, "owner");
+    const next = {
+      ...previous,
+      ownerAcknowledgements: {
+        ...(previous.ownerAcknowledgements || {}),
+        [ownerKey]: true
+      },
+      note: optionalText(note, "note") || previous.note || null,
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      updatedAt: isoNow(),
+      updatedBy: actor.id
+    };
+    this.reviewBoardItems.set(next.id, next);
+    this.audit.record({
+      actorId: actor.id,
+      action: "phantom.review_board_owner_acknowledged",
       resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM,
       resourceId: next.id,
       correlationId: corr,
@@ -894,14 +951,26 @@ export class PhantomGovernanceService {
     return [...this.exceptions.values()].map((item) => this.#publicException(item));
   }
 
-  createException({ actor, scope, justification, legalOwner, cisoOwner, complianceOwner, evidenceRefs = [], status = "legal_review", executionRequested = false, correlationId }) {
+  createException({ actor, scope, justification, legalOwner, cisoOwner, complianceOwner, evidenceRefs = [], status = "legal_review", executionRequested = false, packageId = null, reviewBoardItemId = null, evidenceBundleId = null, expiresAt, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_EXCEPTION });
     if (executionRequested === true) {
       throw validationError("PHANTOM exceptions cannot request execution", { boundary: "PHANTOM_REVIEW_ONLY" });
     }
+    const expiry = Date.parse(expiresAt || "");
+    if (!Number.isFinite(expiry)) {
+      throw validationError("PHANTOM exception requires expiresAt revalidation date", { field: "expiresAt" });
+    }
+    if (packageId) this.#requirePackage(packageId);
+    if (evidenceBundleId) this.#requireEvidenceBundle(evidenceBundleId);
+    if (reviewBoardItemId && !this.reviewBoardItems.get(reviewBoardItemId)) {
+      throw notFound("phantom_review_board_item", reviewBoardItemId);
+    }
     const exception = {
       id: newId("phantom_exception"),
+      packageId: optionalId(packageId, "packageId"),
+      reviewBoardItemId: optionalId(reviewBoardItemId, "reviewBoardItemId"),
+      evidenceBundleId: optionalId(evidenceBundleId, "evidenceBundleId"),
       scope: requireText(scope, "scope"),
       justification: requireText(justification, "justification"),
       legalOwner: requireText(legalOwner, "legalOwner"),
@@ -909,6 +978,8 @@ export class PhantomGovernanceService {
       complianceOwner: requireText(complianceOwner, "complianceOwner"),
       evidenceRefs: safeArray(evidenceRefs, "evidenceRefs"),
       status: requireEnum(status, EXCEPTION_STATUSES, "status"),
+      expiresAt: new Date(expiry).toISOString(),
+      expired: expiry <= Date.now(),
       humanGateRequired: true,
       sideEffectAllowed: false,
       executionAllowed: false,
@@ -930,6 +1001,63 @@ export class PhantomGovernanceService {
       newValue: this.#publicException(exception)
     });
     return this.#publicException(exception);
+  }
+
+  evidenceCoverage({ actor, packageId, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION });
+    const pkg = this.#requirePackage(packageId);
+    const template = this.#requirePolicyTemplate(pkg.policyTemplateId);
+    const bundles = [...this.evidenceBundles.values()].filter((item) => item.packageId === pkg.id);
+    const approvalPacks = [...this.approvalPacks.values()].filter((item) => item.packageId === pkg.id);
+    const boardItems = [...this.reviewBoardItems.values()].filter((item) => item.packageId === pkg.id);
+    const simulations = [...this.policySimulations.values()].filter((item) => item.packageId === pkg.id);
+    const exceptions = [...this.exceptions.values()].filter((item) => item.packageId === pkg.id);
+    const requiredEvidence = template.requiredEvidenceTypes || [];
+    const evidenceRefs = bundles.flatMap((bundle) => bundle.evidenceRefs || []);
+    const blockers = [];
+    if (evidenceRefs.length < requiredEvidence.length) blockers.push("required_evidence_refs_missing");
+    if (!approvalPacks.length) blockers.push("approval_pack_missing");
+    if (!boardItems.length) blockers.push("review_board_item_missing");
+    if (!simulations.length) blockers.push("policy_simulation_missing");
+    if (exceptions.some((item) => Date.parse(item.expiresAt) <= Date.now())) blockers.push("expired_exception_requires_review");
+    const checks = [
+      evidenceRefs.length >= requiredEvidence.length,
+      approvalPacks.length > 0,
+      boardItems.length > 0,
+      simulations.length > 0,
+      !exceptions.some((item) => Date.parse(item.expiresAt) <= Date.now())
+    ];
+    const coverage = {
+      id: `coverage_${pkg.id}`,
+      packageId: pkg.id,
+      requiredEvidenceTypes: requiredEvidence,
+      evidenceRefCount: evidenceRefs.length,
+      approvalPackCount: approvalPacks.length,
+      reviewBoardItemCount: boardItems.length,
+      policySimulationCount: simulations.length,
+      exceptionCount: exceptions.length,
+      coveragePercent: Math.round((checks.filter(Boolean).length / checks.length) * 100),
+      blockers,
+      status: blockers.length ? "blocked" : "ready_for_human_gate",
+      certificationClaim: false,
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      evaluatedAt: isoNow()
+    };
+    this.audit.record({
+      actorId: actor.id,
+      action: "phantom.evidence_coverage_evaluated",
+      resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION,
+      resourceId: coverage.id,
+      correlationId: corr,
+      policyDecision: "deny",
+      result: blockers.length ? "blocked" : "review_required",
+      newValue: coverage
+    });
+    return coverage;
   }
 
   auditCorrelation({ actor, packageId = null, correlationId }) {
@@ -1220,6 +1348,12 @@ export class PhantomGovernanceService {
       evidenceRefs: record.evidenceRefs,
       status: record.status,
       requiredOwners: record.requiredOwners,
+      ownerAcknowledgements: record.ownerAcknowledgements || {
+        legal: false,
+        ciso: false,
+        architect: false,
+        compliance: false
+      },
       note: record.note || null,
       humanGateRequired: true,
       sideEffectAllowed: false,
@@ -1254,6 +1388,9 @@ export class PhantomGovernanceService {
   #publicException(record) {
     return {
       id: record.id,
+      packageId: record.packageId || null,
+      reviewBoardItemId: record.reviewBoardItemId || null,
+      evidenceBundleId: record.evidenceBundleId || null,
       scope: record.scope,
       justification: record.justification,
       legalOwner: record.legalOwner,
@@ -1261,6 +1398,8 @@ export class PhantomGovernanceService {
       complianceOwner: record.complianceOwner,
       evidenceRefs: record.evidenceRefs,
       status: record.status,
+      expiresAt: record.expiresAt,
+      expired: Date.parse(record.expiresAt) <= Date.now(),
       humanGateRequired: true,
       sideEffectAllowed: false,
       executionAllowed: false,
