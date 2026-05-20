@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createApp } from "../src/app.js";
-import { TIERS } from "../src/domain/constants.js";
+import { DEVICE_TYPES, TIERS } from "../src/domain/constants.js";
 
 async function startTestServer() {
   const app = createApp();
@@ -144,6 +144,50 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
     assert.equal(plan.payload.plan.baseline.vps.length, 3);
     assert.ok(plan.payload.plan.baseline.vps.every((vps) => vps.shared === false));
 
+    const pixel = await request(baseUrl, "/devices", {
+      method: "POST",
+      token,
+      body: {
+        type: DEVICE_TYPES.PIXEL,
+        serial: "pixel-full-flow-001",
+        model: "Google Pixel",
+        assignedOperatorId: operator.payload.operator.id,
+        posture: { state: "enrolling" }
+      }
+    });
+    assert.equal(pixel.status, 201);
+
+    const router = await request(baseUrl, "/devices", {
+      method: "POST",
+      token,
+      body: {
+        type: DEVICE_TYPES.ROUTER,
+        serial: "puli-full-flow-001",
+        model: "GL.iNet GL-XE3000 Puli AX",
+        assignedOperatorId: operator.payload.operator.id,
+        qualificationStatus: "needs_evidence"
+      }
+    });
+    assert.equal(router.status, 201);
+
+    const job = await request(baseUrl, "/orchestrator/jobs", {
+      method: "POST",
+      token,
+      headers: { "idempotency-key": "idem-full-human-flow-001" },
+      body: {
+        planId: plan.payload.plan.id,
+        provider: "hetzner",
+        region: "fsn1",
+        imageRef: "image://sylion/base/dev",
+        pixelDeviceId: pixel.payload.device.id,
+        routerDeviceId: router.payload.device.id,
+        idempotencyKey: "idem-full-human-flow-001"
+      }
+    });
+    assert.equal(job.status, 201);
+    assert.equal(job.payload.job.status, "completed");
+    assert.equal(job.payload.job.result.certificateIds.length, 3);
+
     const infrastructure = await request(baseUrl, "/infrastructure/vps-sets", {
       method: "POST",
       token,
@@ -261,6 +305,9 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
       "authorized_app.approved",
       "cdr.decision_recorded",
       "provisioning_plan.generated",
+      "device.registered",
+      "orchestrator.job.completed",
+      "image_artifact.built",
       "inventory.vps_set.registered",
       "pki.certificate.issued",
       "jurisdiction_policy.created",

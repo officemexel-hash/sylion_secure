@@ -39,6 +39,21 @@ export const RESOURCE_TYPES = Object.freeze({
   FILE_TRANSFER: "file_transfer"
 });
 
+export const DEVICE_TYPES = Object.freeze({
+  PIXEL: "pixel_grapheneos",
+  ROUTER: "puli_ax_router",
+  FIDO2: "fido2_key"
+});
+
+export const DEVICE_STATUSES = Object.freeze({
+  REGISTERED: "registered",
+  ASSIGNED: "assigned",
+  ENROLLING: "enrolling",
+  ACTIVE: "active",
+  DEGRADED: "degraded",
+  REVOKED: "revoked"
+});
+
 export const APP_STATUSES = Object.freeze({
   PENDING_APPROVAL: "pending_approval",
   APPROVED: "approved",

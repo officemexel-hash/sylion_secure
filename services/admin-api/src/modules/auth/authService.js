@@ -15,22 +15,22 @@ export class AuthService {
     this.seedAdmin({
       id: "admin_global",
       email: "admin@sylion.local",
-      password: "ChangeMe-LocalOnly-1!",
+      passwordHash: "25bbbd5c1bffcdb47f482ac1d8a6b0626305665970c8f355ab0407f40a2480ce",
       role: ROLES.GLOBAL_SUPER_ADMIN
     });
     this.seedAdmin({
       id: "admin_readonly",
       email: "readonly@sylion.local",
-      password: "ReadOnly-LocalOnly-1!",
+      passwordHash: "1701bac3e54b43e34357926bbba5083a955d2614595927d7812f0d582bbe1fd3",
       role: ROLES.SUPPORT_READONLY
     });
   }
 
-  seedAdmin({ id, email, password, role }) {
+  seedAdmin({ id, email, password, passwordHash, role }) {
     this.admins.set(email, {
       id,
       email,
-      passwordHash: hashSecret(password),
+      passwordHash: passwordHash || hashSecret(password),
       role,
       locked: false
     });
@@ -81,4 +81,3 @@ export class AuthService {
     };
   }
 }
-

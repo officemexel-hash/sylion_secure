@@ -373,6 +373,51 @@ Response 200:
 }
 ```
 
+## Devices
+
+### POST /devices
+
+Registers Pixel/GrapheneOS, Puli AX, or FIDO2 inventory records.
+
+Important invariant:
+
+```text
+Device inventory must not contain operational data, passwords, seed phrases, or private keys.
+```
+
+## Image Artifacts
+
+### POST /images/artifacts
+
+Builds signed artifact references for:
+
+```text
+pixel_grapheneos_profile
+puli_ax_router_config
+workload_image
+microvm_template
+```
+
+The service returns artifact references and signature references only. It rejects plaintext secrets in artifact policies.
+
+## Orchestrator
+
+### POST /orchestrator/jobs
+
+Executes an approved provisioning plan with an `Idempotency-Key` header or `idempotencyKey` body field.
+
+Execution creates:
+
+```text
+3 VPS inventory records
+G1/G2/WORKLOAD certificate references
+Pixel/router/workload image artifacts
+monitoring activation event
+rollback plan
+```
+
+The orchestrator is idempotent by key. Repeating the same request with the same key returns the same job.
+
 ## M09 Infrastructure Inventory
 
 ### POST /operators/:operatorId/infrastructure/vps-set

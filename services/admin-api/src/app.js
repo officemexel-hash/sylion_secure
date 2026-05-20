@@ -16,6 +16,9 @@ import { InventoryService } from "./modules/inventory/inventoryService.js";
 import { PkiService } from "./modules/pki/pkiService.js";
 import { JurisdictionPolicyService } from "./modules/jurisdiction/jurisdictionPolicyService.js";
 import { MatrixServerService } from "./modules/matrix/matrixServerService.js";
+import { DeviceInventoryService } from "./modules/devices/deviceInventoryService.js";
+import { ImageFactoryService } from "./modules/images/imageFactoryService.js";
+import { OrchestratorService } from "./modules/orchestrator/orchestratorService.js";
 import { AppError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -55,6 +58,18 @@ export function createApp() {
   const pki = new PkiService({ audit, rbac, operators, inventory });
   const jurisdiction = new JurisdictionPolicyService({ audit, rbac, entitlements });
   const matrix = new MatrixServerService({ audit, rbac, entitlements });
+  const devices = new DeviceInventoryService({ audit, rbac, operators });
+  const imageFactory = new ImageFactoryService({ audit, rbac, devices, appCatalog });
+  const orchestrator = new OrchestratorService({
+    audit,
+    rbac,
+    provisioningPlans,
+    inventory,
+    pki,
+    imageFactory,
+    devices,
+    monitoring
+  });
 
   const services = {
     audit,
@@ -73,7 +88,10 @@ export function createApp() {
     inventory,
     pki,
     jurisdiction,
-    matrix
+    matrix,
+    devices,
+    imageFactory,
+    orchestrator
   };
 
   async function handle(req, res) {
@@ -154,6 +172,46 @@ export function createApp() {
         const body = await readJson(req);
         const operator = operators.create({ actor, ...body, correlationId });
         return send(res, 201, { operator });
+      }
+
+      if (req.method === "POST" && url.pathname === "/devices") {
+        const body = await readJson(req);
+        const device = devices.register({ actor, ...body, correlationId });
+        return send(res, 201, { device });
+      }
+
+      if (req.method === "GET" && url.pathname === "/devices") {
+        const list = devices.list({
+          actor,
+          operatorId: url.searchParams.get("operatorId"),
+          type: url.searchParams.get("type"),
+          correlationId
+        });
+        return send(res, 200, { devices: list });
+      }
+
+      const deviceAssignMatch = url.pathname.match(/^\/devices\/([^/]+)\/assign$/);
+      if (req.method === "POST" && deviceAssignMatch) {
+        const body = await readJson(req);
+        const device = devices.assign({
+          actor,
+          deviceId: deviceAssignMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { device });
+      }
+
+      const devicePostureMatch = url.pathname.match(/^\/devices\/([^/]+)\/posture$/);
+      if (req.method === "POST" && devicePostureMatch) {
+        const body = await readJson(req);
+        const device = devices.updatePosture({
+          actor,
+          deviceId: devicePostureMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { device });
       }
 
       if (req.method === "POST" && url.pathname === "/providers") {
@@ -311,6 +369,42 @@ export function createApp() {
         const body = await readJson(req);
         const server = matrix.create({ actor, ...body, correlationId });
         return send(res, 201, { server });
+      }
+
+      if (req.method === "POST" && url.pathname === "/images/artifacts") {
+        const body = await readJson(req);
+        const artifact = imageFactory.build({ actor, ...body, correlationId });
+        return send(res, 201, { artifact });
+      }
+
+      if (req.method === "GET" && url.pathname === "/images/artifacts") {
+        const artifacts = imageFactory.list({
+          actor,
+          operatorId: url.searchParams.get("operatorId"),
+          artifactType: url.searchParams.get("artifactType"),
+          correlationId
+        });
+        return send(res, 200, { artifacts });
+      }
+
+      if (req.method === "POST" && url.pathname === "/orchestrator/jobs") {
+        const body = await readJson(req);
+        const job = orchestrator.executePlan({
+          actor,
+          idempotencyKey: req.headers["idempotency-key"] || body.idempotencyKey,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { job });
+      }
+
+      if (req.method === "GET" && url.pathname === "/orchestrator/jobs") {
+        const jobs = orchestrator.list({
+          actor,
+          operatorId: url.searchParams.get("operatorId"),
+          correlationId
+        });
+        return send(res, 200, { jobs });
       }
 
       const planMatch = url.pathname.match(/^\/operators\/([^/]+)\/provisioning-plan$/);

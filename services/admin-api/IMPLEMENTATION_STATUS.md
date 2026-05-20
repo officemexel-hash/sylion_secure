@@ -13,6 +13,7 @@ M06 Subscription & Entitlements
 M07 Provisioning Plan Engine
 M08 Provider Registry
 M09 Infrastructure Inventory
+M10 Device Inventory
 M11 Authorized App Catalog
 M12 CDR Service
 M13 Jurisdiction Policy Engine
@@ -21,6 +22,8 @@ M15 Monitoring & Anomaly Detection
 M16 Audit / WORM / Hash-chain
 M17 Incident & Runbook Manager
 M18 Secret Manager Adapter
+M19 Image Factory
+M20 Orchestrator / Job Runner
 M21 Matrix Server Manager
 ```
 
@@ -28,16 +31,7 @@ M21 Matrix Server Manager
 
 ```text
 M01 Admin Shell / Frontend
-  Nie ma jeszcze frontendu. Admin API ma kontrakt HTTP i testy e2e.
-
-M10 Device Inventory
-  Urządzenia są uwzględnione w planie i PKI, ale osobny moduł inventory Pixel/Puli AX/FIDO2 jeszcze nie istnieje.
-
-M19 Image Factory
-  Plan provisioningowy i Matrix/workload artifacts mają pola referencyjne, ale nie ma jeszcze factory obrazów.
-
-M20 Orchestrator / Job Runner
-  Istnieje plan provisioningowy, inventory i PKI, ale wykonawca planów nie tworzy jeszcze zasobów.
+  Istnieje statyczny shell w apps/admin-web. Pełne formularze i integracja live z API są kolejnym etapem.
 ```
 
 ## Najważniejsze Testy
@@ -46,7 +40,11 @@ M20 Orchestrator / Job Runner
 full-admin-human-flow.e2e.test.js
   Pełny przepływ przez HTTP:
   login -> tenant -> operator -> provider -> app -> CDR -> provisioning plan
-  -> inventory -> PKI -> jurisdiction -> Matrix -> monitoring -> incident -> audit.
+  -> devices -> orchestrator -> inventory -> PKI -> image artifacts
+  -> jurisdiction -> Matrix -> monitoring -> incident -> audit.
+
+devices-images-orchestrator.test.js
+  Device Inventory, Image Factory i Orchestrator.
 
 spine.e2e.test.js
   Minimalny integration spine.
@@ -75,17 +73,16 @@ node --test services/admin-api/test/*.test.js
 Aktualny wynik:
 
 ```text
-20 tests
-20 passing
+23 tests
+23 passing
 0 failing
 ```
 
 ## Następny Priorytet
 
 ```text
-1. M10 Device Inventory
-2. M19 Image Factory
-3. M20 Orchestrator / Job Runner
-4. M01 Admin Shell / Frontend
+1. Rozbudować M01 Admin Shell do interaktywnego panelu live API.
+2. Dodać persistent storage zamiast in-memory store.
+3. Dodać realne adaptery providerów i image build pipeline.
+4. Dodać realny WebAuthn/FIDO2 zamiast dev flag fido2Verified.
 ```
-

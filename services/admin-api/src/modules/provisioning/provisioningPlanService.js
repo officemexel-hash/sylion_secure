@@ -87,5 +87,14 @@ export class ProvisioningPlanService {
     });
     return plan;
   }
-}
 
+  get(planId) {
+    return this.plans.get(planId);
+  }
+
+  list({ actor, operatorId = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "provisioning.plan.read", { operatorId, correlationId: corr });
+    return [...this.plans.values()].filter((plan) => !operatorId || plan.operatorId === operatorId);
+  }
+}

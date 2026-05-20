@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SYLION Admin</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="mark">S</span>
+        <div>
+          <strong>SYLION</strong>
+          <small>Admin V1</small>
+        </div>
+      </div>
+      <nav aria-label="Main">
+        <button class="active">Dashboard</button>
+        <button>Tenants</button>
+        <button>Operators</button>
+        <button>Provisioning</button>
+        <button>Devices</button>
+        <button>Infrastructure</button>
+        <button>Authorized Apps</button>
+        <button>CDR</button>
+        <button>Monitoring</button>
+        <button>Audit</button>
+        <button>Incidents</button>
+        <button>Security</button>
+      </nav>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Operational spine status for the SYLION Admin Panel.</p>
+        </div>
+        <div class="session">
+          <span>Global Super Admin</span>
+          <strong>Healthy</strong>
+        </div>
+      </header>
+
+      <section class="metrics" aria-label="System metrics">
+        <article>
+          <span>Implemented modules</span>
+          <strong>20 / 21</strong>
+        </article>
+        <article>
+          <span>Tests passing</span>
+          <strong>23 / 23</strong>
+        </article>
+        <article>
+          <span>Baseline VPS</span>
+          <strong>3 per operator</strong>
+        </article>
+        <article>
+          <span>CDR policy</span>
+          <strong>Mandatory</strong>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Operator Provisioning</h2>
+            <span class="pill">Ready</span>
+          </div>
+          <ol class="flow">
+            <li>Tenant</li>
+            <li>Operator</li>
+            <li>Provider</li>
+            <li>Plan</li>
+            <li>Devices</li>
+            <li>Orchestrator</li>
+          </ol>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Security Controls</h2>
+            <span class="pill">Active</span>
+          </div>
+          <ul class="checks">
+            <li>FIDO2-aware admin login</li>
+            <li>RBAC and four-eyes flags</li>
+            <li>Hash-chained audit events</li>
+            <li>No plaintext provider secrets</li>
+            <li>No communication content in monitoring</li>
+          </ul>
+        </article>
+
+        <article class="panel wide">
+          <div class="panel-head">
+            <h2>Module Map</h2>
+            <span class="pill warn">Next: full UI wiring</span>
+          </div>
+          <div class="modules">
+            <span>M02 Auth</span>
+            <span>M03 RBAC</span>
+            <span>M04 Tenants</span>
+            <span>M05 Operators</span>
+            <span>M06 Entitlements</span>
+            <span>M07 Plans</span>
+            <span>M08 Providers</span>
+            <span>M09 Inventory</span>
+            <span>M10 Devices</span>
+            <span>M11 Apps</span>
+            <span>M12 CDR</span>
+            <span>M13 Jurisdiction</span>
+            <span>M14 PKI</span>
+            <span>M15 Monitoring</span>
+            <span>M16 Audit</span>
+            <span>M17 Incidents</span>
+            <span>M18 Secrets</span>
+            <span>M19 Images</span>
+            <span>M20 Orchestrator</span>
+            <span>M21 Matrix</span>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
+
