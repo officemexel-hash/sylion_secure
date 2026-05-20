@@ -2,6 +2,8 @@
 
 Ten folder zawiera zamrożony pakiet startowy do budowy panelu administratora SYLION.
 
+Status: V1 frozen. Kolejny etap jest opisany w `docs/admin-panel-v2/`.
+
 ## Pliki
 
 ```text
@@ -36,4 +38,3 @@ M07 Provisioning Plan Engine
 ```
 
 Dopiero później dokładamy provisioning wykonawczy, urządzenia, workloady, CDR, monitoring, jurisdiction rotation i Matrix.
-
