@@ -1,0 +1,40 @@
+sequenceDiagram
+    participant UI as Live Admin Shell
+    participant SDK as API Client / SDK
+    participant Auth as Auth/WebAuthn
+    participant API as Admin API
+    participant DB as Persistence
+    participant Queue as Job Queue
+    participant Worker as Orchestrator Worker
+    participant Adapter as Provider Adapter
+    participant Images as Image Pipeline
+    participant Audit as Audit
+    participant Mon as Monitoring
+
+    UI->>SDK: Login request
+    SDK->>Auth: WebAuthn challenge/auth
+    Auth->>DB: Store session
+    Auth->>Audit: Auth event
+
+    UI->>SDK: Create tenant/operator/plan
+    SDK->>API: Validated API calls
+    API->>DB: Persist domain state
+    API->>Audit: Domain events
+
+    UI->>SDK: Execute plan
+    SDK->>API: POST orchestrator job
+    API->>Queue: Enqueue job
+    API->>DB: Persist job accepted
+
+    Worker->>Queue: Claim job
+    Worker->>Adapter: Dry-run/mock provider steps
+    Worker->>Images: Create artifact manifests
+    Worker->>DB: Persist inventory/certs/artifacts
+    Worker->>Mon: Health events
+    Worker->>Audit: Job completed
+
+    UI->>SDK: Dashboard refresh
+    SDK->>API: Fetch jobs/monitoring/audit
+    API->>DB: Read state
+    API-->>UI: Operational state
+

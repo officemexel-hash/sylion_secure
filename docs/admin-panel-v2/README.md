@@ -29,7 +29,12 @@ V2 ma przekształcić prototyp domenowy w używalną aplikację operacyjną.
 03-v2-graphs-roadmap.md
   Grafy Mermaid, zależności i roadmapa V2.
 
+DIAGRAMS.md
+  Zebrane diagramy Mermaid w jednym pliku do podglądu i kopiowania.
+
+diagrams/*.mmd
+  Osobne pliki Mermaid: zależności, mapa modułów, plan wdrożenia, runtime flow i Gantt.
+
 04-v2-test-plan.md
   Test plan V2, w tym testy manualne jak człowiek.
 ```
-

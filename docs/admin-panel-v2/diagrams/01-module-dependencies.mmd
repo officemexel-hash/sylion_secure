@@ -1,0 +1,36 @@
+flowchart TD
+    V1["V1 Frozen Admin API"]
+
+    A["V2-A Live Admin Shell"]
+    B["V2-B Persistence Layer"]
+    C["V2-C Auth/WebAuthn Foundation"]
+    D["V2-D Provider Adapter Boundary"]
+    E["V2-E Job Queue / Orchestrator Runtime"]
+    F["V2-F Image Pipeline Boundary"]
+    G["V2-G Observability Dashboard"]
+    H["V2-H API Contracts / SDK"]
+    I["V2-I Dev Environment"]
+    J["V2-J Human E2E Harness"]
+
+    V1 --> B
+    V1 --> H
+    H --> A
+    H --> J
+    B --> C
+    B --> E
+    B --> G
+    C --> A
+    D --> E
+    F --> E
+    E --> G
+    G --> A
+    I --> A
+    I --> J
+    A --> J
+    B --> J
+    C --> J
+    D --> J
+    E --> J
+    F --> J
+    G --> J
+

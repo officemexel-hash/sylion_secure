@@ -1,0 +1,44 @@
+flowchart LR
+    subgraph UX["Frontend / Operator Console"]
+        A["V2-A Live Admin Shell"]
+        G["V2-G Observability Dashboard"]
+    end
+
+    subgraph Contracts["Contracts"]
+        H["V2-H OpenAPI / SDK"]
+    end
+
+    subgraph Core["Core Platform"]
+        B["V2-B Persistence Layer"]
+        C["V2-C Auth/WebAuthn"]
+    end
+
+    subgraph Runtime["Runtime / Execution"]
+        E["V2-E Job Queue"]
+        D["V2-D Provider Adapters"]
+        F["V2-F Image Pipeline"]
+    end
+
+    subgraph QA["Validation"]
+        I["V2-I Dev Environment"]
+        J["V2-J Human E2E Harness"]
+    end
+
+    H --> A
+    H --> G
+    A --> C
+    A --> H
+    G --> H
+    C --> B
+    E --> B
+    E --> D
+    E --> F
+    E --> G
+    I --> A
+    I --> B
+    I --> E
+    J --> A
+    J --> B
+    J --> C
+    J --> E
+

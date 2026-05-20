@@ -1,0 +1,31 @@
+flowchart TD
+    Start["Start V2"]
+
+    C1["1. Freeze contracts<br/>OpenAPI + SDK conventions"]
+    C2["2. Add persistence<br/>SQLite + migrations + repositories"]
+    C3["3. Replace dev auth boundary<br/>WebAuthn-compatible flow"]
+    C4["4. Add dev environment<br/>seed data + run-local docs"]
+    C5["5. Add provider adapters<br/>Mock + Hetzner skeleton + OVH skeleton"]
+    C6["6. Add image pipeline boundary<br/>artifact manifests + provenance"]
+    C7["7. Convert orchestrator<br/>queue + worker + retry + resume"]
+    C8["8. Build live frontend<br/>forms + dashboards + API client"]
+    C9["9. Observability views<br/>jobs + CDR + certs + incidents + audit"]
+    C10["10. Human E2E gate<br/>UI + API + restart + leakage tests"]
+
+    End["V2 Release Candidate"]
+
+    Start --> C1
+    C1 --> C2
+    C1 --> C4
+    C2 --> C3
+    C2 --> C5
+    C2 --> C6
+    C5 --> C7
+    C6 --> C7
+    C3 --> C8
+    C4 --> C8
+    C7 --> C9
+    C8 --> C9
+    C9 --> C10
+    C10 --> End
+
