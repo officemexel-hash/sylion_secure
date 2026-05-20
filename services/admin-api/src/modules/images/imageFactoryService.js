@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { DEVICE_TYPES } from "../../domain/constants.js";
 import { validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const ARTIFACT_TYPES = new Set([
   "pixel_grapheneos_profile",
@@ -35,12 +36,12 @@ function artifactHash(value) {
 }
 
 export class ImageFactoryService {
-  constructor({ audit, rbac, devices = null, appCatalog = null }) {
+  constructor({ audit, rbac, devices = null, appCatalog = null, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.devices = devices;
     this.appCatalog = appCatalog;
-    this.artifacts = new Map();
+    this.artifacts = new PersistentMap({ store, collection: "image_artifacts" });
   }
 
   build({ actor, artifactType, operatorId, tenantId = null, sourceRef, policy = {}, certificateRef = null, deviceId = null, appId = null, version = "0.1.0", correlationId }) {
@@ -115,4 +116,3 @@ export class ImageFactoryService {
     return this.artifacts.get(id);
   }
 }
-

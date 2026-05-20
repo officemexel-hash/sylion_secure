@@ -1,6 +1,7 @@
 import { APP_STATUSES, CDR_DECISIONS, RESOURCE_TYPES } from "../../domain/constants.js";
 import { AppError, notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const SUPPORTED_MIME_TYPES = new Set([
   "application/pdf",
@@ -33,11 +34,12 @@ function sanitizeFile(file = {}) {
 }
 
 export class CdrService {
-  constructor({ audit, appCatalog }) {
+  constructor({ audit, appCatalog, store = null }) {
     this.audit = audit;
     this.appCatalog = appCatalog;
-    this.decisions = new Map();
-    this.monitoringEvents = [];
+    this.decisions = new PersistentMap({ store, collection: "cdr_decisions" });
+    this.monitoringEvents = store ? store.list("cdr_monitoring_events") : [];
+    this.store = store;
   }
 
   decide({
@@ -170,6 +172,9 @@ export class CdrService {
       timestamp: new Date().toISOString()
     };
     this.monitoringEvents.push(event);
+    if (this.store) {
+      this.store.save("cdr_monitoring_events", event.id, event);
+    }
     return event;
   }
 

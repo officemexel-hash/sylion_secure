@@ -2,16 +2,17 @@ import { createHash, randomBytes } from "node:crypto";
 import { ROLES, RESOURCE_TYPES } from "../../domain/constants.js";
 import { AppError } from "../../lib/errors.js";
 import { newId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 function hashSecret(value) {
   return createHash("sha256").update(value).digest("hex");
 }
 
 export class AuthService {
-  constructor({ audit }) {
+  constructor({ audit, store = null }) {
     this.audit = audit;
-    this.admins = new Map();
-    this.sessions = new Map();
+    this.admins = new PersistentMap({ store, collection: "auth_admins" });
+    this.sessions = new PersistentMap({ store, collection: "auth_sessions" });
     this.seedAdmin({
       id: "admin_global",
       email: "admin@sylion.local",

@@ -1,5 +1,6 @@
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const VPS_ROLES = Object.freeze(["G1", "G2", "WORKLOAD"]);
 const LIFECYCLE_STATES = Object.freeze([
@@ -39,13 +40,23 @@ function normalizeCertRefs(certRefs = {}) {
 }
 
 export class InventoryService {
-  constructor({ audit, rbac, operators }) {
+  constructor({ audit, rbac, operators, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.operators = operators;
-    this.vpsSets = new Map();
+    this.vpsSets = new PersistentMap({ store, collection: "infrastructure_sets" });
     this.setIdToOperator = new Map();
     this.providerResourceOwners = new Map();
+    for (const set of this.vpsSets.values()) {
+      this.setIdToOperator.set(set.id, set.operatorId);
+      for (const item of set.vps || []) {
+        this.providerResourceOwners.set(item.providerResourceId, {
+          operatorId: set.operatorId,
+          infrastructureSetId: set.id,
+          role: item.role
+        });
+      }
+    }
   }
 
   registerVpsSet({

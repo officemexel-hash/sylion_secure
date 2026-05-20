@@ -1,6 +1,7 @@
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const PROVIDER_METADATA = Object.freeze({
   hetzner: {
@@ -70,12 +71,12 @@ function normalizeConnectionResult(result) {
 }
 
 export class ProviderRegistryService {
-  constructor({ audit, rbac, secrets, connectionTester = null }) {
+  constructor({ audit, rbac, secrets, connectionTester = null, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.secrets = secrets;
     this.connectionTester = connectionTester;
-    this.providers = new Map();
+    this.providers = new PersistentMap({ store, collection: "providers" });
   }
 
   create({

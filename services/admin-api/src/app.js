@@ -40,26 +40,26 @@ function bearerToken(req) {
   return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
 }
 
-export function createApp() {
-  const audit = new AuditService();
-  const auth = new AuthService({ audit });
+export function createApp({ store = null } = {}) {
+  const audit = new AuditService({ store });
+  const auth = new AuthService({ audit, store });
   const rbac = new RbacService({ audit });
   const entitlements = new EntitlementService({ audit });
-  const tenants = new TenantService({ audit, rbac, entitlements });
-  const operators = new OperatorService({ audit, rbac, entitlements, tenants });
-  const provisioningPlans = new ProvisioningPlanService({ audit, rbac, entitlements, operators });
-  const appCatalog = new AppCatalogService({ audit, rbac });
-  const cdr = new CdrService({ audit, appCatalog });
-  const monitoring = new MonitoringService({ audit, rbac });
-  const incidents = new IncidentService({ audit, rbac, monitoring });
-  const secrets = new SecretManagerService({ audit, rbac });
-  const providers = new ProviderRegistryService({ audit, rbac, secrets });
-  const inventory = new InventoryService({ audit, rbac, operators });
-  const pki = new PkiService({ audit, rbac, operators, inventory });
-  const jurisdiction = new JurisdictionPolicyService({ audit, rbac, entitlements });
-  const matrix = new MatrixServerService({ audit, rbac, entitlements });
-  const devices = new DeviceInventoryService({ audit, rbac, operators });
-  const imageFactory = new ImageFactoryService({ audit, rbac, devices, appCatalog });
+  const tenants = new TenantService({ audit, rbac, entitlements, store });
+  const operators = new OperatorService({ audit, rbac, entitlements, tenants, store });
+  const provisioningPlans = new ProvisioningPlanService({ audit, rbac, entitlements, operators, store });
+  const appCatalog = new AppCatalogService({ audit, rbac, store });
+  const cdr = new CdrService({ audit, appCatalog, store });
+  const monitoring = new MonitoringService({ audit, rbac, store });
+  const incidents = new IncidentService({ audit, rbac, monitoring, store });
+  const secrets = new SecretManagerService({ audit, rbac, store });
+  const providers = new ProviderRegistryService({ audit, rbac, secrets, store });
+  const inventory = new InventoryService({ audit, rbac, operators, store });
+  const pki = new PkiService({ audit, rbac, operators, inventory, store });
+  const jurisdiction = new JurisdictionPolicyService({ audit, rbac, entitlements, store });
+  const matrix = new MatrixServerService({ audit, rbac, entitlements, store });
+  const devices = new DeviceInventoryService({ audit, rbac, operators, store });
+  const imageFactory = new ImageFactoryService({ audit, rbac, devices, appCatalog, store });
   const orchestrator = new OrchestratorService({
     audit,
     rbac,
@@ -68,7 +68,8 @@ export function createApp() {
     pki,
     imageFactory,
     devices,
-    monitoring
+    monitoring,
+    store
   });
 
   const services = {
@@ -168,10 +169,24 @@ export function createApp() {
         return send(res, 201, { tenant });
       }
 
+      if (req.method === "GET" && url.pathname === "/tenants") {
+        return send(res, 200, { tenants: tenants.list({ actor, correlationId }) });
+      }
+
       if (req.method === "POST" && url.pathname === "/operators") {
         const body = await readJson(req);
         const operator = operators.create({ actor, ...body, correlationId });
         return send(res, 201, { operator });
+      }
+
+      if (req.method === "GET" && url.pathname === "/operators") {
+        return send(res, 200, {
+          operators: operators.list({
+            actor,
+            tenantId: url.searchParams.get("tenantId"),
+            correlationId
+          })
+        });
       }
 
       if (req.method === "POST" && url.pathname === "/devices") {
@@ -419,6 +434,15 @@ export function createApp() {
         return send(res, 201, { plan });
       }
 
+      if (req.method === "GET" && planMatch) {
+        const plans = provisioningPlans.list({
+          actor,
+          operatorId: planMatch[1],
+          correlationId
+        });
+        return send(res, 200, { plans });
+      }
+
       return send(res, 404, { error: { code: "not_found", message: "Route not found" } });
     } catch (error) {
       if (error instanceof AppError) {
@@ -447,6 +471,11 @@ export function createApp() {
       return new Promise((resolve) => {
         server.listen(port, () => resolve(server));
       });
+    },
+    close() {
+      if (store?.close) {
+        store.close();
+      }
     }
   };
 }

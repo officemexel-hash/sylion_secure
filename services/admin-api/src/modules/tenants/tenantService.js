@@ -1,13 +1,14 @@
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 export class TenantService {
-  constructor({ audit, rbac, entitlements }) {
+  constructor({ audit, rbac, entitlements, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.entitlements = entitlements;
-    this.tenants = new Map();
+    this.tenants = new PersistentMap({ store, collection: "tenants" });
   }
 
   create({ actor, name, tier, correlationId }) {
@@ -41,5 +42,11 @@ export class TenantService {
   get(id) {
     return this.tenants.get(id);
   }
-}
 
+  list({ actor, correlationId } = {}) {
+    if (actor) {
+      this.rbac.assert(actor, "tenant.read", { correlationId });
+    }
+    return [...this.tenants.values()];
+  }
+}

@@ -2,6 +2,8 @@
 
 Status na 2026-05-20.
 
+V1 jest zamrożone. Rozpoczęto V2: API SDK + SQLite persistence foundation.
+
 ## Zaimplementowane Moduły Domenowe
 
 ```text
@@ -46,6 +48,9 @@ full-admin-human-flow.e2e.test.js
 devices-images-orchestrator.test.js
   Device Inventory, Image Factory i Orchestrator.
 
+persistence-sdk.v2.test.js
+  V2 SDK + SQLite persistence. Test tworzy flow, restartuje aplikację i potwierdza, że dane oraz audit przetrwały.
+
 spine.e2e.test.js
   Minimalny integration spine.
 
@@ -73,8 +78,8 @@ node --test services/admin-api/test/*.test.js
 Aktualny wynik:
 
 ```text
-23 tests
-23 passing
+24 tests
+24 passing
 0 failing
 ```
 
@@ -82,7 +87,7 @@ Aktualny wynik:
 
 ```text
 1. Rozbudować M01 Admin Shell do interaktywnego panelu live API.
-2. Dodać persistent storage zamiast in-memory store.
-3. Dodać realne adaptery providerów i image build pipeline.
+2. Rozszerzyć SQLite schema/repositories poza KV foundation.
+3. Dodać ProviderAdapter boundary dla mock/Hetzner/OVH.
 4. Dodać realny WebAuthn/FIDO2 zamiast dev flag fido2Verified.
 ```

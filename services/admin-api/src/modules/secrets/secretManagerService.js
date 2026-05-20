@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 function hashSecret(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -12,10 +13,10 @@ function makeReference(secretId, version) {
 }
 
 export class SecretManagerService {
-  constructor({ audit, rbac }) {
+  constructor({ audit, rbac, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
-    this.secrets = new Map();
+    this.secrets = new PersistentMap({ store, collection: "secrets" });
   }
 
   create({ actor, name, purpose, plaintext, tenantId = null, providerId = null, correlationId }) {

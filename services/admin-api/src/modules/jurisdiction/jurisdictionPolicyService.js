@@ -1,6 +1,7 @@
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const ROTATION_SCOPES = new Set([
   "session",
@@ -22,11 +23,11 @@ const TIER_SCOPE_ALLOWLIST = Object.freeze({
 });
 
 export class JurisdictionPolicyService {
-  constructor({ audit, rbac, entitlements }) {
+  constructor({ audit, rbac, entitlements, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.entitlements = entitlements;
-    this.policies = new Map();
+    this.policies = new PersistentMap({ store, collection: "jurisdiction_policies" });
   }
 
   create({ actor, tenantId, operatorId, tier, name, allowedProviders, allowedRegions, blockedRegions = [], rotationFrequency, rotationScopes, cooldownHours = 24, approvalRequired = true, correlationId }) {
@@ -128,4 +129,3 @@ export class JurisdictionPolicyService {
     return rotationPlan;
   }
 }
-

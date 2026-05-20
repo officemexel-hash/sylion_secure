@@ -1,14 +1,15 @@
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { notFound } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 export class ProvisioningPlanService {
-  constructor({ audit, rbac, entitlements, operators }) {
+  constructor({ audit, rbac, entitlements, operators, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.entitlements = entitlements;
     this.operators = operators;
-    this.plans = new Map();
+    this.plans = new PersistentMap({ store, collection: "provisioning_plans" });
   }
 
   generate({ actor, operatorId, requestedApps = [], jurisdictionPolicy = null, correlationId }) {

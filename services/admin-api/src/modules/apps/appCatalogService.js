@@ -1,6 +1,7 @@
 import { APP_STATUSES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const APP_TYPES = new Set(["messaging", "browser", "file_transfer", "productivity", "custom"]);
 const RISK_CLASSES = new Set(["low", "medium", "high", "restricted"]);
@@ -32,10 +33,10 @@ function requireAllowedTiers(allowedTiers) {
 }
 
 export class AppCatalogService {
-  constructor({ audit, rbac }) {
+  constructor({ audit, rbac, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
-    this.apps = new Map();
+    this.apps = new PersistentMap({ store, collection: "authorized_apps" });
   }
 
   create({

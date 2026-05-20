@@ -1,5 +1,6 @@
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const CERTIFICATE_STATUSES = Object.freeze(["issued", "rotated", "revoked"]);
 const CERTIFICATE_SUBJECT_TYPES = Object.freeze(["router", "G1", "G2", "WORKLOAD", "IPSEC", "SERVICE_IDENTITY"]);
@@ -27,13 +28,16 @@ function assertNoPrivateKeyMaterial(value, path = "payload") {
 }
 
 export class PkiService {
-  constructor({ audit, rbac, operators, inventory = null }) {
+  constructor({ audit, rbac, operators, inventory = null, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.operators = operators;
     this.inventory = inventory;
-    this.certificates = new Map();
+    this.certificates = new PersistentMap({ store, collection: "certificates" });
     this.serials = new Map();
+    for (const cert of this.certificates.values()) {
+      this.serials.set(cert.serial, cert.id);
+    }
   }
 
   issue({

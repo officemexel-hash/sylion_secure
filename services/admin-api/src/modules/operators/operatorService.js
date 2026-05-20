@@ -1,14 +1,15 @@
 import { OPERATOR_STATUSES, RESOURCE_TYPES } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 export class OperatorService {
-  constructor({ audit, rbac, entitlements, tenants }) {
+  constructor({ audit, rbac, entitlements, tenants, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.entitlements = entitlements;
     this.tenants = tenants;
-    this.operators = new Map();
+    this.operators = new PersistentMap({ store, collection: "operators" });
   }
 
   create({ actor, tenantId, displayName, tier, correlationId }) {
@@ -53,5 +54,11 @@ export class OperatorService {
   get(id) {
     return this.operators.get(id);
   }
-}
 
+  list({ actor, tenantId = null, correlationId } = {}) {
+    if (actor) {
+      this.rbac.assert(actor, "operator.read", { tenantId, correlationId });
+    }
+    return [...this.operators.values()].filter((operator) => !tenantId || operator.tenantId === tenantId);
+  }
+}

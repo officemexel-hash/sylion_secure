@@ -1,5 +1,6 @@
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const DESTRUCTIVE_ACTIONS = new Set([
   "operator.suspend",
@@ -64,11 +65,11 @@ function defaultRunbook(signal) {
 }
 
 export class IncidentService {
-  constructor({ audit, rbac, monitoring }) {
+  constructor({ audit, rbac, monitoring, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.monitoring = monitoring;
-    this.incidents = new Map();
+    this.incidents = new PersistentMap({ store, collection: "incidents" });
   }
 
   createFromAlert({ actor, alertId, ownerId, severity, affectedResources, runbookTasks, correlationId }) {
@@ -138,6 +139,7 @@ export class IncidentService {
       note
     };
     incident.timeline.push(entry);
+    this.incidents.set(incident.id, incident);
     this.audit.record({
       actorId: actor.id,
       action: "incident.timeline_added",

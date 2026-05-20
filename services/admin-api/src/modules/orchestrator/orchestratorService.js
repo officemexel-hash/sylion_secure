@@ -1,8 +1,9 @@
 import { validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 export class OrchestratorService {
-  constructor({ audit, rbac, provisioningPlans, inventory, pki, imageFactory, devices, monitoring }) {
+  constructor({ audit, rbac, provisioningPlans, inventory, pki, imageFactory, devices, monitoring, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.provisioningPlans = provisioningPlans;
@@ -11,8 +12,13 @@ export class OrchestratorService {
     this.imageFactory = imageFactory;
     this.devices = devices;
     this.monitoring = monitoring;
-    this.jobs = new Map();
+    this.jobs = new PersistentMap({ store, collection: "orchestrator_jobs" });
     this.idempotency = new Map();
+    for (const job of this.jobs.values()) {
+      if (job.idempotencyKey) {
+        this.idempotency.set(job.idempotencyKey, job.id);
+      }
+    }
   }
 
   executePlan({ actor, planId, provider, region, imageRef = "image://sylion/base/dev", pixelDeviceId = null, routerDeviceId = null, idempotencyKey, correlationId }) {
@@ -152,6 +158,7 @@ export class OrchestratorService {
         artifactIds: artifacts.map((artifact) => artifact.id)
       };
       job.completedAt = new Date().toISOString();
+      this.jobs.set(job.id, job);
       this.audit.record({
         actorId: actor.id,
         action: "orchestrator.job.completed",
@@ -168,6 +175,7 @@ export class OrchestratorService {
       job.status = "failed";
       job.error = { message: error.message, code: error.code || "unknown" };
       job.failedAt = new Date().toISOString();
+      this.jobs.set(job.id, job);
       this.audit.record({
         actorId: actor.id,
         action: "orchestrator.job.failed",
@@ -213,4 +221,3 @@ export class OrchestratorService {
     return step;
   }
 }
-

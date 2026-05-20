@@ -1,14 +1,15 @@
 import { validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const MATRIX_MODES = new Set(["shared", "dedicated_tenant", "dedicated_operator"]);
 
 export class MatrixServerService {
-  constructor({ audit, rbac, entitlements }) {
+  constructor({ audit, rbac, entitlements, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.entitlements = entitlements;
-    this.servers = new Map();
+    this.servers = new PersistentMap({ store, collection: "matrix_servers" });
   }
 
   create({ actor, tenantId, operatorId = null, tier, addonEnabled, mode, provider, region, federationEnabled = false, retentionPolicy = "default", backupPolicy = "daily", correlationId }) {
@@ -57,4 +58,3 @@ export class MatrixServerService {
     return server;
   }
 }
-

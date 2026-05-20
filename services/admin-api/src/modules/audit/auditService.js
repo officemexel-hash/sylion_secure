@@ -6,9 +6,10 @@ function stableJson(value) {
 }
 
 export class AuditService {
-  constructor() {
-    this.events = [];
-    this.lastHash = null;
+  constructor({ store = null } = {}) {
+    this.store = store;
+    this.events = store ? store.list("audit_events") : [];
+    this.lastHash = this.events.length > 0 ? this.events[this.events.length - 1].hash : null;
   }
 
   record(input) {
@@ -37,6 +38,9 @@ export class AuditService {
 
     const storedEvent = { ...event, hash };
     this.events.push(storedEvent);
+    if (this.store) {
+      this.store.save("audit_events", storedEvent.id, storedEvent);
+    }
     this.lastHash = hash;
     return storedEvent;
   }
@@ -45,4 +49,3 @@ export class AuditService {
     return [...this.events];
   }
 }
-

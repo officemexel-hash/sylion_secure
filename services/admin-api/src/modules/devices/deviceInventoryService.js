@@ -1,6 +1,7 @@
 import { DEVICE_STATUSES, DEVICE_TYPES } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const DEVICE_TYPE_VALUES = new Set(Object.values(DEVICE_TYPES));
 const DEVICE_STATUS_VALUES = new Set(Object.values(DEVICE_STATUSES));
@@ -28,12 +29,15 @@ function assertNoOperationalData(value, path = "metadata") {
 }
 
 export class DeviceInventoryService {
-  constructor({ audit, rbac, operators }) {
+  constructor({ audit, rbac, operators, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.operators = operators;
-    this.devices = new Map();
+    this.devices = new PersistentMap({ store, collection: "devices" });
     this.serialIndex = new Map();
+    for (const device of this.devices.values()) {
+      this.serialIndex.set(device.serial, device.id);
+    }
   }
 
   register({
@@ -202,4 +206,3 @@ export class DeviceInventoryService {
     return device;
   }
 }
-

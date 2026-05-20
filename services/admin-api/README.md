@@ -35,8 +35,31 @@ M08/M18 add a provider registry for Hetzner, OVHcloud, and custom provider metad
 node services/admin-api/src/server.js
 ```
 
+## Uruchomienie Z Trwałym SQLite
+
+```bash
+set SYLION_DB_PATH=.data/admin-api.sqlite
+node --experimental-sqlite services/admin-api/src/server.js
+```
+
+Albo przez npm:
+
+```bash
+npm.cmd run start:admin-api:persistent
+```
+
 ## Testy
 
 ```bash
 node --test services/admin-api/test/*.test.js
 ```
+
+## SDK
+
+Pierwszy klient API znajduje się w:
+
+```text
+services/admin-api/src/sdk/adminApiClient.js
+```
+
+Obsługuje login, tenant/operator/provider/device, provisioning plan, orchestrator job i audit read.

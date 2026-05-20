@@ -1,5 +1,6 @@
 import { validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { PersistentMap } from "../../storage/persistentMap.js";
 
 const EVENT_TYPES = Object.freeze({
   HEALTH_STATUS: "health_status",
@@ -90,10 +91,10 @@ function metadata(input) {
 }
 
 export class MonitoringService {
-  constructor({ audit, rbac }) {
+  constructor({ audit, rbac, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
-    this.events = new Map();
+    this.events = new PersistentMap({ store, collection: "monitoring_events" });
   }
 
   recordHealthStatus({ actor, tenantId, operatorId, resource, status, details = {}, correlationId }) {
