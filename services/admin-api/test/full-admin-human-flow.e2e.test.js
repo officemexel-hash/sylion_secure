@@ -28,12 +28,40 @@ async function request(baseUrl, path, { method = "GET", token, body, correlation
 }
 
 async function login(baseUrl) {
-  const result = await request(baseUrl, "/auth/login", {
+  const credentialId = "cred-full-human-flow";
+  const enrollOptions = await request(baseUrl, "/auth/webauthn/enrollment/options", {
     method: "POST",
     body: {
       email: "admin@sylion.local",
-      password: "ChangeMe-LocalOnly-1!",
-      fido2Verified: true
+      password: "ChangeMe-LocalOnly-1!"
+    }
+  });
+  assert.equal(enrollOptions.status, 201);
+  const enrolled = await request(baseUrl, "/auth/webauthn/enrollment/verify", {
+    method: "POST",
+    body: {
+      challengeId: enrollOptions.payload.challenge.id,
+      credential: { id: credentialId, publicKey: `simulated-public-key:${credentialId}` }
+    }
+  });
+  assert.equal(enrolled.status, 201);
+  const loginOptions = await request(baseUrl, "/auth/webauthn/login/options", {
+    method: "POST",
+    body: {
+      email: "admin@sylion.local",
+      password: "ChangeMe-LocalOnly-1!"
+    }
+  });
+  assert.equal(loginOptions.status, 201);
+  const result = await request(baseUrl, "/auth/webauthn/login/verify", {
+    method: "POST",
+    body: {
+      challengeId: loginOptions.payload.challenge.id,
+      credentialId,
+      assertion: {
+        signature: `simulated:${loginOptions.payload.challenge.id}:${credentialId}`,
+        signCounter: 1
+      }
     }
   });
   assert.equal(result.status, 200);

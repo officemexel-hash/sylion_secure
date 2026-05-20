@@ -28,10 +28,26 @@ async function loginClient(baseUrl) {
     baseUrl,
     correlationIdFactory: () => "corr_persistence_sdk"
   });
-  const session = await anon.login({
+  const credentialId = "cred-persistence-sdk";
+  const enrollment = await anon.createEnrollmentOptions({
     email: "admin@sylion.local",
-    password: "ChangeMe-LocalOnly-1!",
-    fido2Verified: true
+    password: "ChangeMe-LocalOnly-1!"
+  });
+  await anon.verifyEnrollment({
+    challengeId: enrollment.challenge.id,
+    credential: { id: credentialId, publicKey: `simulated-public-key:${credentialId}` }
+  });
+  const loginOptions = await anon.createWebAuthnLoginOptions({
+    email: "admin@sylion.local",
+    password: "ChangeMe-LocalOnly-1!"
+  });
+  const session = await anon.verifyWebAuthnLogin({
+    challengeId: loginOptions.challenge.id,
+    credentialId,
+    assertion: {
+      signature: `simulated:${loginOptions.challenge.id}:${credentialId}`,
+      signCounter: 1
+    }
   });
   return anon.withToken(session.token);
 }
@@ -123,4 +139,3 @@ test("V2 persistence foundation keeps admin flow data after restart and SDK can 
     rmSync(dir, { recursive: true, force: true });
   }
 });
-

@@ -291,6 +291,20 @@
         </section>
       </section>
     </main>
+    <section class="modal-backdrop" id="step-up-modal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="step-up-title">
+        <div class="panel-head">
+          <h2 id="step-up-title">FIDO2 Step-up</h2>
+          <span class="pill warn">Required</span>
+        </div>
+        <p id="step-up-action">Sensitive action requires fresh verification.</p>
+        <div class="button-row">
+          <button type="button" id="step-up-confirm">Verify FIDO2</button>
+          <button type="button" id="step-up-cancel" class="secondary">Cancel</button>
+        </div>
+        <span id="step-up-status" role="status"></span>
+      </div>
+    </section>
     <script type="module" src="/admin/app.js"></script>
   </body>
 </html>

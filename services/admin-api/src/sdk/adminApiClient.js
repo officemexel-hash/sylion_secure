@@ -75,6 +75,22 @@ export class AdminApiClient {
     return this.request("/auth/step-up/verify", { method: "POST", body });
   }
 
+  isStepUpRequired(error) {
+    return error?.payload?.error?.code === "step_up_required";
+  }
+
+  async withStepUpRetry(operation, stepUpHandler) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!this.isStepUpRequired(error)) {
+        throw error;
+      }
+      await stepUpHandler(error.payload.error.details);
+      return operation();
+    }
+  }
+
   createTenant(body) {
     return this.request("/tenants", { method: "POST", body });
   }

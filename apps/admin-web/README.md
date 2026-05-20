@@ -15,6 +15,7 @@ WebAuthn-compatible enrollment/login przez lokalny simulator
 health/status API
 tworzenie tenantow i operatorow
 dodawanie providerow bez wyswietlania plaintext secret
+step-up modal dla operacji wrazliwych
 rejestracja Pixel / GrapheneOS, Puli AX i FIDO2
 generowanie provisioning planu
 uruchamianie orchestrator job

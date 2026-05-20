@@ -314,3 +314,76 @@ Kolejny etap zostal zdefiniowany jako:
 ```text
 V2 Step 3.2 - Step-up Enforcement For Sensitive Admin Actions
 ```
+
+## Step 3.2 - Step-up Enforcement For Sensitive Admin Actions
+
+Status: implemented
+Data: 2026-05-20
+
+### Zakres
+
+Zaimplementowano Step 3.2:
+
+```text
+centralny requireFreshStepUp helper
+step_up_required AppError z action, sessionId, requiredFreshness i stepUpEndpoint
+egzekwowanie step-up przed POST /providers
+egzekwowanie step-up przed POST /providers/:id/secret-rotation
+egzekwowanie step-up przed POST /orchestrator/jobs
+SDK helper isStepUpRequired i withStepUpRetry
+Admin Web global step-up modal
+Admin Web retry chronionej akcji po step-up
+API negative tests i leakage checks
+```
+
+### Pliki
+
+```text
+services/admin-api/src/modules/auth/authService.js
+services/admin-api/src/app.js
+services/admin-api/src/sdk/adminApiClient.js
+services/admin-api/test/step-up-enforcement-step3-2.test.js
+services/admin-api/test/providers.e2e.test.js
+services/admin-api/test/devices-images-orchestrator.test.js
+services/admin-api/test/full-admin-human-flow.e2e.test.js
+services/admin-api/test/persistence-sdk.v2.test.js
+apps/admin-web/index.html
+apps/admin-web/styles.css
+apps/admin-web/app.js
+```
+
+### Security Notes
+
+```text
+side effect jest blokowany przed step-up dla provider secrets i orchestrator job
+provider apiSecret nie pojawia sie w step_up_required error
+provider apiSecret nie pojawia sie w audit przy odmowie
+orchestrator idempotency pozostaje stabilne po retry
+legacy token bez swiezego step-up jest blokowany dla operacji wrazliwych
+step-up modal ponawia akcje tylko po pozytywnej weryfikacji
+```
+
+### Test
+
+```text
+npm.cmd test
+33 tests
+33 passing
+0 failing
+```
+
+### Browser Verification
+
+```text
+/admin loads
+API Healthy
+step-up modal exists and is hidden by default
+password is not visible in page text
+Browser runtime could not type password because its virtual clipboard is unavailable
+```
+
+### Nastepny Krok
+
+```text
+Step 3.3 - recovery, lockout and break-glass placeholder model
+```

@@ -317,6 +317,10 @@ export function createApp({ store = null, authOptions = {} } = {}) {
       }
 
       if (req.method === "POST" && url.pathname === "/providers") {
+        auth.requireFreshStepUp(actor, "provider.create_with_secret", {
+          correlationId,
+          resourceType: "provider"
+        });
         const body = await readJson(req);
         const provider = providers.create({ actor, ...body, correlationId });
         return send(res, 201, { provider });
@@ -328,6 +332,11 @@ export function createApp({ store = null, authOptions = {} } = {}) {
 
       const providerSecretMatch = url.pathname.match(/^\/providers\/([^/]+)\/secret-rotation$/);
       if (req.method === "POST" && providerSecretMatch) {
+        auth.requireFreshStepUp(actor, "provider.secret.rotate", {
+          correlationId,
+          resourceType: "provider",
+          resourceId: providerSecretMatch[1]
+        });
         const body = await readJson(req);
         const provider = providers.rotateSecret({
           actor,
@@ -490,6 +499,10 @@ export function createApp({ store = null, authOptions = {} } = {}) {
       }
 
       if (req.method === "POST" && url.pathname === "/orchestrator/jobs") {
+        auth.requireFreshStepUp(actor, "orchestrator.plan.execute", {
+          correlationId,
+          resourceType: "orchestrator_job"
+        });
         const body = await readJson(req);
         const job = orchestrator.executePlan({
           actor,

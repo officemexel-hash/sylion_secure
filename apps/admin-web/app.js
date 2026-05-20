@@ -9,7 +9,8 @@ const state = {
   audit: [],
   lastPlanId: null,
   lastPlanOperatorId: null,
-  credentialId: localStorage.getItem("sylion.admin.credentialId") || null
+  credentialId: localStorage.getItem("sylion.admin.credentialId") || null,
+  pendingStepUp: null
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -220,6 +221,72 @@ function tableEmpty(colspan, message) {
   return `<tr><td colspan="${colspan}" class="empty">${escapeHtml(message)}</td></tr>`;
 }
 
+function isStepUpRequired(error) {
+  return error?.payload?.error?.code === "step_up_required";
+}
+
+async function withStepUpRetry(operation, actionLabel) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!isStepUpRequired(error)) {
+      throw error;
+    }
+    await requestStepUp(error.payload.error.details, actionLabel);
+    return operation();
+  }
+}
+
+function requestStepUp(details = {}, actionLabel = "Sensitive action") {
+  const modal = $("#step-up-modal");
+  $("#step-up-action").textContent = `${actionLabel} requires fresh FIDO2 verification.`;
+  $("#step-up-status").textContent = "";
+  modal.hidden = false;
+  return new Promise((resolve, reject) => {
+    state.pendingStepUp = { details, resolve, reject };
+  });
+}
+
+async function completeStepUp() {
+  const pending = state.pendingStepUp;
+  if (!pending) return;
+  const status = $("#step-up-status");
+  try {
+    if (!state.credentialId) {
+      throw new Error("Enroll a FIDO2 credential before step-up");
+    }
+    status.textContent = "Verifying";
+    status.dataset.tone = "info";
+    const options = await api("/auth/step-up/options", { method: "POST" });
+    const result = await api("/auth/step-up/verify", {
+      method: "POST",
+      body: {
+        challengeId: options.challenge.id,
+        credentialId: state.credentialId,
+        assertion: simulatedAssertion(options.challenge.id, state.credentialId)
+      }
+    });
+    state.session = result.session;
+    sessionStorage.setItem("sylion.admin.session", JSON.stringify(result.session));
+    $("#step-up-modal").hidden = true;
+    state.pendingStepUp = null;
+    pending.resolve(result.session);
+  } catch (error) {
+    status.textContent = error.payload?.error?.message || error.message;
+    status.dataset.tone = "error";
+    pending.reject(error);
+    state.pendingStepUp = null;
+  }
+}
+
+function cancelStepUp() {
+  if (state.pendingStepUp) {
+    state.pendingStepUp.reject(new Error("Step-up cancelled"));
+    state.pendingStepUp = null;
+  }
+  $("#step-up-modal").hidden = true;
+}
+
 async function createTenant(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -273,7 +340,7 @@ async function createOperator(event) {
 async function createProvider(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  await api("/providers", {
+  await withStepUpRetry(() => api("/providers", {
     method: "POST",
     body: {
       providerType: data.providerType,
@@ -282,7 +349,7 @@ async function createProvider(event) {
       billingHealth: { status: "healthy" },
       testConnection: { mode: "mock", status: "passed" }
     }
-  });
+  }), "Save Provider");
   event.currentTarget.apiSecret.value = "";
   toast("Provider saved; secret cleared from form");
   await refreshAll();
@@ -328,7 +395,7 @@ async function executeJob(event) {
   const operatorDevices = state.devices.filter((device) => device.assignedOperatorId === operator?.id);
   const pixel = operatorDevices.find((device) => device.type === "pixel_grapheneos");
   const router = operatorDevices.find((device) => device.type === "puli_ax_router");
-  await api("/orchestrator/jobs", {
+  await withStepUpRetry(() => api("/orchestrator/jobs", {
     method: "POST",
     extraHeaders: { "idempotency-key": `ui_${data.planId}` },
     body: {
@@ -340,7 +407,7 @@ async function executeJob(event) {
       routerDeviceId: router?.id,
       idempotencyKey: `ui_${data.planId}`
     }
-  });
+  }), "Execute Plan");
   toast("Orchestrator job completed");
   await refreshAll();
 }
@@ -360,7 +427,7 @@ async function runDemoFlow() {
       tier: "PRO"
     }
   });
-  await api("/providers", {
+  await withStepUpRetry(() => api("/providers", {
     method: "POST",
     body: {
       providerType: "hetzner",
@@ -369,7 +436,7 @@ async function runDemoFlow() {
       billingHealth: { status: "healthy" },
       testConnection: { mode: "mock", status: "passed" }
     }
-  });
+  }), "Run Demo Flow provider setup");
   const pixel = await api("/devices", {
     method: "POST",
     body: {
@@ -395,7 +462,7 @@ async function runDemoFlow() {
   });
   state.lastPlanId = plan.plan.id;
   state.lastPlanOperatorId = operator.operator.id;
-  await api("/orchestrator/jobs", {
+  await withStepUpRetry(() => api("/orchestrator/jobs", {
     method: "POST",
     extraHeaders: { "idempotency-key": `demo_${suffix}` },
     body: {
@@ -407,7 +474,7 @@ async function runDemoFlow() {
       routerDeviceId: router.device.id,
       idempotencyKey: `demo_${suffix}`
     }
-  });
+  }), "Run Demo Flow job execution");
   $("#flow-state").textContent = "Completed";
   toast("Demo flow completed");
   await refreshAll();
@@ -444,6 +511,8 @@ function bind() {
   $("#job-form").addEventListener("submit", (event) => executeJob(event).catch(showError));
   $("#refresh-button").addEventListener("click", () => refreshAll().catch(showError));
   $("#demo-flow-button").addEventListener("click", () => runDemoFlow().catch(showError));
+  $("#step-up-confirm").addEventListener("click", () => completeStepUp().catch(showError));
+  $("#step-up-cancel").addEventListener("click", cancelStepUp);
   $$("nav button").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.view));
   });

@@ -295,6 +295,37 @@ export class AuthService {
     return this.#publicSession(updated);
   }
 
+  requireFreshStepUp(actor, action, { correlationId, resourceType = RESOURCE_TYPES.SESSION, resourceId = action } = {}) {
+    const stepUpValidUntil = actor?.stepUpValidUntil ? Date.parse(actor.stepUpValidUntil) : 0;
+    const fresh = stepUpValidUntil > nowMs();
+    if (fresh) {
+      return true;
+    }
+    this.audit.record({
+      actorId: actor?.id,
+      action: "auth.step_up_required",
+      resourceType,
+      resourceId,
+      correlationId,
+      policyDecision: "deny",
+      result: "denied",
+      newValue: {
+        action,
+        sessionId: actor?.sessionId,
+        stepUpValidUntil: actor?.stepUpValidUntil || null,
+        requiredFreshness: "fresh_fido2_step_up",
+        stepUpEndpoint: "/auth/step-up/options"
+      }
+    });
+    throw new AppError("step_up_required", "Fresh FIDO2 step-up is required", 403, {
+      action,
+      sessionId: actor?.sessionId,
+      stepUpValidUntil: actor?.stepUpValidUntil || null,
+      requiredFreshness: "fresh_fido2_step_up",
+      stepUpEndpoint: "/auth/step-up/options"
+    });
+  }
+
   sessionFromActor(actor) {
     return this.#publicSession(this.#sessionByActor(actor));
   }
