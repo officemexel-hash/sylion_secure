@@ -140,8 +140,9 @@ Aktualny wynik:
 ## Nastepny Priorytet
 
 ```text
-1. Zamrozic Step 3.4 i przygotowac Step 3.5 plan z grafami Mermaid.
-2. Podjac HUMAN GATE dla production WebAuthn attestation policy.
-3. Rozszerzyc SQLite schema/repositories poza KV foundation po zamknieciu Step 3.4.
-4. Dodac ProviderAdapter boundary dla mock/Hetzner/OVH po auth hardening.
+1. Wdrozyc Step 3.5 - PHANTOM Governance Boundary And Premium Admin UX.
+2. Zaczac od PHANTOM governance boundary jako review-only, sideEffectAllowed=false.
+3. Dodac capability registry, approvals, evidence/risk register i audit.
+4. Przebudowac Admin Web w kierunku premium operational cockpit z HelpTip system.
+5. Podjac HUMAN GATE dla production WebAuthn attestation policy oraz jakiegokolwiek PHANTOM execution.
 ```

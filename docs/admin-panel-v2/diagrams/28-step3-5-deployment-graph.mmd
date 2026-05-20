@@ -1,0 +1,30 @@
+flowchart TD
+    Browser["Admin Browser"]
+    Web["Admin Web /admin"]
+    API["Admin API"]
+    PhantomService["PHANTOM Governance Service"]
+    BoundaryStore["Boundary Store"]
+    CapabilityStore["Capability Registry Store"]
+    ApprovalStore["Approval Store"]
+    RiskStore["Risk Register Store"]
+    Audit["Audit Hash Chain"]
+    Store["SQLite Store"]
+    Tests["API + Static + Browser Tests"]
+    HumanGate["HUMAN GATE<br/>Architect + CISO + Legal"]
+
+    Browser --> Web
+    Web --> API
+    API --> PhantomService
+    PhantomService --> BoundaryStore
+    PhantomService --> CapabilityStore
+    PhantomService --> ApprovalStore
+    PhantomService --> RiskStore
+    PhantomService --> Audit
+    BoundaryStore --> Store
+    CapabilityStore --> Store
+    ApprovalStore --> Store
+    RiskStore --> Store
+    Audit --> Store
+    PhantomService -. "no execution" .-> HumanGate
+    Tests --> Web
+    Tests --> API

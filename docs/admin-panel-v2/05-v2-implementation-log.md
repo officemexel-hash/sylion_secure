@@ -635,3 +635,47 @@ HUMAN GATE and PHANTOM separation remain visible
 ```text
 Step 3.4 Freeze / Step 3.5 Planning Package
 ```
+
+## Step 3.4 Freeze / Step 3.5 Planning Package
+
+Status: planned
+Data: 2026-05-20
+
+Zamrozono stan po:
+
+```text
+22b007a Implement Step 3.4 WebAuthn hardening
+```
+
+Dodano pakiet planistyczny kolejnego etapu:
+
+```text
+22-step3-4-freeze-and-step3-5-scope.md
+23-step3-5-masterplan.md
+24-step3-5-prompt-pack.md
+25-step3-5-graphs-roadmap.md
+STEP3_5_DIAGRAMS.md
+ui-concepts/step3-5-admin-ui-visual-brief.md
+diagrams/26-step3-5-module-dependencies.mmd
+diagrams/27-step3-5-module-map.mmd
+diagrams/28-step3-5-deployment-graph.mmd
+diagrams/29-step3-5-runtime-flow.mmd
+diagrams/30-step3-5-ui-layout.mmd
+diagrams/31-step3-5-roadmap-gantt.mmd
+```
+
+Kolejny etap zostal zdefiniowany jako:
+
+```text
+V2 Step 3.5 - PHANTOM Governance Boundary And Premium Admin UX
+```
+
+Uwagi zgodnosci:
+
+```text
+PHANTOM v3.0 jest planowany jako oddzielny modul governance w panelu.
+Step 3.5 nie implementuje PHANTOM autonomous execution.
+HUMAN GATE REQUIRED dla kazdej produkcyjnej funkcji PHANTOM.
+Panel ma pokazywac governance, approvals, evidence, risk i audit, bez operacyjnych instrukcji PHANTOM.
+UI/UX panelu ma zostac przebudowany w kierunku premium operational cockpit z helptipami.
+```

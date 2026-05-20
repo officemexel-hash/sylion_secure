@@ -1,0 +1,30 @@
+flowchart TD
+    Freeze["Step 3.4 Freeze<br/>WebAuthn Hardening"]
+
+    A["S3.5-A PHANTOM Governance Boundary"]
+    B["S3.5-B PHANTOM Capability Registry"]
+    C["S3.5-C PHANTOM Approval Workflow"]
+    D["S3.5-D PHANTOM Evidence And Risk Register"]
+    E["S3.5-E Premium Dashboard IA"]
+    F["S3.5-F UI Visual System Refresh"]
+    G["S3.5-G HelpTip Tooltip System"]
+    H["S3.5-H Visual Concept Asset"]
+    I["S3.5-I Security UX And Compliance Tests"]
+
+    Freeze --> A
+    A --> B
+    A --> C
+    B --> C
+    C --> D
+    D --> E
+    H --> F
+    F --> E
+    G --> E
+    A --> E
+    B --> E
+    C --> E
+    D --> E
+    E --> I
+    F --> I
+    G --> I
+    I --> Release["Step 3.5 Release Gate"]

@@ -1,0 +1,38 @@
+flowchart LR
+    subgraph Baseline["SYLION Baseline"]
+        Book["Ksiega 3.4"]
+        Admin["Admin Panel"]
+        Audit["Audit Hash Chain"]
+        CDR["CDR Mandatory"]
+        Auth["WebAuthn + RBAC"]
+    end
+
+    subgraph Phantom["PHANTOM Separate Track"]
+        Boundary["Governance Boundary"]
+        Cap["Capability Registry Redacted"]
+        Approval["Legal/CISO/Architect Approval"]
+        Risk["Evidence + Risk Register"]
+    end
+
+    subgraph UX["Premium Admin UX"]
+        Dash["Dashboard IA"]
+        Visual["Visual System"]
+        Tips["HelpTip System"]
+        Concept["Generated Visual Concept"]
+    end
+
+    Admin --> Boundary
+    Auth --> Boundary
+    Boundary --> Cap
+    Boundary --> Approval
+    Approval --> Risk
+    Boundary --> Audit
+    Cap --> Audit
+    Approval --> Audit
+    Risk --> Audit
+    Dash --> Admin
+    Visual --> Admin
+    Tips --> Admin
+    Concept --> Visual
+    Book -. "baseline rules" .-> Boundary
+    CDR -. "unchanged invariant" .-> Admin

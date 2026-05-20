@@ -1,0 +1,27 @@
+flowchart TD
+    Shell["Admin Shell"]
+    Nav["Left Nav"]
+    Top["Top Status Bar"]
+    Overview["Overview Dashboard"]
+    PhantomView["PHANTOM Governance View"]
+    Tooltips["HelpTip Layer"]
+
+    Shell --> Nav
+    Shell --> Top
+    Shell --> Overview
+    Shell --> PhantomView
+    Shell --> Tooltips
+
+    Overview --> Health["System Health Strip"]
+    Overview --> Risk["Operator Risk Summary"]
+    Overview --> Queue["Action Required Queue"]
+    Overview --> Gov["PHANTOM Governance Status"]
+    Overview --> Audit["Recent Audit"]
+
+    PhantomView --> Boundary["Boundary Card"]
+    PhantomView --> Cap["Capability Registry"]
+    PhantomView --> Approval["Approval Queue"]
+    PhantomView --> Evidence["Evidence + Risk Register"]
+    Tooltips --> Boundary
+    Tooltips --> Approval
+    Tooltips --> Gov

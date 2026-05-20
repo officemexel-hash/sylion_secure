@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant Admin as Global Super Admin
+    participant UI as Admin Web
+    participant API as Admin API
+    participant Phantom as PHANTOM Governance Service
+    participant Gate as HUMAN GATE
+    participant Audit as Audit
+
+    Admin->>UI: Open PHANTOM view
+    UI->>API: GET /phantom/boundary
+    API->>Phantom: read boundary
+    Phantom->>Audit: phantom.boundary_read
+    API-->>UI: separate track, humanGateRequired true, sideEffectAllowed false
+
+    Admin->>UI: Create approval request
+    UI->>API: POST /phantom/approvals
+    API->>Phantom: create review record
+    Phantom->>Audit: phantom.approval_created
+    Phantom-->>Gate: requires Architect/CISO/Legal review
+    API-->>UI: pending review, no execution
+
+    Admin->>UI: Mark approved_placeholder
+    UI->>API: POST /phantom/approvals/:id/status
+    API->>Phantom: update status
+    Phantom->>Audit: phantom.approval_status_changed
+    API-->>UI: approved_placeholder, sideEffectAllowed false
