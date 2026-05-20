@@ -1,4 +1,7 @@
 import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { AuditService } from "./modules/audit/auditService.js";
 import { AuthService } from "./modules/auth/authService.js";
 import { RbacService } from "./modules/rbac/rbacService.js";
@@ -35,9 +38,44 @@ function send(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+function sendRaw(res, status, contentType, payload) {
+  res.writeHead(status, { "content-type": contentType });
+  res.end(payload);
+}
+
 function bearerToken(req) {
   const header = req.headers.authorization || "";
   return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
+}
+
+const WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/admin-web/", import.meta.url)));
+const STATIC_TYPES = Object.freeze({
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".svg": "image/svg+xml"
+});
+
+async function serveAdminWeb(url, res) {
+  const pathname = url.pathname === "/" || url.pathname === "/admin"
+    ? "/index.html"
+    : url.pathname.replace(/^\/admin/, "");
+  const filePath = resolve(WEB_ROOT, `.${decodeURIComponent(pathname)}`);
+  const relativePath = relative(WEB_ROOT, filePath);
+  if (relativePath.startsWith("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+    return false;
+  }
+  const ext = extname(filePath);
+  if (!STATIC_TYPES[ext]) {
+    return false;
+  }
+  try {
+    const file = await readFile(filePath);
+    sendRaw(res, 200, STATIC_TYPES[ext], file);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function createApp({ store = null } = {}) {
@@ -99,6 +137,12 @@ export function createApp({ store = null } = {}) {
     try {
       const url = new URL(req.url, "http://localhost");
       const correlationId = req.headers["x-correlation-id"];
+
+      if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/admin" || url.pathname.startsWith("/admin/"))) {
+        if (await serveAdminWeb(url, res)) {
+          return;
+        }
+      }
 
       if (req.method === "GET" && url.pathname === "/health") {
         return send(res, 200, { status: "ok", service: "admin-api" });

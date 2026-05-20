@@ -2,11 +2,17 @@
 
 Status na 2026-05-20.
 
-V1 jest zamrożone. Rozpoczęto V2: API SDK + SQLite persistence foundation.
-
-## Zaimplementowane Moduły Domenowe
+V1 jest zamrozone. V2 Step 1 i Step 2 sa zaimplementowane:
 
 ```text
+Step 1: API SDK + SQLite persistence foundation
+Step 2: Live Admin Shell served by Admin API under /admin
+```
+
+## Zaimplementowane Moduly Domenowe
+
+```text
+M01 Admin Shell / Frontend
 M02 Authentication
 M03 RBAC / Permissions
 M04 Tenant Management
@@ -29,18 +35,37 @@ M20 Orchestrator / Job Runner
 M21 Matrix Server Manager
 ```
 
-## Częściowo Zaimplementowane
+## Frontend V2 Step 2
 
 ```text
-M01 Admin Shell / Frontend
-  Istnieje statyczny shell w apps/admin-web. Pełne formularze i integracja live z API są kolejnym etapem.
+apps/admin-web/index.html
+apps/admin-web/styles.css
+apps/admin-web/app.js
 ```
 
-## Najważniejsze Testy
+Panel live obsluguje:
 
 ```text
+login global superadmin
+health/status API
+dashboard metryk
+tworzenie tenantow i operatorow
+dodawanie providerow bez ujawniania plaintext secret
+rejestracje Pixel / GrapheneOS, Puli AX i FIDO2
+generowanie provisioning planu
+uruchamianie orchestrator job
+podglad audit stream
+demo flow end-to-end z poziomu przegladarki
+```
+
+## Najwazniejsze Testy
+
+```text
+admin-web-static.test.js
+  Admin Web jest serwowany przez Admin API pod /admin.
+
 full-admin-human-flow.e2e.test.js
-  Pełny przepływ przez HTTP:
+  Pelny przeplyw przez HTTP:
   login -> tenant -> operator -> provider -> app -> CDR -> provisioning plan
   -> devices -> orchestrator -> inventory -> PKI -> image artifacts
   -> jurisdiction -> Matrix -> monitoring -> incident -> audit.
@@ -49,7 +74,8 @@ devices-images-orchestrator.test.js
   Device Inventory, Image Factory i Orchestrator.
 
 persistence-sdk.v2.test.js
-  V2 SDK + SQLite persistence. Test tworzy flow, restartuje aplikację i potwierdza, że dane oraz audit przetrwały.
+  V2 SDK + SQLite persistence. Test tworzy flow, restartuje aplikacje i potwierdza,
+  ze dane oraz audit przetrwaly.
 
 spine.e2e.test.js
   Minimalny integration spine.
@@ -58,36 +84,36 @@ apps-cdr.contract.test.js
   Authorized App Catalog i CDR.
 
 inventory-pki.contract.test.js
-  3 VPS per operator i lifecycle certyfikatów.
+  3 VPS per operator i lifecycle certyfikatow.
 
 monitoring-incidents.contract.test.js
-  Monitoring bez treści komunikacji i incydenty z runbookami.
+  Monitoring bez tresci komunikacji i incydenty z runbookami.
 
 providerRegistry.test.js / providers.e2e.test.js
-  Provider Registry i Secret Manager bez wycieku plaintext sekretów.
+  Provider Registry i Secret Manager bez wycieku plaintext sekretow.
 ```
 
-## Uruchomienie Testów
+## Uruchomienie Testow
 
-PowerShell blokuje `npm.ps1`, dlatego używamy:
+PowerShell blokuje `npm.ps1`, dlatego uzywamy:
 
 ```powershell
-node --test services/admin-api/test/*.test.js
+npm.cmd test
 ```
 
 Aktualny wynik:
 
 ```text
-24 tests
-24 passing
+25 tests
+25 passing
 0 failing
 ```
 
-## Następny Priorytet
+## Nastepny Priorytet
 
 ```text
-1. Rozbudować M01 Admin Shell do interaktywnego panelu live API.
-2. Rozszerzyć SQLite schema/repositories poza KV foundation.
-3. Dodać ProviderAdapter boundary dla mock/Hetzner/OVH.
-4. Dodać realny WebAuthn/FIDO2 zamiast dev flag fido2Verified.
+1. WebAuthn/FIDO2 enrollment and step-up security UX.
+2. Rozszerzyc SQLite schema/repositories poza KV foundation.
+3. Dodac ProviderAdapter boundary dla mock/Hetzner/OVH.
+4. Dodac realny WebAuthn/FIDO2 zamiast dev flag fido2Verified.
 ```

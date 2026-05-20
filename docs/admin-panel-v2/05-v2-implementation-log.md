@@ -2,7 +2,7 @@
 
 ## Step 1 - API SDK + SQLite Persistence Foundation
 
-Status: implemented  
+Status: implemented
 Data: 2026-05-20
 
 ### Zakres
@@ -112,7 +112,7 @@ npm.cmd test
 0 failing
 ```
 
-### Następny Krok
+### Nastepny Krok
 
 ```text
 V2-A Live Admin Shell with SDK
@@ -125,3 +125,50 @@ V2-D Provider Adapter Boundary
 V2-E Job Queue Runtime
 ```
 
+## Step 2 - Live Admin Shell
+
+Status: implemented
+Data: 2026-05-20
+
+### Zakres
+
+Zaimplementowano drugi krok V2:
+
+```text
+Admin Web serwowany przez Admin API pod /admin
+login do API z poziomu UI
+dashboard health/metrics/audit
+formularze tenant/operator/provider/device
+generowanie provisioning planu
+uruchamianie orchestrator job
+demo flow end-to-end z poziomu przegladarki
+```
+
+### Pliki
+
+```text
+apps/admin-web/index.html
+apps/admin-web/styles.css
+apps/admin-web/app.js
+apps/admin-web/README.md
+services/admin-api/src/app.js
+services/admin-api/test/admin-web-static.test.js
+```
+
+### Security Notes
+
+```text
+provider secret jest wysylany tylko przy zapisie i czyszczony z formularza
+UI pokazuje tylko secret reference, nie plaintext secret
+panel korzysta z tokenu sesji Admin API
+kazda operacja UI dodaje x-correlation-id
+audit pozostaje hash-chained
+CDR pozostaje oznaczone jako obowiazkowy invariant
+Puli AX nadal ma gate kwalifikacyjny do produkcji
+```
+
+### Następny Krok
+
+```text
+V2-B WebAuthn/FIDO2 enrollment and step-up security UX
+```

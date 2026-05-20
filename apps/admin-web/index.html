@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>SYLION Admin</title>
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="/admin/styles.css">
   </head>
   <body>
     <aside class="sidebar">
@@ -12,116 +12,278 @@
         <span class="mark">S</span>
         <div>
           <strong>SYLION</strong>
-          <small>Admin V1</small>
+          <small>Admin V2</small>
         </div>
       </div>
       <nav aria-label="Main">
-        <button class="active">Dashboard</button>
-        <button>Tenants</button>
-        <button>Operators</button>
-        <button>Provisioning</button>
-        <button>Devices</button>
-        <button>Infrastructure</button>
-        <button>Authorized Apps</button>
-        <button>CDR</button>
-        <button>Monitoring</button>
-        <button>Audit</button>
-        <button>Incidents</button>
-        <button>Security</button>
+        <button class="active" data-view="dashboard">Dashboard</button>
+        <button data-view="operators">Operators</button>
+        <button data-view="provisioning">Provisioning</button>
+        <button data-view="devices">Devices</button>
+        <button data-view="providers">Providers</button>
+        <button data-view="security">Security</button>
+        <button data-view="audit">Audit</button>
       </nav>
     </aside>
 
     <main>
       <header class="topbar">
         <div>
-          <h1>Dashboard</h1>
-          <p>Operational spine status for the SYLION Admin Panel.</p>
+          <h1 id="view-title">Dashboard</h1>
+          <p id="view-subtitle">Live Admin Shell connected to the SYLION Admin API.</p>
         </div>
         <div class="session">
-          <span>Global Super Admin</span>
-          <strong>Healthy</strong>
+          <span id="session-label">Not signed in</span>
+          <strong id="api-status">Checking API</strong>
         </div>
       </header>
 
-      <section class="metrics" aria-label="System metrics">
-        <article>
-          <span>Implemented modules</span>
-          <strong>20 / 21</strong>
-        </article>
-        <article>
-          <span>Tests passing</span>
-          <strong>23 / 23</strong>
-        </article>
-        <article>
-          <span>Baseline VPS</span>
-          <strong>3 per operator</strong>
-        </article>
-        <article>
-          <span>CDR policy</span>
-          <strong>Mandatory</strong>
-        </article>
+      <section class="login-panel" id="login-panel">
+        <form id="login-form" class="panel form-panel">
+          <div class="panel-head">
+            <h2>Admin Login</h2>
+            <span class="pill warn">Dev WebAuthn flag</span>
+          </div>
+          <label>
+            Email
+            <input name="email" value="admin@sylion.local" autocomplete="username">
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" value="ChangeMe-LocalOnly-1!" autocomplete="current-password">
+          </label>
+          <label class="check-row">
+            <input name="fido2Verified" type="checkbox" checked>
+            FIDO2 challenge verified
+          </label>
+          <button type="submit">Sign In</button>
+        </form>
       </section>
 
-      <section class="grid">
-        <article class="panel">
-          <div class="panel-head">
-            <h2>Operator Provisioning</h2>
-            <span class="pill">Ready</span>
-          </div>
-          <ol class="flow">
-            <li>Tenant</li>
-            <li>Operator</li>
-            <li>Provider</li>
-            <li>Plan</li>
-            <li>Devices</li>
-            <li>Orchestrator</li>
-          </ol>
-        </article>
+      <section id="app-shell" hidden>
+        <section class="metrics" aria-label="System metrics">
+          <article>
+            <span>Tenants</span>
+            <strong id="metric-tenants">0</strong>
+          </article>
+          <article>
+            <span>Operators</span>
+            <strong id="metric-operators">0</strong>
+          </article>
+          <article>
+            <span>Jobs</span>
+            <strong id="metric-jobs">0</strong>
+          </article>
+          <article>
+            <span>Audit Events</span>
+            <strong id="metric-audit">0</strong>
+          </article>
+        </section>
 
-        <article class="panel">
-          <div class="panel-head">
-            <h2>Security Controls</h2>
-            <span class="pill">Active</span>
-          </div>
-          <ul class="checks">
-            <li>FIDO2-aware admin login</li>
-            <li>RBAC and four-eyes flags</li>
-            <li>Hash-chained audit events</li>
-            <li>No plaintext provider secrets</li>
-            <li>No communication content in monitoring</li>
-          </ul>
-        </article>
+        <section class="toolbar">
+          <button id="refresh-button">Refresh</button>
+          <button id="demo-flow-button">Run Demo Flow</button>
+          <span id="toast" role="status"></span>
+        </section>
 
-        <article class="panel wide">
-          <div class="panel-head">
-            <h2>Module Map</h2>
-            <span class="pill warn">Next: full UI wiring</span>
-          </div>
-          <div class="modules">
-            <span>M02 Auth</span>
-            <span>M03 RBAC</span>
-            <span>M04 Tenants</span>
-            <span>M05 Operators</span>
-            <span>M06 Entitlements</span>
-            <span>M07 Plans</span>
-            <span>M08 Providers</span>
-            <span>M09 Inventory</span>
-            <span>M10 Devices</span>
-            <span>M11 Apps</span>
-            <span>M12 CDR</span>
-            <span>M13 Jurisdiction</span>
-            <span>M14 PKI</span>
-            <span>M15 Monitoring</span>
-            <span>M16 Audit</span>
-            <span>M17 Incidents</span>
-            <span>M18 Secrets</span>
-            <span>M19 Images</span>
-            <span>M20 Orchestrator</span>
-            <span>M21 Matrix</span>
-          </div>
-        </article>
+        <section class="grid view" data-view-panel="dashboard">
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Operator Provisioning</h2>
+              <span class="pill" id="flow-state">Ready</span>
+            </div>
+            <ol class="flow">
+              <li>Tenant</li>
+              <li>Operator</li>
+              <li>Provider</li>
+              <li>Devices</li>
+              <li>Plan</li>
+              <li>Job</li>
+            </ol>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Security Invariants</h2>
+              <span class="pill">Active</span>
+            </div>
+            <ul class="checks">
+              <li>3 isolated VPS per operator</li>
+              <li>CDR mandatory for file ingress/egress</li>
+              <li>Provider secrets are write-time only</li>
+              <li>Audit events are hash chained</li>
+              <li>Monitoring rejects communication content</li>
+            </ul>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Recent Audit</h2>
+              <span class="pill" id="audit-health">Live</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Action</th>
+                    <th>Resource</th>
+                    <th>Result</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-table"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="operators" hidden>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Create Tenant</h2>
+            </div>
+            <form id="tenant-form">
+              <label>Name <input name="name" value="Acme Secure Ops"></label>
+              <label>Tier
+                <select name="tier">
+                  <option>STANDARD</option>
+                  <option selected>PRO</option>
+                  <option>SOVEREIGN</option>
+                </select>
+              </label>
+              <button type="submit">Create Tenant</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Create Operator</h2>
+            </div>
+            <form id="operator-form">
+              <label>Tenant
+                <select name="tenantId" id="operator-tenant-select"></select>
+              </label>
+              <label>Display Name <input name="displayName" value="Operator One"></label>
+              <label>Tier
+                <select name="tier">
+                  <option>STANDARD</option>
+                  <option selected>PRO</option>
+                  <option>SOVEREIGN</option>
+                </select>
+              </label>
+              <button type="submit">Create Operator</button>
+            </form>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Operators</h2></div>
+            <div class="cards" id="operator-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="providers" hidden>
+          <article class="panel form-panel">
+            <div class="panel-head"><h2>Add Provider</h2></div>
+            <form id="provider-form">
+              <label>Provider
+                <select name="providerType">
+                  <option value="hetzner">Hetzner</option>
+                  <option value="ovh">OVH</option>
+                </select>
+              </label>
+              <label>API Secret <input name="apiSecret" type="password" value="dev-provider-secret"></label>
+              <label>Regions <input name="regions" value="fsn1,nbg1"></label>
+              <button type="submit">Save Provider</button>
+            </form>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Providers</h2></div>
+            <div class="cards" id="provider-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="devices" hidden>
+          <article class="panel form-panel">
+            <div class="panel-head"><h2>Register Device</h2></div>
+            <form id="device-form">
+              <label>Operator <select name="assignedOperatorId" id="device-operator-select"></select></label>
+              <label>Type
+                <select name="type">
+                  <option value="pixel_grapheneos">Pixel / GrapheneOS</option>
+                  <option value="puli_ax_router">Puli AX Router</option>
+                  <option value="fido2_key">FIDO2 Key</option>
+                </select>
+              </label>
+              <label>Serial <input name="serial" value="device-001"></label>
+              <label>Model <input name="model" value="Google Pixel"></label>
+              <button type="submit">Register Device</button>
+            </form>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Devices</h2></div>
+            <div class="cards" id="device-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="provisioning" hidden>
+          <article class="panel form-panel">
+            <div class="panel-head"><h2>Generate Plan</h2></div>
+            <form id="plan-form">
+              <label>Operator <select name="operatorId" id="plan-operator-select"></select></label>
+              <label>Apps <input name="requestedApps" value="Signal,Telegram"></label>
+              <button type="submit">Generate Plan</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head"><h2>Execute Job</h2></div>
+            <form id="job-form">
+              <label>Operator <select name="operatorId" id="job-operator-select"></select></label>
+              <label>Plan ID <input name="planId" id="job-plan-id"></label>
+              <label>Provider <input name="provider" value="hetzner"></label>
+              <label>Region <input name="region" value="fsn1"></label>
+              <button type="submit">Execute Plan</button>
+            </form>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Jobs</h2></div>
+            <div class="cards" id="job-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="security" hidden>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Security Posture</h2>
+              <span class="pill warn">V2 boundary</span>
+            </div>
+            <div class="modules">
+              <span>WebAuthn-compatible flow next</span>
+              <span>Provider secrets write-time only</span>
+              <span>SQLite persistence active</span>
+              <span>Orchestrator idempotency active</span>
+              <span>CDR mandatory</span>
+              <span>Puli AX qualification gate remains</span>
+            </div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="audit" hidden>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Audit Stream</h2></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Resource</th>
+                    <th>Decision</th>
+                    <th>Hash</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-full-table"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
       </section>
     </main>
+    <script type="module" src="/admin/app.js"></script>
   </body>
 </html>
-
