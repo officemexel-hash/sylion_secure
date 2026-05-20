@@ -1,0 +1,46 @@
+flowchart LR
+    subgraph Baseline["SYLION Baseline"]
+        Book["Ksiega 3.4"]
+        Auth["WebAuthn/RBAC"]
+        Audit["Audit Hash Chain"]
+        Monitor["Monitoring"]
+        Ent["Entitlements"]
+        Operators["Operators"]
+    end
+    subgraph Phantom["PHANTOM Separate Track Admin Lifecycle"]
+        Packages["Capability Packages"]
+        Policies["Policy Templates"]
+        Gates["Readiness Gates"]
+        Packs["Approval Packs"]
+        Evidence["Evidence Bundles"]
+        Sims["Simulation-Only Runner"]
+        Plans["Operator Planning"]
+        Corr["Audit/Monitoring Correlation"]
+    end
+    subgraph UI["Admin Web PHANTOM Lifecycle"]
+        Overview["Overview"]
+        Tabs["Lifecycle Tabs"]
+        Tips["HelpTips"]
+    end
+    Auth --> Packages
+    Ent --> Gates
+    Operators --> Plans
+    Packages --> Gates
+    Policies --> Gates
+    Evidence --> Gates
+    Gates --> Packs
+    Gates --> Sims
+    Packs --> Corr
+    Sims --> Corr
+    Corr --> Audit
+    Corr --> Monitor
+    Packages --> Tabs
+    Policies --> Tabs
+    Gates --> Tabs
+    Packs --> Tabs
+    Evidence --> Tabs
+    Sims --> Tabs
+    Plans --> Tabs
+    Corr --> Tabs
+    Tips --> Tabs
+    Book -. "separation rules" .-> Phantom

@@ -780,3 +780,46 @@ HUMAN GATE and sideEffectAllowed=false are visible
 ```text
 Step 3.5 Freeze / Step 3.6 Planning Package
 ```
+
+## Step 3.5 Freeze / Step 3.6 Planning Package
+
+Status: planned
+Data: 2026-05-20
+
+Zamrozono stan po:
+
+```text
+5a248bc Implement Step 3.5 PHANTOM governance
+```
+
+Dodano pakiet planistyczny kolejnego etapu:
+
+```text
+26-step3-5-freeze-and-step3-6-scope.md
+27-step3-6-masterplan.md
+28-step3-6-prompt-pack.md
+29-step3-6-graphs-roadmap.md
+STEP3_6_DIAGRAMS.md
+diagrams/32-step3-6-module-dependencies.mmd
+diagrams/33-step3-6-module-map.mmd
+diagrams/34-step3-6-deployment-graph.mmd
+diagrams/35-step3-6-runtime-flow.mmd
+diagrams/36-step3-6-gate-state-machine.mmd
+diagrams/37-step3-6-ui-lifecycle.mmd
+diagrams/38-step3-6-roadmap-gantt.mmd
+```
+
+Kolejny etap zostal zdefiniowany jako:
+
+```text
+V2 Step 3.6 - PHANTOM Full Administrative Lifecycle And Execution-Readiness Gates
+```
+
+Uwagi zgodnosci:
+
+```text
+Step 3.6 planuje pelny cykl administracyjny PHANTOM, nie operacyjne wykonanie.
+PHANTOM pozostaje separate track [A], poza certyfikowalnym baseline SYLION.
+Execution remains blocked by HUMAN GATE and baseline sideEffectAllowed=false.
+Zakazane szczegoly operacyjne pozostaja poza UI/API/docs.
+```

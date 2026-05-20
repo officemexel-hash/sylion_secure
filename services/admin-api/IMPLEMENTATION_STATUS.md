@@ -148,8 +148,9 @@ Aktualny wynik:
 ## Nastepny Priorytet
 
 ```text
-1. Zamrozic Step 3.5 i przygotowac Step 3.6 plan z grafami Mermaid.
-2. Podjac HUMAN GATE dla production WebAuthn attestation policy oraz jakiegokolwiek PHANTOM execution.
-3. Rozszerzyc premium Admin Web o pelne responsive visual QA.
-4. Rozszerzyc SQLite schema/repositories poza KV foundation.
+1. Wdrozyc Step 3.6 - PHANTOM Full Administrative Lifecycle And Execution-Readiness Gates.
+2. Zaczac od capability package builder i policy template library.
+3. Dodac readiness/gate engine, evidence bundles i approval packs.
+4. Dodac simulation-only runner, entitlement hooks, operator planning i audit correlation.
+5. Rozszerzyc PHANTOM UI o pelny lifecycle bez execution.
 ```

@@ -1,0 +1,20 @@
+flowchart TD
+    Browser["Admin Browser"]
+    Web["Admin Web /admin"]
+    API["Admin API"]
+    Phantom["PHANTOM Lifecycle Service"]
+    Store["SQLite Store"]
+    Audit["Audit Hash Chain"]
+    Monitoring["Monitoring Summary"]
+    Entitlements["Entitlement Service"]
+    Operators["Operator Service"]
+    HumanGate["HUMAN GATE<br/>Architect + CISO + Legal + Compliance"]
+    Browser --> Web
+    Web --> API
+    API --> Phantom
+    Phantom --> Store
+    Phantom --> Audit
+    Phantom --> Monitoring
+    Phantom --> Entitlements
+    Phantom --> Operators
+    Phantom -. "no baseline execution" .-> HumanGate

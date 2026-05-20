@@ -1,0 +1,10 @@
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> EvidenceMissing
+    EvidenceMissing --> ReviewRequired
+    ReviewRequired --> Blocked: rejected or prohibited detail
+    ReviewRequired --> PlaceholderApproved: human approval record
+    PlaceholderApproved --> ExecutionHeld: baseline sideEffectAllowed=false
+    ExecutionHeld --> HumanGateRequired
+    HumanGateRequired --> [*]
+    Blocked --> [*]

@@ -1,0 +1,19 @@
+gantt
+    title SYLION Admin V2 Step 3.6 Roadmap
+    dateFormat  YYYY-MM-DD
+    axisFormat  %d.%m
+    section PHANTOM Lifecycle Core
+    S3.6-A Capability Packages                :a1, 2026-05-20, 2d
+    S3.6-B Policy Templates                   :b1, 2026-05-20, 2d
+    S3.6-E Evidence Bundles                   :e1, after a1, 2d
+    S3.6-C Readiness Gates                    :c1, after e1, 3d
+    S3.6-D Approval Packs                     :d1, after c1, 2d
+    section Integrations
+    S3.6-F Simulation Runner                  :f1, after c1, 2d
+    S3.6-G Entitlement Hooks                  :g1, after b1, 2d
+    S3.6-H Operator Planning                  :h1, after g1, 2d
+    S3.6-I Monitoring Correlation             :i1, after d1, 2d
+    section UI And Validation
+    S3.6-J Admin UX Lifecycle                 :j1, after i1, 3d
+    S3.6-K Tests                              :k1, after j1, 2d
+    Stabilization                             :r1, after k1, 1d

@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant Admin as Global Super Admin
+    participant UI as Admin Web
+    participant API as Admin API
+    participant Phantom as PHANTOM Lifecycle Service
+    participant Gate as Readiness Gate Engine
+    participant Audit as Audit
+    participant Human as HUMAN GATE
+    Admin->>UI: Create capability package
+    UI->>API: POST /phantom/packages
+    API->>Phantom: store package metadata
+    Phantom->>Audit: phantom.package_created
+    API-->>UI: package, executionEnabled=false
+    Admin->>UI: Evaluate readiness
+    UI->>API: POST /phantom/readiness/evaluate
+    API->>Gate: score approvals/evidence/entitlements/operator posture
+    Gate-->>API: readinessScore, blockingGates, executionAllowed=false
+    API-->>UI: readiness report
+    Admin->>UI: Build approval pack
+    UI->>API: POST /phantom/approval-packs
+    API->>Phantom: compile safe evidence summary
+    Phantom->>Audit: phantom.approval_pack_created
+    Phantom-->>Human: review required
+    API-->>UI: approval pack placeholder

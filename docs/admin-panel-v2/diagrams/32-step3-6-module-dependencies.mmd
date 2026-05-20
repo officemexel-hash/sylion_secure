@@ -1,0 +1,36 @@
+flowchart TD
+    Freeze["Step 3.5 Freeze<br/>PHANTOM Governance"]
+    A["S3.6-A Capability Package Builder"]
+    B["S3.6-B Policy Template Library"]
+    C["S3.6-C Readiness And Gate Engine"]
+    D["S3.6-D Approval Pack Builder"]
+    E["S3.6-E Evidence Bundle Store"]
+    F["S3.6-F Simulation-Only Risk Runner"]
+    G["S3.6-G Entitlement And Tier Hooks"]
+    H["S3.6-H Operator Assignment Planning"]
+    I["S3.6-I Monitoring And Audit Correlation"]
+    J["S3.6-J Admin UX Full Lifecycle"]
+    K["S3.6-K Security Compliance Tests"]
+    Release["Step 3.6 Release Gate"]
+    Freeze --> A
+    Freeze --> B
+    A --> C
+    B --> C
+    E --> C
+    G --> C
+    H --> C
+    C --> D
+    C --> F
+    D --> I
+    E --> I
+    F --> I
+    A --> J
+    B --> J
+    C --> J
+    D --> J
+    E --> J
+    F --> J
+    H --> J
+    I --> J
+    J --> K
+    K --> Release
