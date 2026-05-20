@@ -78,9 +78,9 @@ async function serveAdminWeb(url, res) {
   }
 }
 
-export function createApp({ store = null } = {}) {
+export function createApp({ store = null, authOptions = {} } = {}) {
   const audit = new AuditService({ store });
-  const auth = new AuthService({ audit, store });
+  const auth = new AuthService({ audit, store, ...authOptions });
   const rbac = new RbacService({ audit });
   const entitlements = new EntitlementService({ audit });
   const tenants = new TenantService({ audit, rbac, entitlements, store });
@@ -154,7 +154,50 @@ export function createApp({ store = null } = {}) {
         return send(res, 200, { session });
       }
 
+      if (req.method === "POST" && url.pathname === "/auth/webauthn/enrollment/options") {
+        const body = await readJson(req);
+        const result = auth.createEnrollmentOptions({ ...body, correlationId });
+        return send(res, 201, result);
+      }
+
+      if (req.method === "POST" && url.pathname === "/auth/webauthn/enrollment/verify") {
+        const body = await readJson(req);
+        const result = auth.verifyEnrollment({ ...body, correlationId });
+        return send(res, 201, result);
+      }
+
+      if (req.method === "POST" && url.pathname === "/auth/webauthn/login/options") {
+        const body = await readJson(req);
+        const result = auth.createLoginOptions({ ...body, correlationId });
+        return send(res, 201, result);
+      }
+
+      if (req.method === "POST" && url.pathname === "/auth/webauthn/login/verify") {
+        const body = await readJson(req);
+        const session = auth.verifyLogin({ ...body, correlationId });
+        return send(res, 200, { session });
+      }
+
       const actor = auth.actorFromToken(bearerToken(req));
+
+      if (req.method === "GET" && url.pathname === "/auth/session") {
+        return send(res, 200, { session: auth.sessionFromActor(actor) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/auth/logout") {
+        return send(res, 200, auth.logout({ actor, correlationId }));
+      }
+
+      if (req.method === "POST" && url.pathname === "/auth/step-up/options") {
+        const result = auth.createStepUpOptions({ actor, correlationId });
+        return send(res, 201, result);
+      }
+
+      if (req.method === "POST" && url.pathname === "/auth/step-up/verify") {
+        const body = await readJson(req);
+        const session = auth.verifyStepUp({ actor, ...body, correlationId });
+        return send(res, 200, { session });
+      }
 
       if (req.method === "GET" && url.pathname === "/audit/events") {
         rbac.assert(actor, "audit.read", { correlationId });

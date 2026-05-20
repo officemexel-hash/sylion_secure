@@ -2,11 +2,12 @@
 
 Status na 2026-05-20.
 
-V1 jest zamrozone. V2 Step 1 i Step 2 sa zaimplementowane:
+V1 jest zamrozone. V2 Step 1, Step 2 i pierwszy slice Step 3 sa zaimplementowane:
 
 ```text
 Step 1: API SDK + SQLite persistence foundation
 Step 2: Live Admin Shell served by Admin API under /admin
+Step 3.1: WebAuthn-compatible auth API, challenge store, credential registry, session and step-up endpoints
 ```
 
 ## Zaimplementowane Moduly Domenowe
@@ -35,7 +36,7 @@ M20 Orchestrator / Job Runner
 M21 Matrix Server Manager
 ```
 
-## Frontend V2 Step 2
+## Frontend V2 Step 2 / Step 3.1
 
 ```text
 apps/admin-web/index.html
@@ -46,7 +47,7 @@ apps/admin-web/app.js
 Panel live obsluguje:
 
 ```text
-login global superadmin
+WebAuthn-compatible enrollment/login przez lokalny simulator
 health/status API
 dashboard metryk
 tworzenie tenantow i operatorow
@@ -56,6 +57,7 @@ generowanie provisioning planu
 uruchamianie orchestrator job
 podglad audit stream
 demo flow end-to-end z poziomu przegladarki
+session status security view
 ```
 
 ## Najwazniejsze Testy
@@ -63,6 +65,10 @@ demo flow end-to-end z poziomu przegladarki
 ```text
 admin-web-static.test.js
   Admin Web jest serwowany przez Admin API pod /admin.
+
+auth-webauthn-step3.test.js
+  WebAuthn-compatible enrollment/login, challenge replay, expired challenge,
+  missing credential, session-bound step-up i leakage checks.
 
 full-admin-human-flow.e2e.test.js
   Pelny przeplyw przez HTTP:
@@ -104,16 +110,16 @@ npm.cmd test
 Aktualny wynik:
 
 ```text
-25 tests
-25 passing
+30 tests
+30 passing
 0 failing
 ```
 
 ## Nastepny Priorytet
 
 ```text
-1. WebAuthn/FIDO2 enrollment and step-up security UX.
+1. Wymusic step-up policy na orchestrator/provider secret rotation.
 2. Rozszerzyc SQLite schema/repositories poza KV foundation.
 3. Dodac ProviderAdapter boundary dla mock/Hetzner/OVH.
-4. Dodac realny WebAuthn/FIDO2 zamiast dev flag fido2Verified.
+4. Podmienic local WebAuthn simulator na realny browser WebAuthn binding.
 ```

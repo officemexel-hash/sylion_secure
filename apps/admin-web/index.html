@@ -42,21 +42,21 @@
         <form id="login-form" class="panel form-panel">
           <div class="panel-head">
             <h2>Admin Login</h2>
-            <span class="pill warn">Dev WebAuthn flag</span>
+            <span class="pill warn">Local FIDO2 simulator</span>
           </div>
           <label>
             Email
-            <input name="email" value="admin@sylion.local" autocomplete="username">
+            <input name="email" value="admin@sylion.local" autocomplete="username" required>
           </label>
           <label>
             Password
-            <input name="password" type="password" value="ChangeMe-LocalOnly-1!" autocomplete="current-password">
+            <input name="password" type="password" placeholder="Password" autocomplete="current-password" required>
           </label>
-          <label class="check-row">
-            <input name="fido2Verified" type="checkbox" checked>
-            FIDO2 challenge verified
-          </label>
-          <button type="submit">Sign In</button>
+          <div class="button-row">
+            <button type="button" id="enroll-button" class="secondary">Enroll FIDO2</button>
+            <button type="submit">Sign In</button>
+          </div>
+          <span id="login-toast" role="status"></span>
         </form>
       </section>
 
@@ -187,7 +187,7 @@
                   <option value="ovh">OVH</option>
                 </select>
               </label>
-              <label>API Secret <input name="apiSecret" type="password" value="dev-provider-secret"></label>
+              <label>API Secret <input name="apiSecret" type="password" placeholder="Provider API secret" required></label>
               <label>Regions <input name="regions" value="fsn1,nbg1"></label>
               <button type="submit">Save Provider</button>
             </form>
@@ -253,13 +253,20 @@
               <span class="pill warn">V2 boundary</span>
             </div>
             <div class="modules">
-              <span>WebAuthn-compatible flow next</span>
+              <span>WebAuthn-compatible flow active</span>
               <span>Provider secrets write-time only</span>
               <span>SQLite persistence active</span>
               <span>Orchestrator idempotency active</span>
               <span>CDR mandatory</span>
               <span>Puli AX qualification gate remains</span>
             </div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Session</h2>
+              <span class="pill" id="session-state">Checking</span>
+            </div>
+            <div class="cards" id="session-cards"></div>
           </article>
         </section>
 

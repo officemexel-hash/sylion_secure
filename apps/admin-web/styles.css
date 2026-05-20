@@ -164,11 +164,21 @@ label {
   margin-bottom: 18px;
 }
 
+.button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .toolbar span {
   min-height: 22px;
 }
 
 #toast[data-tone="error"] {
+  color: var(--danger);
+}
+
+#login-toast[data-tone="error"] {
   color: var(--danger);
 }
 
@@ -320,6 +330,15 @@ button {
 
 button:hover {
   background: #0b625a;
+}
+
+button.secondary {
+  color: var(--accent-dark);
+  background: #eef8f6;
+}
+
+button.secondary:hover {
+  background: #d9f2ed;
 }
 
 .table-wrap {

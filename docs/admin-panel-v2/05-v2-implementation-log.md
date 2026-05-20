@@ -198,3 +198,87 @@ Kolejny etap zostal zdefiniowany jako:
 ```text
 V2 Step 3 - WebAuthn/FIDO2 And Step-up Security
 ```
+
+## Step 3.1 - WebAuthn-Compatible Auth Core
+
+Status: implemented
+Data: 2026-05-20
+
+### Zakres
+
+Zaimplementowano pierwszy slice Step 3:
+
+```text
+WebAuthn-compatible enrollment options/verify
+WebAuthn-compatible login options/verify
+Challenge Store z TTL, single-use i replay protection
+Credential Registry bez private key / PIN / biometric data
+Session introspection endpoint
+Logout endpoint
+Step-up options/verify endpoint
+Local WebAuthn simulator boundary dla dev/test
+Admin Web enrollment/login przez nowy flow
+Security session card w panelu
+```
+
+### Endpointy
+
+```text
+POST /auth/webauthn/enrollment/options
+POST /auth/webauthn/enrollment/verify
+POST /auth/webauthn/login/options
+POST /auth/webauthn/login/verify
+GET  /auth/session
+POST /auth/logout
+POST /auth/step-up/options
+POST /auth/step-up/verify
+```
+
+### Pliki
+
+```text
+services/admin-api/src/modules/auth/authService.js
+services/admin-api/src/app.js
+services/admin-api/src/sdk/adminApiClient.js
+services/admin-api/test/auth-webauthn-step3.test.js
+apps/admin-web/index.html
+apps/admin-web/styles.css
+apps/admin-web/app.js
+```
+
+### Security Notes
+
+```text
+dev flaga fido2Verified nie jest juz publicznym login flow panelu
+challenge jest single-use
+challenge ma TTL
+replay challenge jest blokowany i audytowany
+step-up challenge jest przypisany do konkretnej sesji
+credential registry nie zwraca private key, PIN ani biometric data
+UI nie pokazuje hasla ani simulated public key po loginie
+```
+
+### Test
+
+```text
+npm.cmd test
+30 tests
+30 passing
+0 failing
+```
+
+### Browser Verification
+
+```text
+/admin
+Enroll FIDO2
+Sign In
+Run Demo Flow
+secret leakage visible in UI: false
+```
+
+### Nastepny Krok
+
+```text
+Step 3.2 - enforce step-up policy on orchestrator execute job and provider secret rotation
+```

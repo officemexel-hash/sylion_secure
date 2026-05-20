@@ -8,7 +8,8 @@ const state = {
   jobs: [],
   audit: [],
   lastPlanId: null,
-  lastPlanOperatorId: null
+  lastPlanOperatorId: null,
+  credentialId: localStorage.getItem("sylion.admin.credentialId") || null
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -16,8 +17,15 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 function toast(message, tone = "info") {
   const target = $("#toast");
-  target.textContent = message;
-  target.dataset.tone = tone;
+  if (target) {
+    target.textContent = message;
+    target.dataset.tone = tone;
+  }
+  const loginTarget = $("#login-toast");
+  if (loginTarget) {
+    loginTarget.textContent = message;
+    loginTarget.dataset.tone = tone;
+  }
 }
 
 function headers(extra = {}) {
@@ -76,12 +84,23 @@ function escapeHtml(value) {
 async function login(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  const result = await api("/auth/login", {
+  const options = await api("/auth/webauthn/login/options", {
     method: "POST",
     body: {
       email: data.email,
-      password: data.password,
-      fido2Verified: data.fido2Verified === "on"
+      password: data.password
+    }
+  });
+  const credentialId = options.challenge.publicKey.allowCredentials?.[0]?.id || state.credentialId;
+  if (!credentialId) {
+    throw new Error("Enroll a FIDO2 credential before signing in");
+  }
+  const result = await api("/auth/webauthn/login/verify", {
+    method: "POST",
+    body: {
+      challengeId: options.challenge.id,
+      credentialId,
+      assertion: simulatedAssertion(options.challenge.id, credentialId)
     }
   });
   state.session = result.session;
@@ -91,14 +110,15 @@ async function login(event) {
   $("#login-panel").hidden = true;
   $("#app-shell").hidden = false;
   $("#session-label").textContent = `${result.session.role}`;
-  toast("Signed in");
+  toast("Signed in with WebAuthn-compatible challenge");
   await refreshAll();
 }
 
 async function refreshAll() {
   if (!state.token) return;
-  const [health, tenants, operators, providers, devices, jobs, audit] = await Promise.all([
+  const [health, session, tenants, operators, providers, devices, jobs, audit] = await Promise.all([
     api("/health"),
+    api("/auth/session"),
     api("/tenants"),
     api("/operators"),
     api("/providers"),
@@ -107,6 +127,7 @@ async function refreshAll() {
     api("/audit/events")
   ]);
   $("#api-status").textContent = health.status === "ok" ? "API Healthy" : "API Degraded";
+  state.session = session.session;
   state.tenants = tenants.tenants;
   state.operators = operators.operators;
   state.providers = providers.providers;
@@ -121,6 +142,7 @@ function render() {
   $("#metric-operators").textContent = state.operators.length;
   $("#metric-jobs").textContent = state.jobs.length;
   $("#metric-audit").textContent = state.audit.length;
+  $("#session-state").textContent = state.session?.authMethod || "Unknown";
 
   renderSelect("#operator-tenant-select", state.tenants, "No tenants");
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
@@ -154,6 +176,13 @@ function render() {
     ["Steps", String(job.steps?.length || 0)],
     ["Rollback", String(job.rollbackPlan?.length || 0)]
   ])).join("") || empty("No jobs yet.");
+
+  $("#session-cards").innerHTML = state.session ? card(state.session.email, [
+    ["Role", state.session.role],
+    ["Auth", state.session.authMethod],
+    ["Expires", state.session.expiresAt],
+    ["Step-up", state.session.stepUpValidUntil]
+  ]) : empty("No active session.");
 
   const recent = state.audit.slice(-8).reverse();
   $("#audit-table").innerHTML = recent.map((event) => `
@@ -197,6 +226,40 @@ async function createTenant(event) {
   await api("/tenants", { method: "POST", body: data });
   toast("Tenant created");
   await refreshAll();
+}
+
+function simulatedAssertion(challengeId, credentialId, signCounter = Date.now()) {
+  return {
+    signature: `simulated:${challengeId}:${credentialId}`,
+    signCounter
+  };
+}
+
+async function enrollSecurityKey() {
+  const form = $("#login-form");
+  const data = formData(form);
+  const options = await api("/auth/webauthn/enrollment/options", {
+    method: "POST",
+    body: {
+      email: data.email,
+      password: data.password
+    }
+  });
+  const credentialId = state.credentialId || `cred-ui-${crypto.randomUUID()}`;
+  const result = await api("/auth/webauthn/enrollment/verify", {
+    method: "POST",
+    body: {
+      challengeId: options.challenge.id,
+      credential: {
+        id: credentialId,
+        publicKey: `simulated-public-key:${credentialId}`,
+        transports: ["usb", "nfc"]
+      }
+    }
+  });
+  state.credentialId = result.credential.id;
+  localStorage.setItem("sylion.admin.credentialId", result.credential.id);
+  toast("FIDO2 credential enrolled locally");
 }
 
 async function createOperator(event) {
@@ -372,6 +435,7 @@ function setView(name) {
 
 function bind() {
   $("#login-form").addEventListener("submit", (event) => login(event).catch(showError));
+  $("#enroll-button").addEventListener("click", () => enrollSecurityKey().catch(showError));
   $("#tenant-form").addEventListener("submit", (event) => createTenant(event).catch(showError));
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
@@ -402,7 +466,18 @@ async function boot() {
     $("#login-panel").hidden = true;
     $("#app-shell").hidden = false;
     $("#session-label").textContent = state.session.role;
-    await refreshAll().catch(showError);
+    try {
+      await refreshAll();
+    } catch (error) {
+      sessionStorage.removeItem("sylion.admin.session");
+      sessionStorage.removeItem("sylion.admin.token");
+      state.session = null;
+      state.token = null;
+      $("#login-panel").hidden = false;
+      $("#app-shell").hidden = true;
+      $("#session-label").textContent = "Not signed in";
+      showError(error);
+    }
   }
 }
 

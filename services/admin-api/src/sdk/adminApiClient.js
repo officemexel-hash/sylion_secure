@@ -42,6 +42,39 @@ export class AdminApiClient {
     return payload.session;
   }
 
+  createEnrollmentOptions(body) {
+    return this.request("/auth/webauthn/enrollment/options", { method: "POST", body });
+  }
+
+  verifyEnrollment(body) {
+    return this.request("/auth/webauthn/enrollment/verify", { method: "POST", body });
+  }
+
+  createWebAuthnLoginOptions(body) {
+    return this.request("/auth/webauthn/login/options", { method: "POST", body });
+  }
+
+  async verifyWebAuthnLogin(body) {
+    const payload = await this.request("/auth/webauthn/login/verify", { method: "POST", body });
+    return payload.session;
+  }
+
+  getSession() {
+    return this.request("/auth/session");
+  }
+
+  logout() {
+    return this.request("/auth/logout", { method: "POST" });
+  }
+
+  createStepUpOptions() {
+    return this.request("/auth/step-up/options", { method: "POST" });
+  }
+
+  verifyStepUp(body) {
+    return this.request("/auth/step-up/verify", { method: "POST", body });
+  }
+
   createTenant(body) {
     return this.request("/tenants", { method: "POST", body });
   }
@@ -74,4 +107,3 @@ export class AdminApiClient {
     return this.request("/audit/events");
   }
 }
-

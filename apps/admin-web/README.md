@@ -8,10 +8,10 @@ Panel jest serwowany przez Admin API:
 http://127.0.0.1:8080/admin
 ```
 
-Zakres kroku 2:
+Zakres live panelu:
 
 ```text
-login global superadmin
+WebAuthn-compatible enrollment/login przez lokalny simulator
 health/status API
 tworzenie tenantow i operatorow
 dodawanie providerow bez wyswietlania plaintext secret
