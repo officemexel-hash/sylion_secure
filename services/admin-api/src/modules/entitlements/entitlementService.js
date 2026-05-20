@@ -4,23 +4,29 @@ import { validationError } from "../../lib/errors.js";
 export const TIER_LIMITS = Object.freeze({
   [TIERS.STANDARD]: {
     maxWorkloadEnvironments: 3,
+    maxAppsPerOperator: 3,
     regionCount: 2,
     jurisdictionRotation: "limited_manual",
     matrixAddonAvailable: true,
+    phantomAdminLifecycleAvailable: false,
     cdrMandatory: true
   },
   [TIERS.PRO]: {
     maxWorkloadEnvironments: 10,
+    maxAppsPerOperator: 5,
     regionCount: 5,
     jurisdictionRotation: "scheduled",
     matrixAddonAvailable: true,
+    phantomAdminLifecycleAvailable: true,
     cdrMandatory: true
   },
   [TIERS.SOVEREIGN]: {
     maxWorkloadEnvironments: 30,
+    maxAppsPerOperator: 10,
     regionCount: "custom",
     jurisdictionRotation: "full_policy",
     matrixAddonAvailable: true,
+    phantomAdminLifecycleAvailable: true,
     cdrMandatory: true
   }
 });
@@ -50,4 +56,3 @@ export class EntitlementService {
     return true;
   }
 }
-

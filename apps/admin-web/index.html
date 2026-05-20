@@ -19,6 +19,7 @@
         <button class="active" data-view="dashboard">Overview</button>
         <button data-view="operators">Operators</button>
         <button data-view="provisioning">Provisioning</button>
+        <button data-view="subscriptions">Subscriptions</button>
         <button data-view="devices">Devices</button>
         <button data-view="providers">Providers</button>
         <button data-view="security">Security</button>
@@ -270,6 +271,144 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Jobs</h2></div>
             <div class="cards" id="job-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="subscriptions" hidden>
+          <article class="panel wide command-panel">
+            <div>
+              <span class="eyebrow">Step 3.7</span>
+              <h2>Subscription and workload controls <span class="help-tip" tabindex="0" data-tip="Controls workload counts before provisioning. Quotes deny over-limit requests without side effects.">?</span></h2>
+            </div>
+            <div class="command-grid">
+              <span>Quota before allocation</span>
+              <span>Billing blocks new work</span>
+              <span>PHANTOM stays non-executable</span>
+            </div>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Approved App <span class="help-tip" tabindex="0" data-tip="Creates an authorized app catalog entry and approves it for workload allocation. CDR remains mandatory.">?</span></h2>
+              <span class="pill">CDR required</span>
+            </div>
+            <form id="approved-app-form">
+              <label>Name <input name="name" value="Signal Workload"></label>
+              <label>Type
+                <select name="type">
+                  <option selected>messaging</option>
+                  <option>productivity</option>
+                  <option>custom</option>
+                </select>
+              </label>
+              <label>Risk
+                <select name="riskClass">
+                  <option>low</option>
+                  <option selected>medium</option>
+                  <option>high</option>
+                </select>
+              </label>
+              <label>Allowed tiers <input name="allowedTiers" value="STANDARD,PRO,SOVEREIGN"></label>
+              <div class="triple">
+                <label>vCPU <input name="vcpu" value="2"></label>
+                <label>Memory MiB <input name="memoryMiB" value="2048"></label>
+                <label>Disk MiB <input name="diskMiB" value="8192"></label>
+              </div>
+              <button type="submit">Create Approved App</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Subscription <span class="help-tip" tabindex="0" data-tip="Assigns plan and add-ons to a tenant. PHANTOM add-on exposes admin lifecycle visibility only, never execution.">?</span></h2>
+              <span class="pill">Tenant ledger</span>
+            </div>
+            <form id="subscription-form">
+              <label>Tenant <select name="tenantId" id="subscription-tenant-select"></select></label>
+              <label>Plan <select name="planId" id="subscription-plan-select"></select></label>
+              <label class="check-row"><input type="checkbox" name="matrixAddon"> Matrix custom server add-on</label>
+              <label class="check-row"><input type="checkbox" name="phantomAddon"> PHANTOM admin lifecycle add-on</label>
+              <button type="submit">Update Subscription</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Billing State <span class="help-tip" tabindex="0" data-tip="Suspended billing blocks new allocations and provisioning but does not delete audit or evidence.">?</span></h2>
+              <span class="pill warn">No deletion</span>
+            </div>
+            <form id="billing-form">
+              <label>Tenant <select name="tenantId" id="billing-tenant-select"></select></label>
+              <label>Billing
+                <select name="billingStatus">
+                  <option>trial</option>
+                  <option selected>active</option>
+                  <option>past_due</option>
+                  <option>suspended</option>
+                  <option>cancelled</option>
+                </select>
+              </label>
+              <button type="submit">Set Billing State</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Quota Quote <span class="help-tip" tabindex="0" data-tip="Dry-run check. It counts app instances and records allow/deny without creating workload allocation.">?</span></h2>
+              <span class="pill">No side effects</span>
+            </div>
+            <form id="workload-quote-form">
+              <label>Operator <select name="operatorId" id="workload-quote-operator-select"></select></label>
+              <label>App <select name="appId" id="workload-quote-app-select"></select></label>
+              <label>Instances <input name="requestedCount" value="2"></label>
+              <button type="submit">Quote Allocation</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Allocation <span class="help-tip" tabindex="0" data-tip="Creates workload allocation metadata only after quota allows it. Actual Firecracker execution is not performed here.">?</span></h2>
+              <span class="pill">Metadata only</span>
+            </div>
+            <form id="workload-allocation-form">
+              <label>Operator <select name="operatorId" id="workload-allocation-operator-select"></select></label>
+              <label>App <select name="appId" id="workload-allocation-app-select"></select></label>
+              <label>Instances <input name="requestedCount" value="1"></label>
+              <button type="submit">Create Allocation</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>MicroVM Placement <span class="help-tip" tabindex="0" data-tip="Plans placement on the operator's WORKLOAD layer. It never starts Firecracker or mutates cloud resources.">?</span></h2>
+              <span class="pill">Plan only</span>
+            </div>
+            <form id="placement-form">
+              <label>Operator <select name="operatorId" id="placement-operator-select"></select></label>
+              <label>Allocation <select name="allocationId" id="placement-allocation-select"></select></label>
+              <button type="submit">Create Placement Plan</button>
+            </form>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-head"><h2>Plans</h2><span class="pill">Limits</span></div>
+            <div class="cards" id="subscription-plan-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Tenant Subscriptions</h2><span class="pill">Effective limits</span></div>
+            <div class="cards" id="tenant-subscription-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Approved Apps</h2><span class="pill">Catalog</span></div>
+            <div class="cards" id="app-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Workload Allocations</h2><span class="pill">App instances</span></div>
+            <div class="cards" id="workload-allocation-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Quota Decisions</h2><span class="pill">Audit-ready</span></div>
+            <div class="cards" id="quota-decision-cards"></div>
           </article>
         </section>
 

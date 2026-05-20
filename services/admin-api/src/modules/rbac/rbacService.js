@@ -9,6 +9,11 @@ const ROLE_PERMISSIONS = Object.freeze({
     "operator.revoke",
     "provider.read",
     "provider.secret.rotate",
+    "subscription.read",
+    "subscription.manage",
+    "workload.allocation.read",
+    "workload.allocation.manage",
+    "workload.placement.plan",
     "secret.rotate",
     "device.read",
     "device.register",
@@ -45,6 +50,10 @@ const ROLE_PERMISSIONS = Object.freeze({
     "tenant.read",
     "operator.read",
     "operator.create",
+    "subscription.read",
+    "workload.allocation.read",
+    "workload.allocation.manage",
+    "workload.placement.plan",
     "provider.read",
     "provider.create",
     "secret.create",
@@ -58,11 +67,11 @@ const ROLE_PERMISSIONS = Object.freeze({
     "provisioning.plan.read",
     "provisioning.plan.generate"
   ],
-  [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create"],
-  [ROLES.BILLING_ADMIN]: ["tenant.read", "subscription.update"],
+  [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create", "subscription.read", "workload.allocation.read"],
+  [ROLES.BILLING_ADMIN]: ["tenant.read", "subscription.read", "subscription.manage"],
   [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "provider.read"],
   [ROLES.INCIDENT_COMMANDER]: ["incident.manage", "operator.suspend"],
-  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "provider.read"]
+  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "provider.read", "subscription.read", "workload.allocation.read"]
 });
 
 export class RbacService {

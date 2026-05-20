@@ -414,6 +414,12 @@ label {
   gap: 12px;
 }
 
+.triple {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
 label {
   display: grid;
   gap: 5px;
@@ -540,7 +546,8 @@ code {
   .grid,
   .metrics,
   .status-strip,
-  .command-grid {
+  .command-grid,
+  .triple {
     grid-template-columns: 1fr;
   }
 

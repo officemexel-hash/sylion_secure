@@ -2,7 +2,7 @@
 
 Status na 2026-05-20.
 
-V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2, Step 3.3, Step 3.4, Step 3.5 i Step 3.6 sa zaimplementowane:
+V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2, Step 3.3, Step 3.4, Step 3.5, Step 3.6 i Step 3.7 sa zaimplementowane:
 
 ```text
 Step 1: API SDK + SQLite persistence foundation
@@ -13,6 +13,7 @@ Step 3.3: Recovery request workflow, account lockout and break-glass placeholder
 Step 3.4: WebAuthn verifier boundary, credential lifecycle and auth hardening
 Step 3.5: PHANTOM governance-only boundary and premium admin UX foundation
 Step 3.6: PHANTOM full administrative lifecycle and execution-readiness gates
+Step 3.7: Subscription, workload environment and billing controls
 ```
 
 ## Zaimplementowane Moduly Domenowe
@@ -73,6 +74,8 @@ PHANTOM governance boundary as separate track
 PHANTOM capability/approval/risk governance records without execution
 PHANTOM policy templates, packages, evidence bundles, approval packs and readiness gates
 PHANTOM simulation-only runs, subscription-aware assignment planning and audit correlation
+subscription plan catalog, tenant subscription ledger, workload quota and billing state controls
+authorized app workload allocations and microVM placement planning
 premium dashboard status strip and HelpTip anchors
 ```
 
@@ -107,6 +110,11 @@ phantom-lifecycle-step3-6.test.js
   PHANTOM policy templates, capability packages, evidence bundles, approval packs,
   readiness gate, simulation-only runner, tier-aware assignment plans, audit correlation,
   RBAC denial, prohibited operational detail rejection and no execution enablement.
+
+subscriptions-workloads-step3-7.test.js
+  Subscription plan catalog, tenant subscription ledger, quota allow/deny, workload allocation,
+  microVM placement planning, Matrix add-on gate, PHANTOM admin lifecycle non-execution,
+  billing suspension and audit preservation.
 
 full-admin-human-flow.e2e.test.js
   Pelny przeplyw przez HTTP:
@@ -148,18 +156,25 @@ npm.cmd test
 Aktualny wynik:
 
 ```text
-45 tests
-45 passing
+49 tests
+49 passing
 0 failing
+```
+
+## Dashboard / Human Browser Tests
+
+```text
+manual-tests/step3-7-dashboard-playwright-checklist.md
+  Live /admin dashboard test through browser automation:
+  login, tenant/operator creation, subscription view, approved app, add-ons,
+  quota quote, workload allocation, microVM placement and suspended billing denial.
 ```
 
 ## Nastepny Priorytet
 
 ```text
-1. Wdrozyc Step 3.7 - Subscription, Workload Environment And Billing Controls.
-2. Zaczac od subscription plan catalog i tenant subscription ledger.
-3. Dodac workload quota engine, authorized app allocation matrix i microVM placement planner.
-4. Dodac add-on manager dla Matrix oraz PHANTOM admin lifecycle visibility bez execution.
-5. Rozszerzyc panel o widoki limitow aplikacji, quota meters, billing state i workload allocation.
-6. Utrzymac PHANTOM v3.0 jako separate track bez baseline execution.
+1. Zamrozic Step 3.7 po przegladzie UI/API/testow.
+2. Zaplanowac Step 3.8: provisioning approval queue, workload lifecycle states and expanded dashboard regression tests.
+3. Rozszerzyc testy dashboardowe o negatywne sciezki UI, mobile viewport i visual regression checklist.
+4. Utrzymac PHANTOM v3.0 jako separate track bez baseline execution.
 ```

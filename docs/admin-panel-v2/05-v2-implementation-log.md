@@ -949,3 +949,69 @@ PHANTOM v3.0 pozostaje separate track [A], bez execution.
 PHANTOM add-on dotyczy tylko admin lifecycle visibility/eligibility, nie aktywacji operacyjnej.
 Billing suspension blokuje nowe alokacje, ale nie usuwa dowodow ani audytu.
 ```
+
+## Step 3.7 - Subscription, Workload Environment And Billing Controls
+
+Status: implemented
+Data: 2026-05-20
+
+Zaimplementowano Step 3.7:
+
+```text
+SubscriptionService
+default subscription plan catalog
+tenant subscription ledger
+tenant add-on manager
+billing state controls
+workload quota quote engine
+authorized app workload allocation
+microVM placement planner
+subscription/workload SDK methods
+subscription/workload Admin UI
+expanded API tests
+dashboard Playwright human-flow test
+```
+
+Dodane endpointy:
+
+```text
+GET  /subscription/plans
+POST /subscription/plans
+GET  /tenants/:tenantId/subscription
+POST /tenants/:tenantId/subscription
+POST /tenants/:tenantId/subscription/addons
+POST /tenants/:tenantId/billing-state
+GET  /operators/:operatorId/workload-allocations
+POST /operators/:operatorId/workload-allocations
+POST /operators/:operatorId/workload-allocations/quote
+POST /operators/:operatorId/microvm-placement-plan
+GET  /subscription/quota-decisions
+```
+
+Security notes:
+
+```text
+Workload quote is side-effect free.
+Denied allocation creates no workload allocation.
+Billing suspended blocks new allocations and provisioning plan generation.
+MicroVM placement is plan-only and does not execute Firecracker.
+Authorized apps keep cdrRequired=true.
+PHANTOM admin lifecycle add-on never enables PHANTOM execution.
+PHANTOM v3.0 remains separate track [A].
+```
+
+Test:
+
+```text
+npm.cmd test
+49 tests
+49 passing
+0 failing
+```
+
+Dashboard Playwright test:
+
+```text
+manual-tests/step3-7-dashboard-playwright-checklist.md
+assets/step3-7-dashboard-playwright.png
+```

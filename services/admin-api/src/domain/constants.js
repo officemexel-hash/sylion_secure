@@ -47,7 +47,12 @@ export const RESOURCE_TYPES = Object.freeze({
   PHANTOM_APPROVAL_PACK: "phantom_approval_pack",
   PHANTOM_READINESS: "phantom_readiness",
   PHANTOM_SIMULATION: "phantom_simulation",
-  PHANTOM_ASSIGNMENT_PLAN: "phantom_assignment_plan"
+  PHANTOM_ASSIGNMENT_PLAN: "phantom_assignment_plan",
+  SUBSCRIPTION_PLAN: "subscription_plan",
+  TENANT_SUBSCRIPTION: "tenant_subscription",
+  WORKLOAD_ALLOCATION: "workload_allocation",
+  WORKLOAD_QUOTA_DECISION: "workload_quota_decision",
+  MICROVM_PLACEMENT_PLAN: "microvm_placement_plan"
 });
 
 export const DEVICE_TYPES = Object.freeze({

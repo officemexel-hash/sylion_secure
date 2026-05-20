@@ -219,6 +219,50 @@ export class AdminApiClient {
     return this.request(`/phantom/audit-correlation${packageId ? `?packageId=${encodeURIComponent(packageId)}` : ""}`);
   }
 
+  listSubscriptionPlans() {
+    return this.request("/subscription/plans");
+  }
+
+  createSubscriptionPlan(body) {
+    return this.request("/subscription/plans", { method: "POST", body });
+  }
+
+  getTenantSubscription(tenantId) {
+    return this.request(`/tenants/${tenantId}/subscription`);
+  }
+
+  updateTenantSubscription(tenantId, body) {
+    return this.request(`/tenants/${tenantId}/subscription`, { method: "POST", body });
+  }
+
+  updateTenantAddons(tenantId, body) {
+    return this.request(`/tenants/${tenantId}/subscription/addons`, { method: "POST", body });
+  }
+
+  updateTenantBillingState(tenantId, body) {
+    return this.request(`/tenants/${tenantId}/billing-state`, { method: "POST", body });
+  }
+
+  quoteWorkloadAllocation(operatorId, body) {
+    return this.request(`/operators/${operatorId}/workload-allocations/quote`, { method: "POST", body });
+  }
+
+  createWorkloadAllocation(operatorId, body) {
+    return this.request(`/operators/${operatorId}/workload-allocations`, { method: "POST", body });
+  }
+
+  listWorkloadAllocations(operatorId) {
+    return this.request(`/operators/${operatorId}/workload-allocations`);
+  }
+
+  createMicroVmPlacementPlan(operatorId, body) {
+    return this.request(`/operators/${operatorId}/microvm-placement-plan`, { method: "POST", body });
+  }
+
+  listQuotaDecisions() {
+    return this.request("/subscription/quota-decisions");
+  }
+
   isStepUpRequired(error) {
     return error?.payload?.error?.code === "step_up_required";
   }

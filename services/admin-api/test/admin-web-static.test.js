@@ -40,6 +40,11 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(html.body, /class="help-tip"/);
     assert.match(html.body, /id="recovery-form"/);
     assert.match(html.body, /id="break-glass-form"/);
+    assert.match(html.body, /data-view="subscriptions"/);
+    assert.match(html.body, /id="subscription-form"/);
+    assert.match(html.body, /id="workload-quote-form"/);
+    assert.match(html.body, /id="workload-allocation-form"/);
+    assert.match(html.body, /id="placement-form"/);
 
     const js = await getText(baseUrl, "/admin/app.js");
     assert.equal(js.status, 200);
@@ -53,6 +58,10 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(js.body, /runPhantomSimulation/);
     assert.match(js.body, /createRecoveryRequest/);
     assert.match(js.body, /createBreakGlassRequest/);
+    assert.match(js.body, /updateTenantSubscription/);
+    assert.match(js.body, /quoteWorkloadAllocation/);
+    assert.match(js.body, /createWorkloadAllocation/);
+    assert.match(js.body, /createPlacementPlan/);
 
     const css = await getText(baseUrl, "/admin/styles.css");
     assert.equal(css.status, 200);

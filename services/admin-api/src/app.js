@@ -6,6 +6,7 @@ import { AuditService } from "./modules/audit/auditService.js";
 import { AuthService } from "./modules/auth/authService.js";
 import { RbacService } from "./modules/rbac/rbacService.js";
 import { EntitlementService } from "./modules/entitlements/entitlementService.js";
+import { SubscriptionService } from "./modules/subscriptions/subscriptionService.js";
 import { TenantService } from "./modules/tenants/tenantService.js";
 import { OperatorService } from "./modules/operators/operatorService.js";
 import { ProvisioningPlanService } from "./modules/provisioning/provisioningPlanService.js";
@@ -88,6 +89,7 @@ export function createApp({ store = null, authOptions = {} } = {}) {
   const operators = new OperatorService({ audit, rbac, entitlements, tenants, store });
   const provisioningPlans = new ProvisioningPlanService({ audit, rbac, entitlements, operators, store });
   const appCatalog = new AppCatalogService({ audit, rbac, store });
+  const subscriptions = new SubscriptionService({ audit, rbac, tenants, operators, appCatalog, store });
   const cdr = new CdrService({ audit, appCatalog, store });
   const monitoring = new MonitoringService({ audit, rbac, store });
   const incidents = new IncidentService({ audit, rbac, monitoring, store });
@@ -117,6 +119,7 @@ export function createApp({ store = null, authOptions = {} } = {}) {
     auth,
     rbac,
     entitlements,
+    subscriptions,
     tenants,
     operators,
     provisioningPlans,
@@ -297,6 +300,16 @@ export function createApp({ store = null, authOptions = {} } = {}) {
 
       if (req.method === "GET" && url.pathname === "/phantom/boundary") {
         return send(res, 200, { boundary: phantom.getBoundary({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/subscription/plans") {
+        return send(res, 200, { plans: subscriptions.listPlans({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/subscription/plans") {
+        const body = await readJson(req);
+        const plan = subscriptions.createPlan({ actor, ...body, correlationId });
+        return send(res, 201, { plan });
       }
 
       if (req.method === "POST" && url.pathname === "/phantom/boundary/status") {
@@ -516,11 +529,57 @@ export function createApp({ store = null, authOptions = {} } = {}) {
       if (req.method === "POST" && url.pathname === "/tenants") {
         const body = await readJson(req);
         const tenant = tenants.create({ actor, ...body, correlationId });
+        subscriptions.ensureForTenant({ actor, tenant, correlationId });
         return send(res, 201, { tenant });
       }
 
       if (req.method === "GET" && url.pathname === "/tenants") {
         return send(res, 200, { tenants: tenants.list({ actor, correlationId }) });
+      }
+
+      const tenantSubscriptionMatch = url.pathname.match(/^\/tenants\/([^/]+)\/subscription$/);
+      if (req.method === "GET" && tenantSubscriptionMatch) {
+        const subscription = subscriptions.getTenantSubscription({
+          actor,
+          tenantId: tenantSubscriptionMatch[1],
+          correlationId
+        });
+        return send(res, 200, { subscription });
+      }
+
+      if (req.method === "POST" && tenantSubscriptionMatch) {
+        const body = await readJson(req);
+        const subscription = subscriptions.updateTenantSubscription({
+          actor,
+          tenantId: tenantSubscriptionMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { subscription });
+      }
+
+      const tenantAddonsMatch = url.pathname.match(/^\/tenants\/([^/]+)\/subscription\/addons$/);
+      if (req.method === "POST" && tenantAddonsMatch) {
+        const body = await readJson(req);
+        const subscription = subscriptions.updateAddons({
+          actor,
+          tenantId: tenantAddonsMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { subscription });
+      }
+
+      const tenantBillingMatch = url.pathname.match(/^\/tenants\/([^/]+)\/billing-state$/);
+      if (req.method === "POST" && tenantBillingMatch) {
+        const body = await readJson(req);
+        const subscription = subscriptions.updateBillingState({
+          actor,
+          tenantId: tenantBillingMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { subscription });
       }
 
       if (req.method === "POST" && url.pathname === "/operators") {
@@ -741,7 +800,11 @@ export function createApp({ store = null, authOptions = {} } = {}) {
 
       if (req.method === "POST" && url.pathname === "/matrix/servers") {
         const body = await readJson(req);
-        const server = matrix.create({ actor, ...body, correlationId });
+        const addonEnabled = body.addonEnabled === true || subscriptions.canUseAddon({
+          tenantId: body.tenantId,
+          addon: "matrix_custom_server"
+        });
+        const server = matrix.create({ actor, ...body, addonEnabled, correlationId });
         return send(res, 201, { server });
       }
 
@@ -788,6 +851,10 @@ export function createApp({ store = null, authOptions = {} } = {}) {
       const planMatch = url.pathname.match(/^\/operators\/([^/]+)\/provisioning-plan$/);
       if (req.method === "POST" && planMatch) {
         const body = await readJson(req);
+        const operator = operators.get(planMatch[1]);
+        if (operator) {
+          subscriptions.assertProvisioningAllowed({ tenantId: operator.tenantId });
+        }
         const plan = provisioningPlans.generate({
           actor,
           operatorId: planMatch[1],
@@ -795,6 +862,55 @@ export function createApp({ store = null, authOptions = {} } = {}) {
           correlationId
         });
         return send(res, 201, { plan });
+      }
+
+      const workloadAllocationsMatch = url.pathname.match(/^\/operators\/([^/]+)\/workload-allocations$/);
+      if (req.method === "GET" && workloadAllocationsMatch) {
+        const allocations = subscriptions.listAllocations({
+          actor,
+          operatorId: workloadAllocationsMatch[1],
+          correlationId
+        });
+        return send(res, 200, { allocations });
+      }
+
+      if (req.method === "POST" && workloadAllocationsMatch) {
+        const body = await readJson(req);
+        const allocation = subscriptions.createAllocation({
+          actor,
+          operatorId: workloadAllocationsMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { allocation });
+      }
+
+      const workloadQuoteMatch = url.pathname.match(/^\/operators\/([^/]+)\/workload-allocations\/quote$/);
+      if (req.method === "POST" && workloadQuoteMatch) {
+        const body = await readJson(req);
+        const decision = subscriptions.quoteAllocation({
+          actor,
+          operatorId: workloadQuoteMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { decision });
+      }
+
+      const placementPlanMatch = url.pathname.match(/^\/operators\/([^/]+)\/microvm-placement-plan$/);
+      if (req.method === "POST" && placementPlanMatch) {
+        const body = await readJson(req);
+        const placementPlan = subscriptions.planPlacement({
+          actor,
+          operatorId: placementPlanMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { placementPlan });
+      }
+
+      if (req.method === "GET" && url.pathname === "/subscription/quota-decisions") {
+        return send(res, 200, { decisions: subscriptions.listQuotaDecisions({ actor, correlationId }) });
       }
 
       if (req.method === "GET" && planMatch) {

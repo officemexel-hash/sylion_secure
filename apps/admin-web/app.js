@@ -5,8 +5,14 @@ const state = {
   operators: [],
   providers: [],
   devices: [],
+  authorizedApps: [],
   jobs: [],
   audit: [],
+  subscriptionPlans: [],
+  tenantSubscriptions: [],
+  workloadAllocations: [],
+  quotaDecisions: [],
+  lastAllocationId: null,
   credentials: [],
   authPolicy: null,
   recoveryRequests: [],
@@ -164,6 +170,7 @@ async function refreshAll() {
     operators,
     providers,
     devices,
+    authorizedApps,
     jobs,
     audit,
     credentials,
@@ -181,7 +188,9 @@ async function refreshAll() {
     phantomReadiness,
     phantomSimulations,
     phantomAssignmentPlans,
-    phantomAuditCorrelation
+    phantomAuditCorrelation,
+    subscriptionPlans,
+    quotaDecisions
   ] = await Promise.all([
     api("/health"),
     api("/auth/session"),
@@ -189,6 +198,7 @@ async function refreshAll() {
     api("/operators"),
     api("/providers"),
     api("/devices"),
+    api("/apps"),
     api("/orchestrator/jobs"),
     api("/audit/events"),
     api("/auth/credentials").catch(() => ({ credentials: [] })),
@@ -206,7 +216,9 @@ async function refreshAll() {
     api("/phantom/readiness").catch(() => ({ evaluations: [] })),
     api("/phantom/simulations").catch(() => ({ runs: [] })),
     api("/phantom/assignment-plans").catch(() => ({ plans: [] })),
-    api("/phantom/audit-correlation").catch(() => ({ summary: null }))
+    api("/phantom/audit-correlation").catch(() => ({ summary: null })),
+    api("/subscription/plans").catch(() => ({ plans: [] })),
+    api("/subscription/quota-decisions").catch(() => ({ decisions: [] }))
   ]);
   $("#api-status").textContent = health.status === "ok" ? "API Healthy" : "API Degraded";
   state.session = session.session;
@@ -214,6 +226,7 @@ async function refreshAll() {
   state.operators = operators.operators;
   state.providers = providers.providers;
   state.devices = devices.devices;
+  state.authorizedApps = authorizedApps.apps;
   state.jobs = jobs.jobs;
   state.audit = audit.events;
   state.credentials = credentials.credentials;
@@ -232,6 +245,19 @@ async function refreshAll() {
   state.phantomSimulations = phantomSimulations.runs;
   state.phantomAssignmentPlans = phantomAssignmentPlans.plans;
   state.phantomAuditCorrelation = phantomAuditCorrelation.summary;
+  state.subscriptionPlans = subscriptionPlans.plans;
+  state.quotaDecisions = quotaDecisions.decisions;
+  state.tenantSubscriptions = await Promise.all(
+    state.tenants.map((tenant) => api(`/tenants/${tenant.id}/subscription`)
+      .then((result) => result.subscription)
+      .catch(() => null))
+  ).then((rows) => rows.filter(Boolean));
+  const allocationGroups = await Promise.all(
+    state.operators.map((operator) => api(`/operators/${operator.id}/workload-allocations`)
+      .then((result) => result.allocations)
+      .catch(() => []))
+  );
+  state.workloadAllocations = allocationGroups.flat();
   render();
 }
 
@@ -252,6 +278,15 @@ function render() {
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#plan-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#job-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#subscription-tenant-select", state.tenants, "No tenants");
+  renderSelect("#subscription-plan-select", state.subscriptionPlans, "No plans", "name");
+  renderSelect("#billing-tenant-select", state.tenants, "No tenants");
+  renderSelect("#workload-quote-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#workload-quote-app-select", approvedApps(), "No approved apps", "name");
+  renderSelect("#workload-allocation-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#workload-allocation-app-select", approvedApps(), "No approved apps", "name");
+  renderSelect("#placement-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#placement-allocation-select", state.workloadAllocations, "No allocations", "appName");
   renderSelect("#phantom-package-template-select", state.phantomPolicyTemplates, "No templates", "name");
   renderSelect("#phantom-package-capability-select", state.phantomCapabilities, "No capabilities", "displayName");
   renderSelect("#phantom-evidence-package-select", state.phantomPackages, "No packages", "name");
@@ -291,6 +326,41 @@ function render() {
     ["Steps", String(job.steps?.length || 0)],
     ["Rollback", String(job.rollbackPlan?.length || 0)]
   ])).join("") || empty("No jobs yet.");
+
+  $("#app-cards").innerHTML = state.authorizedApps.map((app) => card(app.name, [
+    ["Status", app.status],
+    ["Type", app.type],
+    ["Risk", app.riskClass],
+    ["CDR", String(app.cdrRequired)]
+  ])).join("") || empty("No authorized apps yet.");
+
+  $("#subscription-plan-cards").innerHTML = state.subscriptionPlans.map((plan) => card(plan.name, [
+    ["Tier", plan.tier],
+    ["Max envs", String(plan.maxWorkloadEnvironments)],
+    ["Per app", String(plan.maxAppsPerOperator)],
+    ["PHANTOM exec", String(plan.phantomExecutionAllowed)]
+  ])).join("") || empty("No subscription plans visible.");
+
+  $("#tenant-subscription-cards").innerHTML = state.tenantSubscriptions.map((subscription) => card(subscription.tenantId, [
+    ["Tier", subscription.tier],
+    ["Billing", subscription.billingStatus],
+    ["Add-ons", subscription.addons?.join(", ") || "-"],
+    ["Max envs", String(subscription.effectiveLimits?.maxWorkloadEnvironments)]
+  ])).join("") || empty("No tenant subscriptions yet.");
+
+  $("#workload-allocation-cards").innerHTML = state.workloadAllocations.map((allocation) => card(allocation.appName, [
+    ["Count", String(allocation.count)],
+    ["Operator", allocation.operatorId],
+    ["Layer", allocation.targetLayer],
+    ["Execution", String(allocation.executionPlanned)]
+  ])).join("") || empty("No workload allocations yet.");
+
+  $("#quota-decision-cards").innerHTML = state.quotaDecisions.slice(-8).reverse().map((decision) => card(decision.decision, [
+    ["Operator", decision.operatorId],
+    ["Requested", String(decision.requestedCount)],
+    ["Total after", String(decision.totalAfterChange)],
+    ["Blockers", decision.blockers?.join(", ") || "-"]
+  ])).join("") || empty("No quota decisions yet.");
 
   $("#session-cards").innerHTML = state.session ? card(state.session.email, [
     ["Role", state.session.role],
@@ -430,9 +500,14 @@ function render() {
 
 function renderSelect(selector, rows, emptyLabel, labelKey = "name") {
   const select = $(selector);
+  if (!select) return;
   select.innerHTML = rows.length
     ? rows.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row[labelKey] || row.id)}</option>`).join("")
     : `<option value="">${escapeHtml(emptyLabel)}</option>`;
+}
+
+function approvedApps() {
+  return state.authorizedApps.filter((app) => app.status === "approved");
 }
 
 function empty(message) {
@@ -671,6 +746,101 @@ async function createProvider(event) {
   }), "Save Provider");
   event.currentTarget.apiSecret.value = "";
   toast("Provider saved; secret cleared from form");
+  await refreshAll();
+}
+
+async function createApprovedWorkloadApp(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const created = await api("/apps", {
+    method: "POST",
+    body: {
+      name: data.name,
+      type: data.type,
+      riskClass: data.riskClass,
+      allowedTiers: splitCsv(data.allowedTiers),
+      microVmDefaults: {
+        vcpu: Number(data.vcpu),
+        memoryMiB: Number(data.memoryMiB),
+        diskMiB: Number(data.diskMiB)
+      },
+      networkPolicy: { outbound: ["tcp/443"], inbound: [] },
+      storagePolicy: { persistent: false, maxEphemeralMiB: 1024 },
+      clipboardPolicy: { mode: "metadata_only", pasteIntoWorkload: false },
+      cdrRequired: true,
+      operatorResponsibility: "Operator must route all file exchange through CDR."
+    }
+  });
+  await api(`/apps/${created.app.id}/approve`, { method: "POST" });
+  toast("Authorized app created and approved");
+  await refreshAll();
+}
+
+async function updateTenantSubscription(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const addons = [];
+  if (data.matrixAddon === "on") addons.push("matrix_custom_server");
+  if (data.phantomAddon === "on") addons.push("phantom_admin_lifecycle");
+  await api(`/tenants/${data.tenantId}/subscription`, {
+    method: "POST",
+    body: {
+      planId: data.planId,
+      addons
+    }
+  });
+  toast("Subscription updated");
+  await refreshAll();
+}
+
+async function updateBillingState(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/tenants/${data.tenantId}/billing-state`, {
+    method: "POST",
+    body: { billingStatus: data.billingStatus }
+  });
+  toast("Billing state updated");
+  await refreshAll();
+}
+
+async function quoteWorkloadAllocation(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/operators/${data.operatorId}/workload-allocations/quote`, {
+    method: "POST",
+    body: {
+      appId: data.appId,
+      requestedCount: Number(data.requestedCount)
+    }
+  });
+  toast("Quota quote recorded");
+  await refreshAll();
+}
+
+async function createWorkloadAllocation(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const result = await api(`/operators/${data.operatorId}/workload-allocations`, {
+    method: "POST",
+    body: {
+      appId: data.appId,
+      requestedCount: Number(data.requestedCount)
+    }
+  });
+  state.lastAllocationId = result.allocation.id;
+  toast("Workload allocation created");
+  await refreshAll();
+}
+
+async function createPlacementPlan(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/operators/${data.operatorId}/microvm-placement-plan`, {
+    method: "POST",
+    body: { allocationId: data.allocationId }
+  });
+  toast("MicroVM placement plan created; no execution performed");
   await refreshAll();
 }
 
@@ -1002,6 +1172,7 @@ function setView(name) {
     dashboard: ["Overview", "Live operations cockpit connected to the SYLION Admin API."],
     operators: ["Operators", "Create tenants and operators."],
     provisioning: ["Provisioning", "Generate plans and execute orchestrator jobs."],
+    subscriptions: ["Subscriptions", "Manage tiers, add-ons, workload quotas and billing state."],
     devices: ["Devices", "Register Pixel, Puli AX and FIDO2 assets."],
     providers: ["Providers", "Add provider accounts without retaining plaintext secrets."],
     security: ["Security", "Review core V2 security boundaries."],
@@ -1018,6 +1189,12 @@ function bind() {
   $("#tenant-form").addEventListener("submit", (event) => createTenant(event).catch(showError));
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
+  $("#approved-app-form").addEventListener("submit", (event) => createApprovedWorkloadApp(event).catch(showError));
+  $("#subscription-form").addEventListener("submit", (event) => updateTenantSubscription(event).catch(showError));
+  $("#billing-form").addEventListener("submit", (event) => updateBillingState(event).catch(showError));
+  $("#workload-quote-form").addEventListener("submit", (event) => quoteWorkloadAllocation(event).catch(showError));
+  $("#workload-allocation-form").addEventListener("submit", (event) => createWorkloadAllocation(event).catch(showError));
+  $("#placement-form").addEventListener("submit", (event) => createPlacementPlan(event).catch(showError));
   $("#device-form").addEventListener("submit", (event) => registerDevice(event).catch(showError));
   $("#recovery-form").addEventListener("submit", (event) => createRecoveryRequest(event).catch(showError));
   $("#break-glass-form").addEventListener("submit", (event) => createBreakGlassRequest(event).catch(showError));

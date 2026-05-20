@@ -496,6 +496,122 @@ Response includes operator summaries with `vpsPerOperator`, `cdrMandatory`, rout
 
 Returns PHANTOM audit metadata summary and latest hash reference. Optional query parameter: `packageId`.
 
+## Step 3.7 Subscription, Workload And Billing Controls
+
+These endpoints control subscription limits and workload allocation metadata before provisioning. They do not execute Firecracker, mutate cloud resources, store workload secrets, or weaken the 3 VPS per operator baseline.
+
+### GET /subscription/plans
+
+Returns STANDARD, PRO and SOVEREIGN plan records.
+
+Each plan includes:
+
+```json
+{
+  "id": "plan_pro",
+  "tier": "PRO",
+  "maxWorkloadEnvironments": 10,
+  "maxAppsPerOperator": 5,
+  "matrixAddonAvailable": true,
+  "phantomAdminLifecycleAvailable": true,
+  "phantomExecutionAllowed": false,
+  "cdrMandatory": true
+}
+```
+
+### POST /subscription/plans
+
+Creates a custom draft plan. `cdrMandatory` must remain `true`.
+
+### GET /tenants/:tenantId/subscription
+
+Returns tenant subscription ledger with effective limits, add-ons and billing state.
+
+### POST /tenants/:tenantId/subscription
+
+Updates tenant plan and add-ons.
+
+```json
+{
+  "planId": "plan_pro",
+  "addons": ["matrix_custom_server", "phantom_admin_lifecycle"]
+}
+```
+
+PHANTOM add-on exposes admin lifecycle visibility only. It never sets PHANTOM execution to true.
+
+### POST /tenants/:tenantId/billing-state
+
+Supported states:
+
+```text
+trial
+active
+past_due
+suspended
+cancelled
+```
+
+Suspended tenants cannot create new workload allocations or provisioning plans. Audit and evidence remain readable.
+
+### POST /operators/:operatorId/workload-allocations/quote
+
+Dry-run quota evaluation. This endpoint records a quota decision but creates no allocation.
+
+```json
+{
+  "appId": "app_uuid",
+  "requestedCount": 2
+}
+```
+
+Response 201:
+
+```json
+{
+  "decision": {
+    "decision": "allow",
+    "totalAfterChange": 2,
+    "tierLimit": 10,
+    "remainingAfterChange": 8,
+    "sideEffectAllowed": false
+  }
+}
+```
+
+### POST /operators/:operatorId/workload-allocations
+
+Creates workload allocation metadata only when quota allows it and the app is approved.
+
+Response includes:
+
+```json
+{
+  "allocation": {
+    "targetLayer": "WORKLOAD",
+    "cdrRequired": true,
+    "sideEffectAllowed": false,
+    "executionPlanned": false
+  }
+}
+```
+
+### POST /operators/:operatorId/microvm-placement-plan
+
+Creates a plan-only placement record for an existing allocation.
+
+```json
+{
+  "allocationId": "workload_alloc_uuid"
+}
+```
+
+Response includes `vpsPerOperator: 3`, `shared: false`, `targetLayer: "WORKLOAD"`, and `sideEffectAllowed: false`.
+
+### GET /subscription/quota-decisions
+
+Returns recent quota decision metadata. No communication content, app secrets, provider secrets or workload secrets are stored.
+
 ## Devices
 
 ### POST /devices
