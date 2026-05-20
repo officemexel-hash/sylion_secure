@@ -7,6 +7,9 @@ const ROLE_PERMISSIONS = Object.freeze({
     "operator.read",
     "operator.suspend",
     "operator.revoke",
+    "provider.read",
+    "provider.secret.rotate",
+    "secret.rotate",
     "audit.read",
     "provisioning.plan.generate"
   ],
@@ -14,13 +17,16 @@ const ROLE_PERMISSIONS = Object.freeze({
     "tenant.read",
     "operator.read",
     "operator.create",
+    "provider.read",
+    "provider.create",
+    "secret.create",
     "provisioning.plan.generate"
   ],
   [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create"],
   [ROLES.BILLING_ADMIN]: ["tenant.read", "subscription.update"],
-  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read"],
+  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "provider.read"],
   [ROLES.INCIDENT_COMMANDER]: ["incident.manage", "operator.suspend"],
-  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read"]
+  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "provider.read"]
 });
 
 export class RbacService {
@@ -53,4 +59,3 @@ export class RbacService {
     }
   }
 }
-

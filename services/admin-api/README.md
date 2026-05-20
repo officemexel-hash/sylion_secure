@@ -12,6 +12,8 @@ M04 Tenant Management
 M05 Operator Management
 M06 Subscription & Entitlements
 M07 Provisioning Plan Engine
+M08 Provider Registry
+M18 Secret Manager Adapter
 ```
 
 To nie tworzy jeszcze prawdziwych VPS. Generuje bezpieczny, audytowalny plan provisioningowy zgodny z baseline:
@@ -25,6 +27,8 @@ Puli AX router config
 CDR mandatory
 ```
 
+M08/M18 add a provider registry for Hetzner, OVHcloud, and custom provider metadata. Provider API credentials are accepted only as write-time input and are represented afterwards as `secretReference` values; plaintext is not returned or written to audit events.
+
 ## Uruchomienie
 
 ```bash
@@ -36,4 +40,3 @@ node services/admin-api/src/server.js
 ```bash
 node --test services/admin-api/test/*.test.js
 ```
-

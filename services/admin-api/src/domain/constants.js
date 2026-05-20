@@ -29,8 +29,24 @@ export const OPERATOR_STATUSES = Object.freeze({
 export const RESOURCE_TYPES = Object.freeze({
   TENANT: "tenant",
   OPERATOR: "operator",
+  PROVIDER: "provider",
+  SECRET: "secret",
   PROVISIONING_PLAN: "provisioning_plan",
   SESSION: "session",
-  AUDIT_EVENT: "audit_event"
+  AUDIT_EVENT: "audit_event",
+  AUTHORIZED_APP: "authorized_app",
+  CDR_DECISION: "cdr_decision",
+  FILE_TRANSFER: "file_transfer"
 });
 
+export const APP_STATUSES = Object.freeze({
+  PENDING_APPROVAL: "pending_approval",
+  APPROVED: "approved",
+  BLOCKED: "blocked"
+});
+
+export const CDR_DECISIONS = Object.freeze({
+  ALLOW_RECONSTRUCTED: "allow_reconstructed",
+  BLOCK: "block",
+  QUARANTINE: "quarantine"
+});
