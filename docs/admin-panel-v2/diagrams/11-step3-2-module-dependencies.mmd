@@ -1,0 +1,19 @@
+flowchart TD
+    Freeze["Step 3.1 Freeze<br/>WebAuthn Auth Core"]
+
+    A["S3.2-A Sensitive Action Policy"]
+    B["S3.2-B API Step-up Enforcement"]
+    C["S3.2-C Admin Web Step-up UX"]
+    D["S3.2-D SDK Step-up Retry Helper"]
+    E["S3.2-E Audit And Monitoring Traceability"]
+    F["S3.2-F Negative And Human E2E Tests"]
+
+    Freeze --> A
+    Freeze --> D
+    A --> B
+    A --> E
+    B --> D
+    D --> C
+    B --> F
+    C --> F
+    E --> F

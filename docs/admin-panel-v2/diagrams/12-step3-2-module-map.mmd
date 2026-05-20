@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph API["Admin API"]
+        A["S3.2-A Sensitive Action Policy"]
+        B["S3.2-B Protected Endpoints"]
+        Auth["Step-up Verify"]
+    end
+
+    subgraph UI["Admin Web"]
+        C["S3.2-C Step-up Modal"]
+        Forms["Provider / Provisioning Forms"]
+    end
+
+    subgraph SDK["API Client"]
+        D["S3.2-D Step-up Retry Helper"]
+    end
+
+    subgraph Audit["Governance"]
+        E["S3.2-E Audit Traceability"]
+    end
+
+    subgraph QA["Validation"]
+        F["S3.2-F Tests"]
+    end
+
+    Forms --> D
+    D --> B
+    B --> A
+    A --> Auth
+    A --> E
+    B --> E
+    D --> C
+    C --> Auth
+    F --> API
+    F --> UI
+    F --> Audit

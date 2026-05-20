@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant UI as Admin Web
+    participant SDK as AdminApiClient
+    participant API as Admin API
+    participant Policy as Sensitive Action Policy
+    participant Auth as Step-up Service
+    participant Domain as Provider/Orchestrator
+    participant Audit as Audit
+
+    UI->>SDK: Execute protected action
+    SDK->>API: POST protected endpoint
+    API->>Policy: requireFreshStepUp(actor, action)
+    Policy->>Audit: auth.step_up_required
+    API-->>SDK: 403 step_up_required
+    SDK-->>UI: Step-up required error
+
+    UI->>SDK: Start step-up
+    SDK->>Auth: POST /auth/step-up/options
+    Auth-->>SDK: challenge options
+    UI->>SDK: Verify local simulator assertion
+    SDK->>Auth: POST /auth/step-up/verify
+    Auth->>Audit: auth.step_up_completed
+    Auth-->>SDK: refreshed session
+
+    UI->>SDK: Retry protected action once
+    SDK->>API: POST protected endpoint
+    API->>Policy: requireFreshStepUp(actor, action)
+    Policy-->>API: allow
+    API->>Domain: execute side effect
+    Domain->>Audit: domain success event
+    API-->>UI: success

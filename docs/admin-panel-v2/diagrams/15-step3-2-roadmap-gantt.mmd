@@ -1,0 +1,20 @@
+gantt
+    title SYLION Admin V2 Step 3.2 Roadmap
+    dateFormat  YYYY-MM-DD
+    axisFormat  %d.%m
+
+    section Policy
+    S3.2-A Sensitive Action Policy       :a1, 2026-05-20, 1d
+    S3.2-E Audit Traceability            :e1, 2026-05-20, 1d
+
+    section API
+    S3.2-B API Enforcement               :b1, after a1, 2d
+    API Negative Tests                    :b2, after b1, 1d
+
+    section Client
+    S3.2-D SDK Retry Helper              :d1, after b1, 1d
+    S3.2-C Admin Web Step-up UX          :c1, after d1, 2d
+
+    section Validation
+    S3.2-F Human E2E Tests               :f1, after c1, 2d
+    Step 3.2 Stabilization               :f2, after f1, 1d

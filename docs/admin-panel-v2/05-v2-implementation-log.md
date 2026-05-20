@@ -282,3 +282,35 @@ secret leakage visible in UI: false
 ```text
 Step 3.2 - enforce step-up policy on orchestrator execute job and provider secret rotation
 ```
+
+## Step 3.1 Freeze / Step 3.2 Planning Package
+
+Status: planned
+Data: 2026-05-20
+
+Zamrozono stan po:
+
+```text
+90b194d Implement Step 3 WebAuthn auth core
+```
+
+Dodano pakiet planistyczny kolejnego etapu:
+
+```text
+10-step3-1-freeze-and-step3-2-scope.md
+11-step3-2-masterplan.md
+12-step3-2-prompt-pack.md
+13-step3-2-graphs-roadmap.md
+STEP3_2_DIAGRAMS.md
+diagrams/11-step3-2-module-dependencies.mmd
+diagrams/12-step3-2-module-map.mmd
+diagrams/13-step3-2-deployment-graph.mmd
+diagrams/14-step3-2-runtime-flow.mmd
+diagrams/15-step3-2-roadmap-gantt.mmd
+```
+
+Kolejny etap zostal zdefiniowany jako:
+
+```text
+V2 Step 3.2 - Step-up Enforcement For Sensitive Admin Actions
+```

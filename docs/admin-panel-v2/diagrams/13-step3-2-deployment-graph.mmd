@@ -1,0 +1,26 @@
+flowchart TD
+    Browser["Admin Browser"]
+    Web["Admin Web /admin"]
+    API["Admin API"]
+    Auth["Auth / Step-up Service"]
+    Policy["Sensitive Action Policy"]
+    Providers["Provider Registry"]
+    Orchestrator["Orchestrator"]
+    Store["SQLite Store"]
+    Audit["Audit Hash Chain"]
+    Tests["API + Browser Tests"]
+
+    Browser --> Web
+    Web --> API
+    API --> Auth
+    API --> Policy
+    Policy --> Auth
+    Policy --> Audit
+    API --> Providers
+    API --> Orchestrator
+    Providers --> Store
+    Orchestrator --> Store
+    Auth --> Store
+    Audit --> Store
+    Tests --> Web
+    Tests --> API
