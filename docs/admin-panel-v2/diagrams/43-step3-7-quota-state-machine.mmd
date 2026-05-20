@@ -1,0 +1,16 @@
+stateDiagram-v2
+    [*] --> DraftQuote
+    DraftQuote --> Denied: unknown app or tier exceeded
+    DraftQuote --> Allowed: approved app and quota available
+    Allowed --> Allocated: create allocation
+    Allocated --> Active: billing active
+    Active --> WarnOnly: billing past_due
+    WarnOnly --> Active: billing recovered
+    Active --> AllocationBlocked: billing suspended
+    WarnOnly --> AllocationBlocked: billing suspended
+    AllocationBlocked --> Active: human-approved recovery
+    AllocationBlocked --> CancelledReview: cancelled
+    CancelledReview --> HumanGateRequired: destructive cleanup requested
+    HumanGateRequired --> [*]
+    Denied --> [*]
+

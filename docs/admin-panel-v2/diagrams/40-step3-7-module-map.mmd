@@ -1,0 +1,44 @@
+flowchart LR
+    subgraph Admin["Admin Web"]
+        UI["Subscription And Workload Views"]
+        Help["HelpTips And Quota Meters"]
+    end
+
+    subgraph API["Admin API"]
+        Plans["Plan Catalog"]
+        Ledger["Subscription Ledger"]
+        Quota["Quota Engine"]
+        Alloc["App Allocation Matrix"]
+        Placement["MicroVM Placement Planner"]
+        Addons["Add-on Manager"]
+        Billing["Billing State Controls"]
+    end
+
+    subgraph Core["Existing SYLION Core"]
+        Tenants["Tenant Service"]
+        Operators["Operator Service"]
+        Apps["Authorized App Catalog"]
+        Matrix["Matrix Manager"]
+        Phantom["PHANTOM Admin Lifecycle<br/>Separate Track"]
+        Audit["Hash-chain Audit"]
+    end
+
+    UI --> Plans
+    UI --> Ledger
+    UI --> Quota
+    UI --> Alloc
+    UI --> Placement
+    UI --> Addons
+    UI --> Billing
+    Help --> UI
+    Ledger --> Tenants
+    Quota --> Operators
+    Alloc --> Apps
+    Addons --> Matrix
+    Addons --> Phantom
+    Plans --> Audit
+    Ledger --> Audit
+    Quota --> Audit
+    Alloc --> Audit
+    Billing --> Audit
+

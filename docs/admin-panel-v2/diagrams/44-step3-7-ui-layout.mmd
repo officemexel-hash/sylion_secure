@@ -1,0 +1,28 @@
+flowchart TD
+    Shell["SYLION Admin Shell"]
+    Nav["Left Navigation"]
+    Dash["Overview"]
+    Subs["Subscriptions View"]
+    Workloads["Workload Allocation View"]
+    Security["Security View"]
+    Phantom["PHANTOM View"]
+    Audit["Audit View"]
+
+    Subs --> TierCards["Tier Cards"]
+    Subs --> Addons["Add-on Controls"]
+    Subs --> Billing["Billing State Controls"]
+    Workloads --> Quote["Allocation Quote Form"]
+    Workloads --> Meters["Quota Meters"]
+    Workloads --> Matrix["Authorized App Allocation"]
+    Workloads --> Placement["MicroVM Placement Plan"]
+    Phantom --> PhantomMarker["Separate Track Marker<br/>executionAllowed=false"]
+    Audit --> Events["Subscription And Quota Decisions"]
+
+    Shell --> Nav
+    Nav --> Dash
+    Nav --> Subs
+    Nav --> Workloads
+    Nav --> Security
+    Nav --> Phantom
+    Nav --> Audit
+

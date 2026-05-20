@@ -1,0 +1,25 @@
+gantt
+    title SYLION Admin V2 Step 3.7 Roadmap
+    dateFormat  YYYY-MM-DD
+    axisFormat  %m-%d
+
+    section Backend Core
+    Plan catalog                         :a1, 2026-05-20, 1d
+    Tenant subscription ledger           :a2, after a1, 1d
+    Quota engine                         :a3, after a2, 1d
+    App allocation matrix                :a4, after a3, 1d
+
+    section Controls
+    MicroVM placement planner            :b1, after a4, 1d
+    Add-on manager                       :b2, after a2, 1d
+    Billing state controls               :b3, after b2, 1d
+
+    section Product Surface
+    Admin UI subscription views          :c1, after a4, 2d
+    SDK and contract updates             :c2, after b3, 1d
+
+    section Verification
+    Security tests                       :d1, after c2, 1d
+    Human browser test                   :d2, after d1, 1d
+    Step 3.7 freeze                      :d3, after d2, 1d
+

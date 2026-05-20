@@ -156,8 +156,10 @@ Aktualny wynik:
 ## Nastepny Priorytet
 
 ```text
-1. Zamrozic Step 3.6 po przegladzie UI/API.
-2. Zaplanowac Step 3.7: operator subscription and workload environment management.
-3. Rozszerzyc panel o widoki limitow aplikacji, microVM allocation i tenant billing state.
-4. Utrzymac PHANTOM v3.0 jako separate track bez baseline execution.
+1. Wdrozyc Step 3.7 - Subscription, Workload Environment And Billing Controls.
+2. Zaczac od subscription plan catalog i tenant subscription ledger.
+3. Dodac workload quota engine, authorized app allocation matrix i microVM placement planner.
+4. Dodac add-on manager dla Matrix oraz PHANTOM admin lifecycle visibility bez execution.
+5. Rozszerzyc panel o widoki limitow aplikacji, quota meters, billing state i workload allocation.
+6. Utrzymac PHANTOM v3.0 jako separate track bez baseline execution.
 ```

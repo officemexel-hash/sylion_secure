@@ -1,0 +1,31 @@
+sequenceDiagram
+    actor Admin as Global Super Admin
+    participant UI as Admin Web
+    participant API as Admin API
+    participant Subs as Subscription Ledger
+    participant Quota as Quota Engine
+    participant Apps as App Catalog
+    participant Audit as Audit
+
+    Admin->>UI: Open Subscriptions
+    UI->>API: GET /tenants/:tenantId/subscription
+    API->>Subs: Read effective limits
+    Subs-->>API: Subscription + addons + limits
+    API-->>UI: Render tier, billing and quota state
+
+    Admin->>UI: Request workload allocation quote
+    UI->>API: POST /operators/:operatorId/workload-allocations/quote
+    API->>Quota: Evaluate app instance count
+    Quota->>Apps: Confirm app is approved
+    Quota->>Audit: subscription.quota_decision
+    Quota-->>API: allow or deny with blockers
+    API-->>UI: Decision, remaining quota, no side effects
+
+    Admin->>UI: Create allocation within quota
+    UI->>API: POST /operators/:operatorId/workload-allocations
+    API->>Quota: Re-evaluate before mutation
+    Quota-->>API: allow
+    API->>Subs: Store allocation metadata
+    API->>Audit: workload_allocation.created
+    API-->>UI: Allocation record
+

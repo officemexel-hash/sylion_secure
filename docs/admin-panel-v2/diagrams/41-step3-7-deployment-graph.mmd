@@ -1,0 +1,31 @@
+flowchart TD
+    Browser["Admin Browser"]
+    Static["Admin Web Static Assets"]
+    API["Admin API"]
+    RBAC["RBAC"]
+    Subs["Subscription Service"]
+    Quota["Quota Engine"]
+    Apps["Authorized App Catalog"]
+    Operators["Operator Service"]
+    Matrix["Matrix Manager"]
+    Phantom["PHANTOM Lifecycle Service<br/>Non-executable"]
+    Store["Persistent Store"]
+    Audit["Audit Service"]
+
+    Browser --> Static
+    Browser --> API
+    API --> RBAC
+    API --> Subs
+    Subs --> Quota
+    Quota --> Apps
+    Quota --> Operators
+    Subs --> Matrix
+    Subs --> Phantom
+    Subs --> Store
+    Quota --> Store
+    API --> Audit
+    Subs --> Audit
+    Quota --> Audit
+    Matrix --> Audit
+    Phantom --> Audit
+

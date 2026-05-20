@@ -905,3 +905,47 @@ npm.cmd test
 45 passing
 0 failing
 ```
+
+## Step 3.6 Freeze / Step 3.7 Planning Package
+
+Status: planned
+Data: 2026-05-20
+
+Zamrozono stan po:
+
+```text
+846bb75 Implement Step 3.6 PHANTOM lifecycle gates
+```
+
+Dodano pakiet planistyczny kolejnego etapu:
+
+```text
+30-step3-6-freeze-and-step3-7-scope.md
+31-step3-7-masterplan.md
+32-step3-7-prompt-pack.md
+33-step3-7-graphs-roadmap.md
+STEP3_7_DIAGRAMS.md
+diagrams/39-step3-7-module-dependencies.mmd
+diagrams/40-step3-7-module-map.mmd
+diagrams/41-step3-7-deployment-graph.mmd
+diagrams/42-step3-7-runtime-flow.mmd
+diagrams/43-step3-7-quota-state-machine.mmd
+diagrams/44-step3-7-ui-layout.mmd
+diagrams/45-step3-7-roadmap-gantt.mmd
+```
+
+Kolejny etap zostal zdefiniowany jako:
+
+```text
+V2 Step 3.7 - Subscription, Workload Environment And Billing Controls
+```
+
+Uwagi zgodnosci:
+
+```text
+Step 3.7 planuje warstwe subskrypcji, limitow workloadow, billing state i add-on controls.
+Ksiegi 3.4 baseline pozostaje: 3 VPS per operator, G1/G2/WORKLOAD separation, CDR mandatory, Puli AX gate.
+PHANTOM v3.0 pozostaje separate track [A], bez execution.
+PHANTOM add-on dotyczy tylko admin lifecycle visibility/eligibility, nie aktywacji operacyjnej.
+Billing suspension blokuje nowe alokacje, ale nie usuwa dowodow ani audytu.
+```

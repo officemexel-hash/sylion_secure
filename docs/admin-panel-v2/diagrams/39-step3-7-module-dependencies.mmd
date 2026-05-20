@@ -1,0 +1,41 @@
+flowchart TD
+    Freeze["Step 3.6 Freeze<br/>PHANTOM Lifecycle Gates"]
+    A["S3.7-A Subscription Plan Catalog"]
+    B["S3.7-B Tenant Subscription Ledger"]
+    C["S3.7-C Workload Environment Quota Engine"]
+    D["S3.7-D Authorized App Allocation Matrix"]
+    E["S3.7-E MicroVM Sizing And Placement Planner"]
+    F["S3.7-F Add-on Manager"]
+    G["S3.7-G Billing State And Suspension"]
+    H["S3.7-H Admin UI Subscription Views"]
+    I["S3.7-I SDK And Contract Updates"]
+    J["S3.7-J Security And Human Browser Tests"]
+    Release["Step 3.7 Release Gate"]
+
+    Freeze --> A
+    A --> B
+    B --> C
+    B --> F
+    B --> G
+    C --> D
+    D --> E
+    F --> D
+    G --> C
+    A --> H
+    B --> H
+    C --> H
+    D --> H
+    E --> H
+    F --> H
+    G --> H
+    A --> I
+    B --> I
+    C --> I
+    D --> I
+    E --> I
+    F --> I
+    G --> I
+    H --> J
+    I --> J
+    J --> Release
+
