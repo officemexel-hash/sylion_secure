@@ -24,6 +24,7 @@ import { DeviceInventoryService } from "./modules/devices/deviceInventoryService
 import { ImageFactoryService } from "./modules/images/imageFactoryService.js";
 import { OrchestratorService } from "./modules/orchestrator/orchestratorService.js";
 import { PhantomGovernanceService } from "./modules/phantom/phantomGovernanceService.js";
+import { ProvisioningApprovalService } from "./modules/approvals/provisioningApprovalService.js";
 import { AppError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -102,6 +103,16 @@ export function createApp({ store = null, authOptions = {} } = {}) {
   const devices = new DeviceInventoryService({ audit, rbac, operators, store });
   const imageFactory = new ImageFactoryService({ audit, rbac, devices, appCatalog, store });
   const phantom = new PhantomGovernanceService({ audit, rbac, entitlements, operators, monitoring, store });
+  const approvals = new ProvisioningApprovalService({
+    audit,
+    rbac,
+    tenants,
+    operators,
+    providers,
+    devices,
+    subscriptions,
+    store
+  });
   const orchestrator = new OrchestratorService({
     audit,
     rbac,
@@ -136,6 +147,7 @@ export function createApp({ store = null, authOptions = {} } = {}) {
     devices,
     imageFactory,
     phantom,
+    approvals,
     orchestrator
   };
 
@@ -464,6 +476,48 @@ export function createApp({ store = null, authOptions = {} } = {}) {
         const body = await readJson(req);
         const plan = phantom.createAssignmentPlan({ actor, ...body, correlationId });
         return send(res, 201, { plan });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/review-board") {
+        return send(res, 200, { items: phantom.listReviewBoardItems({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/review-board") {
+        const body = await readJson(req);
+        const item = phantom.createReviewBoardItem({ actor, ...body, correlationId });
+        return send(res, 201, { item });
+      }
+
+      const phantomReviewBoardStatusMatch = url.pathname.match(/^\/phantom\/review-board\/([^/]+)\/status$/);
+      if (req.method === "POST" && phantomReviewBoardStatusMatch) {
+        const body = await readJson(req);
+        const item = phantom.updateReviewBoardStatus({
+          actor,
+          itemId: phantomReviewBoardStatusMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { item });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/policy-simulations") {
+        return send(res, 200, { simulations: phantom.listPolicySimulations({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/policy-simulations") {
+        const body = await readJson(req);
+        const simulation = phantom.runPolicySimulation({ actor, ...body, correlationId });
+        return send(res, 201, { simulation });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/exceptions") {
+        return send(res, 200, { exceptions: phantom.listExceptions({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/exceptions") {
+        const body = await readJson(req);
+        const exception = phantom.createException({ actor, ...body, correlationId });
+        return send(res, 201, { exception });
       }
 
       if (req.method === "GET" && url.pathname === "/phantom/audit-correlation") {
@@ -824,12 +878,79 @@ export function createApp({ store = null, authOptions = {} } = {}) {
         return send(res, 200, { artifacts });
       }
 
+      if (req.method === "GET" && url.pathname === "/provisioning/approvals") {
+        return send(res, 200, {
+          approvals: approvals.listApprovals({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      if (req.method === "POST" && url.pathname === "/provisioning/approvals") {
+        const body = await readJson(req);
+        const approval = approvals.createApproval({ actor, ...body, correlationId });
+        return send(res, 201, { approval });
+      }
+
+      const approvalStatusMatch = url.pathname.match(/^\/provisioning\/approvals\/([^/]+)\/status$/);
+      if (req.method === "POST" && approvalStatusMatch) {
+        const body = await readJson(req);
+        const approval = approvals.updateApprovalStatus({
+          actor,
+          approvalId: approvalStatusMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { approval });
+      }
+
+      const operatorReadinessMatch = url.pathname.match(/^\/operators\/([^/]+)\/readiness$/);
+      if (req.method === "GET" && operatorReadinessMatch) {
+        const readiness = approvals.evaluateOperatorReadiness({
+          actor,
+          operatorId: operatorReadinessMatch[1],
+          correlationId
+        });
+        return send(res, 200, { readiness });
+      }
+
+      if (req.method === "GET" && url.pathname === "/workload/lifecycle") {
+        return send(res, 200, {
+          lifecycle: approvals.listWorkloadLifecycle({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const workloadLifecycleMatch = url.pathname.match(/^\/workload\/allocations\/([^/]+)\/lifecycle$/);
+      if (req.method === "POST" && workloadLifecycleMatch) {
+        const body = await readJson(req);
+        const lifecycle = approvals.transitionWorkloadLifecycle({
+          actor,
+          allocationId: workloadLifecycleMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { lifecycle });
+      }
+
       if (req.method === "POST" && url.pathname === "/orchestrator/jobs") {
         auth.requireFreshStepUp(actor, "orchestrator.plan.execute", {
           correlationId,
           resourceType: "orchestrator_job"
         });
         const body = await readJson(req);
+        approvals.assertExecutionApproved({
+          actor,
+          planId: body.planId,
+          approvalId: body.approvalId,
+          requireApproval: body.approvalRequired === true || req.headers["x-sylion-require-approval"] === "true",
+          correlationId
+        });
         const job = orchestrator.executePlan({
           actor,
           idempotencyKey: req.headers["idempotency-key"] || body.idempotencyKey,

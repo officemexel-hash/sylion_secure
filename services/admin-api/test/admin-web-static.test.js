@@ -41,10 +41,18 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(html.body, /id="recovery-form"/);
     assert.match(html.body, /id="break-glass-form"/);
     assert.match(html.body, /data-view="subscriptions"/);
+    assert.match(html.body, /data-view="approvals"/);
+    assert.match(html.body, /id="readiness-form"/);
+    assert.match(html.body, /id="approval-form"/);
+    assert.match(html.body, /id="approval-status-form"/);
+    assert.match(html.body, /id="workload-lifecycle-form"/);
     assert.match(html.body, /id="subscription-form"/);
     assert.match(html.body, /id="workload-quote-form"/);
     assert.match(html.body, /id="workload-allocation-form"/);
     assert.match(html.body, /id="placement-form"/);
+    assert.match(html.body, /id="phantom-review-board-form"/);
+    assert.match(html.body, /id="phantom-policy-simulation-form"/);
+    assert.match(html.body, /id="phantom-exception-form"/);
 
     const js = await getText(baseUrl, "/admin/app.js");
     assert.equal(js.status, 200);
@@ -62,6 +70,12 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(js.body, /quoteWorkloadAllocation/);
     assert.match(js.body, /createWorkloadAllocation/);
     assert.match(js.body, /createPlacementPlan/);
+    assert.match(js.body, /evaluateOperatorReadiness/);
+    assert.match(js.body, /createProvisioningApproval/);
+    assert.match(js.body, /transitionWorkloadLifecycle/);
+    assert.match(js.body, /createPhantomReviewBoardItem/);
+    assert.match(js.body, /runPhantomPolicySimulation/);
+    assert.match(js.body, /createPhantomException/);
 
     const css = await getText(baseUrl, "/admin/styles.css");
     assert.equal(css.status, 200);

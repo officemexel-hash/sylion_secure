@@ -14,6 +14,10 @@ const ROLE_PERMISSIONS = Object.freeze({
     "workload.allocation.read",
     "workload.allocation.manage",
     "workload.placement.plan",
+    "workload.lifecycle.manage",
+    "operator.readiness.read",
+    "provisioning.approval.read",
+    "provisioning.approval.manage",
     "secret.rotate",
     "device.read",
     "device.register",
@@ -54,6 +58,10 @@ const ROLE_PERMISSIONS = Object.freeze({
     "workload.allocation.read",
     "workload.allocation.manage",
     "workload.placement.plan",
+    "workload.lifecycle.manage",
+    "operator.readiness.read",
+    "provisioning.approval.read",
+    "provisioning.approval.manage",
     "provider.read",
     "provider.create",
     "secret.create",
@@ -67,11 +75,11 @@ const ROLE_PERMISSIONS = Object.freeze({
     "provisioning.plan.read",
     "provisioning.plan.generate"
   ],
-  [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create", "subscription.read", "workload.allocation.read"],
+  [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read"],
   [ROLES.BILLING_ADMIN]: ["tenant.read", "subscription.read", "subscription.manage"],
   [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "provider.read"],
   [ROLES.INCIDENT_COMMANDER]: ["incident.manage", "operator.suspend"],
-  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "provider.read", "subscription.read", "workload.allocation.read"]
+  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "provider.read", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read"]
 });
 
 export class RbacService {

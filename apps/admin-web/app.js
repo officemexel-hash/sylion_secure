@@ -12,6 +12,9 @@ const state = {
   tenantSubscriptions: [],
   workloadAllocations: [],
   quotaDecisions: [],
+  provisioningApprovals: [],
+  readinessResults: [],
+  workloadLifecycle: [],
   lastAllocationId: null,
   credentials: [],
   authPolicy: null,
@@ -28,6 +31,9 @@ const state = {
   phantomReadiness: [],
   phantomSimulations: [],
   phantomAssignmentPlans: [],
+  phantomReviewBoardItems: [],
+  phantomPolicySimulations: [],
+  phantomExceptions: [],
   phantomAuditCorrelation: null,
   lastPlanId: null,
   lastPlanOperatorId: null,
@@ -188,9 +194,14 @@ async function refreshAll() {
     phantomReadiness,
     phantomSimulations,
     phantomAssignmentPlans,
+    phantomReviewBoardItems,
+    phantomPolicySimulations,
+    phantomExceptions,
     phantomAuditCorrelation,
     subscriptionPlans,
-    quotaDecisions
+    quotaDecisions,
+    provisioningApprovals,
+    workloadLifecycle
   ] = await Promise.all([
     api("/health"),
     api("/auth/session"),
@@ -216,9 +227,14 @@ async function refreshAll() {
     api("/phantom/readiness").catch(() => ({ evaluations: [] })),
     api("/phantom/simulations").catch(() => ({ runs: [] })),
     api("/phantom/assignment-plans").catch(() => ({ plans: [] })),
+    api("/phantom/review-board").catch(() => ({ items: [] })),
+    api("/phantom/policy-simulations").catch(() => ({ simulations: [] })),
+    api("/phantom/exceptions").catch(() => ({ exceptions: [] })),
     api("/phantom/audit-correlation").catch(() => ({ summary: null })),
     api("/subscription/plans").catch(() => ({ plans: [] })),
-    api("/subscription/quota-decisions").catch(() => ({ decisions: [] }))
+    api("/subscription/quota-decisions").catch(() => ({ decisions: [] })),
+    api("/provisioning/approvals").catch(() => ({ approvals: [] })),
+    api("/workload/lifecycle").catch(() => ({ lifecycle: [] }))
   ]);
   $("#api-status").textContent = health.status === "ok" ? "API Healthy" : "API Degraded";
   state.session = session.session;
@@ -244,9 +260,14 @@ async function refreshAll() {
   state.phantomReadiness = phantomReadiness.evaluations;
   state.phantomSimulations = phantomSimulations.runs;
   state.phantomAssignmentPlans = phantomAssignmentPlans.plans;
+  state.phantomReviewBoardItems = phantomReviewBoardItems.items;
+  state.phantomPolicySimulations = phantomPolicySimulations.simulations;
+  state.phantomExceptions = phantomExceptions.exceptions;
   state.phantomAuditCorrelation = phantomAuditCorrelation.summary;
   state.subscriptionPlans = subscriptionPlans.plans;
   state.quotaDecisions = quotaDecisions.decisions;
+  state.provisioningApprovals = provisioningApprovals.approvals;
+  state.workloadLifecycle = workloadLifecycle.lifecycle;
   state.tenantSubscriptions = await Promise.all(
     state.tenants.map((tenant) => api(`/tenants/${tenant.id}/subscription`)
       .then((result) => result.subscription)
@@ -278,6 +299,10 @@ function render() {
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#plan-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#job-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#readiness-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#approval-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#approval-status-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#workload-lifecycle-allocation-select", state.workloadAllocations, "No allocations", "appName");
   renderSelect("#subscription-tenant-select", state.tenants, "No tenants");
   renderSelect("#subscription-plan-select", state.subscriptionPlans, "No plans", "name");
   renderSelect("#billing-tenant-select", state.tenants, "No tenants");
@@ -298,6 +323,8 @@ function render() {
   renderSelect("#phantom-simulation-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#phantom-assignment-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#phantom-assignment-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#phantom-review-board-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#phantom-policy-simulation-package-select", state.phantomPackages, "No packages", "name");
 
   $("#operator-cards").innerHTML = state.operators.map((operator) => card(operator.displayName, [
     ["Tier", operator.tier],
@@ -361,6 +388,27 @@ function render() {
     ["Total after", String(decision.totalAfterChange)],
     ["Blockers", decision.blockers?.join(", ") || "-"]
   ])).join("") || empty("No quota decisions yet.");
+
+  $("#readiness-cards").innerHTML = state.readinessResults.slice(-8).reverse().map((item) => card(item.operatorId, [
+    ["Ready", String(item.readyForApproval)],
+    ["Blockers", item.blockers?.join(", ") || "-"],
+    ["Warnings", item.warnings?.join(", ") || "-"],
+    ["Side effect", String(item.sideEffectAllowed)]
+  ])).join("") || empty("Run an operator readiness check.");
+
+  $("#approval-cards").innerHTML = state.provisioningApprovals.map((approval) => card(approval.reasonCode, [
+    ["Status", approval.status],
+    ["Operator", approval.operatorId],
+    ["Plan", approval.planId],
+    ["Execution", String(approval.executionAllowed)]
+  ])).join("") || empty("No provisioning approvals yet.");
+
+  $("#workload-lifecycle-cards").innerHTML = state.workloadLifecycle.map((item) => card(item.status, [
+    ["Allocation", item.allocationId],
+    ["Previous", item.previousStatus],
+    ["Human gate", String(item.humanGateRequired)],
+    ["Side effect", String(item.sideEffectAllowed)]
+  ])).join("") || empty("No workload lifecycle transitions yet.");
 
   $("#session-cards").innerHTML = state.session ? card(state.session.email, [
     ["Role", state.session.role],
@@ -469,6 +517,27 @@ function render() {
     ["Execution", String(item.executionAllowed)],
     ["Gate", String(item.humanGateRequired)]
   ])).join("") || empty("No PHANTOM assignment plans recorded.");
+
+  $("#phantom-review-board-cards").innerHTML = state.phantomReviewBoardItems.map((item) => card(item.title, [
+    ["Status", item.status],
+    ["Legal", item.legalOwner],
+    ["Compliance", item.complianceOwner],
+    ["Execution", String(item.executionAllowed)]
+  ])).join("") || empty("No PHANTOM review board items recorded.");
+
+  $("#phantom-policy-simulation-cards").innerHTML = state.phantomPolicySimulations.map((item) => card(item.scenario, [
+    ["Mode", item.mode],
+    ["Findings", String(item.findings?.length || 0)],
+    ["Side effect", String(item.sideEffectAllowed)],
+    ["Execution", String(item.executionAllowed)]
+  ])).join("") || empty("No PHANTOM policy simulations recorded.");
+
+  $("#phantom-exception-cards").innerHTML = state.phantomExceptions.map((item) => card(item.scope, [
+    ["Status", item.status],
+    ["Legal", item.legalOwner],
+    ["Compliance", item.complianceOwner],
+    ["Execution", String(item.executionAllowed)]
+  ])).join("") || empty("No PHANTOM exceptions recorded.");
 
   $("#phantom-audit-correlation-cards").innerHTML = state.phantomAuditCorrelation ? card("PHANTOM audit correlation", [
     ["Events", String(state.phantomAuditCorrelation.eventCount)],
@@ -844,6 +913,62 @@ async function createPlacementPlan(event) {
   await refreshAll();
 }
 
+async function evaluateOperatorReadiness(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const result = await api(`/operators/${data.operatorId}/readiness`);
+  state.readinessResults.push(result.readiness);
+  toast(result.readiness.readyForApproval ? "Operator readiness passed" : "Operator readiness has blockers", result.readiness.readyForApproval ? "info" : "error");
+  render();
+  await refreshAll();
+}
+
+async function createProvisioningApproval(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const result = await api("/provisioning/approvals", {
+    method: "POST",
+    body: {
+      operatorId: data.operatorId,
+      planId: data.planId || state.lastPlanId,
+      reasonCode: data.reasonCode,
+      evidenceRefs: splitCsv(data.evidenceRefs)
+    }
+  });
+  $("#job-approval-id").value = result.approval.id;
+  toast("Provisioning approval created");
+  await refreshAll();
+}
+
+async function updateProvisioningApprovalStatus(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/provisioning/approvals/${data.approvalId}/status`, {
+    method: "POST",
+    body: {
+      status: data.status,
+      note: data.note
+    }
+  });
+  $("#job-approval-id").value = data.approvalId;
+  toast("Provisioning approval status updated");
+  await refreshAll();
+}
+
+async function transitionWorkloadLifecycle(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/workload/allocations/${data.allocationId}/lifecycle`, {
+    method: "POST",
+    body: {
+      status: data.status,
+      reasonCode: data.reasonCode
+    }
+  });
+  toast("Workload lifecycle transition recorded");
+  await refreshAll();
+}
+
 async function registerDevice(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -1037,6 +1162,57 @@ async function createPhantomAssignmentPlan(event) {
   await refreshAll();
 }
 
+async function createPhantomReviewBoardItem(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/review-board", {
+    method: "POST",
+    body: {
+      title: data.title,
+      summary: data.summary,
+      packageId: data.packageId,
+      legalOwner: data.legalOwner,
+      cisoOwner: data.cisoOwner,
+      architectOwner: data.architectOwner,
+      complianceOwner: data.complianceOwner
+    }
+  });
+  toast("PHANTOM review board item recorded");
+  await refreshAll();
+}
+
+async function runPhantomPolicySimulation(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/policy-simulations", {
+    method: "POST",
+    body: {
+      packageId: data.packageId,
+      scenario: data.scenario,
+      expectedControls: splitCsv(data.expectedControls)
+    }
+  });
+  toast("PHANTOM policy simulation recorded");
+  await refreshAll();
+}
+
+async function createPhantomException(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/exceptions", {
+    method: "POST",
+    body: {
+      scope: data.scope,
+      justification: data.justification,
+      legalOwner: data.legalOwner,
+      cisoOwner: data.cisoOwner,
+      complianceOwner: data.complianceOwner
+    }
+  });
+  toast("PHANTOM exception recorded without execution");
+  await refreshAll();
+}
+
 async function handleCredentialAction(event) {
   const action = event.target.dataset.credentialAction;
   if (!action) return;
@@ -1062,6 +1238,8 @@ async function generatePlan(event) {
   state.lastPlanOperatorId = data.operatorId;
   $("#job-plan-id").value = result.plan.id;
   $("#job-operator-select").value = data.operatorId;
+  $("#approval-plan-id").value = result.plan.id;
+  $("#approval-operator-select").value = data.operatorId;
   toast("Provisioning plan generated");
   await refreshAll();
 }
@@ -1086,6 +1264,8 @@ async function executeJob(event) {
       imageRef: "image://sylion/base/dev",
       pixelDeviceId: pixel?.id,
       routerDeviceId: router?.id,
+      approvalId: data.approvalId || undefined,
+      approvalRequired: data.approvalRequired === "on",
       idempotencyKey: `ui_${data.planId}`
     }
   }), "Execute Plan");
@@ -1172,6 +1352,7 @@ function setView(name) {
     dashboard: ["Overview", "Live operations cockpit connected to the SYLION Admin API."],
     operators: ["Operators", "Create tenants and operators."],
     provisioning: ["Provisioning", "Generate plans and execute orchestrator jobs."],
+    approvals: ["Approvals", "Review readiness, execution gates and workload lifecycle."],
     subscriptions: ["Subscriptions", "Manage tiers, add-ons, workload quotas and billing state."],
     devices: ["Devices", "Register Pixel, Puli AX and FIDO2 assets."],
     providers: ["Providers", "Add provider accounts without retaining plaintext secrets."],
@@ -1195,6 +1376,10 @@ function bind() {
   $("#workload-quote-form").addEventListener("submit", (event) => quoteWorkloadAllocation(event).catch(showError));
   $("#workload-allocation-form").addEventListener("submit", (event) => createWorkloadAllocation(event).catch(showError));
   $("#placement-form").addEventListener("submit", (event) => createPlacementPlan(event).catch(showError));
+  $("#readiness-form").addEventListener("submit", (event) => evaluateOperatorReadiness(event).catch(showError));
+  $("#approval-form").addEventListener("submit", (event) => createProvisioningApproval(event).catch(showError));
+  $("#approval-status-form").addEventListener("submit", (event) => updateProvisioningApprovalStatus(event).catch(showError));
+  $("#workload-lifecycle-form").addEventListener("submit", (event) => transitionWorkloadLifecycle(event).catch(showError));
   $("#device-form").addEventListener("submit", (event) => registerDevice(event).catch(showError));
   $("#recovery-form").addEventListener("submit", (event) => createRecoveryRequest(event).catch(showError));
   $("#break-glass-form").addEventListener("submit", (event) => createBreakGlassRequest(event).catch(showError));
@@ -1207,6 +1392,9 @@ function bind() {
   $("#phantom-readiness-form").addEventListener("submit", (event) => evaluatePhantomReadiness(event).catch(showError));
   $("#phantom-simulation-form").addEventListener("submit", (event) => runPhantomSimulation(event).catch(showError));
   $("#phantom-assignment-form").addEventListener("submit", (event) => createPhantomAssignmentPlan(event).catch(showError));
+  $("#phantom-review-board-form").addEventListener("submit", (event) => createPhantomReviewBoardItem(event).catch(showError));
+  $("#phantom-policy-simulation-form").addEventListener("submit", (event) => runPhantomPolicySimulation(event).catch(showError));
+  $("#phantom-exception-form").addEventListener("submit", (event) => createPhantomException(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));

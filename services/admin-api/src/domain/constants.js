@@ -48,11 +48,17 @@ export const RESOURCE_TYPES = Object.freeze({
   PHANTOM_READINESS: "phantom_readiness",
   PHANTOM_SIMULATION: "phantom_simulation",
   PHANTOM_ASSIGNMENT_PLAN: "phantom_assignment_plan",
+  PHANTOM_REVIEW_BOARD_ITEM: "phantom_review_board_item",
+  PHANTOM_POLICY_SIMULATION: "phantom_policy_simulation",
+  PHANTOM_EXCEPTION: "phantom_exception",
   SUBSCRIPTION_PLAN: "subscription_plan",
   TENANT_SUBSCRIPTION: "tenant_subscription",
   WORKLOAD_ALLOCATION: "workload_allocation",
   WORKLOAD_QUOTA_DECISION: "workload_quota_decision",
-  MICROVM_PLACEMENT_PLAN: "microvm_placement_plan"
+  MICROVM_PLACEMENT_PLAN: "microvm_placement_plan",
+  PROVISIONING_APPROVAL: "provisioning_approval",
+  OPERATOR_READINESS: "operator_readiness",
+  WORKLOAD_LIFECYCLE: "workload_lifecycle"
 });
 
 export const DEVICE_TYPES = Object.freeze({

@@ -25,6 +25,18 @@ const TEMPLATE_TIERS = new Set(["STANDARD", "PRO", "SOVEREIGN"]);
 const PACKAGE_STAGES = new Set(["draft", "review_ready", "blocked", "approved_placeholder", "closed"]);
 const EVIDENCE_RETENTION_CLASSES = new Set(["worm_audit", "legal_hold", "short_review"]);
 const SIMULATION_SCENARIOS = new Set(["readiness_review", "tier_fit", "operator_assignment", "audit_correlation"]);
+const REVIEW_BOARD_STATUSES = new Set([
+  "intake",
+  "legal_review",
+  "ciso_review",
+  "architect_review",
+  "compliance_review",
+  "approved_placeholder",
+  "blocked",
+  "closed"
+]);
+const POLICY_SIMULATION_SCENARIOS = new Set(["control_gap", "tier_fit", "evidence_completeness", "review_path"]);
+const EXCEPTION_STATUSES = new Set(["draft", "legal_review", "ciso_review", "compliance_review", "approved_placeholder", "rejected", "closed"]);
 const PROHIBITED_TERMS = [
   "imei",
   "imsi",
@@ -169,6 +181,9 @@ export class PhantomGovernanceService {
     this.readinessEvaluations = new PersistentMap({ store, collection: "phantom_readiness_evaluations" });
     this.simulationRuns = new PersistentMap({ store, collection: "phantom_simulation_runs" });
     this.assignmentPlans = new PersistentMap({ store, collection: "phantom_assignment_plans" });
+    this.reviewBoardItems = new PersistentMap({ store, collection: "phantom_review_board_items" });
+    this.policySimulations = new PersistentMap({ store, collection: "phantom_policy_simulations" });
+    this.exceptions = new PersistentMap({ store, collection: "phantom_exceptions" });
     if (!this.boundary.get("current")) {
       this.boundary.set("current", boundaryRecord());
     }
@@ -760,6 +775,163 @@ export class PhantomGovernanceService {
     return [...this.assignmentPlans.values()].map((item) => this.#publicAssignmentPlan(item));
   }
 
+  listReviewBoardItems({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM });
+    return [...this.reviewBoardItems.values()].map((item) => this.#publicReviewBoardItem(item));
+  }
+
+  createReviewBoardItem({ actor, title, summary, packageId = null, legalOwner, cisoOwner, architectOwner, complianceOwner, evidenceRefs = [], correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM });
+    if (packageId) this.#requirePackage(packageId);
+    const item = {
+      id: newId("phantom_review"),
+      title: requireText(title, "title"),
+      summary: requireText(summary, "summary"),
+      packageId: optionalId(packageId, "packageId"),
+      legalOwner: requireText(legalOwner, "legalOwner"),
+      cisoOwner: requireText(cisoOwner, "cisoOwner"),
+      architectOwner: requireText(architectOwner, "architectOwner"),
+      complianceOwner: requireText(complianceOwner, "complianceOwner"),
+      evidenceRefs: safeArray(evidenceRefs, "evidenceRefs"),
+      status: "intake",
+      requiredOwners: ["Architect", "CISO", "Legal", "Compliance/Product"],
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      createdAt: isoNow(),
+      createdBy: actor.id,
+      updatedAt: null,
+      updatedBy: null
+    };
+    this.reviewBoardItems.set(item.id, item);
+    this.audit.record({
+      actorId: actor.id,
+      action: "phantom.review_board_item_created",
+      resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM,
+      resourceId: item.id,
+      correlationId: corr,
+      newValue: this.#publicReviewBoardItem(item)
+    });
+    return this.#publicReviewBoardItem(item);
+  }
+
+  updateReviewBoardStatus({ actor, itemId, status, note = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM, resourceId: itemId });
+    const previous = this.reviewBoardItems.get(itemId);
+    if (!previous) throw notFound("phantom_review_board_item", itemId);
+    const next = {
+      ...previous,
+      status: requireEnum(status, REVIEW_BOARD_STATUSES, "status"),
+      note: optionalText(note, "note") || previous.note || null,
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      updatedAt: isoNow(),
+      updatedBy: actor.id
+    };
+    this.reviewBoardItems.set(next.id, next);
+    this.audit.record({
+      actorId: actor.id,
+      action: "phantom.review_board_status_changed",
+      resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM,
+      resourceId: next.id,
+      correlationId: corr,
+      previousValue: this.#publicReviewBoardItem(previous),
+      newValue: this.#publicReviewBoardItem(next)
+    });
+    return this.#publicReviewBoardItem(next);
+  }
+
+  listPolicySimulations({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION });
+    return [...this.policySimulations.values()].map((item) => this.#publicPolicySimulation(item));
+  }
+
+  runPolicySimulation({ actor, packageId = null, scenario = "control_gap", assumptions = [], expectedControls = [], correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION });
+    const pkg = packageId ? this.#requirePackage(packageId) : null;
+    const controls = safeArray(expectedControls, "expectedControls");
+    const run = {
+      id: newId("phantom_policy_sim"),
+      packageId: pkg?.id || null,
+      scenario: requireEnum(scenario, POLICY_SIMULATION_SCENARIOS, "scenario"),
+      assumptions: safeArray(assumptions, "assumptions"),
+      expectedControls: controls,
+      findings: controls.length
+        ? controls.map((control) => `review_required:${control}`)
+        : ["review_required:human_gate", "review_required:no_baseline_execution"],
+      mode: "policy_simulation_only",
+      result: "review_required",
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      createdAt: isoNow(),
+      createdBy: actor.id
+    };
+    this.policySimulations.set(run.id, run);
+    this.audit.record({
+      actorId: actor.id,
+      action: "phantom.policy_simulation_created",
+      resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION,
+      resourceId: run.id,
+      correlationId: corr,
+      newValue: this.#publicPolicySimulation(run)
+    });
+    return this.#publicPolicySimulation(run);
+  }
+
+  listExceptions({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_EXCEPTION });
+    return [...this.exceptions.values()].map((item) => this.#publicException(item));
+  }
+
+  createException({ actor, scope, justification, legalOwner, cisoOwner, complianceOwner, evidenceRefs = [], status = "legal_review", executionRequested = false, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_EXCEPTION });
+    if (executionRequested === true) {
+      throw validationError("PHANTOM exceptions cannot request execution", { boundary: "PHANTOM_REVIEW_ONLY" });
+    }
+    const exception = {
+      id: newId("phantom_exception"),
+      scope: requireText(scope, "scope"),
+      justification: requireText(justification, "justification"),
+      legalOwner: requireText(legalOwner, "legalOwner"),
+      cisoOwner: requireText(cisoOwner, "cisoOwner"),
+      complianceOwner: requireText(complianceOwner, "complianceOwner"),
+      evidenceRefs: safeArray(evidenceRefs, "evidenceRefs"),
+      status: requireEnum(status, EXCEPTION_STATUSES, "status"),
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      createdAt: isoNow(),
+      createdBy: actor.id,
+      updatedAt: null,
+      updatedBy: null
+    };
+    this.exceptions.set(exception.id, exception);
+    this.audit.record({
+      actorId: actor.id,
+      action: "phantom.exception_created",
+      resourceType: RESOURCE_TYPES.PHANTOM_EXCEPTION,
+      resourceId: exception.id,
+      correlationId: corr,
+      policyDecision: "deny",
+      result: "blocked",
+      newValue: this.#publicException(exception)
+    });
+    return this.#publicException(exception);
+  }
+
   auditCorrelation({ actor, packageId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_READINESS });
@@ -1032,6 +1204,71 @@ export class PhantomGovernanceService {
       executionEnabled: false,
       createdAt: record.createdAt,
       createdBy: record.createdBy
+    };
+  }
+
+  #publicReviewBoardItem(record) {
+    return {
+      id: record.id,
+      title: record.title,
+      summary: record.summary,
+      packageId: record.packageId,
+      legalOwner: record.legalOwner,
+      cisoOwner: record.cisoOwner,
+      architectOwner: record.architectOwner,
+      complianceOwner: record.complianceOwner,
+      evidenceRefs: record.evidenceRefs,
+      status: record.status,
+      requiredOwners: record.requiredOwners,
+      note: record.note || null,
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      createdAt: record.createdAt,
+      createdBy: record.createdBy,
+      updatedAt: record.updatedAt,
+      updatedBy: record.updatedBy
+    };
+  }
+
+  #publicPolicySimulation(record) {
+    return {
+      id: record.id,
+      packageId: record.packageId,
+      scenario: record.scenario,
+      assumptions: record.assumptions,
+      expectedControls: record.expectedControls,
+      findings: record.findings,
+      mode: "policy_simulation_only",
+      result: record.result,
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      createdAt: record.createdAt,
+      createdBy: record.createdBy
+    };
+  }
+
+  #publicException(record) {
+    return {
+      id: record.id,
+      scope: record.scope,
+      justification: record.justification,
+      legalOwner: record.legalOwner,
+      cisoOwner: record.cisoOwner,
+      complianceOwner: record.complianceOwner,
+      evidenceRefs: record.evidenceRefs,
+      status: record.status,
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      createdAt: record.createdAt,
+      createdBy: record.createdBy,
+      updatedAt: record.updatedAt,
+      updatedBy: record.updatedBy
     };
   }
 }

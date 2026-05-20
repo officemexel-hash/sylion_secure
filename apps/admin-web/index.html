@@ -19,6 +19,7 @@
         <button class="active" data-view="dashboard">Overview</button>
         <button data-view="operators">Operators</button>
         <button data-view="provisioning">Provisioning</button>
+        <button data-view="approvals">Approvals</button>
         <button data-view="subscriptions">Subscriptions</button>
         <button data-view="devices">Devices</button>
         <button data-view="providers">Providers</button>
@@ -263,6 +264,8 @@
             <form id="job-form">
               <label>Operator <select name="operatorId" id="job-operator-select"></select></label>
               <label>Plan ID <input name="planId" id="job-plan-id"></label>
+              <label>Approval ID <input name="approvalId" id="job-approval-id" placeholder="Required for gated execution"></label>
+              <label class="check-row"><input type="checkbox" name="approvalRequired" checked> Require approval gate</label>
               <label>Provider <input name="provider" value="hetzner"></label>
               <label>Region <input name="region" value="fsn1"></label>
               <button type="submit">Execute Plan</button>
@@ -271,6 +274,100 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Jobs</h2></div>
             <div class="cards" id="job-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="approvals" hidden>
+          <article class="panel wide command-panel">
+            <div>
+              <span class="eyebrow">Step 3.8</span>
+              <h2>Approval, readiness and workload lifecycle <span class="help-tip" tabindex="0" data-tip="Human approval and readiness checks before activation. PHANTOM resources stay outside execution approvals.">?</span></h2>
+            </div>
+            <div class="command-grid">
+              <span>Operator readiness</span>
+              <span>Execution approval gate</span>
+              <span>Lifecycle no side effects</span>
+            </div>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Readiness <span class="help-tip" tabindex="0" data-tip="Checks Puli AX, Pixel, FIDO2, provider reference, subscription billing and 3 VPS/CDR baseline.">?</span></h2>
+              <span class="pill warn">HUMAN GATE</span>
+            </div>
+            <form id="readiness-form">
+              <label>Operator <select name="operatorId" id="readiness-operator-select"></select></label>
+              <button type="submit">Evaluate Readiness</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Provisioning Approval <span class="help-tip" tabindex="0" data-tip="Creates an auditable approval record. Only approved_for_execution can unlock approval-gated orchestrator execution.">?</span></h2>
+              <span class="pill">Execution gate</span>
+            </div>
+            <form id="approval-form">
+              <label>Operator <select name="operatorId" id="approval-operator-select"></select></label>
+              <label>Plan ID <input name="planId" id="approval-plan-id"></label>
+              <label>Reason <input name="reasonCode" value="provisioning_execution_review"></label>
+              <label>Evidence refs <input name="evidenceRefs" value="readiness-check,security-review"></label>
+              <button type="submit">Create Approval</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Approval Status <span class="help-tip" tabindex="0" data-tip="Human gate decision. Rejection or blocking is preserved in audit; approval only unlocks gated execution for baseline provisioning records.">?</span></h2>
+              <span class="pill warn">Audited</span>
+            </div>
+            <form id="approval-status-form">
+              <label>Approval <select name="approvalId" id="approval-status-select"></select></label>
+              <label>Status
+                <select name="status">
+                  <option>pending_security_review</option>
+                  <option>pending_provisioning_review</option>
+                  <option selected>approved_for_execution</option>
+                  <option>rejected</option>
+                  <option>blocked</option>
+                  <option>closed</option>
+                </select>
+              </label>
+              <label>Note <input name="note" value="Human approval recorded for gated execution"></label>
+              <button type="submit">Update Status</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Workload Lifecycle <span class="help-tip" tabindex="0" data-tip="Moves workload metadata through lifecycle states. It does not start or delete real microVMs.">?</span></h2>
+              <span class="pill">Metadata only</span>
+            </div>
+            <form id="workload-lifecycle-form">
+              <label>Allocation <select name="allocationId" id="workload-lifecycle-allocation-select"></select></label>
+              <label>Status
+                <select name="status">
+                  <option selected>approval_required</option>
+                  <option>approved_for_activation</option>
+                  <option>activating</option>
+                  <option>active</option>
+                  <option>degraded</option>
+                  <option>suspended</option>
+                  <option>revocation_required</option>
+                  <option>revoked</option>
+                  <option>closed</option>
+                </select>
+              </label>
+              <label>Reason <input name="reasonCode" value="operator_lifecycle_review"></label>
+              <button type="submit">Transition Lifecycle</button>
+            </form>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Readiness Results</h2><span class="pill">Księga 3.4</span></div>
+            <div class="cards" id="readiness-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Provisioning Approvals</h2><span class="pill">Gate records</span></div>
+            <div class="cards" id="approval-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Workload Lifecycle</h2><span class="pill">No side effects</span></div>
+            <div class="cards" id="workload-lifecycle-cards"></div>
           </article>
         </section>
 
@@ -658,6 +755,58 @@
             </form>
           </article>
 
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Review Board <span class="help-tip" tabindex="0" data-tip="Formal PHANTOM review board item. Legal, CISO, architect and compliance owners are mandatory.">?</span></h2>
+              <span class="pill warn">Owners</span>
+            </div>
+            <form id="phantom-review-board-form">
+              <label>Title <input name="title" value="PHANTOM governance board review"></label>
+              <label>Summary <input name="summary" value="Control-plane readiness review only"></label>
+              <label>Package <select name="packageId" id="phantom-review-board-package-select"></select></label>
+              <label>Legal Owner <input name="legalOwner" value="legal@sylion.local"></label>
+              <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local"></label>
+              <label>Architect Owner <input name="architectOwner" value="architect@sylion.local"></label>
+              <label>Compliance Owner <input name="complianceOwner" value="compliance@sylion.local"></label>
+              <button type="submit">Create Review Item</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Policy Simulation <span class="help-tip" tabindex="0" data-tip="Runs control-policy checks only. No live connector, no autonomous action, no baseline execution.">?</span></h2>
+              <span class="pill">Simulation only</span>
+            </div>
+            <form id="phantom-policy-simulation-form">
+              <label>Package <select name="packageId" id="phantom-policy-simulation-package-select"></select></label>
+              <label>Scenario
+                <select name="scenario">
+                  <option selected>control_gap</option>
+                  <option>tier_fit</option>
+                  <option>evidence_completeness</option>
+                  <option>review_path</option>
+                </select>
+              </label>
+              <label>Expected controls <input name="expectedControls" value="Human gate,No baseline execution,Legal sign-off"></label>
+              <button type="submit">Run Policy Simulation</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Exception <span class="help-tip" tabindex="0" data-tip="Records a PHANTOM exception request for review. It cannot request execution.">?</span></h2>
+              <span class="pill warn">No execution</span>
+            </div>
+            <form id="phantom-exception-form">
+              <label>Scope <input name="scope" value="Review timing exception"></label>
+              <label>Justification <input name="justification" value="Administrative review sequencing exception only"></label>
+              <label>Legal Owner <input name="legalOwner" value="legal@sylion.local"></label>
+              <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local"></label>
+              <label>Compliance Owner <input name="complianceOwner" value="compliance@sylion.local"></label>
+              <button type="submit">Create Exception</button>
+            </form>
+          </article>
+
           <article class="panel wide">
             <div class="panel-head">
               <h2>Capabilities</h2>
@@ -727,6 +876,27 @@
               <span class="pill">Subscription fit</span>
             </div>
             <div class="cards" id="phantom-assignment-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Review Board</h2>
+              <span class="pill warn">Human owners</span>
+            </div>
+            <div class="cards" id="phantom-review-board-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Policy Simulations</h2>
+              <span class="pill">Simulation only</span>
+            </div>
+            <div class="cards" id="phantom-policy-simulation-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Exceptions</h2>
+              <span class="pill warn">No execution</span>
+            </div>
+            <div class="cards" id="phantom-exception-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head">

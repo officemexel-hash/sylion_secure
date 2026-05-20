@@ -114,6 +114,77 @@ Request:
 }
 ```
 
+## Step 3.8 Approval Gates
+
+### GET /operators/:operatorId/readiness
+
+Evaluates Księga 3.4 readiness for an operator. Response includes `readyForApproval`, `blockers`, `warnings`, `deviceCoverage`, provider secret references, `humanGateRequired: true`, and `sideEffectAllowed: false`.
+
+### POST /provisioning/approvals
+
+Creates a human-gated approval record for baseline provisioning. PHANTOM resources are rejected from execution approval.
+
+```json
+{
+  "operatorId": "op_uuid",
+  "planId": "plan_uuid",
+  "reasonCode": "provisioning_execution_review",
+  "evidenceRefs": ["readiness-check", "security-review"]
+}
+```
+
+### POST /provisioning/approvals/:approvalId/status
+
+Updates approval state. `approved_for_execution` unlocks only approval-gated baseline provisioning requests and never PHANTOM records.
+
+```json
+{
+  "status": "approved_for_execution",
+  "note": "Human gate complete"
+}
+```
+
+### POST /workload/allocations/:allocationId/lifecycle
+
+Transitions workload metadata through valid lifecycle states without starting or deleting real microVMs.
+
+```json
+{
+  "status": "approval_required",
+  "reasonCode": "operator_lifecycle_review"
+}
+```
+
+### POST /orchestrator/jobs
+
+For strict Step 3.8 execution, include:
+
+```json
+{
+  "planId": "plan_uuid",
+  "approvalRequired": true,
+  "approvalId": "approval_uuid"
+}
+```
+
+Legacy non-strict calls remain temporarily supported for migration and are tracked as a known Step 3.8 gap.
+
+## Step 3.8 PHANTOM Control Plane
+
+All PHANTOM Step 3.8 endpoints are governance/control-plane only. Responses must preserve `humanGateRequired: true`, `sideEffectAllowed: false`, `executionAllowed: false`, and `executionEnabled: false`.
+
+### POST /phantom/review-board
+
+Creates a PHANTOM review board item with mandatory Legal, CISO, Architect, and Compliance/Product ownership.
+
+### POST /phantom/policy-simulations
+
+Runs a policy simulation only. No live connector or operational execution path is invoked.
+
+### POST /phantom/exceptions
+
+Records an exception request for review. Requests with `executionRequested: true` are rejected.
+
 Response 201:
 
 ```json

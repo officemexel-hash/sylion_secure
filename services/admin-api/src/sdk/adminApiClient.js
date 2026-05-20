@@ -215,6 +215,34 @@ export class AdminApiClient {
     return this.request("/phantom/assignment-plans", { method: "POST", body });
   }
 
+  listPhantomReviewBoardItems() {
+    return this.request("/phantom/review-board");
+  }
+
+  createPhantomReviewBoardItem(body) {
+    return this.request("/phantom/review-board", { method: "POST", body });
+  }
+
+  updatePhantomReviewBoardStatus(itemId, body) {
+    return this.request(`/phantom/review-board/${itemId}/status`, { method: "POST", body });
+  }
+
+  listPhantomPolicySimulations() {
+    return this.request("/phantom/policy-simulations");
+  }
+
+  runPhantomPolicySimulation(body) {
+    return this.request("/phantom/policy-simulations", { method: "POST", body });
+  }
+
+  listPhantomExceptions() {
+    return this.request("/phantom/exceptions");
+  }
+
+  createPhantomException(body) {
+    return this.request("/phantom/exceptions", { method: "POST", body });
+  }
+
   getPhantomAuditCorrelation(packageId = null) {
     return this.request(`/phantom/audit-correlation${packageId ? `?packageId=${encodeURIComponent(packageId)}` : ""}`);
   }
@@ -261,6 +289,30 @@ export class AdminApiClient {
 
   listQuotaDecisions() {
     return this.request("/subscription/quota-decisions");
+  }
+
+  listProvisioningApprovals(operatorId = null) {
+    return this.request(`/provisioning/approvals${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  createProvisioningApproval(body) {
+    return this.request("/provisioning/approvals", { method: "POST", body });
+  }
+
+  updateProvisioningApprovalStatus(approvalId, body) {
+    return this.request(`/provisioning/approvals/${approvalId}/status`, { method: "POST", body });
+  }
+
+  evaluateOperatorReadiness(operatorId) {
+    return this.request(`/operators/${operatorId}/readiness`);
+  }
+
+  listWorkloadLifecycle(operatorId = null) {
+    return this.request(`/workload/lifecycle${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  transitionWorkloadLifecycle(allocationId, body) {
+    return this.request(`/workload/allocations/${allocationId}/lifecycle`, { method: "POST", body });
   }
 
   isStepUpRequired(error) {
