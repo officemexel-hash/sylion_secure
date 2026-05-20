@@ -1,0 +1,38 @@
+flowchart TD
+    Freeze["Step 3.7 Freeze"]
+    A["S3.8-A Provisioning Approval Queue"]
+    B["S3.8-B Workload Lifecycle State Machine"]
+    C["S3.8-C Operator Enrollment Readiness Gate"]
+    D["S3.8-D Orchestrator Preflight Approval Guard"]
+    E["S3.8-E Dashboard Regression Harness"]
+    F["S3.8-F Visual And Mobile Verification"]
+    G["S3.8-G PHANTOM Control Plane Review Board"]
+    H["S3.8-H PHANTOM Policy Simulation Harness"]
+    I["S3.8-I PHANTOM Exception Review"]
+    J["S3.8-J SDK Contract Docs"]
+    Release["Step 3.8 Release Gate"]
+    Freeze --> A
+    Freeze --> B
+    Freeze --> C
+    A --> D
+    B --> D
+    C --> D
+    G --> H
+    G --> I
+    H --> I
+    A --> E
+    B --> E
+    C --> E
+    D --> E
+    G --> E
+    E --> F
+    A --> J
+    B --> J
+    C --> J
+    D --> J
+    G --> J
+    H --> J
+    I --> J
+    F --> Release
+    J --> Release
+

@@ -1,0 +1,15 @@
+stateDiagram-v2
+    [*] --> intake
+    intake --> legal_review
+    legal_review --> ciso_review
+    ciso_review --> architect_review
+    architect_review --> compliance_review
+    compliance_review --> approved_placeholder
+    legal_review --> blocked
+    ciso_review --> blocked
+    architect_review --> blocked
+    compliance_review --> blocked
+    approved_placeholder --> closed
+    blocked --> closed
+    closed --> [*]
+

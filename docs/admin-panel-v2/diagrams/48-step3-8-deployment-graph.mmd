@@ -1,0 +1,27 @@
+flowchart TD
+    Browser["Admin Browser"]
+    Static["Admin Web"]
+    API["Admin API"]
+    Approval["Approval Queue"]
+    Lifecycle["Workload Lifecycle"]
+    Readiness["Readiness Gate"]
+    Phantom["PHANTOM Control Plane<br/>Non-executable"]
+    Store["Persistent Store"]
+    Audit["Audit"]
+    Orchestrator["Orchestrator"]
+    Browser --> Static
+    Browser --> API
+    API --> Approval
+    API --> Lifecycle
+    API --> Readiness
+    API --> Phantom
+    Approval --> Store
+    Lifecycle --> Store
+    Phantom --> Store
+    Approval --> Audit
+    Lifecycle --> Audit
+    Readiness --> Audit
+    Phantom --> Audit
+    API --> Orchestrator
+    Approval --> Orchestrator
+

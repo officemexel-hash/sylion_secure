@@ -1,0 +1,17 @@
+stateDiagram-v2
+    [*] --> planned
+    planned --> approval_required
+    approval_required --> approved_for_activation
+    approval_required --> rejected
+    approved_for_activation --> activating
+    activating --> active
+    activating --> degraded
+    active --> suspended
+    active --> revocation_required
+    degraded --> suspended
+    suspended --> approval_required
+    revocation_required --> revoked
+    rejected --> closed
+    revoked --> [*]
+    closed --> [*]
+

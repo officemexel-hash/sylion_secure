@@ -173,8 +173,10 @@ manual-tests/step3-7-dashboard-playwright-checklist.md
 ## Nastepny Priorytet
 
 ```text
-1. Zamrozic Step 3.7 po przegladzie UI/API/testow.
-2. Zaplanowac Step 3.8: provisioning approval queue, workload lifecycle states and expanded dashboard regression tests.
-3. Rozszerzyc testy dashboardowe o negatywne sciezki UI, mobile viewport i visual regression checklist.
-4. Utrzymac PHANTOM v3.0 jako separate track bez baseline execution.
+1. Wdrozyc Step 3.8 - Provisioning Approval Queue, Workload Lifecycle And PHANTOM Control Plane Expansion.
+2. Zaczac od provisioning approval queue, workload lifecycle state machine i operator readiness gate.
+3. Dodac orchestrator preflight approval guard bez oslabiania WebAuthn step-up.
+4. Rozszerzyc testy dashboardowe o approval queue, lifecycle, negatywne sciezki UI, mobile viewport i visual regression checklist.
+5. Rozwinac PHANTOM jako review board, policy simulation harness i exception review bez execution.
+6. Utrzymac PHANTOM v3.0 jako separate track bez baseline execution.
 ```

@@ -1,0 +1,22 @@
+sequenceDiagram
+    actor Admin
+    participant UI as Admin Web
+    participant API as Admin API
+    participant Ready as Readiness Gate
+    participant Approval as Approval Queue
+    participant Orch as Orchestrator
+    participant Audit as Audit
+    Admin->>UI: Request provisioning execution
+    UI->>API: POST /approvals/provisioning
+    API->>Ready: evaluate operator readiness
+    Ready-->>API: blockers/warnings
+    API->>Approval: create pending review
+    Approval->>Audit: approval.request_created
+    Admin->>UI: Approve request
+    UI->>API: POST /approvals/provisioning/:id/status
+    API->>Approval: mark approved_for_execution
+    Approval->>Audit: approval.status_changed
+    UI->>API: POST /orchestrator/jobs
+    API->>Approval: preflight approval check
+    API->>Orch: execute only after approval + step-up
+

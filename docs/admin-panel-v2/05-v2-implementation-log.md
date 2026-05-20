@@ -1015,3 +1015,47 @@ Dashboard Playwright test:
 manual-tests/step3-7-dashboard-playwright-checklist.md
 assets/step3-7-dashboard-playwright.png
 ```
+
+## Step 3.7 Freeze / Step 3.8 Planning Package
+
+Status: planned
+Data: 2026-05-20
+
+Zamrozono stan po:
+
+```text
+365295a Implement Step 3.7 subscription workload controls
+```
+
+Dodano pakiet planistyczny kolejnego etapu:
+
+```text
+34-step3-7-freeze-and-step3-8-scope.md
+35-step3-8-masterplan.md
+36-step3-8-prompt-pack.md
+37-step3-8-graphs-roadmap.md
+STEP3_8_DIAGRAMS.md
+diagrams/46-step3-8-module-dependencies.mmd
+diagrams/47-step3-8-module-map.mmd
+diagrams/48-step3-8-deployment-graph.mmd
+diagrams/49-step3-8-runtime-flow.mmd
+diagrams/50-step3-8-workload-lifecycle.mmd
+diagrams/51-step3-8-phantom-review-flow.mmd
+diagrams/52-step3-8-roadmap-gantt.mmd
+```
+
+Kolejny etap zostal zdefiniowany jako:
+
+```text
+V2 Step 3.8 - Provisioning Approval Queue, Workload Lifecycle And PHANTOM Control Plane Expansion
+```
+
+Uwagi zgodnosci:
+
+```text
+Step 3.8 planuje approval queue, workload lifecycle, operator readiness gate i expanded dashboard regression.
+PHANTOM rozwijamy jako control-plane review board, policy simulation harness i exception review.
+PHANTOM nadal jest separate track [A], poza certyfikowalnym baseline.
+PHANTOM execution remains disabled.
+HUMAN GATE REQUIRED przed produkcyjna aktywacja PHANTOM, destructive cleanup lub customer-facing claims.
+```

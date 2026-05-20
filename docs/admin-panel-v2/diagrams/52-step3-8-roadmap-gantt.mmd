@@ -1,0 +1,19 @@
+gantt
+    title SYLION Admin V2 Step 3.8 Roadmap
+    dateFormat  YYYY-MM-DD
+    axisFormat  %m-%d
+    section Approval And Lifecycle
+    Approval queue                         :a1, 2026-05-20, 1d
+    Workload lifecycle                     :a2, after a1, 1d
+    Readiness gate                         :a3, after a2, 1d
+    Orchestrator guard                     :a4, after a3, 1d
+    section PHANTOM Control Plane
+    Review board                           :p1, after a1, 1d
+    Policy simulation harness              :p2, after p1, 1d
+    Exception review expansion             :p3, after p2, 1d
+    section UI And Tests
+    Dashboard regression harness           :t1, after a4, 1d
+    Visual and mobile verification         :t2, after t1, 1d
+    SDK contract docs                      :t3, after p3, 1d
+    Step 3.8 freeze                        :t4, after t3, 1d
+

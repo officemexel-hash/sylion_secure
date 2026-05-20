@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph UI["Admin Web"]
+        Dash["Dashboard Regression"]
+        ApprovalView["Approval Queue View"]
+        LifecycleView["Workload Lifecycle View"]
+        PhantomView["PHANTOM Review Board"]
+    end
+    subgraph API["Admin API"]
+        Approval["Provisioning Approval Service"]
+        Lifecycle["Workload Lifecycle Service"]
+        Readiness["Operator Readiness Gate"]
+        Guard["Orchestrator Preflight Guard"]
+        PhantomBoard["PHANTOM Review Board Service"]
+        PhantomSim["PHANTOM Simulation Harness"]
+    end
+    subgraph Core["Existing Core"]
+        Subs["Subscription Service"]
+        Workloads["Workload Allocations"]
+        Orch["Orchestrator"]
+        Audit["Audit"]
+    end
+    UI --> API
+    Approval --> Guard
+    Lifecycle --> Guard
+    Readiness --> Guard
+    Guard --> Orch
+    Subs --> Readiness
+    Workloads --> Lifecycle
+    PhantomBoard --> PhantomSim
+    Approval --> Audit
+    Lifecycle --> Audit
+    Guard --> Audit
+    PhantomBoard --> Audit
+    PhantomSim --> Audit
+
