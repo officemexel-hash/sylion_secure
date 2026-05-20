@@ -16,12 +16,13 @@
         </div>
       </div>
       <nav aria-label="Main">
-        <button class="active" data-view="dashboard">Dashboard</button>
+        <button class="active" data-view="dashboard">Overview</button>
         <button data-view="operators">Operators</button>
         <button data-view="provisioning">Provisioning</button>
         <button data-view="devices">Devices</button>
         <button data-view="providers">Providers</button>
         <button data-view="security">Security</button>
+        <button data-view="phantom">PHANTOM</button>
         <button data-view="audit">Audit</button>
       </nav>
     </aside>
@@ -93,10 +94,29 @@
           <span id="toast" role="status"></span>
         </section>
 
+        <section class="status-strip" aria-label="Operational status">
+          <span>G1/G2 separated</span>
+          <span>3 VPS baseline</span>
+          <span>CDR mandatory</span>
+          <span>Puli AX gated</span>
+          <span>PHANTOM separate</span>
+        </section>
+
         <section class="grid view" data-view-panel="dashboard">
+          <article class="panel wide command-panel">
+            <div>
+              <span class="eyebrow">Action Required</span>
+              <h2>Security operations cockpit</h2>
+            </div>
+            <div class="command-grid">
+              <span>Step-up protected actions</span>
+              <span>Provider secret references only</span>
+              <span>PHANTOM governance review-only</span>
+            </div>
+          </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Operator Provisioning</h2>
+              <h2>Operator Provisioning <span class="help-tip" tabindex="0" data-tip="Tracks the safe provisioning path from tenant to orchestrator job.">?</span></h2>
               <span class="pill" id="flow-state">Ready</span>
             </div>
             <ol class="flow">
@@ -110,7 +130,7 @@
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Security Invariants</h2>
+              <h2>Security Invariants <span class="help-tip" tabindex="0" data-tip="Baseline controls from Księga 3.4 that must stay true during implementation.">?</span></h2>
               <span class="pill">Active</span>
             </div>
             <ul class="checks">
@@ -123,7 +143,7 @@
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Recent Audit</h2>
+              <h2>Recent Audit <span class="help-tip" tabindex="0" data-tip="Hash-chained evidence stream for sensitive policy and admin decisions.">?</span></h2>
               <span class="pill" id="audit-health">Live</span>
             </div>
             <div class="table-wrap">
@@ -277,21 +297,21 @@
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Credentials</h2>
+              <h2>Credentials <span class="help-tip" tabindex="0" data-tip="Safe metadata only. Revoke and suspend require fresh FIDO2 step-up.">?</span></h2>
               <span class="pill">Step-up protected</span>
             </div>
             <div class="cards" id="credential-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Auth Policy</h2>
+              <h2>Auth Policy <span class="help-tip" tabindex="0" data-tip="Readable matrix of auth states and sensitive action requirements.">?</span></h2>
               <span class="pill">Baseline matrix</span>
             </div>
             <div class="cards" id="auth-policy-cards"></div>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Recovery</h2>
+              <h2>Recovery <span class="help-tip" tabindex="0" data-tip="Creates an auditable request only. It never unlocks an account automatically.">?</span></h2>
               <span class="pill warn">No auto unlock</span>
             </div>
             <form id="recovery-form">
@@ -303,7 +323,7 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Break-glass</h2>
+              <h2>Break-glass <span class="help-tip" tabindex="0" data-tip="Placeholder only. Production behavior requires explicit human approval.">?</span></h2>
               <span class="pill warn">HUMAN GATE</span>
             </div>
             <form id="break-glass-form">
@@ -325,6 +345,100 @@
               <span class="pill warn">PHANTOM separate</span>
             </div>
             <div class="cards" id="break-glass-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="phantom" hidden>
+          <article class="panel wide command-panel phantom-command">
+            <div>
+              <span class="eyebrow">Separate Track</span>
+              <h2>PHANTOM Governance <span class="help-tip" tabindex="0" data-tip="Governance-only control surface. It does not execute PHANTOM behavior.">?</span></h2>
+            </div>
+            <div class="command-grid">
+              <span>HUMAN GATE required</span>
+              <span>Legal/CISO/Architect review</span>
+              <span>sideEffectAllowed=false</span>
+            </div>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Boundary <span class="help-tip" tabindex="0" data-tip="Shows PHANTOM as a separate [A] track outside certifiable SYLION baseline.">?</span></h2>
+              <span class="pill warn" id="phantom-boundary-state">Checking</span>
+            </div>
+            <div class="cards" id="phantom-boundary-cards"></div>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Capability <span class="help-tip" tabindex="0" data-tip="Redacted metadata only. Do not enter operational instructions or radio identity details.">?</span></h2>
+            </div>
+            <form id="phantom-capability-form">
+              <label>Name <input name="displayName" value="Governance Placeholder"></label>
+              <label>Risk
+                <select name="riskLevel">
+                  <option>medium</option>
+                  <option selected>restricted</option>
+                  <option>high</option>
+                </select>
+              </label>
+              <label>Controls <input name="controlsRequired" value="Legal review,CISO review,Architect review"></label>
+              <button type="submit">Add Capability</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Approval <span class="help-tip" tabindex="0" data-tip="Creates review evidence. approved_placeholder still does not enable execution.">?</span></h2>
+            </div>
+            <form id="phantom-approval-form">
+              <label>Reason <input name="reasonCode" value="governance_review"></label>
+              <label>Legal Owner <input name="legalOwner" value="legal@sylion.local"></label>
+              <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local"></label>
+              <label>Architect Owner <input name="architectOwner" value="architect@sylion.local"></label>
+              <button type="submit">Create Approval</button>
+            </form>
+          </article>
+
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Risk Register <span class="help-tip" tabindex="0" data-tip="Documents residual risk and mitigation. No operational PHANTOM details belong here.">?</span></h2>
+            </div>
+            <form id="phantom-risk-form">
+              <label>Description <input name="description" value="Separate-track legal and compliance review required"></label>
+              <label>Severity
+                <select name="severity">
+                  <option>medium</option>
+                  <option selected>high</option>
+                  <option>critical</option>
+                </select>
+              </label>
+              <label>Residual Risk <input name="residualRisk" value="Operational behavior is not approved for baseline"></label>
+              <label>Mitigation <input name="mitigationPlan" value="Keep governance-only boundary and require HUMAN GATE"></label>
+              <button type="submit">Add Risk</button>
+            </form>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Capabilities</h2>
+              <span class="pill">Redacted metadata</span>
+            </div>
+            <div class="cards" id="phantom-capability-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Approvals</h2>
+              <span class="pill warn">No execution</span>
+            </div>
+            <div class="cards" id="phantom-approval-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Risks</h2>
+              <span class="pill warn">Residual risk</span>
+            </div>
+            <div class="cards" id="phantom-risk-cards"></div>
           </article>
         </section>
 

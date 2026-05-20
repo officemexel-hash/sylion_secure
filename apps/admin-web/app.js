@@ -11,6 +11,10 @@ const state = {
   authPolicy: null,
   recoveryRequests: [],
   breakGlassRequests: [],
+  phantomBoundary: null,
+  phantomCapabilities: [],
+  phantomApprovals: [],
+  phantomRisks: [],
   lastPlanId: null,
   lastPlanOperatorId: null,
   credentialId: localStorage.getItem("sylion.admin.credentialId") || null,
@@ -145,7 +149,24 @@ async function login(event) {
 
 async function refreshAll() {
   if (!state.token) return;
-  const [health, session, tenants, operators, providers, devices, jobs, audit, credentials, policy, recovery, breakGlass] = await Promise.all([
+  const [
+    health,
+    session,
+    tenants,
+    operators,
+    providers,
+    devices,
+    jobs,
+    audit,
+    credentials,
+    policy,
+    recovery,
+    breakGlass,
+    phantomBoundary,
+    phantomCapabilities,
+    phantomApprovals,
+    phantomRisks
+  ] = await Promise.all([
     api("/health"),
     api("/auth/session"),
     api("/tenants"),
@@ -157,7 +178,11 @@ async function refreshAll() {
     api("/auth/credentials").catch(() => ({ credentials: [] })),
     api("/auth/policy-matrix").catch(() => ({ policy: null })),
     api("/auth/recovery/requests").catch(() => ({ requests: [] })),
-    api("/auth/break-glass/requests").catch(() => ({ requests: [] }))
+    api("/auth/break-glass/requests").catch(() => ({ requests: [] })),
+    api("/phantom/boundary").catch(() => ({ boundary: null })),
+    api("/phantom/capabilities").catch(() => ({ capabilities: [] })),
+    api("/phantom/approvals").catch(() => ({ approvals: [] })),
+    api("/phantom/risks").catch(() => ({ risks: [] }))
   ]);
   $("#api-status").textContent = health.status === "ok" ? "API Healthy" : "API Degraded";
   state.session = session.session;
@@ -171,6 +196,10 @@ async function refreshAll() {
   state.authPolicy = policy.policy;
   state.recoveryRequests = recovery.requests;
   state.breakGlassRequests = breakGlass.requests;
+  state.phantomBoundary = phantomBoundary.boundary;
+  state.phantomCapabilities = phantomCapabilities.capabilities;
+  state.phantomApprovals = phantomApprovals.approvals;
+  state.phantomRisks = phantomRisks.risks;
   render();
 }
 
@@ -180,6 +209,7 @@ function render() {
   $("#metric-jobs").textContent = state.jobs.length;
   $("#metric-audit").textContent = state.audit.length;
   $("#session-state").textContent = state.session?.authMethod || "Unknown";
+  $("#phantom-boundary-state").textContent = state.phantomBoundary?.status || "Unavailable";
   $("#webauthn-capability").textContent = state.webAuthnSupported ? "Browser WebAuthn available" : "Dev/test simulator only";
   $("#webauthn-capability-security").textContent = state.webAuthnSupported
     ? "Browser WebAuthn capability available"
@@ -249,6 +279,34 @@ function render() {
     ["Side effect", String(request.sideEffectExecuted)],
     ["PHANTOM", request.phantomBoundary]
   ])).join("") || empty("No break-glass requests.");
+
+  $("#phantom-boundary-cards").innerHTML = state.phantomBoundary ? card("PHANTOM v3.0", [
+    ["Status", state.phantomBoundary.status],
+    ["Human gate", String(state.phantomBoundary.humanGateRequired)],
+    ["Side effect", String(state.phantomBoundary.sideEffectAllowed)],
+    ["Boundary", state.phantomBoundary.phantomBoundary]
+  ]) : empty("PHANTOM boundary is not available for this role.");
+
+  $("#phantom-capability-cards").innerHTML = state.phantomCapabilities.map((item) => card(item.displayName, [
+    ["Risk", item.riskLevel],
+    ["Legal", item.legalReviewStatus],
+    ["CISO", item.cisoReviewStatus],
+    ["Execution", String(item.executionEnabled)]
+  ])).join("") || empty("No PHANTOM capabilities recorded.");
+
+  $("#phantom-approval-cards").innerHTML = state.phantomApprovals.map((item) => card(item.reasonCode, [
+    ["Status", item.status],
+    ["Legal", item.legalOwner],
+    ["CISO", item.cisoOwner],
+    ["Side effect", String(item.sideEffectAllowed)]
+  ])).join("") || empty("No PHANTOM approvals recorded.");
+
+  $("#phantom-risk-cards").innerHTML = state.phantomRisks.map((item) => card(item.description, [
+    ["Severity", item.severity],
+    ["Status", item.status],
+    ["Residual", item.residualRisk],
+    ["Gate", String(item.humanGateRequired)]
+  ])).join("") || empty("No PHANTOM risks recorded.");
 
   const recent = state.audit.slice(-8).reverse();
   $("#audit-table").innerHTML = recent.map((event) => `
@@ -566,6 +624,55 @@ async function createBreakGlassRequest(event) {
   await refreshAll();
 }
 
+async function createPhantomCapability(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/capabilities", {
+    method: "POST",
+    body: {
+      displayName: data.displayName,
+      riskLevel: data.riskLevel,
+      controlsRequired: splitCsv(data.controlsRequired)
+    }
+  });
+  toast("PHANTOM capability metadata recorded");
+  await refreshAll();
+}
+
+async function createPhantomApproval(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/approvals", {
+    method: "POST",
+    body: {
+      reasonCode: data.reasonCode,
+      legalOwner: data.legalOwner,
+      cisoOwner: data.cisoOwner,
+      architectOwner: data.architectOwner
+    }
+  });
+  toast("PHANTOM approval request recorded");
+  await refreshAll();
+}
+
+async function createPhantomRisk(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/phantom/risks", {
+    method: "POST",
+    body: {
+      description: data.description,
+      severity: data.severity,
+      legalOwner: "legal@sylion.local",
+      cisoOwner: "ciso@sylion.local",
+      residualRisk: data.residualRisk,
+      mitigationPlan: data.mitigationPlan
+    }
+  });
+  toast("PHANTOM risk recorded");
+  await refreshAll();
+}
+
 async function handleCredentialAction(event) {
   const action = event.target.dataset.credentialAction;
   if (!action) return;
@@ -698,12 +805,13 @@ function setView(name) {
     button.classList.toggle("active", button.dataset.view === name);
   });
   const titles = {
-    dashboard: ["Dashboard", "Live Admin Shell connected to the SYLION Admin API."],
+    dashboard: ["Overview", "Live operations cockpit connected to the SYLION Admin API."],
     operators: ["Operators", "Create tenants and operators."],
     provisioning: ["Provisioning", "Generate plans and execute orchestrator jobs."],
     devices: ["Devices", "Register Pixel, Puli AX and FIDO2 assets."],
     providers: ["Providers", "Add provider accounts without retaining plaintext secrets."],
     security: ["Security", "Review core V2 security boundaries."],
+    phantom: ["PHANTOM", "Governance-only separate track with HUMAN GATE."],
     audit: ["Audit", "Inspect hash-chained audit events."]
   };
   $("#view-title").textContent = titles[name]?.[0] || "Dashboard";
@@ -719,6 +827,9 @@ function bind() {
   $("#device-form").addEventListener("submit", (event) => registerDevice(event).catch(showError));
   $("#recovery-form").addEventListener("submit", (event) => createRecoveryRequest(event).catch(showError));
   $("#break-glass-form").addEventListener("submit", (event) => createBreakGlassRequest(event).catch(showError));
+  $("#phantom-capability-form").addEventListener("submit", (event) => createPhantomCapability(event).catch(showError));
+  $("#phantom-approval-form").addEventListener("submit", (event) => createPhantomApproval(event).catch(showError));
+  $("#phantom-risk-form").addEventListener("submit", (event) => createPhantomRisk(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));

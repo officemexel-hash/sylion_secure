@@ -29,6 +29,14 @@ const ROLE_PERMISSIONS = Object.freeze({
     "break_glass.request",
     "break_glass.read",
     "break_glass.manage_placeholder",
+    "phantom.boundary.read",
+    "phantom.boundary.manage_placeholder",
+    "phantom.capability.read",
+    "phantom.capability.manage_placeholder",
+    "phantom.approval.read",
+    "phantom.approval.manage_placeholder",
+    "phantom.risk.read",
+    "phantom.risk.manage_placeholder",
     "provisioning.plan.generate"
   ],
   [ROLES.PROVISIONING_ADMIN]: [

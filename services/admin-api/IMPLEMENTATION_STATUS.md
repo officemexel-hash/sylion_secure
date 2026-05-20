@@ -2,7 +2,7 @@
 
 Status na 2026-05-20.
 
-V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2, Step 3.3 i Step 3.4 sa zaimplementowane:
+V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2, Step 3.3, Step 3.4 i Step 3.5 sa zaimplementowane:
 
 ```text
 Step 1: API SDK + SQLite persistence foundation
@@ -11,6 +11,7 @@ Step 3.1: WebAuthn-compatible auth API, challenge store, credential registry, se
 Step 3.2: Step-up enforcement for provider secrets and orchestrator execution
 Step 3.3: Recovery request workflow, account lockout and break-glass placeholder model
 Step 3.4: WebAuthn verifier boundary, credential lifecycle and auth hardening
+Step 3.5: PHANTOM governance-only boundary and premium admin UX foundation
 ```
 
 ## Zaimplementowane Moduly Domenowe
@@ -67,6 +68,9 @@ break-glass placeholder creation with HUMAN GATE marker
 WebAuthn mode selector and capability status
 credential list/suspend/revoke with step-up protection
 auth policy matrix visibility
+PHANTOM governance boundary as separate track
+PHANTOM capability/approval/risk governance records without execution
+premium dashboard status strip and HelpTip anchors
 ```
 
 ## Najwazniejsze Testy
@@ -91,6 +95,10 @@ recovery-lockout-step3-3.test.js
 webauthn-hardening-step3-4.test.js
   WebAuthn verifier boundary, auth policy matrix, credential lifecycle,
   step-up dla revoke, revoked credential login block oraz audit leakage checks.
+
+phantom-governance-step3-5.test.js
+  PHANTOM governance boundary, capability registry, approval workflow, risk register,
+  RBAC denial, no side effects, HUMAN GATE and prohibited operational detail rejection.
 
 full-admin-human-flow.e2e.test.js
   Pelny przeplyw przez HTTP:
@@ -132,17 +140,16 @@ npm.cmd test
 Aktualny wynik:
 
 ```text
-39 tests
-39 passing
+42 tests
+42 passing
 0 failing
 ```
 
 ## Nastepny Priorytet
 
 ```text
-1. Wdrozyc Step 3.5 - PHANTOM Governance Boundary And Premium Admin UX.
-2. Zaczac od PHANTOM governance boundary jako review-only, sideEffectAllowed=false.
-3. Dodac capability registry, approvals, evidence/risk register i audit.
-4. Przebudowac Admin Web w kierunku premium operational cockpit z HelpTip system.
-5. Podjac HUMAN GATE dla production WebAuthn attestation policy oraz jakiegokolwiek PHANTOM execution.
+1. Zamrozic Step 3.5 i przygotowac Step 3.6 plan z grafami Mermaid.
+2. Podjac HUMAN GATE dla production WebAuthn attestation policy oraz jakiegokolwiek PHANTOM execution.
+3. Rozszerzyc premium Admin Web o pelne responsive visual QA.
+4. Rozszerzyc SQLite schema/repositories poza KV foundation.
 ```

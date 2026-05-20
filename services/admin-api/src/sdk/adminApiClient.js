@@ -111,6 +111,50 @@ export class AdminApiClient {
     return this.request("/auth/break-glass/requests");
   }
 
+  getPhantomBoundary() {
+    return this.request("/phantom/boundary");
+  }
+
+  updatePhantomBoundaryStatus(body) {
+    return this.request("/phantom/boundary/status", { method: "POST", body });
+  }
+
+  listPhantomCapabilities() {
+    return this.request("/phantom/capabilities");
+  }
+
+  createPhantomCapability(body) {
+    return this.request("/phantom/capabilities", { method: "POST", body });
+  }
+
+  updatePhantomCapabilityStatus(capabilityId, body) {
+    return this.request(`/phantom/capabilities/${capabilityId}/status`, { method: "POST", body });
+  }
+
+  listPhantomApprovals() {
+    return this.request("/phantom/approvals");
+  }
+
+  createPhantomApproval(body) {
+    return this.request("/phantom/approvals", { method: "POST", body });
+  }
+
+  updatePhantomApprovalStatus(approvalId, body) {
+    return this.request(`/phantom/approvals/${approvalId}/status`, { method: "POST", body });
+  }
+
+  listPhantomRisks() {
+    return this.request("/phantom/risks");
+  }
+
+  createPhantomRisk(body) {
+    return this.request("/phantom/risks", { method: "POST", body });
+  }
+
+  updatePhantomRiskStatus(riskId, body) {
+    return this.request(`/phantom/risks/${riskId}/status`, { method: "POST", body });
+  }
+
   isStepUpRequired(error) {
     return error?.payload?.error?.code === "step_up_required";
   }

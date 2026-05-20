@@ -89,6 +89,14 @@ Constraints: UI must look usable, modern, beautiful, and operational; include sm
 Avoid: stealth instructions, radio identity details, evasion language, clutter, unreadable tiny text, purple-dominated palette, dark-only theme, nested cards.
 ```
 
+## Generated Asset
+
+```text
+docs/admin-panel-v2/assets/step3-5-admin-ui-concept.png
+```
+
+Ten obraz jest kierunkiem wizualnym dla implementacji UI. Nie jest dowodem funkcjonalnym i nie oznacza, ze PHANTOM jest czescia certyfikowalnego baseline.
+
 ## Implementation Note
 
 Generated image is visual direction only. Production UI must be implemented as accessible HTML/CSS/JS and verified with browser checks.

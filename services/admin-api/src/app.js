@@ -22,6 +22,7 @@ import { MatrixServerService } from "./modules/matrix/matrixServerService.js";
 import { DeviceInventoryService } from "./modules/devices/deviceInventoryService.js";
 import { ImageFactoryService } from "./modules/images/imageFactoryService.js";
 import { OrchestratorService } from "./modules/orchestrator/orchestratorService.js";
+import { PhantomGovernanceService } from "./modules/phantom/phantomGovernanceService.js";
 import { AppError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -98,6 +99,7 @@ export function createApp({ store = null, authOptions = {} } = {}) {
   const matrix = new MatrixServerService({ audit, rbac, entitlements, store });
   const devices = new DeviceInventoryService({ audit, rbac, operators, store });
   const imageFactory = new ImageFactoryService({ audit, rbac, devices, appCatalog, store });
+  const phantom = new PhantomGovernanceService({ audit, rbac, store });
   const orchestrator = new OrchestratorService({
     audit,
     rbac,
@@ -130,6 +132,7 @@ export function createApp({ store = null, authOptions = {} } = {}) {
     matrix,
     devices,
     imageFactory,
+    phantom,
     orchestrator
   };
 
@@ -290,6 +293,82 @@ export function createApp({ store = null, authOptions = {} } = {}) {
       if (req.method === "GET" && url.pathname === "/auth/break-glass/requests") {
         rbac.assert(actor, "break_glass.read", { correlationId });
         return send(res, 200, { requests: auth.listBreakGlassRequests() });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/boundary") {
+        return send(res, 200, { boundary: phantom.getBoundary({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/boundary/status") {
+        const body = await readJson(req);
+        const boundary = phantom.updateBoundaryStatus({ actor, ...body, correlationId });
+        return send(res, 200, { boundary });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/capabilities") {
+        return send(res, 200, { capabilities: phantom.listCapabilities({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/capabilities") {
+        const body = await readJson(req);
+        const capability = phantom.createCapability({ actor, ...body, correlationId });
+        return send(res, 201, { capability });
+      }
+
+      const phantomCapabilityStatusMatch = url.pathname.match(/^\/phantom\/capabilities\/([^/]+)\/status$/);
+      if (req.method === "POST" && phantomCapabilityStatusMatch) {
+        const body = await readJson(req);
+        const capability = phantom.updateCapabilityStatus({
+          actor,
+          capabilityId: phantomCapabilityStatusMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { capability });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/approvals") {
+        return send(res, 200, { approvals: phantom.listApprovals({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/approvals") {
+        const body = await readJson(req);
+        const approval = phantom.createApproval({ actor, ...body, correlationId });
+        return send(res, 201, { approval });
+      }
+
+      const phantomApprovalStatusMatch = url.pathname.match(/^\/phantom\/approvals\/([^/]+)\/status$/);
+      if (req.method === "POST" && phantomApprovalStatusMatch) {
+        const body = await readJson(req);
+        const approval = phantom.updateApprovalStatus({
+          actor,
+          approvalId: phantomApprovalStatusMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { approval });
+      }
+
+      if (req.method === "GET" && url.pathname === "/phantom/risks") {
+        return send(res, 200, { risks: phantom.listRisks({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/risks") {
+        const body = await readJson(req);
+        const risk = phantom.createRisk({ actor, ...body, correlationId });
+        return send(res, 201, { risk });
+      }
+
+      const phantomRiskStatusMatch = url.pathname.match(/^\/phantom\/risks\/([^/]+)\/status$/);
+      if (req.method === "POST" && phantomRiskStatusMatch) {
+        const body = await readJson(req);
+        const risk = phantom.updateRiskStatus({
+          actor,
+          riskId: phantomRiskStatusMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { risk });
       }
 
       if (req.method === "GET" && url.pathname === "/audit/events") {

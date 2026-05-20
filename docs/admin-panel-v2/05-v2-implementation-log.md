@@ -679,3 +679,104 @@ HUMAN GATE REQUIRED dla kazdej produkcyjnej funkcji PHANTOM.
 Panel ma pokazywac governance, approvals, evidence, risk i audit, bez operacyjnych instrukcji PHANTOM.
 UI/UX panelu ma zostac przebudowany w kierunku premium operational cockpit z helptipami.
 ```
+
+## Step 3.5 - PHANTOM Governance Boundary And Premium Admin UX
+
+Status: implemented
+Data: 2026-05-20
+
+### Zakres
+
+Zaimplementowano Step 3.5:
+
+```text
+PHANTOM Governance Service
+PHANTOM boundary endpointy
+PHANTOM capability registry jako redacted governance metadata
+PHANTOM approval workflow jako placeholder bez execution
+PHANTOM risk register
+RBAC permissions dla PHANTOM governance
+audit events phantom.*
+guardrail validation przeciw prohibited operational details
+Admin Web PHANTOM navigation/view
+premium dashboard status strip
+HelpTip tooltip system
+visual concept asset copied into docs/admin-panel-v2/assets
+SDK methods for PHANTOM governance
+API/static tests
+```
+
+### Endpointy
+
+```text
+GET  /phantom/boundary
+POST /phantom/boundary/status
+GET  /phantom/capabilities
+POST /phantom/capabilities
+POST /phantom/capabilities/:id/status
+GET  /phantom/approvals
+POST /phantom/approvals
+POST /phantom/approvals/:id/status
+GET  /phantom/risks
+POST /phantom/risks
+POST /phantom/risks/:id/status
+```
+
+### Pliki
+
+```text
+services/admin-api/src/modules/phantom/phantomGovernanceService.js
+services/admin-api/src/app.js
+services/admin-api/src/domain/constants.js
+services/admin-api/src/modules/rbac/rbacService.js
+services/admin-api/src/sdk/adminApiClient.js
+services/admin-api/test/phantom-governance-step3-5.test.js
+services/admin-api/test/admin-web-static.test.js
+apps/admin-web/index.html
+apps/admin-web/app.js
+apps/admin-web/styles.css
+docs/admin-panel-v2/assets/step3-5-admin-ui-concept.png
+docs/admin-panel-v2/ui-concepts/step3-5-admin-ui-visual-brief.md
+services/admin-api/IMPLEMENTATION_STATUS.md
+```
+
+### Security Notes
+
+```text
+PHANTOM pozostaje separate track
+sideEffectAllowed=false dla boundary, capability, approval i risk
+executionEnabled=false dla boundary, capability i approval
+humanGateRequired=true dla PHANTOM governance records
+approved_placeholder nie wlacza execution
+support readonly nie ma dostepu do PHANTOM governance
+service odrzuca prohibited operational details jak IMEI/IMSI/spoof/evasion/lawful bypass
+audit nie zapisuje prohibited rejected input
+UI pokazuje PHANTOM jako governance-only, nie baseline execution
+```
+
+### Test
+
+```text
+npm.cmd test
+42 tests
+42 passing
+0 failing
+```
+
+### Browser Verification
+
+```text
+/admin loads
+API Healthy
+PHANTOM nav exists
+PHANTOM view exists
+HelpTip anchors exist
+Boundary/capability/approval/risk containers exist
+HUMAN GATE and sideEffectAllowed=false are visible
+```
+
+### Nastepny Krok
+
+```text
+Step 3.5 Freeze / Step 3.6 Planning Package
+```

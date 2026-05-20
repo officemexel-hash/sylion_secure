@@ -36,7 +36,11 @@ export const RESOURCE_TYPES = Object.freeze({
   AUDIT_EVENT: "audit_event",
   AUTHORIZED_APP: "authorized_app",
   CDR_DECISION: "cdr_decision",
-  FILE_TRANSFER: "file_transfer"
+  FILE_TRANSFER: "file_transfer",
+  PHANTOM_BOUNDARY: "phantom_boundary",
+  PHANTOM_CAPABILITY: "phantom_capability",
+  PHANTOM_APPROVAL: "phantom_approval",
+  PHANTOM_RISK: "phantom_risk"
 });
 
 export const DEVICE_TYPES = Object.freeze({
