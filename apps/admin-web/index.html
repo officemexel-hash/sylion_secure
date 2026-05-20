@@ -268,6 +268,43 @@
             </div>
             <div class="cards" id="session-cards"></div>
           </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Recovery</h2>
+              <span class="pill warn">No auto unlock</span>
+            </div>
+            <form id="recovery-form">
+              <label>Affected email <input name="email" value="admin@sylion.local" autocomplete="off"></label>
+              <label>Reason <input name="reasonCode" value="admin_access_recovery"></label>
+              <label>Note <input name="note" value="Manual review required"></label>
+              <button type="submit">Create Recovery Request</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Break-glass</h2>
+              <span class="pill warn">HUMAN GATE</span>
+            </div>
+            <form id="break-glass-form">
+              <label>Action scope <input name="actionScope" value="emergency_access_review"></label>
+              <label>Reason <input name="reasonCode" value="security_incident_review"></label>
+              <button type="submit">Create Placeholder</button>
+            </form>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Recovery Requests</h2>
+              <span class="pill">Audit only</span>
+            </div>
+            <div class="cards" id="recovery-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Break-glass Requests</h2>
+              <span class="pill warn">PHANTOM separate</span>
+            </div>
+            <div class="cards" id="break-glass-cards"></div>
+          </article>
         </section>
 
         <section class="grid view" data-view-panel="audit" hidden>

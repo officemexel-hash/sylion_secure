@@ -427,3 +427,79 @@ Ksiega 3.4 pozostaje baseline dla normatywnych wymagan.
 PHANTOM v3.0 pozostaje oddzielna sciezka i nie jest implementowany w baseline.
 Production break-glass semantics wymagaja HUMAN GATE.
 ```
+
+## Step 3.3 - Recovery, Lockout And Break-glass Placeholder Model
+
+Status: implemented
+Data: 2026-05-20
+
+### Zakres
+
+Zaimplementowano Step 3.3:
+
+```text
+account lockout po powtarzalnych bledach logowania / challenge
+lockout state jako osobna kolekcja auth_failed_attempts
+publiczny recovery request bez automatycznego odblokowania konta
+review-only recovery status workflow
+break-glass request jako placeholder bez side effects
+HUMAN GATE jako wymagana bariera dla break-glass
+jawne oznaczenie, ze PHANTOM v3.0 jest oddzielnym torem i nie jest baseline
+Admin Web security view z recovery i break-glass forms
+SDK metody dla recovery i break-glass
+testy lockout, RBAC, audit leakage i PHANTOM separation
+```
+
+### Endpointy
+
+```text
+POST /auth/recovery/request
+GET  /auth/recovery/requests
+POST /auth/recovery/requests/:id/status
+POST /auth/break-glass/requests
+GET  /auth/break-glass/requests
+```
+
+### Pliki
+
+```text
+services/admin-api/src/modules/auth/authService.js
+services/admin-api/src/app.js
+services/admin-api/src/modules/rbac/rbacService.js
+services/admin-api/src/sdk/adminApiClient.js
+services/admin-api/test/recovery-lockout-step3-3.test.js
+services/admin-api/test/admin-web-static.test.js
+apps/admin-web/index.html
+apps/admin-web/app.js
+services/admin-api/IMPLEMENTATION_STATUS.md
+```
+
+### Security Notes
+
+```text
+recovery request nigdy nie wykonuje auto-unlock
+approved_placeholder nie odblokowuje konta i nie uruchamia side effect
+break-glass request ma status pending_human_gate
+break-glass request zwraca sideEffectExecuted=false
+break-glass request ma baselineBoundary=SYLION_BASELINE_PLACEHOLDER_ONLY
+break-glass request ma phantomBoundary=PHANTOM_V3_SEPARATE_TRACK_NOT_IMPLEMENTED
+support readonly nie moze czytac recovery queue
+audit nie zawiera hasel ani provider secrets
+Ksiega 3.4 pozostaje baseline
+PHANTOM v3.0 pozostaje oddzielony od produktu baseline
+```
+
+### Test
+
+```text
+npm.cmd test
+36 tests
+36 passing
+0 failing
+```
+
+### Nastepny Krok
+
+```text
+Step 3.3 Freeze / Step 3.4 Planning Package
+```

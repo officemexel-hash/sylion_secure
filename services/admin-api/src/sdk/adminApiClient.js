@@ -75,6 +75,26 @@ export class AdminApiClient {
     return this.request("/auth/step-up/verify", { method: "POST", body });
   }
 
+  createRecoveryRequest(body) {
+    return this.request("/auth/recovery/request", { method: "POST", body });
+  }
+
+  listRecoveryRequests() {
+    return this.request("/auth/recovery/requests");
+  }
+
+  updateRecoveryStatus(requestId, body) {
+    return this.request(`/auth/recovery/requests/${requestId}/status`, { method: "POST", body });
+  }
+
+  createBreakGlassRequest(body) {
+    return this.request("/auth/break-glass/requests", { method: "POST", body });
+  }
+
+  listBreakGlassRequests() {
+    return this.request("/auth/break-glass/requests");
+  }
+
   isStepUpRequired(error) {
     return error?.payload?.error?.code === "step_up_required";
   }

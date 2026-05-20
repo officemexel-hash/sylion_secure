@@ -2,13 +2,14 @@
 
 Status na 2026-05-20.
 
-V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1 i Step 3.2 sa zaimplementowane:
+V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2 i Step 3.3 sa zaimplementowane:
 
 ```text
 Step 1: API SDK + SQLite persistence foundation
 Step 2: Live Admin Shell served by Admin API under /admin
 Step 3.1: WebAuthn-compatible auth API, challenge store, credential registry, session and step-up endpoints
 Step 3.2: Step-up enforcement for provider secrets and orchestrator execution
+Step 3.3: Recovery request workflow, account lockout and break-glass placeholder model
 ```
 
 ## Zaimplementowane Moduly Domenowe
@@ -60,6 +61,8 @@ step-up modal dla chronionych operacji
 podglad audit stream
 demo flow end-to-end z poziomu przegladarki
 session status security view
+recovery request creation without automatic unlock
+break-glass placeholder creation with HUMAN GATE marker
 ```
 
 ## Najwazniejsze Testy
@@ -75,6 +78,11 @@ auth-webauthn-step3.test.js
 step-up-enforcement-step3-2.test.js
   Step-up enforcement dla provider create, provider secret rotation i orchestrator job.
   Testuje brak side effect przed step-up, retry po step-up, idempotency i leakage checks.
+
+recovery-lockout-step3-3.test.js
+  Account lockout po powtarzalnych bledach, recovery request bez auto-unlock,
+  review-only status workflow, RBAC denial dla support readonly oraz break-glass
+  placeholder z HUMAN GATE i separacja PHANTOM v3.0.
 
 full-admin-human-flow.e2e.test.js
   Pelny przeplyw przez HTTP:
@@ -116,16 +124,16 @@ npm.cmd test
 Aktualny wynik:
 
 ```text
-33 tests
-33 passing
+36 tests
+36 passing
 0 failing
 ```
 
 ## Nastepny Priorytet
 
 ```text
-1. Podmienic local WebAuthn simulator na realny browser WebAuthn binding.
-2. Rozszerzyc SQLite schema/repositories poza KV foundation.
-3. Dodac ProviderAdapter boundary dla mock/Hetzner/OVH.
-4. Rozpoczac Step 3.3 recovery/lockout/break-glass model.
+1. Zamrozic Step 3.3 i przygotowac Step 3.4 plan z grafami Mermaid.
+2. Podmienic local WebAuthn simulator na realny browser WebAuthn binding.
+3. Rozszerzyc SQLite schema/repositories poza KV foundation.
+4. Dodac ProviderAdapter boundary dla mock/Hetzner/OVH.
 ```

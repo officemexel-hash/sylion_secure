@@ -7,6 +7,8 @@ const state = {
   devices: [],
   jobs: [],
   audit: [],
+  recoveryRequests: [],
+  breakGlassRequests: [],
   lastPlanId: null,
   lastPlanOperatorId: null,
   credentialId: localStorage.getItem("sylion.admin.credentialId") || null,
@@ -117,7 +119,7 @@ async function login(event) {
 
 async function refreshAll() {
   if (!state.token) return;
-  const [health, session, tenants, operators, providers, devices, jobs, audit] = await Promise.all([
+  const [health, session, tenants, operators, providers, devices, jobs, audit, recovery, breakGlass] = await Promise.all([
     api("/health"),
     api("/auth/session"),
     api("/tenants"),
@@ -125,7 +127,9 @@ async function refreshAll() {
     api("/providers"),
     api("/devices"),
     api("/orchestrator/jobs"),
-    api("/audit/events")
+    api("/audit/events"),
+    api("/auth/recovery/requests").catch(() => ({ requests: [] })),
+    api("/auth/break-glass/requests").catch(() => ({ requests: [] }))
   ]);
   $("#api-status").textContent = health.status === "ok" ? "API Healthy" : "API Degraded";
   state.session = session.session;
@@ -135,6 +139,8 @@ async function refreshAll() {
   state.devices = devices.devices;
   state.jobs = jobs.jobs;
   state.audit = audit.events;
+  state.recoveryRequests = recovery.requests;
+  state.breakGlassRequests = breakGlass.requests;
   render();
 }
 
@@ -184,6 +190,20 @@ function render() {
     ["Expires", state.session.expiresAt],
     ["Step-up", state.session.stepUpValidUntil]
   ]) : empty("No active session.");
+
+  $("#recovery-cards").innerHTML = state.recoveryRequests.map((request) => card(request.affectedEmail, [
+    ["Status", request.status],
+    ["Reason", request.reasonCode],
+    ["Auto unlock", String(request.autoUnlock)],
+    ["Updated by", request.updatedBy]
+  ])).join("") || empty("No recovery requests.");
+
+  $("#break-glass-cards").innerHTML = state.breakGlassRequests.map((request) => card(request.actionScope, [
+    ["Status", request.status],
+    ["Human gate", String(request.humanGateRequired)],
+    ["Side effect", String(request.sideEffectExecuted)],
+    ["PHANTOM", request.phantomBoundary]
+  ])).join("") || empty("No break-glass requests.");
 
   const recent = state.audit.slice(-8).reverse();
   $("#audit-table").innerHTML = recent.map((event) => `
@@ -370,6 +390,40 @@ async function registerDevice(event) {
   await refreshAll();
 }
 
+async function createRecoveryRequest(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/auth/recovery/request", {
+    method: "POST",
+    body: {
+      email: data.email,
+      reasonCode: data.reasonCode,
+      requester: {
+        actorId: state.session?.adminId || "admin_ui",
+        sessionId: state.session?.id || null,
+        note: data.note
+      }
+    }
+  });
+  toast("Recovery request recorded; no automatic unlock executed");
+  event.currentTarget.reset();
+  await refreshAll();
+}
+
+async function createBreakGlassRequest(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/auth/break-glass/requests", {
+    method: "POST",
+    body: {
+      actionScope: data.actionScope,
+      reasonCode: data.reasonCode
+    }
+  });
+  toast("Break-glass placeholder recorded; HUMAN GATE required");
+  await refreshAll();
+}
+
 async function generatePlan(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -507,6 +561,8 @@ function bind() {
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
   $("#device-form").addEventListener("submit", (event) => registerDevice(event).catch(showError));
+  $("#recovery-form").addEventListener("submit", (event) => createRecoveryRequest(event).catch(showError));
+  $("#break-glass-form").addEventListener("submit", (event) => createBreakGlassRequest(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));
   $("#job-form").addEventListener("submit", (event) => executeJob(event).catch(showError));
   $("#refresh-button").addEventListener("click", () => refreshAll().catch(showError));

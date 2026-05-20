@@ -178,6 +178,12 @@ export function createApp({ store = null, authOptions = {} } = {}) {
         return send(res, 200, { session });
       }
 
+      if (req.method === "POST" && url.pathname === "/auth/recovery/request") {
+        const body = await readJson(req);
+        const request = auth.createRecoveryRequest({ ...body, correlationId });
+        return send(res, 201, { request });
+      }
+
       const actor = auth.actorFromToken(bearerToken(req));
 
       if (req.method === "GET" && url.pathname === "/auth/session") {
@@ -197,6 +203,40 @@ export function createApp({ store = null, authOptions = {} } = {}) {
         const body = await readJson(req);
         const session = auth.verifyStepUp({ actor, ...body, correlationId });
         return send(res, 200, { session });
+      }
+
+      if (req.method === "GET" && url.pathname === "/auth/recovery/requests") {
+        rbac.assert(actor, "auth.recovery.read", { correlationId });
+        return send(res, 200, { requests: auth.listRecoveryRequests() });
+      }
+
+      const recoveryStatusMatch = url.pathname.match(/^\/auth\/recovery\/requests\/([^/]+)\/status$/);
+      if (req.method === "POST" && recoveryStatusMatch) {
+        rbac.assert(actor, "auth.recovery.manage_placeholder", {
+          correlationId,
+          resourceType: "auth_recovery_request",
+          resourceId: recoveryStatusMatch[1]
+        });
+        const body = await readJson(req);
+        const request = auth.updateRecoveryStatus({
+          actor,
+          requestId: recoveryStatusMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { request });
+      }
+
+      if (req.method === "POST" && url.pathname === "/auth/break-glass/requests") {
+        rbac.assert(actor, "break_glass.request", { correlationId });
+        const body = await readJson(req);
+        const request = auth.createBreakGlassRequest({ actor, ...body, correlationId });
+        return send(res, 201, { request });
+      }
+
+      if (req.method === "GET" && url.pathname === "/auth/break-glass/requests") {
+        rbac.assert(actor, "break_glass.read", { correlationId });
+        return send(res, 200, { requests: auth.listBreakGlassRequests() });
       }
 
       if (req.method === "GET" && url.pathname === "/audit/events") {

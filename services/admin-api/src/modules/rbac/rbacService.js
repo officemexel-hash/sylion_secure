@@ -21,6 +21,11 @@ const ROLE_PERMISSIONS = Object.freeze({
     "orchestrator.plan.execute",
     "provisioning.plan.read",
     "audit.read",
+    "auth.recovery.read",
+    "auth.recovery.manage_placeholder",
+    "break_glass.request",
+    "break_glass.read",
+    "break_glass.manage_placeholder",
     "provisioning.plan.generate"
   ],
   [ROLES.PROVISIONING_ADMIN]: [

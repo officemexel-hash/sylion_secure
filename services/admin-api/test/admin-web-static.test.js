@@ -29,11 +29,15 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(html.contentType, /text\/html/);
     assert.match(html.body, /SYLION Admin/);
     assert.match(html.body, /id="login-form"/);
+    assert.match(html.body, /id="recovery-form"/);
+    assert.match(html.body, /id="break-glass-form"/);
 
     const js = await getText(baseUrl, "/admin/app.js");
     assert.equal(js.status, 200);
     assert.match(js.contentType, /text\/javascript/);
     assert.match(js.body, /async function login/);
+    assert.match(js.body, /createRecoveryRequest/);
+    assert.match(js.body, /createBreakGlassRequest/);
 
     const css = await getText(baseUrl, "/admin/styles.css");
     assert.equal(css.status, 200);
