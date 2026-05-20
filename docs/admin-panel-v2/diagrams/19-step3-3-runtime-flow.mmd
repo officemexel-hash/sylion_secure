@@ -1,0 +1,29 @@
+sequenceDiagram
+    participant Admin as Admin
+    participant UI as Admin Web
+    participant API as Admin API
+    participant Auth as Auth Service
+    participant Lockout as Lockout Policy
+    participant Recovery as Recovery Model
+    participant BreakGlass as Break-glass Placeholder
+    participant Audit as Audit
+
+    Admin->>UI: Failed login attempts
+    UI->>API: Auth verify requests
+    API->>Auth: validate
+    Auth->>Lockout: increment failure
+    Lockout->>Audit: auth.lockout_started when threshold reached
+    API-->>UI: locked / denied
+
+    Admin->>UI: Request recovery
+    UI->>API: POST /auth/recovery/request
+    API->>Recovery: create pending request
+    Recovery->>Audit: auth.recovery_started
+    API-->>UI: pending recovery, no unlock
+
+    Admin->>UI: Request break-glass placeholder
+    UI->>API: POST /auth/break-glass/requests
+    API->>BreakGlass: create pending_human_gate request
+    BreakGlass->>Audit: auth.break_glass_requested
+    BreakGlass->>Audit: auth.break_glass_human_gate_required
+    API-->>UI: humanGateRequired true, no side effect

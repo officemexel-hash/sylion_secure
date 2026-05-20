@@ -1,0 +1,30 @@
+flowchart LR
+    subgraph Auth["Auth Boundary"]
+        A["S3.3-A Lockout Policy"]
+        B["S3.3-B Recovery Requests"]
+        C["S3.3-C Break-glass Placeholder"]
+    end
+
+    subgraph Governance["Governance"]
+        E["S3.3-E Audit + RBAC + Human Gate"]
+        Book["Ksiega 3.4 Baseline"]
+        Phantom["PHANTOM v3.0 Separate Track"]
+    end
+
+    subgraph UI["Admin Web"]
+        D["S3.3-D Security UI States"]
+    end
+
+    subgraph QA["Validation"]
+        F["S3.3-F Abuse-case Tests"]
+    end
+
+    A --> E
+    B --> E
+    C --> E
+    E --> Book
+    E -. "separation only" .-> Phantom
+    B --> D
+    C --> D
+    D --> F
+    E --> F

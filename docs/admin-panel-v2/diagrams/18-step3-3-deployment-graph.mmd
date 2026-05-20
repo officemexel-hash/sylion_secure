@@ -1,0 +1,25 @@
+flowchart TD
+    Browser["Admin Browser"]
+    Web["Admin Web /admin"]
+    API["Admin API"]
+    Auth["Auth Service"]
+    Lockout["Lockout Policy"]
+    Recovery["Recovery Store"]
+    BreakGlass["Break-glass Placeholder Store"]
+    Audit["Audit Hash Chain"]
+    Store["SQLite Store"]
+    Tests["API + Browser Tests"]
+
+    Browser --> Web
+    Web --> API
+    API --> Auth
+    Auth --> Lockout
+    Auth --> Recovery
+    Auth --> BreakGlass
+    Lockout --> Audit
+    Recovery --> Audit
+    BreakGlass --> Audit
+    Auth --> Store
+    Audit --> Store
+    Tests --> API
+    Tests --> Web

@@ -13,6 +13,11 @@ diagrams/12-step3-2-module-map.mmd
 diagrams/13-step3-2-deployment-graph.mmd
 diagrams/14-step3-2-runtime-flow.mmd
 diagrams/15-step3-2-roadmap-gantt.mmd
+diagrams/16-step3-3-module-dependencies.mmd
+diagrams/17-step3-3-module-map.mmd
+diagrams/18-step3-3-deployment-graph.mmd
+diagrams/19-step3-3-runtime-flow.mmd
+diagrams/20-step3-3-roadmap-gantt.mmd
 ```
 
 Ten plik zbiera diagramy w jednym miejscu. Te same diagramy są też zapisane jako osobne pliki `.mmd` w `docs/admin-panel-v2/diagrams/`.

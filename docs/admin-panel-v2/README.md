@@ -59,6 +59,18 @@ V2 przeksztalca prototyp domenowy w uzywalna aplikacje operacyjna.
 13-step3-2-graphs-roadmap.md
   Grafy Mermaid, zaleznosci, deployment i roadmapa Step 3.2.
 
+14-step3-2-freeze-and-step3-3-scope.md
+  Zamrozenie Step 3.2 i zakres Step 3.3.
+
+15-step3-3-masterplan.md
+  Moduly, odpowiedzialnosci, HUMAN GATE i PHANTOM separation dla Step 3.3.
+
+16-step3-3-prompt-pack.md
+  Prompty dla developerow/modeli do realizacji Step 3.3.
+
+17-step3-3-graphs-roadmap.md
+  Grafy Mermaid, zaleznosci, deployment i roadmapa Step 3.3.
+
 DIAGRAMS.md
   Zebrane diagramy Mermaid V2 w jednym pliku do podgladu i kopiowania.
 
@@ -67,6 +79,9 @@ STEP3_DIAGRAMS.md
 
 STEP3_2_DIAGRAMS.md
   Zebrane diagramy Mermaid Step 3.2 w jednym pliku do kopiowania.
+
+STEP3_3_DIAGRAMS.md
+  Zebrane diagramy Mermaid Step 3.3 w jednym pliku do kopiowania.
 
 diagrams/*.mmd
   Osobne pliki Mermaid: zaleznosci, mapa modulow, plan wdrozenia, runtime flow i Gantt.

@@ -1,0 +1,23 @@
+flowchart TD
+    Freeze["Step 3.2 Freeze<br/>Step-up Enforcement"]
+
+    A["S3.3-A Lockout Policy"]
+    B["S3.3-B Recovery Request Model"]
+    C["S3.3-C Break-glass Placeholder Boundary"]
+    D["S3.3-D Admin Security UI States"]
+    E["S3.3-E Audit, RBAC And Human Gate Traceability"]
+    F["S3.3-F Threat Model And Abuse-case Tests"]
+
+    Freeze --> A
+    Freeze --> E
+    A --> B
+    A --> C
+    E --> B
+    E --> C
+    B --> D
+    C --> D
+    A --> F
+    B --> F
+    C --> F
+    D --> F
+    E --> F

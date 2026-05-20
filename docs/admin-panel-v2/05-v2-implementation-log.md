@@ -387,3 +387,43 @@ Browser runtime could not type password because its virtual clipboard is unavail
 ```text
 Step 3.3 - recovery, lockout and break-glass placeholder model
 ```
+
+## Step 3.2 Freeze / Step 3.3 Planning Package
+
+Status: planned
+Data: 2026-05-20
+
+Zamrozono stan po:
+
+```text
+07f38d4 Enforce step-up for sensitive admin actions
+```
+
+Dodano pakiet planistyczny kolejnego etapu:
+
+```text
+14-step3-2-freeze-and-step3-3-scope.md
+15-step3-3-masterplan.md
+16-step3-3-prompt-pack.md
+17-step3-3-graphs-roadmap.md
+STEP3_3_DIAGRAMS.md
+diagrams/16-step3-3-module-dependencies.mmd
+diagrams/17-step3-3-module-map.mmd
+diagrams/18-step3-3-deployment-graph.mmd
+diagrams/19-step3-3-runtime-flow.mmd
+diagrams/20-step3-3-roadmap-gantt.mmd
+```
+
+Kolejny etap zostal zdefiniowany jako:
+
+```text
+V2 Step 3.3 - Recovery, Lockout And Break-glass Placeholder Model
+```
+
+Uwagi zgodnosci:
+
+```text
+Ksiega 3.4 pozostaje baseline dla normatywnych wymagan.
+PHANTOM v3.0 pozostaje oddzielna sciezka i nie jest implementowany w baseline.
+Production break-glass semantics wymagaja HUMAN GATE.
+```
