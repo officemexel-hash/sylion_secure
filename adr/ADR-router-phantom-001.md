@@ -1,213 +1,222 @@
-# ADR-router-phantom-001 — Wybór GL.iNet Puli AX (GL-XE3000) jako routera dla tier PHANTOM `[A]`
+# ADR-router-phantom-001 — GL.iNet Puli AX (GL-XE3000) jako router platformy SYLION
 
 | Pole | Wartość |
 |---|---|
-| **Status** | `PROPOSED` (DRAFT — wymaga HUMAN GATE) |
-| **Data utworzenia** | 2026-05-20 |
-| **Autor draftu** | Claude (model) — wymaga ludzkiego review |
+| **Status** | `PROPOSED (REVISED)` — DRAFT, wymaga HUMAN GATE |
+| **Data pierwotna** | 2026-05-20 |
+| **Data rewizji** | 2026-05-21 |
+| **Autor draftu** | Claude (audit agent) — wymaga ludzkiego review |
 | **Wymagane podpisy (HUMAN GATE)** | Architect • CISO • Legal • Hardware Lead |
-| **Scope** | PHANTOM `[A]` — **poza certyfikowalnym baseline SYLION** |
-| **Powiązane** | PHANTOM v3.0 §16 • Księga v3.4 §33 • [hardware-gates.md](../shared/references/hardware-gates.md) • [legal-safety-boundaries.md](../shared/references/legal-safety-boundaries.md) |
-| **Out of scope (osobne ADR-y)** | ADR-002 (IMEI override firmware) • ADR-003 (lpac/eSIM Management) • ADR-004 (custom firmware build & signing pipeline) |
+| **Scope** | Baseline router (wszystkie tiery) + PHANTOM `[A]` operational profile na tej samej platformie |
+| **Powiązane** | `ADR-router-baseline-002` (rozwiązanie konfliktu Mudi/Beryl) • `gate_router_puli_ax` w `releaseControlService` • Księga v3.4 §33 (do update) • PHANTOM v3.0 §16 |
+| **Out of scope (osobne ADR-y)** | ADR-002 (PHANTOM operational mode / IMEI override — Legal-gated) • ADR-003 (lpac eSIM Management) • ADR-004 (custom firmware build + signing pipeline) |
+| **Supersedes** | First draft (2026-05-20) z założeniem "PHANTOM-only" |
 
 ---
 
-## 1. Kontekst
+## 1. Tło rewizji
 
-### 1.1 Cel decyzji
+Pierwotny draft tego ADR (2026-05-20) zakładał Puli AX **wyłącznie** dla PHANTOM `[A]` tier, zachowując Beryl AX jako baseline router. Audit round 3 ujawnił że:
 
-Wybrać hardware routera dla operatora pracującego w profilu PHANTOM `[A]` (autonomiczny, poza certifiable SYLION core). Router musi:
+1. `docs/admin-panel-v1/00-freeze-v1.md` line 100 jasno definiuje produktową decyzję: **Puli AX dla STANDARD/PRO/SOVEREIGN** (wszystkie tiery).
+2. `services/admin-api/src/modules/release/releaseControlService.js` rejestruje `gate_router_puli_ax` jako jedyny gate routera — bez paralelnego gate'a dla Beryl AX.
+3. 17 plików w kodzie (src + tests) hardcoduje `puli_ax_router` jako jedyny typ urządzenia routerowego.
+4. PHANTOM v3.0 §16 wymienia Puli AX jako alt PHANTOM router; baseline rozróżnienie ma być wprowadzone przez **profile firmware'u + operational mode**, nie przez inny hardware.
 
-- spełniać mandatory gates z [hardware-gates.md §"Access Router Gates"](../shared/references/hardware-gates.md);
-- spełniać PHANTOM-specific wymagania z **SYLION_PHANTOM_v3.0.docx** §16 (removable nano-SIM, eSIM Management, support dla rotacji);
-- pasować do mobilnego profilu operacyjnego (przenośność, izolacja zasilania, krótki TTL stosu);
-- nie naruszać `[A]/baseline` separacji ([legal-safety-boundaries.md](../shared/references/legal-safety-boundaries.md)).
-
-### 1.2 Stan wyjściowy
-
-- **Księga v3.4 §33** nazywa **GL-iNet Beryl AX / GL-MT3000** jako referencyjny router baseline.
-- **PHANTOM v3.0 §16** listuje routery DOPUSZCZALNE w PHANTOM:
-  - GL-iNet **GL-X3000 (Spitz AX)** — primary
-  - GL-iNet **GL-XE3000 (Puli AX)** — alt
-  - GL-iNet GL-E750V2 (Mudi v2) — "bazowy" (poniżej gate'ów RAM księgi, exception-only)
-  - Quectel EG25-G USB dongle — backup
-- **Konflikt w dokumentach**: indeks komponentów księgi i Analiza Zagrożeń wciąż wymieniają Mudi v2 jako baseline. ADR ten **nie rozwiązuje** tego konfliktu — jedynie wybiera router PHANTOM. Konflikt baseline router musi być adresowany osobnym ADR (`ADR-router-baseline-002`).
-- **Legal/CISO mandate** — zadeklarowany przez wnioskodawcę dla operacji IMEI/IMSI w docelowych jurysdykcjach (nie zweryfikowane w tym dokumencie — wymaga formalnego załącznika `legal-mandate-phantom-2026-05.md` od counsel).
-
-### 1.3 Wymagania funkcjonalne PHANTOM (z dokumentu źródłowego)
-
-- Removable nano-SIM (NIE wbudowany eUICC/iSIM) — [legal-safety-boundaries: supply-chain rationale, nie evasion]
-- 2× sloty SIM dla preloadingu następnej karty przed rotacją
-- 5G/LTE z support dla pasm operacyjnych docelowych jurysdykcji
-- Bateria wbudowana (chosen power isolation — operator może uciąć zasilanie bez pozostawienia śladu Wake-on-LAN/ARP)
-- eSIM Management (panel/CLI lpac) lub poziom P1 (fizyczne SIM-y prepaid)
-- IPsec IKEv2 + nftables kill switch (twardy wymóg baseline gate, nie PHANTOM-specific)
-- Możliwość integracji firmware z PHANTOM Orchestrator (rotacja, posture reporting)
+Wniosek: **hardware** = jeden (Puli AX). **Mode operacyjny** różni się między baseline (gated, audytowalny, lawful) a PHANTOM (autonomous `[A]`, osobny track, **outside certifiable scope**).
 
 ---
 
 ## 2. Decyzja
 
-**Wybiera się GL.iNet GL-XE3000 "Puli AX"** jako router PHANTOM `[A]`, status `APPROVE WITH CONDITIONS`. Warunki — sekcja [§5](#5-warunki-aprobaty).
+**GL.iNet GL-XE3000 "Puli AX"** to **referencyjny router platformy SYLION dla wszystkich tierów (STANDARD / PRO / SOVEREIGN)**, status `APPROVE WITH CONDITIONS`.
+
+PHANTOM `[A]` używa **tej samej platformy hardware** + odrębnego firmware/mode (przedmiot osobnego ADR-002 pod Legal sign-off).
 
 ---
 
 ## 3. Rozważone alternatywy
 
-| # | Kandydat | Powód odrzucenia / odłożenia |
-|---|---|---|
-| A1 | **GL-X3000 Spitz AX** | PHANTOM primary z dokumentu, ale **brak wbudowanej baterii**. External pack = dodatkowy komponent supply chain + dodatkowy IOC w polu. Profil mobilny operatora wymaga power isolation — Puli AX wygrywa na tej osi |
-| A2 | **GL-MT3000 Beryl AX + Quectel EG25-G USB** | Najlepszy OpenWrt mainline path (M1 gate Pass czysto), ale: (a) brak baterii, (b) tylko LTE Cat 4 przez dongle (nie 5G), (c) modem USB jako osobny komponent = większy footprint hardware. Dobry dla baseline, **nie** dla PHANTOM mobile |
-| A3 | **Banana Pi BPI-R4 + M.2 cellular** | Najsilniejsza supply-chain story (open hardware, mainline OpenWrt 24.x). Ale: (a) stationary form factor, (b) brak baterii natywnie, (c) wymaga znacznej inżynierii (firmware build, integracja M.2). Kandydat na **stationary STATE-tier** w przyszłości, nie PHANTOM mobile |
-| A4 | **Turris MOX A + LTE mPCIe** | Najlepszy signed-update story (TurrisOS automatic updates z CZ.NIC). Ale: (a) stationary, (b) cellular jako add-on mPCIe = słabsza wydajność niż dedykowany modem 5G, (c) TurrisOS forking dla PHANTOM features = znaczna inwestycja. Odłożony jako alternatywa stationary |
-| A5 | **GL-E750V2 (Mudi v2)** | Wymieniony w PHANTOM §16 jako "bazowy", ale **poniżej RAM gate księgi** (M4: ≥256 MB). Pozostawiamy jako legacy/exception, nie jako primary |
-| A6 | **GL-E5800 (Mudi 7)** | PHANTOM §16 wprost **NIEDOPUSZCZALNE** ("brak wsparcia eSIM Management"). Re-ewaluacja możliwa po sprawdzeniu obecnego firmware — patrz `ADR-router-phantom-001-addendum-mudi7` jeśli się materializuje |
-| A7 | Teltonika RUTX50 / Peplink / Cradlepoint | PHANTOM §16 wprost **NIEDOPUSZCZALNE** (wlutowany eSIM, brak slotu nano-SIM) |
+| # | Kandydat | Wynik | Powód |
+|---|---|---|---|
+| A1 | GL.iNet GL-X3000 Spitz AX | rejected | Brak wbudowanej baterii. Mobilny profil operatora wymaga chosen power isolation. External pack = dodatkowy komponent supply chain |
+| A2 | GL-MT3000 Beryl AX + USB cellular | rejected jako baseline | Lepszy mainline OpenWrt path (M1 gate), ale: (a) brak baterii, (b) tylko LTE Cat 4 przez dongle, (c) modem USB = większy footprint hardware. **Może wrócić jako fallback BoM** jeśli Puli AX EOL |
+| A3 | Banana Pi BPI-R4 + M.2 cellular | rejected dla mobile | Najlepsza supply-chain story (open hardware), ale stationary. Kandydat dla **stationary STATE-tier** w przyszłości |
+| A4 | Turris MOX A + LTE mPCIe | rejected | EU vendor, signed updates, ale stationary i cellular jako add-on słabszy niż dedykowany 5G |
+| A5 | GL-E750V2 (Mudi v2) | rejected (legacy) | Poniżej `hardware-gates.md` RAM gate (M4). Pozostawiany jako legacy-only / exception, nie nowy deployment |
+| A6 | GL-E5800 (Mudi 7) | rejected | PHANTOM v3.0 §16 explicit: "brak wsparcia eSIM Management" |
+| A7 | Teltonika RUTX50, Peplink, Cradlepoint | rejected | PHANTOM v3.0 §16: wlutowany eSIM, brak slotu nano-SIM |
 
 ---
 
-## 4. Tabela bramek vs hardware-gates.md
+## 4. Tabela bramek vs `hardware-gates.md`
 
-**Wszystkie wartości oznaczone `?` to NEEDS EVIDENCE — wymagana weryfikacja z karty katalogowej GL.iNet i/lub fizycznego egzemplarza przed głosowaniem nad ADR.**
+**Wartości oznaczone `?` to NEEDS EVIDENCE — weryfikacja z karty katalogowej + fizycznego egzemplarza wymagana przed głosowaniem ADR.**
 
 ### 4.1 Mandatory
 
-| # | Gate | Status | Dowód / uwaga |
+| # | Gate | Status | Uwaga |
 |---|---|---|---|
-| M1 | OpenWrt 23.05+ lub hardened Linux | ⚠️ CONDITIONAL | GL OS 4.x = OpenWrt **21.02** base. Wymaga: (a) custom build mainline 23.05+ (ADR-004), LUB (b) świadoma akceptacja CVE-lag GL fork z risk register entry |
-| M2 | strongSwan / IPsec IKEv2 | ✅? | GL OS ma natywnie. **Verify**: wersja strongSwan ≥5.9.x, proposals zawierają AES-256-GCM + SHA-384 + ECDSA P-384 |
-| M3 | nftables default-deny kill switch | ✅? | OpenWrt 21+ wspiera. **Verify**: GL.iNet nie nadpisuje iptables-legacy; reguły aktywne pre-tunnel (T01) |
-| M4 | RAM ≥ 256 MB | ✅? | Spec recall: 1 GB DDR4. **Verify** z etykietą / GL spec sheet |
-| M5 | Flash sufficient | ✅? | Spec recall: 256 MB NAND. **Verify**. Sprawdzić margines po hardened build (target: ≥30% wolne po firmware + strongSwan + logi + overlay + rollback) |
-| M6 | AES-256-GCM IPsec throughput adekwatny | ⚠️ | Qualcomm crypto engine obecny, **brak liczb dla tego SKU**. Target: ≥150 Mbps real traffic. Wymaga T08 |
+| M1 | OpenWrt 23.05+ lub hardened Linux | ⚠️ CONDITIONAL | GL OS 4.x = OpenWrt 21.02 base. Wymagany custom build mainline 23.05+ (ADR-004) LUB świadoma akceptacja CVE-lag GL fork z risk register entry |
+| M2 | strongSwan / IPsec IKEv2 | ✅? | GL OS natywnie. **Verify**: strongSwan ≥5.9.x, proposals AES-256-GCM + SHA-384 + ECDSA P-384 |
+| M3 | nftables default-deny kill switch | ✅? | OpenWrt 21+. **Verify**: GL.iNet nie nadpisuje iptables-legacy; reguły pre-tunnel (T01) |
+| M4 | RAM ≥ 256 MB | ✅? | Spec recall: 1 GB DDR4. **Verify** |
+| M5 | Flash sufficient | ✅? | Spec recall: 256 MB NAND. **Verify** — sprawdzić margines po hardened build |
+| M6 | AES-256-GCM IPsec throughput | ⚠️ | Qualcomm crypto engine obecny, **brak liczb dla tego SKU**. Target ≥150 Mbps real traffic. Wymaga T08 |
 | M7 | Separate WAN/LAN | ✅? | Standard OpenWrt |
-| M8 | Firmware signing / verifiable provenance | ⚠️ CONDITIONAL | GL.iNet podpisuje swoje firmware, **brak Verified Boot od bootloadera**. Custom build = własny klucz, własny pipeline (ADR-004) |
-| M9 | Inventory fields | ✅ | Implementacja po stronie Orchestrator, niezależna od HW |
+| M8 | Firmware signing / verifiable provenance | ⚠️ CONDITIONAL | GL.iNet podpisuje swoje firmware, **brak Verified Boot bootloadera**. Custom build = własny klucz, własny pipeline (ADR-004) |
+| M9 | Inventory fields | ✅ | Implementacja po stronie Orchestrator (M20), niezależna od HW |
 
 ### 4.2 Recommended
 
 | # | Gate | Status |
 |---|---|---|
 | R1 | RAM ≥ 512 MB | ✅? |
-| R2 | Flash ≥ 256 MB NAND | ✅? (edge — wymaga marginesu) |
+| R2 | Flash ≥ 256 MB NAND | ✅? |
 | R3 | HW AES acceleration | ✅? |
-| R4 | USB dla LTE/5G | ✅ (5G wbudowany + USB jako backup) |
-| R5 | Tamper-evident dla STATE | ❌ | Consumer-grade. Kompensacja: operator carry 24/7 + Faraday bag per PHANTOM §4.4.2 |
+| R4 | USB dla LTE/5G (5G wbudowany + USB backup) | ✅ |
+| R5 | Tamper-evident dla STATE | ❌ | Consumer-grade. Kompensacja: operator carry 24/7 + Faraday bag |
 | R6 | Read-only rootfs + encrypted overlay | ⚠️ | Wymaga custom firmware build (ADR-004) |
 
 ### 4.3 Reject / Escalate
 
-| Kryterium | Wynik |
-|---|---|
-| RAM < 256 MB | ✅ Pass (1 GB ?) |
-| Tiny flash | ✅ Pass (256 MB ?) |
-| Brak OpenWrt/security update path | ⚠️ ESCALATE — GL OS lag vs mainline, decision required w §5 |
-| Brak kill-switch enforcement before VPN | ⚠️ ESCALATE — domyślnie GL OS startuje VPN po sieci. **Wymaga przebudowy boot order** (initramfs nftables drop-all → strongSwan → bring-up) |
-| Brak cert-based IPsec | ✅ Pass |
-| Brak auditable firmware build | ⚠️ ESCALATE — własny build pipeline (ADR-004) |
+Wszystkie kryteria odrzucenia (RAM <256MB, brak update path, brak kill-switch enforcement, brak cert IPsec, brak auditable firmware) wymagają decyzji ADR-004 (firmware pipeline). Dziś **escalated**, nie rejected.
 
 ---
 
-## 5. Warunki aprobaty
+## 5. Operational profiles na tej samej platformie
 
-Aprobata staje się skuteczna po spełnieniu **wszystkich** poniższych:
+| Profile | Tier | Firmware | Tryb operacyjny | Compliance |
+|---|---|---|---|---|
+| **`baseline`** | STANDARD / PRO / SOVEREIGN | hardened OpenWrt 23.05+ (ADR-004) | strongSwan IPsec IKEv2, nftables kill-switch, **stałe IMSI / IMEI / MAC**, audited config drift | In scope ISO/SOC review |
+| **`phantom-a`** | poza tier (oddzielny `[A]` track) | hardened OpenWrt z dodatkową nakładką PHANTOM (ADR-002) | rotacja SIM (P1/P2/P3 per PHANTOM §8), **opcjonalna** rotacja IMEI/IMSI/MAC pod Legal-gated mandate | **Outside** certifiable baseline |
+
+Kluczowe: kupowany jest **ten sam SKU** (GL-XE3000). Wybór profile to konfiguracja firmware + operator assignment, nie hardware procurement.
+
+**Polityka:** żaden klient SYLION nie otrzymuje `phantom-a` profile bez explicit Legal sign-off na konkretnej jurysdykcji. Default = `baseline`.
+
+---
+
+## 6. Warunki aprobaty (refresh)
 
 | # | Warunek | Owner | Termin |
 |---|---|---|---|
-| C1 | Weryfikacja wszystkich `?` w §4 z oficjalnego datasheet GL.iNet i fizycznego egzemplarza | Hardware Lead | przed T01 |
-| C2 | Decyzja na M1: mainline 23.05+ build vs świadoma akceptacja GL OS CVE-lag — udokumentowana | Architect + CISO | przed produkcją |
-| C3 | Custom firmware build & signing pipeline (ADR-004) — projekt + own GPG/Sigstore key | Hardware Lead | przed T06 |
-| C4 | Kill-switch-before-VPN — initramfs nftables drop-all, weryfikacja T01 | Hardware Lead | przed produkcją |
-| C5 | AES-256-GCM IPsec benchmark — T08 z target ≥150 Mbps, raport | QA / Hardware Lead | przed produkcją |
-| C6 | Legal opinion na IMEI override w pełnej liście docelowych jurysdykcji — załącznik | Legal | przed ADR-002 |
-| C7 | Pełne T01-T16 przejście — raport z lab + sign-off | QA + CISO | przed produkcją |
-| C8 | Doc updates §7 wykonane (Księga §33, indeks komponentów, PHANTOM §16 verified flag) | Doc owner | razem z ADR final |
-| C9 | Risk register entry dla wszystkich `accepted` ryzyk z §6 | CISO | przed produkcją |
-| C10 | Inventory provisioning workflow (M9) zintegrowany z Orchestrator | Ops/SRE | przed produkcją |
+| C1 | Weryfikacja wszystkich `?` w §4 z oficjalnego datasheet + fizycznego egzemplarza | Hardware Lead | przed T01 |
+| C2 | Decyzja na M1: mainline 23.05+ build vs świadoma akceptacja GL OS CVE-lag | Architect + CISO | przed produkcją |
+| C3 | Custom firmware build & signing pipeline (ADR-004) — własny klucz w HSM, audytowalny pipeline | Hardware Lead + Security | przed T06 |
+| C4 | Kill-switch-before-VPN: nftables w initramfs, drop-all WAN przed startem strongSwan, weryfikacja T01 | Hardware Lead | przed produkcją |
+| C5 | AES-256-GCM IPsec benchmark T08 z target ≥150 Mbps | QA + Hardware Lead | przed produkcją |
+| C6 | Tamper compensation operator-side (Faraday bag, carry 24/7) — udokumentowane w runbook | Ops | przed produkcją |
+| C7 | Pełne T01-T10 (baseline) przejście — raport z lab + CISO sign-off | QA + CISO | przed produkcją |
+| C8 | **Tylko jeśli profile `phantom-a` jest wdrażany**: Legal opinion dla docelowych jurysdykcji (ADR-002 prereq) | Legal | przed pierwszym phantom-a deployment |
+| C9 | Risk register entry dla wszystkich `accepted` ryzyk z §7 | CISO | przed produkcją |
+| C10 | Inventory provisioning workflow (M9) zintegrowany z Orchestrator (M20) — confirmed via test | Ops/SRE | przed produkcją |
+| C11 | Doc updates §8 wykonane (Księga §33 patch przez ADR-router-baseline-002) | Doc owner | razem z ADR-router-baseline-002 |
 
 ---
 
-## 6. Konsekwencje
+## 7. Konsekwencje
 
-### 6.1 Pozytywne
+### 7.1 Pozytywne
 
-- Bateria → chosen power isolation (lepsze OPSEC dla operatora niż Spitz AX)
-- Mobilny form factor zgodny z PHANTOM operator carry (PHANTOM §4.4.2)
-- 2× nano-SIM → preloading następnej karty przed rotacją bez fizycznego dostępu w polu
-- 5G NSA/SA → szersze pokrycie i lepsza latencja vs LTE Cat 4
-- PHANTOM v3.0 już go wymienia jako alt — minimalna doc-impact
-- GL.iNet ma dojrzały ecosystem (`luci`, `lpac`, panel) → niższy bar entry dla operacji
+- **Jeden SKU = prostsze procurement, single fallback BoM** (ze świadomością risk EOL = utrzymanie Beryl AX jako secondary BoM)
+- Bateria → chosen power isolation dla mobile operator
+- 2× nano-SIM → preloading następnej karty w polu
+- 5G NSA/SA → szersze pokrycie
+- PHANTOM v3.0 already lists go jako alt → minimalna doc-impact
+- `releaseControlService.gate_router_puli_ax` already codifies status & owner
 
-### 6.2 Negatywne
+### 7.2 Negatywne
 
-- GL OS = OpenWrt 21.02 base → CVE lag (rozwiązywalne przez custom build, koszt: ADR-004 inżynieria)
-- Brak Verified Boot bootloadera → częściowa mitygacja (boot-verified rootfs hash w initramfs)
+- GL OS = OpenWrt 21.02 base → CVE lag (mitigated by ADR-004 custom build LUB świadoma akceptacja)
+- Brak Verified Boot bootloadera → partial mitigation (boot-verified rootfs hash w initramfs)
 - Baseband Quectel proprietary → CVE residual (PHANTOM §4.2.3 — niezmienne)
-- Brak tamper-evident → operator carry compensation
-- Single-vendor (GL.iNet) → ryzyko EOL, supply pressure. Mitygacja: utrzymać Beryl AX/Spitz jako fallback BoM
+- Brak tamper-evident → operator carry compensation (C6)
+- Single-vendor (GL.iNet) → ryzyko EOL, supply pressure. Mitygacja: secondary BoM Beryl AX, monitorowany retail availability
+- **Możliwa konsumpcja kontrowersyjna**: `phantom-a` profile na tej samej platformie wymaga mocnej operacyjnej separacji procurement i deployment workflow (operator nigdy nie dostaje phantom-a bez explicit Legal mandate)
 
-### 6.3 Architecture / baseline impact
+### 7.3 Architecture / baseline impact
 
-- **Nie zmienia** baseline router (Beryl AX pozostaje per Księga §33)
-- Tworzy explicit **PHANTOM-tier router** poza certifiable scope
-- Wymaga jasnego wyodrębnienia w Księdze §33 między baseline i PHANTOM hardware
-- Aktywuje konieczność osobnych ADR-ów: ADR-002 (IMEI), ADR-003 (lpac), ADR-004 (firmware pipeline)
+- **Zmiana baseline router** vs Księga v3.4 §33 (która nazywa Beryl AX) — wymaga osobnego ADR-router-baseline-002 + Księga patch
+- Nie zmienia Thin Client, zone 0-5, G1/G2, Firecracker, Matrix
+- Tworzy explicit dwa **operational profiles** na jednym hardware
 
-### 6.4 Compliance / legal
+### 7.4 Compliance / legal
 
-- **NIE** wchodzi w scope ISO 27001 / SOC 2 / FedRAMP — `[A]` tier
-- IMEI override → legal-review zone (legal-safety-boundaries.md) — wymaga osobnej opinii prawnej per jurysdykcja
-- Claim "PHANTOM router" w materiałach klienta — **zakazany**; baseline materiały muszą oddzielnie traktować PHANTOM (legal-safety-boundaries.md §"Honest Capability Statement")
+- `baseline` profile in scope ISO 27001 / SOC 2 review (po spełnieniu C1-C11)
+- `phantom-a` profile **outside** certifiable scope (per `legal-safety-boundaries.md`)
+- Każda customer-facing dokumentacja **musi** explicit rozróżniać te dwa profiles — żadnego "PHANTOM ready" claimu w baseline marketingu
+- Procurement vendor (GL.iNet, Hong Kong) → patrz ADR-router-baseline-002 §"Jurisdictional supply-chain"
 
 ---
 
-## 7. Wymagane aktualizacje dokumentów
+## 8. Wymagane aktualizacje dokumentów
 
 | Dokument | Zmiana |
 |---|---|
-| Księga v3.4 §33 | Dodać explicit subsection "PHANTOM router" wskazujący Puli AX, oddzielnie od "baseline router = Beryl AX" |
-| Księga v3.4 indeks komponentów | Usunąć "Mudi v2 (GL-E750V2)" z baseline, oznaczyć jako legacy/PHANTOM-exception |
-| PHANTOM v3.0 §16 | Po przejściu T01-T16 zmienić oznaczenie Puli AX na "verified" |
-| Risk register | Wpisy z §6.2 (CVE lag, baseband, tamper, vendor lock-in) |
-| Inventory schema | Dodać tier marker `phantom-a` dla rekordów Puli AX |
-| `shared/references/hardware-gates.md` | Opcjonalnie: dodać "Known Router Posture" entry dla Puli AX po finalizacji |
+| Księga v3.4 §33 | Update routera baseline: Beryl AX → Puli AX (przez ADR-router-baseline-002) |
+| Księga v3.4 indeks komponentów | Usunąć Mudi v2 z baseline, oznaczyć jako legacy-only |
+| Analiza Zagrożeń (kolejna edycja) | Patch całego threat model z Mudi v2 → Puli AX (battery, dual-SIM, 5G zamiast LTE Cat 4, baseband RM520N-GL zamiast EG25-G) |
+| PHANTOM v3.0 §16 | Po przejściu T01-T16: zmienić status Puli AX na "verified baseline + alt phantom" |
+| `shared/references/hardware-gates.md` §"Known Router Posture" | Dodać Puli AX jako baseline candidate z linkiem do tego ADR |
+| `services/admin-api/src/domain/constants.js` | Rozważyć rename `DEVICE_TYPES.ROUTER` z `puli_ax_router` na `sylion_baseline_router` żeby unzależnić od konkretnego SKU |
+| Risk register | Wpisy z §7.2 (CVE lag, baseband, tamper, vendor lock-in) |
+| Inventory schema | Dodać pole `operational_profile` ∈ {baseline, phantom-a} per record |
 
 ---
 
-## 8. Test plan (referencja)
+## 9. Test plan
 
-Pełen test plan w pliku `tests/router-phantom-test-plan.md` (TBD). Skrót w [§4.5 hardware-qualification skill output]:
+Pełen test plan w `tests/router-baseline-test-plan.md` (TBD). Skrót:
 
 ```
-Mandatory baseline:    T01..T10
-PHANTOM-specific:      T11..T16
-```
+Baseline tier (mandatory, T01-T10):
+  T01 Boot z nftables kill-switch active PRZED IPsec
+  T02 LAN→WAN brak ruchu bez tunelu
+  T03 DNS leak: tunneled DNS only
+  T04 IKEv2 cert auth + approved proposals
+  T05 Rekey + DPD recovery
+  T06 Firmware signature verification (try-flash modified → fail)
+  T07 Config drift detection
+  T08 Throughput @ AES-256-GCM ≥150 Mbps
+  T09 CPU/RAM pressure pod realistycznym ruchem (4× operator concurrent)
+  T10 Power-loss recovery
 
-T11-T16 obejmują: SIM hot-swap, eSIM lpac rotation, IMEI override persist+revert, anti-tamper response, battery-pull klucze giną <10s, RAM-only logs po reboot.
+Mobile-specific (T11-T13):
+  T11 SIM hot-swap (slot 1↔2, IPsec re-establish <30s)
+  T12 Battery isolation (yank battery vs DC pull — klucze giną <10s)
+  T13 Faraday bag insertion → tunnel teardown + reconnect
+
+PHANTOM `[A]` profile-specific (T14-T16, Legal-gated):
+  T14 eSIM profile rotation via lpac CLI (download/enable/delete cycle)
+  T15 IMEI override persist + revert (jeśli i tylko jeśli ADR-002 mandate w jurysdykcji)
+  T16 Anti-tamper response — out of scope dla baseline tier
+```
 
 ---
 
-## 9. Open items / wymagane decyzje HUMAN GATE
+## 10. Open items / HUMAN GATE
 
-1. **Legal opinion załącznik** (C6) — która firma prawna, jakie jurysdykcje
-2. **Mainline vs GL OS** (C2) — Architect+CISO decyzja
-3. **Firmware signing key custody** — HSM-backed (zgodnie ze skill `sylion-crypto-pki-pqc`)
-4. **EOL strategy** — fallback BoM jeśli GL.iNet wycofa SKU
+1. **Spec verification** (C1) — wszystkie `?` w §4
+2. **Mainline vs GL OS** (C2) — Architect+CISO
+3. **Firmware signing key custody** (C3) — HSM-backed (ADR-vault-adapter-001 i ADR-004)
+4. **EOL strategy** — secondary BoM = Beryl AX
 5. **Liczba egzemplarzy do labu vs produkcji** — Procurement
-6. **Rotacja fizyczna 3-6mc** (PHANTOM §4.4.3) — kto buduje workflow re-issue?
+6. **`phantom-a` profile policy** — Legal opinion per jurysdykcja (osobny ADR-002)
+7. **Rotacja fizyczna 3-6mc per PHANTOM §4.4.3 vs 30 dni per Analiza R16** — patrz F-8 finding, wymaga harmonizacji w ADR-router-baseline-002
 
 ---
 
-## 10. Sign-off
+## 11. Sign-off
 
 | Rola | Nazwisko | Data | Decyzja | Komentarz |
 |---|---|---|---|---|
 | Architect | _________ | ____ | ☐ approve ☐ reject ☐ changes | |
 | CISO | _________ | ____ | ☐ approve ☐ reject ☐ changes | |
-| Legal | _________ | ____ | ☐ approve ☐ reject ☐ changes | |
+| Legal | _________ | ____ | ☐ approve ☐ reject ☐ changes | (Legal wymagane tylko jeśli phantom-a profile w scope) |
 | Hardware Lead | _________ | ____ | ☐ approve ☐ reject ☐ changes | |
 
-ADR staje się `ACCEPTED` po 4× approve. Single reject → revision required.
+ADR staje się `ACCEPTED` po wszystkich approve. Single reject → revision.
 
 ---
 
@@ -217,6 +226,8 @@ ADR staje się `ACCEPTED` po 4× approve. Single reject → revision required.
 - [`shared/references/human-gate-policy.md`](../shared/references/human-gate-policy.md)
 - [`shared/references/legal-safety-boundaries.md`](../shared/references/legal-safety-boundaries.md)
 - [`shared/references/sylion-source-map.md`](../shared/references/sylion-source-map.md)
-- `SYLION Ksiega v3 4 FIXED.docx` §33 (current baseline router)
-- `SYLION_PHANTOM_v3.0.docx` §16 (PHANTOM router list), §4.x (threat model), §7.3 (IMEI override), §8 (SIM/eSIM pool)
-- `SYLION-Analiza-Zagrozen-COMPLETE.pdf` — terminal path, RF fingerprinting, Mudi v2 inconsistency
+- `SYLION Ksiega v3 4 FIXED.docx` §33 (baseline router, do update)
+- `SYLION_PHANTOM_v3.0.docx` §16 (PHANTOM router list), §7.3, §8
+- `SYLION-Analiza-Zagrozen-COMPLETE.pdf` — R1-R18, ze szczególnym uwzględnieniem R16 (rotacja HW)
+- `docs/admin-panel-v1/00-freeze-v1.md` line 100 (produktowa decyzja Puli AX wszystkie tiery)
+- `services/admin-api/src/modules/release/releaseControlService.js` `gate_router_puli_ax`
