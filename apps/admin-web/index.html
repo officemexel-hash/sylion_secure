@@ -212,6 +212,13 @@
                   <option>SOVEREIGN</option>
                 </select>
               </label>
+              <label class="check-row"><input name="liveBaselineEnabled" type="checkbox"> Create live Hetzner G1/G2/WORKLOAD</label>
+              <label>Live Provider <select name="liveProviderId" id="operator-live-provider-select"></select></label>
+              <label>Region <input name="liveRegion" value="fsn1"></label>
+              <label>Server Type <input name="liveServerType" value="cx22"></label>
+              <label>Image <input name="liveImage" value="ubuntu-24.04"></label>
+              <label>Idempotency Key <input name="liveIdempotencyKey" placeholder="auto if empty"></label>
+              <label class="check-row"><input name="liveConfirmed" type="checkbox"> I confirm live cost and rollback</label>
               <button type="submit">Create Operator</button>
             </form>
           </article>

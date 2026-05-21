@@ -1408,6 +1408,12 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       if (req.method === "POST" && url.pathname === "/operators") {
         const body = await readJson(req);
+        if (body.liveBaseline?.enabled === true) {
+          auth.requireFreshStepUp(actor, "operator.live_baseline.create", {
+            correlationId,
+            resourceType: "live_execution_request"
+          });
+        }
         const operator = operators.create({ actor, ...body, correlationId });
         let provisioningDraft = operatorProvisioning.createDraft({
           actor,
@@ -1433,7 +1439,50 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             humanGateRequiredForLive: true
           };
         }
-        return send(res, 201, { operator, provisioningDraft, baselineProvisioning });
+        let liveBaseline = null;
+        if (body.liveBaseline?.enabled === true) {
+          const approval = approvals.createApproval({
+            actor,
+            operatorId: operator.id,
+            resourceType: "live_cloud_baseline",
+            reasonCode: body.liveBaseline.reasonCode || "operator_create_live_baseline",
+            reviewers: body.liveBaseline.reviewers || ["global_super_admin"],
+            evidenceRefs: body.liveBaseline.evidenceRefs || ["operator-create://live-baseline"],
+            blockers: [],
+            correlationId
+          });
+          const approved = approvals.updateApprovalStatus({
+            actor,
+            approvalId: approval.id,
+            status: "approved_for_execution",
+            note: "Fresh admin step-up approved live G1/G2/WORKLOAD baseline during operator creation.",
+            correlationId
+          });
+          const request = await liveExecution.createProviderVpsSet({
+            actor,
+            providerKey: body.liveBaseline.providerKey || "hetzner",
+            providerId: body.liveBaseline.providerId,
+            operatorId: operator.id,
+            region: body.liveBaseline.region || "fsn1",
+            approvalId: approved.id,
+            idempotencyKey: req.headers["idempotency-key"] || body.liveBaseline.idempotencyKey || `operator-live-${operator.id}`,
+            liveConfirmed: body.liveBaseline.liveConfirmed === true,
+            serverType: body.liveBaseline.serverType || "cx22",
+            image: body.liveBaseline.image || "ubuntu-24.04",
+            correlationId
+          });
+          liveBaseline = {
+            mode: "operator_create_live_baseline",
+            providerKey: body.liveBaseline.providerKey || "hetzner",
+            providerId: body.liveBaseline.providerId,
+            region: body.liveBaseline.region || "fsn1",
+            approvalId: approved.id,
+            request,
+            productionExecutionAllowed: false,
+            rollbackRequired: true
+          };
+        }
+        return send(res, 201, { operator, provisioningDraft, baselineProvisioning, liveBaseline });
       }
 
       if (req.method === "GET" && url.pathname === "/operators") {

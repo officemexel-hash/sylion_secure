@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-16-secrets-hetzner-regression");
+const outputDir = process.env.SYLION_DASHBOARD_SMOKE_OUTPUT_DIR
+  || join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-16-secrets-hetzner-regression");
 const baseUrl = process.env.SYLION_ADMIN_URL || "http://127.0.0.1:8099/admin";
 
 async function loadPlaywright() {

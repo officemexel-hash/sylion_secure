@@ -417,6 +417,7 @@ function render() {
   $("#webauthn-mode").value = state.webAuthnMode;
 
   renderSelect("#operator-tenant-select", state.tenants, "No tenants");
+  renderSelect("#operator-live-provider-select", state.providers.filter((provider) => provider.providerKey === "hetzner"), "No Hetzner provider", "displayName");
   renderSelect("#pipeline-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#local-lab-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
   renderSelect("#local-environment-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
@@ -1304,14 +1305,33 @@ function setWebAuthnMode(event) {
 async function createOperator(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  await api("/operators", {
+  const liveBaselineEnabled = event.currentTarget.liveBaselineEnabled.checked;
+  const body = {
+    tenantId: data.tenantId,
+    displayName: data.displayName,
+    tier: data.tier,
+    requestedTemplates: ["whatsapp", "signal", "telegram"]
+  };
+  if (liveBaselineEnabled) {
+    body.liveBaseline = {
+      enabled: true,
+      providerKey: "hetzner",
+      providerId: data.liveProviderId,
+      region: data.liveRegion || "fsn1",
+      serverType: data.liveServerType || "cx22",
+      image: data.liveImage || "ubuntu-24.04",
+      idempotencyKey: data.liveIdempotencyKey || `operator-live-${crypto.randomUUID()}`,
+      liveConfirmed: event.currentTarget.liveConfirmed.checked,
+      evidenceRefs: ["admin-ui://operator-create-live-baseline"]
+    };
+  }
+  await withStepUpRetry(() => api("/operators", {
     method: "POST",
-    body: {
-      ...data,
-      requestedTemplates: ["whatsapp", "signal", "telegram"]
-    }
-  });
-  toast("Operator created with automatic G1/G2/WORKLOAD baseline");
+    body
+  }), liveBaselineEnabled ? "Create Operator Live Baseline" : "Create Operator");
+  toast(liveBaselineEnabled
+    ? "Operator created with live baseline gate decision"
+    : "Operator created with automatic G1/G2/WORKLOAD baseline");
   await refreshAll();
 }
 
