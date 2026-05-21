@@ -12,8 +12,24 @@ function requireToken(token) {
   return String(token);
 }
 
+function nameSegment(value, fallback) {
+  const normalized = String(value || fallback)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+  return normalized || fallback;
+}
+
 function serverName({ operatorId, role, idempotencyKey }) {
-  return `sylion-${operatorId}-${role.toLowerCase()}-${String(idempotencyKey).slice(0, 10)}`;
+  const suffix = nameSegment(idempotencyKey, "live").slice(0, 10).replace(/-+$/g, "") || "live";
+  const base = [
+    "sylion",
+    nameSegment(operatorId, "operator").slice(0, 24).replace(/-+$/g, "") || "operator",
+    nameSegment(role, "role"),
+    suffix
+  ].join("-");
+  return base.slice(0, 63).replace(/-+$/g, "");
 }
 
 async function sanitizedProviderError(response) {

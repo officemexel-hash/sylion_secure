@@ -239,3 +239,37 @@ test("Step 3.18 Hetzner adapter attempts partial cleanup when create fails mid-b
   assert.equal(calls.filter(([method]) => method === "DELETE").length, 1);
   assert.ok(calls.some(([method, url]) => method === "DELETE" && url.includes("/servers/1818")));
 });
+
+test("Step 3.18 Hetzner adapter emits DNS-safe server names for live provider create", async () => {
+  const bodies = [];
+  const transport = async (url, options = {}) => {
+    if (options.method === "POST") {
+      bodies.push(JSON.parse(options.body));
+      return {
+        ok: true,
+        async json() {
+          return {
+            server: {
+              id: 9000 + bodies.length,
+              name: bodies.at(-1).name,
+              datacenter: { location: { name: "fsn1" } }
+            }
+          };
+        }
+      };
+    }
+    return { ok: false, status: 500 };
+  };
+  const adapter = new HetznerLiveAdapter({ token: "test-token-with-safe-length", transport });
+  await adapter.createVpsSet({
+    operatorId: "op_partial_cleanup_unsafe",
+    region: "fsn1",
+    idempotencyKey: "step3-18-live_create_with_underscores"
+  });
+  assert.equal(bodies.length, 3);
+  for (const body of bodies) {
+    assert.match(body.name, /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/);
+    assert.equal(body.name.includes("_"), false);
+    assert.ok(body.name.length <= 63);
+  }
+});

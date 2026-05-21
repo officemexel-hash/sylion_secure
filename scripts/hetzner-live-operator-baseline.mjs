@@ -149,7 +149,6 @@ packages:
   - curl
   - ca-certificates
   - docker.io
-  - docker-compose-plugin
   - nftables
   - jq
 users:
@@ -248,7 +247,12 @@ write_files:
       Reach them through G2/thin-client or SSH tunnel for diagnostics.
 runcmd:
   - [ bash, -lc, "systemctl enable --now docker" ]
-  - [ bash, -lc, "cd /opt/sylion-workloads && docker compose up -d" ]
+  - [ bash, -lc, "docker rm -f sylion-duckduckgo sylion-libreoffice sylion-whatsapp-web sylion-telegram-web sylion-threema-web 2>/dev/null || true" ]
+  - [ bash, -lc, "docker volume create sylion_duckduckgo_config >/dev/null && docker run -d --name sylion-duckduckgo --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION DuckDuckGo' -p 127.0.0.1:3001:3000 -v sylion_duckduckgo_config:/config lscr.io/linuxserver/firefox:latest" ]
+  - [ bash, -lc, "docker volume create sylion_libreoffice_config >/dev/null && docker run -d --name sylion-libreoffice --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -p 127.0.0.1:3002:3000 -v sylion_libreoffice_config:/config lscr.io/linuxserver/libreoffice:latest" ]
+  - [ bash, -lc, "docker volume create sylion_whatsapp_config >/dev/null && docker run -d --name sylion-whatsapp-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION WhatsApp Web' -p 127.0.0.1:3010:3000 -v sylion_whatsapp_config:/config lscr.io/linuxserver/chromium:latest" ]
+  - [ bash, -lc, "docker volume create sylion_telegram_config >/dev/null && docker run -d --name sylion-telegram-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Telegram Web' -p 127.0.0.1:3011:3000 -v sylion_telegram_config:/config lscr.io/linuxserver/chromium:latest" ]
+  - [ bash, -lc, "docker volume create sylion_threema_config >/dev/null && docker run -d --name sylion-threema-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Threema Web' -p 127.0.0.1:3012:3000 -v sylion_threema_config:/config lscr.io/linuxserver/chromium:latest" ]
   - [ bash, -lc, "docker ps --format '{{.Names}} {{.Status}}' > /opt/sylion-workloads/container-status.txt" ]
   - [ bash, -lc, "echo 'WORKLOAD ready at $(date -Is)' > /var/log/sylion-bootstrap.log" ]
 `;
@@ -260,7 +264,7 @@ async function run() {
     throw new Error("Set SYLION_LIVE_BASELINE_CONFIRM=I_UNDERSTAND_COST_AND_ROLLBACK before creating real Hetzner VPS");
   }
   const region = process.env.SYLION_LIVE_REGION || "fsn1";
-  const serverType = process.env.SYLION_HETZNER_SERVER_TYPE || "cx22";
+  const serverType = process.env.SYLION_HETZNER_SERVER_TYPE || "cpx22";
   const image = process.env.SYLION_HETZNER_IMAGE || "ubuntu-24.04";
   await mkdir(outputDir, { recursive: true });
   const preflight = await hetznerPreflight({ token, region, serverType, image });
@@ -311,7 +315,7 @@ async function run() {
       serverTypesByRole: {
         G1: process.env.SYLION_HETZNER_G1_SERVER_TYPE || serverType,
         G2: process.env.SYLION_HETZNER_G2_SERVER_TYPE || serverType,
-        WORKLOAD: process.env.SYLION_HETZNER_WORKLOAD_SERVER_TYPE || "cpx31"
+        WORKLOAD: process.env.SYLION_HETZNER_WORKLOAD_SERVER_TYPE || "cpx32"
       },
       image,
       sshKeys: [],
