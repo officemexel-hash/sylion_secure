@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="no-referrer">
+  <title>SYLION Operator Portal</title>
+  <link rel="stylesheet" href="/operator/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">SYLION</span>
+      <span class="portal-tag">Operator Portal</span>
+    </div>
+    <div class="status" id="status-strip">
+      <span class="dot dot-warn"></span>
+      <span class="status-text">Skeleton — not yet operational</span>
+    </div>
+  </header>
+
+  <nav class="sidebar" aria-label="Operator navigation">
+    <ul>
+      <li><a href="#overview" data-view="overview" class="active">Overview</a></li>
+      <li><a href="#devices" data-view="devices">Devices</a></li>
+      <li><a href="#workloads" data-view="workloads">Workloads</a></li>
+      <li><a href="#vpn" data-view="vpn">VPN status</a></li>
+      <li><a href="#audit" data-view="audit">My audit</a></li>
+      <li><a href="#settings-fido2" data-view="settings-fido2">FIDO2 keys</a></li>
+      <li><a href="#settings-hsm" data-view="settings-hsm">HSM keys</a></li>
+      <li><a href="#subscription" data-view="subscription">Subscription</a></li>
+    </ul>
+  </nav>
+
+  <main class="content">
+
+    <section id="overview" class="view active">
+      <h1>Overview</h1>
+      <div class="card-grid">
+        <article class="card">
+          <h2>Status terminala</h2>
+          <p id="terminal-mode">Wykrywanie...</p>
+          <p class="hint">Skeleton: detekcja Pixel vs laptop web jest przewidziana per ADR-terminal-modes-001 §4.</p>
+        </article>
+        <article class="card">
+          <h2>VPN do G1</h2>
+          <p class="placeholder">Disconnected (placeholder)</p>
+          <p class="hint">Router IPsec attach będzie zaimplementowany po dostarczeniu Puli AX (ADR-router-phantom-001).</p>
+        </article>
+        <article class="card">
+          <h2>Operator session</h2>
+          <p id="operator-session">Loading...</p>
+          <p class="hint">FIDO2 login dostępny po Phase B (po enrollment workflow).</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="devices" class="view">
+      <h1>Moje urządzenia</h1>
+      <p class="hint">Lista urządzeń przypisanych do operatora. Skeleton — placeholder data z /operator-api/devices.</p>
+      <table id="devices-table">
+        <thead><tr><th>Typ</th><th>Model</th><th>Status</th><th>Posture</th></tr></thead>
+        <tbody id="devices-tbody">
+          <tr><td colspan="4" class="placeholder">Loading...</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="workloads" class="view">
+      <h1>Workloads</h1>
+      <p class="hint">Mikro-VMy w G1 przypisane do operatora. Skeleton.</p>
+      <ul id="workloads-list">
+        <li class="placeholder">Loading...</li>
+      </ul>
+    </section>
+
+    <section id="vpn" class="view">
+      <h1>VPN status</h1>
+      <article class="card">
+        <h2>IPsec tunnel</h2>
+        <dl>
+          <dt>State</dt><dd id="vpn-state" class="placeholder">disconnected</dd>
+          <dt>Router</dt><dd id="vpn-router" class="placeholder">no router enrolled</dd>
+          <dt>G1 endpoint</dt><dd id="vpn-g1" class="placeholder">—</dd>
+          <dt>Last handshake</dt><dd id="vpn-handshake" class="placeholder">—</dd>
+        </dl>
+        <p class="hint">Implementacja po dostarczeniu Puli AX router (jutro) + Phase B operator enrollment.</p>
+      </article>
+    </section>
+
+    <section id="audit" class="view">
+      <h1>Moje akcje (audit)</h1>
+      <p class="hint">Scope: tylko Twoje własne akcje, ostatnie 30 dni.</p>
+      <ul id="audit-list">
+        <li class="placeholder">Loading...</li>
+      </ul>
+    </section>
+
+    <section id="settings-fido2" class="view">
+      <h1>FIDO2 keys</h1>
+      <div class="placeholder-banner">
+        <p><strong>Phase deferred:</strong> konfiguracja FIDO2 z poziomu operator portal zostanie aktywowana w późniejszej fazie.</p>
+        <p>UI placeholder zachowuje miejsce na: enrollment new key, list active keys, suspend/revoke z fresh step-up.</p>
+      </div>
+      <button class="primary" disabled>Enroll new FIDO2 key (disabled)</button>
+      <ul id="fido2-list" class="key-list">
+        <li class="placeholder">Loading (placeholder)...</li>
+      </ul>
+    </section>
+
+    <section id="settings-hsm" class="view">
+      <h1>HSM keys</h1>
+      <div class="placeholder-banner">
+        <p><strong>Phase deferred:</strong> HSM key reference management w późniejszej fazie (po ADR-vault-adapter-001 Phase B).</p>
+        <p>UI placeholder dla: BYO-HSM connection, key alias rotation, attestation evidence.</p>
+      </div>
+      <button class="primary" disabled>Add HSM reference (disabled)</button>
+      <ul id="hsm-list" class="key-list">
+        <li class="placeholder">Loading (placeholder)...</li>
+      </ul>
+    </section>
+
+    <section id="subscription" class="view">
+      <h1>Subscription</h1>
+      <article class="card">
+        <h2>Plan</h2>
+        <p id="subscription-plan" class="placeholder">Loading...</p>
+      </article>
+      <article class="card">
+        <h2>Quota</h2>
+        <p id="subscription-quota" class="placeholder">Loading...</p>
+      </article>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>SYLION Operator Portal — skeleton (per <a href="/operator-api/about" target="_blank" rel="noopener">ADR-terminal-modes-001</a>) — <strong>not yet operational</strong></p>
+    <p>For admin operations: <a href="/admin">/admin</a></p>
+  </footer>
+
+  <script src="/operator/app.js"></script>
+</body>
+</html>
