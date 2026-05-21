@@ -119,6 +119,7 @@ async function serveOperatorWeb(url, res) {
 }
 
 export function createApp({ store = null, authOptions = {}, liveExecutionOptions = {} } = {}) {
+  const runtimeEnv = liveExecutionOptions.env || process.env;
   const audit = new AuditService({ store });
   const auth = new AuthService({ audit, store, ...authOptions });
   const rbac = new RbacService({ audit });
@@ -131,7 +132,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
   const cdr = new CdrService({ audit, appCatalog, store });
   const monitoring = new MonitoringService({ audit, rbac, store });
   const incidents = new IncidentService({ audit, rbac, monitoring, store });
-  const secrets = new SecretManagerService({ audit, rbac, store });
+  const secrets = new SecretManagerService({ audit, rbac, store, env: runtimeEnv });
   const providers = new ProviderRegistryService({ audit, rbac, secrets, store });
   const providerDryRun = new ProviderDryRunService({ audit, rbac, providers, operators, store });
   const inventory = new InventoryService({ audit, rbac, operators, store });
@@ -1310,6 +1311,24 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { providers: providers.list({ actor, correlationId }) });
       }
 
+      if (req.method === "GET" && url.pathname === "/secrets/backend-status") {
+        return send(res, 200, { status: secrets.status({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/secrets/backends") {
+        return send(res, 200, { backends: secrets.listBackends({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/secrets/backends") {
+        auth.requireFreshStepUp(actor, "secret.backend.configure", {
+          correlationId,
+          resourceType: "secret"
+        });
+        const body = await readJson(req);
+        const backend = secrets.configureBackend({ actor, ...body, correlationId });
+        return send(res, 201, { backend });
+      }
+
       if (req.method === "GET" && url.pathname === "/providers/dry-run/vps-plans") {
         return send(res, 200, {
           plans: providerDryRun.list({
@@ -1334,7 +1353,14 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           resourceId: providerSecretMatch[1]
         });
         const body = await readJson(req);
-        const provider = providers.rotateSecret({
+        const provider = body.externalSecretReference
+          ? providers.rotateExternalSecretReference({
+            actor,
+            providerId: providerSecretMatch[1],
+            ...body,
+            correlationId
+          })
+          : providers.rotateSecret({
           actor,
           providerId: providerSecretMatch[1],
           ...body,

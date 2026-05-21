@@ -53,6 +53,8 @@ const state = {
   liveCloudRequests: [],
   liveRollbackPlans: [],
   liveProviderRehearsals: [],
+  secretBackendStatus: null,
+  secretBackends: [],
   firecrackerQualifications: [],
   cpuConfidentialQualifications: [],
   phantomExecutionRequests: [],
@@ -233,6 +235,8 @@ async function refreshAll() {
     liveCloudRequests,
     liveRollbackPlans,
     liveProviderRehearsals,
+    secretBackendStatus,
+    secretBackends,
     firecrackerQualifications,
     cpuConfidentialQualifications,
     phantomExecutionRequests,
@@ -285,6 +289,8 @@ async function refreshAll() {
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
     api("/live-execution/cloud/rollback-plans").catch(() => ({ plans: [] })),
     api("/live-execution/cloud/rehearsals").catch(() => ({ rehearsals: [] })),
+    api("/secrets/backend-status").catch(() => ({ status: null })),
+    api("/secrets/backends").catch(() => ({ backends: [] })),
     api("/live-execution/firecracker/host-qualifications").catch(() => ({ qualifications: [] })),
     api("/live-execution/cpu-confidential/qualifications").catch(() => ({ qualifications: [] })),
     api("/live-execution/phantom/requests").catch(() => ({ requests: [] })),
@@ -337,6 +343,8 @@ async function refreshAll() {
   state.liveCloudRequests = liveCloudRequests.requests;
   state.liveRollbackPlans = liveRollbackPlans.plans;
   state.liveProviderRehearsals = liveProviderRehearsals.rehearsals;
+  state.secretBackendStatus = secretBackendStatus.status;
+  state.secretBackends = secretBackends.backends;
   state.firecrackerQualifications = firecrackerQualifications.qualifications;
   state.cpuConfidentialQualifications = cpuConfidentialQualifications.qualifications;
   state.phantomExecutionRequests = phantomExecutionRequests.requests;
@@ -511,6 +519,24 @@ function render() {
     ["Rollback plans", String(state.liveExecutionSummary.rollbackPlans || 0)],
     ["Prod exec", String(state.liveExecutionSummary.productionExecutionAllowed)]
   ]) : empty("Live execution gate unavailable.");
+
+  $("#secret-backend-status-cards").innerHTML = state.secretBackendStatus ? card("Secret backend contract", [
+    ["Default runtime", state.secretBackendStatus.defaultRuntimeSource],
+    ["Backends", String(state.secretBackendStatus.backendCount)],
+    ["External refs", String(state.secretBackendStatus.externalReferenceCount)],
+    ["Plaintext retrieval", String(state.secretBackendStatus.plaintextRetrievalAllowed)],
+    ["Prod release", String(state.secretBackendStatus.productionSecretReleaseAllowed)],
+    ["Human gate", String(state.secretBackendStatus.humanGateRequired)]
+  ]) : empty("Secret backend status unavailable.");
+
+  $("#secret-backend-cards").innerHTML = state.secretBackends.map((backend) => card(backend.displayName, [
+    ["Type", backend.backendType],
+    ["Mode", backend.mode],
+    ["Runtime", String(backend.runtimeResolutionAllowed)],
+    ["Plaintext", String(backend.plaintextRetrievalAllowed)],
+    ["Prod ready", String(backend.productionReady)],
+    ["Gate", String(backend.humanGateRequired)]
+  ])).join("") || empty("No secret backends configured.");
 
   $("#live-cloud-request-cards").innerHTML = state.liveCloudRequests.map((request) => card(request.id, [
     ["Status", request.status],
@@ -1314,6 +1340,25 @@ async function createProviderDryRunPlan(event) {
     }
   });
   toast("Provider dry-run plan recorded; no cloud mutation performed");
+  await refreshAll();
+}
+
+async function configureSecretBackend(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await withStepUpRetry(() => api("/secrets/backends", {
+    method: "POST",
+    body: {
+      backendType: data.backendType,
+      displayName: data.displayName,
+      endpointReference: data.endpointReference || null,
+      keyRingReference: data.keyRingReference || null,
+      hsmPartitionReference: data.hsmPartitionReference || null,
+      mode: data.mode,
+      evidenceRefs: splitCsv(data.evidenceRefs)
+    }
+  }), "Secret Backend Configure");
+  toast("Secret backend contract recorded");
   await refreshAll();
 }
 
@@ -2297,6 +2342,7 @@ function bind() {
   $("#environment-rollback-form").addEventListener("submit", (event) => rollbackEnvironment(event).catch(showError));
   $("#environment-secrets-form").addEventListener("submit", (event) => checkEnvironmentSecrets(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
+  $("#secret-backend-form").addEventListener("submit", (event) => configureSecretBackend(event).catch(showError));
   $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
   $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));
   $("#provider-rehearsal-form").addEventListener("submit", (event) => runProviderRehearsal(event).catch(showError));

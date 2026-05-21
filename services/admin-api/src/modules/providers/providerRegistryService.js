@@ -84,6 +84,8 @@ export class ProviderRegistryService {
     providerType,
     displayName,
     apiSecret,
+    externalSecretReference,
+    secretBackendId,
     regions,
     quota,
     billingHealth,
@@ -96,14 +98,25 @@ export class ProviderRegistryService {
 
     const base = this.#resolveMetadata(providerType, displayName, metadata);
     const providerId = newId("provider");
-    const secret = this.secrets.create({
-      actor,
-      name: `${base.providerKey}:${providerId}:api`,
-      purpose: "provider_api",
-      plaintext: apiSecret,
-      providerId,
-      correlationId: corr
-    });
+    const secret = externalSecretReference
+      ? this.secrets.createExternalReference({
+        actor,
+        name: `${base.providerKey}:${providerId}:api`,
+        purpose: "provider_api",
+        externalReference: externalSecretReference,
+        backendId: secretBackendId,
+        providerId,
+        evidenceRefs: [`provider://${base.providerKey}/external-secret-reference`],
+        correlationId: corr
+      })
+      : this.secrets.create({
+        actor,
+        name: `${base.providerKey}:${providerId}:api`,
+        purpose: "provider_api",
+        plaintext: apiSecret,
+        providerId,
+        correlationId: corr
+      });
     const provider = {
       id: providerId,
       providerKey: base.providerKey,
@@ -112,7 +125,11 @@ export class ProviderRegistryService {
       apiSecretReference: {
         secretReference: secret.secretReference,
         version: secret.version,
-        rotatedAt: secret.rotatedAt
+        rotatedAt: secret.rotatedAt,
+        backendId: secret.backendId,
+        backendType: secret.backendType,
+        custody: secret.custody,
+        externalReference: secret.externalReference
       },
       regions: normalizeRegions(regions, base.defaultRegions),
       quota: normalizeQuota(quota),
@@ -184,6 +201,58 @@ export class ProviderRegistryService {
       newValue: {
         secretReference: rotated.apiSecretReference.secretReference,
         version: rotated.apiSecretReference.version,
+        connection: rotated.connection
+      }
+    });
+    return rotated;
+  }
+
+  rotateExternalSecretReference({ actor, providerId, externalSecretReference, evidenceRefs = [], testConnection = { mode: "external_reference" }, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const provider = this.providers.get(providerId);
+    if (!provider) {
+      throw notFound("provider", providerId);
+    }
+    this.rbac.assert(actor, "provider.secret.rotate", {
+      resourceType: RESOURCE_TYPES.PROVIDER,
+      resourceId: providerId,
+      correlationId: corr
+    });
+    const previousReference = provider.apiSecretReference.secretReference;
+    const secret = this.secrets.rotateExternalReference({
+      actor,
+      secretReference: previousReference,
+      externalReference: externalSecretReference,
+      evidenceRefs,
+      correlationId: corr
+    });
+    const rotated = {
+      ...provider,
+      apiSecretReference: {
+        secretReference: secret.secretReference,
+        version: secret.version,
+        rotatedAt: secret.rotatedAt,
+        backendId: secret.backendId,
+        backendType: secret.backendType,
+        custody: secret.custody,
+        externalReference: secret.externalReference
+      },
+      connection: this.#testConnection({ providerKey: provider.providerKey, testConnection, correlationId: corr }),
+      updatedAt: new Date().toISOString()
+    };
+    this.providers.set(providerId, rotated);
+    this.audit.record({
+      actorId: actor.id,
+      action: "provider.external_secret_reference_rotated",
+      resourceType: RESOURCE_TYPES.PROVIDER,
+      resourceId: providerId,
+      correlationId: corr,
+      previousValue: { secretReference: previousReference },
+      newValue: {
+        secretReference: rotated.apiSecretReference.secretReference,
+        version: rotated.apiSecretReference.version,
+        backendType: rotated.apiSecretReference.backendType,
+        custody: rotated.apiSecretReference.custody,
         connection: rotated.connection
       }
     });

@@ -341,6 +341,35 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
+              <h2>Secret Backend <span class="help-tip" tabindex="0" data-tip="Registers Vault, KMS, HSM or BYO-HSM references as a contract only. The admin panel stores references and evidence, never plaintext keys.">?</span></h2>
+              <span class="pill warn">Reference-only</span>
+            </div>
+            <form id="secret-backend-form">
+              <label>Type
+                <select name="backendType">
+                  <option value="vault">Vault</option>
+                  <option value="cloud_kms">Cloud KMS</option>
+                  <option value="hsm">HSM</option>
+                  <option value="byo_hsm">BYO-HSM</option>
+                </select>
+              </label>
+              <label>Name <input name="displayName" value="Vault Transit - staging"></label>
+              <label>Endpoint Ref <input name="endpointReference" value="vault://sylion/transit"></label>
+              <label>KMS Keyring Ref <input name="keyRingReference" placeholder="kms://project/keyring"></label>
+              <label>HSM Partition Ref <input name="hsmPartitionReference" placeholder="hsm://tenant/partition"></label>
+              <label>Mode
+                <select name="mode">
+                  <option value="reference_only" selected>Reference only</option>
+                  <option value="runtime_resolver_planned">Runtime resolver planned</option>
+                  <option value="runtime_resolver_attested">Runtime resolver attested</option>
+                </select>
+              </label>
+              <label>Evidence <input name="evidenceRefs" value="adr://step3-19-secret-backend-contract"></label>
+              <button type="submit">Register Backend</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
               <h2>Provider Dry-Run <span class="help-tip" tabindex="0" data-tip="Plans G1/G2/WORKLOAD VPS actions without calling cloud APIs or mutating provider resources.">?</span></h2>
               <span class="pill">No mutation</span>
             </div>
@@ -447,6 +476,11 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Live Execution Status</h2><span class="pill warn">Default deny</span></div>
             <div class="cards" id="live-cloud-status-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Secret Backend Status</h2><span class="pill warn">HSM pending</span></div>
+            <div class="cards" id="secret-backend-status-cards"></div>
+            <div class="cards" id="secret-backend-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Live Cloud Requests</h2><span class="pill warn">Audited</span></div>

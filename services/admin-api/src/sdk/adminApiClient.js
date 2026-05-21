@@ -523,6 +523,22 @@ export class AdminApiClient {
     return this.request("/providers", { method: "POST", body });
   }
 
+  listSecretBackends() {
+    return this.request("/secrets/backends");
+  }
+
+  getSecretBackendStatus() {
+    return this.request("/secrets/backend-status");
+  }
+
+  configureSecretBackend(body) {
+    return this.request("/secrets/backends", { method: "POST", body });
+  }
+
+  rotateProviderSecret(providerId, body) {
+    return this.request(`/providers/${providerId}/secret-rotation`, { method: "POST", body });
+  }
+
   listProviderDryRunPlans(operatorId = null) {
     return this.request(`/providers/dry-run/vps-plans${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
   }

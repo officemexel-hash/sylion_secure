@@ -14,6 +14,8 @@ const ROLE_PERMISSIONS = Object.freeze({
     "provider.read",
     "provider.dry_run.plan",
     "provider.secret.rotate",
+    "secret.backend.read",
+    "secret.backend.manage",
     "subscription.read",
     "subscription.manage",
     "workload.allocation.read",
@@ -82,6 +84,8 @@ const ROLE_PERMISSIONS = Object.freeze({
     "provider.dry_run.plan",
     "provider.create",
     "secret.create",
+    "secret.backend.read",
+    "secret.backend.manage",
     "device.read",
     "device.register",
     "device.assign",
@@ -101,9 +105,9 @@ const ROLE_PERMISSIONS = Object.freeze({
   ],
   [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create", "operator.provisioning_pipeline.read", "operator.provisioning_pipeline.manage", "operator.environment.read", "operator.environment.manage", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "audit.read", "security.profile.read", "security.profile.manage", "operator.portal.session.create"],
   [ROLES.BILLING_ADMIN]: ["tenant.read", "subscription.read", "subscription.manage"],
-  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "release.read", "live_execution.read", "security.profile.read"],
+  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "release.read", "live_execution.read", "security.profile.read", "secret.backend.read"],
   [ROLES.INCIDENT_COMMANDER]: ["incident.manage", "operator.suspend"],
-  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "release.read", "live_execution.read", "security.profile.read"]
+  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "release.read", "live_execution.read", "security.profile.read", "secret.backend.read"]
 });
 
 export class RbacService {

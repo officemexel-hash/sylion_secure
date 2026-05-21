@@ -158,6 +158,10 @@ async function run() {
 
     await clickButton(page, "Providers");
     await page.getByText("Live Cloud Gate").waitFor({ timeout: 10000 });
+    await page.locator("#secret-backend-form input[name='displayName']").fill(`Vault Transit Smoke ${Date.now()}`);
+    await page.locator("#secret-backend-form input[name='endpointReference']").fill("vault://sylion/smoke/transit");
+    await page.getByRole("button", { name: "Register Backend" }).click();
+    await page.locator("#toast").getByText("Secret backend contract recorded", { exact: false }).waitFor({ timeout: 10000 });
     const liveTuple = await chooseLiveProviderTuple(page);
     await selectOptionValue(page, "#live-cloud-provider-select", liveTuple.provider.id);
     await selectOptionValue(page, "#live-cloud-operator-select", liveTuple.operator.id);
@@ -180,7 +184,7 @@ async function run() {
     await captureScreenshot(page, "live-execution-desktop.png");
     actions.push("live_cloud_rehearsal_firecracker_cpu_gates");
     const providersText = await page.locator("main").innerText();
-    for (const expected of ["Provider Rehearsals", "smoke_passed", "Live Rollback Plans", "Rollback ready", "Secret source", "hetzner", "blocked_human_gate"]) {
+    for (const expected of ["Provider Rehearsals", "smoke_passed", "Live Rollback Plans", "Rollback ready", "Secret Backend Status", "Plaintext retrieval", "Secret source", "hetzner", "blocked_human_gate"]) {
       if (!providersText.includes(expected)) issues.push(`Missing live provider dashboard text: ${expected}`);
     }
 
