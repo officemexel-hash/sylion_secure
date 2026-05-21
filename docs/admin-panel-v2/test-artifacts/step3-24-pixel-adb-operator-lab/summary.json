@@ -1,14 +1,14 @@
 {
-  "baseUrl": "http://127.0.0.1:18099",
+  "baseUrl": "http://127.0.0.1:8099",
   "adbSerial": "46141FDAP009CZ",
-  "operatorId": "op_142153fc-d50e-4890-9b7c-8d90a40a67f6",
-  "tenantId": "tenant_967ebedd-d716-4ccb-bb81-ee78200d6a41",
-  "pixelDeviceId": "device_022d1926-e430-4ee7-91be-8d61f58b1a22",
-  "artifactId": "artifact_4e9fc318-f9cb-4f38-9434-0a2b1b279774",
-  "pipelineId": "op_pipe_81e68384-59b0-4134-a170-dd38a434a735",
-  "localLabId": "local_lab_vps_96fb971d-1498-4ea1-8b42-7290f4125d74",
-  "environmentId": "op_env_1c7f32e5-5d72-41b5-bf98-5c9965c57229",
-  "operatorSessionId": "op_session_574e58aa-1a1e-4613-83b5-3a5b65326dd2",
+  "operatorId": "op_406422f8-0d9a-443d-aaaf-05ab2951174c",
+  "tenantId": "tenant_403af1a4-74b9-403a-b657-d93812a8c2e6",
+  "pixelDeviceId": "device_d751c740-2827-441b-99c1-4e2fbf7e516a",
+  "artifactId": "artifact_56f548d4-65cd-4b1d-a6fb-43708ba6b14c",
+  "pipelineId": "op_pipe_cecc199f-ff67-4f5b-8a9e-0b9ef0a83dcb",
+  "localLabId": "local_lab_vps_fdb7f7e6-0c92-4649-a2cf-d00923d9ccf7",
+  "environmentId": "op_env_56a4a6e7-8388-436b-8b37-597f050dc42c",
+  "operatorSessionId": "op_session_ca3f7199-a310-48a6-b719-f2bba6d48828",
   "vpnState": "local_lab_connected",
   "vpnTransport": "ipsec_ikev2_planned",
   "connectionPathState": "local_lab_connected",
@@ -22,6 +22,46 @@
     "signal",
     "telegram"
   ],
+  "signalExecutionReadiness": "blocked_before_execution",
+  "signalExecutionBlockers": [
+    "real_firecracker_binary_not_configured",
+    "kvm_device_not_verified",
+    "firecracker_kernel_image_not_configured",
+    "signal_rootfs_image_not_configured",
+    "approved_signal_workload_image_missing",
+    "signal_application_package_not_bound",
+    "signal_account_enrollment_not_configured",
+    "dns_leak_and_kill_switch_tests_required",
+    "human_production_execution_approval_required"
+  ],
+  "signalSubstrate": {
+    "vpn": {
+      "required": true,
+      "ready": true,
+      "transport": "ipsec_ikev2",
+      "status": "established"
+    },
+    "firecrackerKvm": {
+      "required": true,
+      "ready": false,
+      "kvmReady": false,
+      "firecrackerBinaryConfigured": false,
+      "kernelConfigured": false,
+      "rootfsConfigured": false
+    },
+    "cdr": {
+      "required": true,
+      "ready": true,
+      "enforcement": "real_control_plane",
+      "rule": "No file ingress/egress without CDR decision."
+    },
+    "hsmFido2": {
+      "requiredForFinalProduction": true,
+      "deferred": true,
+      "panelConfigurable": true,
+      "hsmCertificateConfigured": false
+    }
+  },
   "vpnInstallState": "blocked_human_gate",
   "streamTarget": "591x1280",
   "streamResizePolicy": "server_side_dynamic_resolution",
@@ -31,5 +71,8 @@
   "productionExecutionAllowed": false,
   "operationalDataOnTerminal": false,
   "openedOperatorPortalOnPixel": true,
-  "checkedAt": "2026-05-21T20:26:42.635Z"
+  "openedOperatorPortalView": "signal-preview",
+  "openedSignalPreviewOnPixel": true,
+  "usedLocalhostLabTokenBootstrap": true,
+  "checkedAt": "2026-05-21T20:54:07.178Z"
 }

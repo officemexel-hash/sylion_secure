@@ -97,7 +97,7 @@ async function run() {
     await page.getByText(seeded.operatorName, { exact: false }).waitFor({ timeout: 10000 });
     actions.push("operator_session_loaded");
 
-    for (const label of ["Devices", "Connection Path", "VPN status", "FIDO2 policy", "HSM refs", "Subscription", "My audit"]) {
+    for (const label of ["Devices", "Connection Path", "Signal Preview", "VPN status", "FIDO2 policy", "HSM refs", "Subscription", "My audit"]) {
       await page.getByRole("link", { name: label }).click();
       await page.waitForTimeout(250);
       actions.push(`view_${label.toLowerCase().replaceAll(" ", "_")}`);
@@ -123,6 +123,13 @@ async function run() {
     const mainText = await page.locator("main").innerText();
     for (const expected of ["Connection Path", "VPN segments", "Communicator microVMs", "ipsec_ikev2"]) {
       if (!mainText.includes(expected)) issues.push(`Missing operator portal text: ${expected}`);
+    }
+
+    await page.getByRole("link", { name: "Signal Preview" }).click();
+    await page.getByText("Production gates", { exact: true }).waitFor({ timeout: 10000 });
+    const signalText = await page.locator("#signal-preview").innerText();
+    for (const expected of ["Signal Preview", "WORKLOAD microVM preview", "CDR required for files", "real_firecracker_binary_not_configured"]) {
+      if (!signalText.includes(expected)) issues.push(`Missing Signal preview text: ${expected}`);
     }
 
     await page.screenshot({ path: join(outputDir, "operator-portal-desktop.png"), fullPage: true });

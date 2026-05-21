@@ -36,7 +36,7 @@ function publicSession(session) {
 }
 
 export class OperatorPortalService {
-  constructor({ audit, rbac, operators, devices, subscriptions, operatorEnvironments, securityProfiles, routerReadiness = null, store = null }) {
+  constructor({ audit, rbac, operators, devices, subscriptions, operatorEnvironments, securityProfiles, routerReadiness = null, env = process.env, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.operators = operators;
@@ -45,6 +45,7 @@ export class OperatorPortalService {
     this.operatorEnvironments = operatorEnvironments;
     this.securityProfiles = securityProfiles;
     this.routerReadiness = routerReadiness;
+    this.env = env;
     this.sessions = new PersistentMap({ store, collection: "operator_portal_sessions" });
   }
 
@@ -169,6 +170,54 @@ export class OperatorPortalService {
       terminalMode: operatorActor.terminalMode,
       deviceId: operatorActor.deviceId
     });
+  }
+
+  workloadExecution({ operatorActor, templateKey = "signal", correlationId }) {
+    requireCorrelationId(correlationId);
+    return this.#workloadExecutionForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey
+    });
+  }
+
+  startWorkloadExecution({ operatorActor, templateKey = "signal", correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const execution = this.#workloadExecutionForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey
+    });
+    const request = {
+      id: newId("workload_exec_req"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      templateKey: execution.templateKey,
+      appName: execution.appName,
+      requestedAt: isoNow(),
+      requestedBy: operatorActor.id,
+      state: execution.launchAllowed ? "queued_for_firecracker_runner" : "blocked",
+      launchAllowed: execution.launchAllowed,
+      productionExecutionAllowed: execution.productionExecutionAllowed,
+      sideEffectAllowed: execution.sideEffectAllowed,
+      blockers: execution.blockers,
+      warnings: execution.warnings
+    };
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.workload_execution_requested",
+      resourceType: RESOURCE_TYPES.MOCK_FIRECRACKER_RUNTIME,
+      resourceId: execution.slot?.microVmId || request.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: request.launchAllowed ? "allow" : "deny",
+      result: request.state,
+      newValue: request
+    });
+    return { ...request, execution };
   }
 
   adminConnectionPath({ actor, operatorId, terminalMode = TERMINAL_MODES.PIXEL, correlationId }) {
@@ -567,6 +616,110 @@ export class OperatorPortalService {
       secretsReleaseAllowed: false,
       terminalDataStored: false,
       productionExecutionAllowed: false
+    };
+  }
+
+  #workloadExecutionForOperator({ operatorId, terminalMode, deviceId, templateKey }) {
+    const path = this.#connectionPathForOperator({ operatorId, terminalMode, deviceId });
+    const normalizedTemplate = String(templateKey || "signal").trim().toLowerCase();
+    const slot = path.microVmSlots.find((item) => item.templateKey === normalizedTemplate)
+      || path.microVmSlots.find((item) => item.appName?.toLowerCase() === normalizedTemplate);
+    const env = this.env || {};
+    const runtimeRefs = {
+      firecrackerBinary: env.SYLION_FIRECRACKER_BIN || null,
+      kernelImageRef: env.SYLION_FIRECRACKER_KERNEL || null,
+      rootfsImageRef: env.SYLION_SIGNAL_ROOTFS || null,
+      workloadImageRef: env.SYLION_SIGNAL_WORKLOAD_IMAGE_REF || null,
+      signalPackageRef: env.SYLION_SIGNAL_PACKAGE_REF || null,
+      signalAccountEnrollmentRef: env.SYLION_SIGNAL_ACCOUNT_REF || null,
+      cdrPolicyRef: "cdr://mandatory-workload-file-transfer",
+      hsmCertificateRef: env.SYLION_OPERATOR_HSM_CERT_REF || null
+    };
+    const hsmFidoDeferred = env.SYLION_DEFER_PHYSICAL_HSM_FIDO2 === "true";
+    const vpnReady = env.SYLION_REAL_IPSEC_READY === "true" || env.SYLION_IPSEC_PROFILE_STATUS === "established";
+    const kvmReady = env.SYLION_KVM_READY === "true";
+    const firecrackerReady = Boolean(runtimeRefs.firecrackerBinary && runtimeRefs.kernelImageRef && runtimeRefs.rootfsImageRef && kvmReady);
+    const cdrReady = true;
+    const blockers = [
+      ...(slot ? [] : ["signal_microvm_slot_missing"]),
+      ...(path.state === "local_lab_connected" ? [] : ["g1_g2_workload_path_not_ready"]),
+      ...(runtimeRefs.firecrackerBinary ? [] : ["real_firecracker_binary_not_configured"]),
+      ...(kvmReady ? [] : ["kvm_device_not_verified"]),
+      ...(runtimeRefs.kernelImageRef ? [] : ["firecracker_kernel_image_not_configured"]),
+      ...(runtimeRefs.rootfsImageRef ? [] : ["signal_rootfs_image_not_configured"]),
+      ...(runtimeRefs.workloadImageRef ? [] : ["approved_signal_workload_image_missing"]),
+      ...(runtimeRefs.signalPackageRef ? [] : ["signal_application_package_not_bound"]),
+      ...(runtimeRefs.signalAccountEnrollmentRef ? [] : ["signal_account_enrollment_not_configured"]),
+      ...(runtimeRefs.hsmCertificateRef || hsmFidoDeferred ? [] : ["hsm_backed_operator_certificate_required"]),
+      ...(hsmFidoDeferred ? [] : ["fresh_fido2_operator_unlock_required"]),
+      ...(vpnReady ? [] : ["real_ipsec_profile_required"]),
+      "dns_leak_and_kill_switch_tests_required",
+      "human_production_execution_approval_required"
+    ];
+    const warnings = [
+      "puli_ax_router_physical_gate_temporarily_out_of_scope_for_this_sprint",
+      "terminal_remains_thin_client_no_signal_data_on_pixel",
+      ...(hsmFidoDeferred ? ["physical_hsm_fido2_configuration_deferred_but_visible_in_panels"] : [])
+    ];
+    const productionFlag = env.SYLION_ENABLE_SIGNAL_PRODUCTION_EXECUTION === "true";
+    const launchAllowed = productionFlag && blockers.length === 0;
+    return {
+      operatorId,
+      tenantId: path.tenantId,
+      templateKey: slot?.templateKey || normalizedTemplate,
+      appName: slot?.appName || "Signal",
+      slot: slot || null,
+      route: {
+        terminalMode,
+        nodes: path.nodes.map((node) => ({ id: node.id, role: node.role, label: node.label, status: node.status })),
+        segments: path.segments.map((segment) => ({ id: segment.id, from: segment.from, to: segment.to, protocol: segment.protocol, state: segment.state }))
+      },
+      runtime: {
+        kind: "firecracker_microvm",
+        targetVpsRole: "WORKLOAD",
+        hostMode: "production_contract",
+        runner: "real_firecracker_runner_required",
+        runtimeRefs,
+        substrate: {
+          vpn: {
+            required: true,
+            ready: vpnReady,
+            transport: "ipsec_ikev2",
+            status: vpnReady ? "established" : "not_established"
+          },
+          firecrackerKvm: {
+            required: true,
+            ready: firecrackerReady,
+            kvmReady,
+            firecrackerBinaryConfigured: Boolean(runtimeRefs.firecrackerBinary),
+            kernelConfigured: Boolean(runtimeRefs.kernelImageRef),
+            rootfsConfigured: Boolean(runtimeRefs.rootfsImageRef)
+          },
+          cdr: {
+            required: true,
+            ready: cdrReady,
+            enforcement: "real_control_plane",
+            rule: "No file ingress/egress without CDR decision."
+          },
+          hsmFido2: {
+            requiredForFinalProduction: true,
+            deferred: hsmFidoDeferred,
+            panelConfigurable: true,
+            hsmCertificateConfigured: Boolean(runtimeRefs.hsmCertificateRef)
+          }
+        },
+        egressPolicy: slot?.egressPolicy || "via_g2_policy_gateway_only",
+        isolation: slot?.isolation || "firecracker_microvm",
+        cdrRequired: true,
+        terminalDataStored: false
+      },
+      readinessState: launchAllowed ? "ready_for_firecracker_runner" : "blocked_before_execution",
+      blockers,
+      warnings,
+      sideEffectAllowed: launchAllowed,
+      productionExecutionAllowed: launchAllowed,
+      launchAllowed,
+      generatedAt: isoNow()
     };
   }
 

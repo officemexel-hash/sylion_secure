@@ -13,6 +13,18 @@
     session: JSON.parse(sessionStorage.getItem("sylion.operator.session") || "null")
   };
 
+  function bootstrapLocalLabToken() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("op_token");
+    const localhost = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname);
+    if (!token || !localhost || !token.startsWith("op_")) return;
+    state.operatorToken = token;
+    sessionStorage.setItem("sylion.operator.token", token);
+    params.delete("op_token");
+    const cleanSearch = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${window.location.hash}`);
+  }
+
   function headers(extra = {}) {
     return {
       "content-type": "application/json",
@@ -261,6 +273,68 @@
     }
   }
 
+  async function loadSignalPreview() {
+    const [pathData, streamData, executionData] = await Promise.all([
+      fetchJson("/operator-api/connection-path"),
+      fetchJson(`/operator-api/streaming-profile?width=${Math.round(window.visualViewport?.width || window.innerWidth || 390)}&height=${Math.round(window.visualViewport?.height || window.innerHeight || 844)}&dpr=${Number(window.devicePixelRatio || 1).toFixed(2)}`),
+      fetchJson("/operator-api/workload-execution/signal")
+    ]);
+    if (pathData.error) {
+      setText("#signal-preview-state", pathData.error);
+      return;
+    }
+    const path = pathData.path;
+    const signalSlot = (path.microVmSlots || []).find((slot) => slot.templateKey === "signal")
+      || (path.microVmSlots || []).find((slot) => /signal/i.test(slot.appName || ""));
+    const routeLabels = [
+      path.nodes?.find((node) => node.role === "TERMINAL")?.label || "Pixel",
+      "G1",
+      "G2",
+      "WORKLOAD",
+      signalSlot?.appName || "Signal microVM"
+    ];
+    const route = $("#signal-route");
+    if (route) {
+      route.innerHTML = routeLabels.map((label) => `<span>${escapeHtml(label)}</span>`).join("");
+    }
+    const execution = executionData.execution || {};
+    setText("#signal-slot-state", signalSlot ? `${signalSlot.status} | ${execution.readinessState || signalSlot.targetVpsRole}` : "signal slot not found");
+    setText("#signal-preview-state", signalSlot
+      ? "Production Signal workload contract loaded. Launch stays blocked until every gate is green."
+      : "Signal slot missing from workload plan.");
+    setText("#signal-route-state", `${path.state} | ${path.segments?.map((segment) => segment.id).join(" -> ") || "-"}`);
+    setText("#signal-isolation", execution.runtime?.isolation || signalSlot?.isolation || "-");
+    setText("#signal-egress", execution.runtime?.egressPolicy || signalSlot?.egressPolicy || "-");
+    setText("#signal-production", String(Boolean(execution.productionExecutionAllowed)));
+    setText("#signal-vpn-substrate", execution.runtime?.substrate?.vpn?.ready ? "established" : "not established");
+    setText("#signal-kvm-substrate", execution.runtime?.substrate?.firecrackerKvm?.ready ? "ready" : "blocked");
+    setText("#signal-cdr-substrate", execution.runtime?.substrate?.cdr?.ready ? "real control-plane" : "blocked");
+    setText("#signal-hsm-fido-substrate", execution.runtime?.substrate?.hsmFido2?.deferred ? "deferred/configurable" : "required");
+    if (!streamData.error) {
+      setText("#signal-stream-resolution", `${streamData.profile.stream.targetWidth} x ${streamData.profile.stream.targetHeight}`);
+    }
+    const gateList = $("#signal-gate-list");
+    if (gateList) {
+      const blockers = execution.blockers || [];
+      const warnings = execution.warnings || [];
+      gateList.innerHTML = [
+        ...blockers.map((blocker) => `<li><strong>${escapeHtml(blocker)}</strong><span>Required before real Signal Firecracker launch.</span></li>`),
+        ...warnings.map((warning) => `<li><strong>${escapeHtml(warning)}</strong><span>Tracked warning for this sprint.</span></li>`)
+      ].join("") || `<li><strong>ready_for_firecracker_runner</strong><span>All gates passed.</span></li>`;
+    }
+    const startButton = $("#signal-start-button");
+    if (startButton) {
+      startButton.disabled = !execution.launchAllowed;
+      startButton.textContent = execution.launchAllowed ? "Start Signal" : "Start blocked";
+      startButton.onclick = async () => {
+        const response = await fetchJson("/operator-api/workload-execution/signal/start", { method: "POST" });
+        setText("#signal-preview-state", response.request?.state === "queued_for_firecracker_runner"
+          ? "Signal workload queued for Firecracker runner."
+          : `Launch blocked: ${(response.request?.blockers || []).slice(0, 2).join(", ")}`);
+      };
+    }
+  }
+
   async function loadAudit() {
     const list = $("#audit-list");
     if (!list) return;
@@ -318,6 +392,7 @@
     if (viewId === "devices") loadDevices();
     if (viewId === "workloads") loadWorkloads();
     if (viewId === "connection-path") loadConnectionPath();
+    if (viewId === "signal-preview") loadSignalPreview();
     if (viewId === "vpn") loadVpn();
     if (viewId === "streaming") loadStreaming();
     if (viewId === "audit") loadAudit();
@@ -327,6 +402,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    bootstrapLocalLabToken();
     $(".sidebar").addEventListener("click", handleNav);
     $("#session-form").addEventListener("submit", createLocalSession);
     $("#fido2-form").addEventListener("submit", saveFido2);

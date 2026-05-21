@@ -6,6 +6,9 @@ import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js"
 
 const execFileAsync = promisify(execFile);
 const baseUrl = process.env.SYLION_BASE_URL || "http://127.0.0.1:18099";
+const baseUrlParsed = new URL(baseUrl);
+const basePort = baseUrlParsed.port || (baseUrlParsed.protocol === "https:" ? "443" : "80");
+const operatorView = process.env.SYLION_OPERATOR_VIEW || "signal-preview";
 const adbPath = process.env.SYLION_ADB_PATH || join(process.cwd(), ".deploy", "platform-tools", "adb.exe");
 const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-24-pixel-adb-operator-lab");
 
@@ -212,17 +215,19 @@ async function run() {
     }
   });
   const viewport = { width: 390, height: 844, dpr: 3 };
-  const [me, vpn, connectionPath, vpnInstall, stream, devices, profiles] = await Promise.all([
+  const [me, vpn, connectionPath, signalExecution, vpnInstall, stream, devices, profiles] = await Promise.all([
     operatorRequest(sessionPayload.session.token, "/operator-api/me"),
     operatorRequest(sessionPayload.session.token, "/operator-api/vpn-status"),
     operatorRequest(sessionPayload.session.token, "/operator-api/connection-path"),
+    operatorRequest(sessionPayload.session.token, "/operator-api/workload-execution/signal"),
     operatorRequest(sessionPayload.session.token, "/operator-api/vpn-install-package"),
     operatorRequest(sessionPayload.session.token, `/operator-api/streaming-profile?width=${viewport.width}&height=${viewport.height}&dpr=${viewport.dpr}`),
     operatorRequest(sessionPayload.session.token, "/operator-api/devices"),
     operatorRequest(sessionPayload.session.token, "/operator-api/terminal-profiles")
   ]);
 
-  await adb(["-s", pixel.serial, "reverse", "tcp:18099", "tcp:18099"]);
+  await adb(["-s", pixel.serial, "reverse", `tcp:${basePort}`, `tcp:${basePort}`]);
+  const operatorUrl = `${baseUrl}/operator?op_token=${encodeURIComponent(sessionPayload.session.token)}#${operatorView}`;
   await adb([
     "-s",
     pixel.serial,
@@ -232,7 +237,7 @@ async function run() {
     "-a",
     "android.intent.action.VIEW",
     "-d",
-    `${baseUrl}/operator#connection-path`
+    operatorUrl
   ]);
 
   const summary = {
@@ -251,6 +256,9 @@ async function run() {
     connectionPathState: connectionPath.path.state,
     connectionPathSegments: connectionPath.path.segments.map((segment) => segment.id),
     communicatorMicroVmSlots: connectionPath.path.microVmSlots.map((slot) => slot.templateKey),
+    signalExecutionReadiness: signalExecution.execution.readinessState,
+    signalExecutionBlockers: signalExecution.execution.blockers,
+    signalSubstrate: signalExecution.execution.runtime.substrate,
     vpnInstallState: vpnInstall.package.installState,
     streamTarget: `${stream.profile.stream.targetWidth}x${stream.profile.stream.targetHeight}`,
     streamResizePolicy: stream.profile.stream.resizePolicy,
@@ -260,6 +268,9 @@ async function run() {
     productionExecutionAllowed: false,
     operationalDataOnTerminal: false,
     openedOperatorPortalOnPixel: true,
+    openedOperatorPortalView: operatorView,
+    openedSignalPreviewOnPixel: operatorView === "signal-preview",
+    usedLocalhostLabTokenBootstrap: true,
     checkedAt: new Date().toISOString()
   };
   await writeFile(join(outputDir, "summary.json"), JSON.stringify(summary, null, 2));

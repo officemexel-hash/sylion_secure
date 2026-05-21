@@ -27,6 +27,7 @@
       <li><a href="#devices" data-view="devices">Devices</a></li>
       <li><a href="#workloads" data-view="workloads">Workloads</a></li>
       <li><a href="#connection-path" data-view="connection-path">Connection Path</a></li>
+      <li><a href="#signal-preview" data-view="signal-preview">Signal Preview</a></li>
       <li><a href="#vpn" data-view="vpn">VPN status</a></li>
       <li><a href="#streaming" data-view="streaming">Streaming</a></li>
       <li><a href="#audit" data-view="audit">My audit</a></li>
@@ -112,6 +113,55 @@
       <article class="card">
         <h2>Communicator microVMs</h2>
         <ul id="path-microvms" class="path-list"><li class="placeholder">Loading...</li></ul>
+      </article>
+    </section>
+
+    <section id="signal-preview" class="view">
+      <h1>Signal Preview</h1>
+      <p class="hint">Production-gated Signal workload path through Pixel -> G1 -> G2 -> WORKLOAD -> Firecracker/KVM. Physical HSM/FIDO2 can stay deferred while VPN, KVM and CDR are brought online.</p>
+      <article class="signal-shell">
+        <div class="signal-route" id="signal-route">
+          <span>Pixel</span><span>G1</span><span>G2</span><span>WORKLOAD</span><span>Signal microVM</span>
+        </div>
+        <div class="signal-device">
+          <div class="signal-statusbar">
+            <span>SYLION Stream</span>
+            <span id="signal-stream-resolution">-</span>
+          </div>
+          <div class="signal-appbar">
+            <div class="signal-avatar">S</div>
+            <div>
+              <strong>Signal</strong>
+              <small id="signal-slot-state">microVM slot pending</small>
+            </div>
+          </div>
+          <div class="signal-thread">
+            <div class="signal-empty">
+              <strong>WORKLOAD microVM preview</strong>
+              <span id="signal-preview-state">Loading route...</span>
+            </div>
+          </div>
+          <div class="signal-compose">
+            <span>CDR required for files</span>
+            <button type="button" id="signal-start-button" disabled>Start blocked</button>
+          </div>
+        </div>
+        <dl class="stream-metrics">
+          <dt>Route</dt><dd id="signal-route-state">-</dd>
+          <dt>Isolation</dt><dd id="signal-isolation">-</dd>
+          <dt>Egress</dt><dd id="signal-egress">-</dd>
+          <dt>Production</dt><dd id="signal-production">false</dd>
+          <dt>VPN</dt><dd id="signal-vpn-substrate">-</dd>
+          <dt>KVM</dt><dd id="signal-kvm-substrate">-</dd>
+          <dt>CDR</dt><dd id="signal-cdr-substrate">-</dd>
+          <dt>HSM/FIDO2</dt><dd id="signal-hsm-fido-substrate">-</dd>
+        </dl>
+        <article class="signal-gates">
+          <h2>Production gates</h2>
+          <ul id="signal-gate-list" class="path-list">
+            <li class="placeholder">Loading Signal execution gates...</li>
+          </ul>
+        </article>
       </article>
     </section>
 
