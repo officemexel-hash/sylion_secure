@@ -1283,14 +1283,31 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "POST" && url.pathname === "/operators") {
         const body = await readJson(req);
         const operator = operators.create({ actor, ...body, correlationId });
-        const provisioningDraft = operatorProvisioning.createDraft({
+        let provisioningDraft = operatorProvisioning.createDraft({
           actor,
           operatorId: operator.id,
           requestedTemplates: body.requestedTemplates,
           autoCreated: true,
           correlationId
         });
-        return send(res, 201, { operator, provisioningDraft });
+        let baselineProvisioning = null;
+        if (provisioningDraft.blockers.length === 0) {
+          provisioningDraft = operatorProvisioning.createLocalLabVpsSet({
+            actor,
+            pipelineId: provisioningDraft.id,
+            correlationId
+          });
+          baselineProvisioning = {
+            status: "local_lab_ready",
+            mode: "automatic_on_operator_create",
+            vps: provisioningDraft.localLab.vps,
+            firecrackerPlan: provisioningDraft.firecrackerPlan,
+            liveCloudMutationAllowed: false,
+            productionExecutionAllowed: false,
+            humanGateRequiredForLive: true
+          };
+        }
+        return send(res, 201, { operator, provisioningDraft, baselineProvisioning });
       }
 
       if (req.method === "GET" && url.pathname === "/operators") {

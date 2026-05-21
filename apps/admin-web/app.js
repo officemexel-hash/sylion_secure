@@ -1242,7 +1242,7 @@ async function createOperator(event) {
       requestedTemplates: ["whatsapp", "signal", "telegram"]
     }
   });
-  toast("Operator created with provisioning draft");
+  toast("Operator created with automatic G1/G2/WORKLOAD baseline");
   await refreshAll();
 }
 

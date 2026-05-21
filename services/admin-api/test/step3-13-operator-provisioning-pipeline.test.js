@@ -43,7 +43,7 @@ async function loginClient(baseUrl) {
   return anon.withToken(session.token);
 }
 
-test("Step 3.13 creates an operator provisioning draft automatically and local lab VPS set on demand", async () => {
+test("Step 3.13 creates operator baseline G1/G2/WORKLOAD automatically", async () => {
   const { app, baseUrl, close } = await startTestServer();
   try {
     const client = await loginClient(baseUrl);
@@ -60,20 +60,21 @@ test("Step 3.13 creates an operator provisioning draft automatically and local l
     });
 
     assert.equal(created.provisioningDraft.autoCreated, true);
-    assert.equal(created.provisioningDraft.status, "draft_ready");
+    assert.equal(created.provisioningDraft.status, "local_lab_ready");
     assert.equal(created.provisioningDraft.baseline.vps.length, 3);
     assert.equal(created.provisioningDraft.workloads.length, 3);
     assert.ok(created.provisioningDraft.workloads.every((workload) => workload.isolation === "firecracker_microvm"));
     assert.ok(created.provisioningDraft.workloads.every((workload) => workload.secretsReleaseAllowed === false));
+    assert.equal(created.baselineProvisioning.status, "local_lab_ready");
+    assert.equal(created.baselineProvisioning.mode, "automatic_on_operator_create");
+    assert.equal(created.baselineProvisioning.liveCloudMutationAllowed, false);
+    assert.equal(created.baselineProvisioning.productionExecutionAllowed, false);
+    assert.equal(created.baselineProvisioning.vps.length, 3);
+    assert.deepEqual(created.baselineProvisioning.vps.map((vps) => vps.role), ["G1", "G2", "WORKLOAD"]);
+    assert.equal(created.baselineProvisioning.firecrackerPlan.workloads.length, 3);
+    assert.ok(created.baselineProvisioning.firecrackerPlan.workloads.every((workload) => workload.status === "planned"));
 
-    const lab = await client.createLocalLabVpsSet(created.provisioningDraft.id);
-    assert.equal(lab.pipeline.status, "local_lab_ready");
-    assert.equal(lab.pipeline.localLab.vps.length, 3);
-    assert.deepEqual(lab.pipeline.localLab.vps.map((vps) => vps.role), ["G1", "G2", "WORKLOAD"]);
-    assert.equal(lab.pipeline.firecrackerPlan.workloads.length, 3);
-    assert.ok(lab.pipeline.firecrackerPlan.workloads.every((workload) => workload.status === "planned"));
-
-    const secrets = await client.checkPipelineSecretsRelease(lab.pipeline.id);
+    const secrets = await client.checkPipelineSecretsRelease(created.provisioningDraft.id);
     assert.equal(secrets.check.allowed, false);
     assert.ok(secrets.check.blockers.includes("production_secret_release_not_enabled_in_local_lab"));
     assert.ok(app.services.audit.list().some((event) => event.action === "operator_provisioning.local_lab_vps_created"));
@@ -97,6 +98,7 @@ test("Step 3.13 blocks pipeline drafts above subscription workload limits", asyn
     assert.equal(created.provisioningDraft.status, "blocked_draft");
     assert.ok(created.provisioningDraft.blockers.includes("subscription_workload_limit_exceeded"));
     assert.equal(created.provisioningDraft.productionExecutionAllowed, false);
+    assert.equal(created.baselineProvisioning, null);
   } finally {
     await close();
   }

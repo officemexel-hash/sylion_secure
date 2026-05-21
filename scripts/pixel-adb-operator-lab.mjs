@@ -195,11 +195,11 @@ async function run() {
       }
     }
   });
-  const pipeline = await client.createOperatorProvisioningDraft(operator.operator.id, {
-    requestedTemplates: ["whatsapp", "signal", "telegram"]
-  });
-  const localLab = await client.createLocalLabVpsSet(pipeline.pipeline.id);
-  const environment = await client.createLocalOperatorEnvironment(pipeline.pipeline.id);
+  const pipeline = operator.provisioningDraft;
+  if (!operator.baselineProvisioning || pipeline.status !== "local_lab_ready") {
+    throw new Error("Operator create did not produce automatic G1/G2/WORKLOAD local baseline");
+  }
+  const environment = await client.createLocalOperatorEnvironment(pipeline.id);
   await client.startLocalOperatorEnvironment(environment.environment.id);
   await client.checkOperatorEnvironmentSecretsRelease(environment.environment.id);
 
@@ -241,8 +241,8 @@ async function run() {
     tenantId: tenant.tenant.id,
     pixelDeviceId: pixelDevice.device.id,
     artifactId: artifact.artifact.id,
-    pipelineId: pipeline.pipeline.id,
-    localLabId: localLab.pipeline?.localLab?.id || null,
+    pipelineId: pipeline.id,
+    localLabId: operator.baselineProvisioning.vps?.length === 3 ? pipeline.localLab?.id || null : null,
     environmentId: environment.environment.id,
     operatorSessionId: sessionPayload.session.id,
     vpnState: vpn.vpn.state,
