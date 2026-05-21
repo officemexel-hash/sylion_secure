@@ -271,6 +271,11 @@ async function refreshAll() {
   state.phantomPolicySimulations = phantomPolicySimulations.simulations;
   state.phantomExceptions = phantomExceptions.exceptions;
   state.phantomAuditCorrelation = phantomAuditCorrelation.summary;
+  state.phantomCoverage = await Promise.all(
+    state.phantomPackages.map((pkg) => api(`/phantom/packages/${pkg.id}/evidence-coverage`)
+      .then((result) => result.coverage)
+      .catch(() => null))
+  ).then((rows) => rows.filter(Boolean));
   state.subscriptionPlans = subscriptionPlans.plans;
   state.quotaDecisions = quotaDecisions.decisions;
   state.provisioningApprovals = provisioningApprovals.approvals;
@@ -516,6 +521,22 @@ function render() {
     ["Execution", String(item.executionAllowed)]
   ])).join("") || empty("No PHANTOM packages recorded.");
 
+  $("#phantom-review-matrix-cards").innerHTML = state.phantomPackages.map((pkg) => {
+    const coverage = state.phantomCoverage.find((item) => item.packageId === pkg.id);
+    const reviews = state.phantomReviewBoardItems.filter((item) => item.packageId === pkg.id);
+    const ownerKeys = ["legal", "ciso", "architect", "compliance"];
+    const acknowledged = reviews.flatMap((item) => ownerKeys.filter((owner) => item.ownerAcknowledgements?.[owner]));
+    const exceptions = state.phantomExceptions.filter((item) => item.packageId === pkg.id);
+    const expiredCount = exceptions.filter((item) => item.expired).length;
+    return card(pkg.name, [
+      ["Coverage", coverage ? `${coverage.coveragePercent}% ${coverage.status}` : "not evaluated"],
+      ["Owner ack", `${new Set(acknowledged).size}/4`],
+      ["Exceptions", `${exceptions.length} total / ${expiredCount} expired`],
+      ["Blockers", coverage?.blockers?.join(", ") || (expiredCount ? "expired_exception_requires_review" : "-")],
+      ["Execution", "false"]
+    ]);
+  }).join("") || empty("No PHANTOM packages recorded.");
+
   $("#phantom-evidence-cards").innerHTML = state.phantomEvidenceBundles.map((item) => card(item.summary, [
     ["Package", item.packageId],
     ["Retention", item.retentionClass],
@@ -555,6 +576,7 @@ function render() {
     ["Status", item.status],
     ["Legal", item.legalOwner],
     ["Compliance", item.complianceOwner],
+    ["Owner ack", ["legal", "ciso", "architect", "compliance"].map((owner) => `${owner}:${item.ownerAcknowledgements?.[owner] ? "yes" : "no"}`).join(" ")],
     ["Execution", String(item.executionAllowed)]
   ])).join("") || empty("No PHANTOM review board items recorded.");
 
@@ -569,6 +591,8 @@ function render() {
     ["Status", item.status],
     ["Legal", item.legalOwner],
     ["Expired", String(item.expired)],
+    ["Revalidation", item.expired ? "required" : "scheduled"],
+    ["Expires", item.expiresAt],
     ["Compliance", item.complianceOwner],
     ["Execution", String(item.executionAllowed)]
   ])).join("") || empty("No PHANTOM exceptions recorded.");
@@ -1467,6 +1491,137 @@ async function runDemoFlow() {
       idempotencyKey: `demo_${suffix}`
     }
   }), "Run Demo Flow job execution");
+  const phantomCapability = await api("/phantom/capabilities", {
+    method: "POST",
+    body: {
+      displayName: `Demo PHANTOM Capability ${suffix}`,
+      riskLevel: "restricted",
+      controlsRequired: ["Legal review", "CISO review", "Architect review", "Compliance review"]
+    }
+  });
+  const phantomApproval = await api("/phantom/approvals", {
+    method: "POST",
+    body: {
+      reasonCode: "demo_governance_review",
+      legalOwner: "legal@sylion.local",
+      cisoOwner: "ciso@sylion.local",
+      architectOwner: "architect@sylion.local",
+      evidenceRefs: ["demo-phantom-governance-ref"]
+    }
+  });
+  await api(`/phantom/approvals/${phantomApproval.approval.id}/status`, {
+    method: "POST",
+    body: { status: "approved_placeholder", note: "Demo placeholder only; execution remains false" }
+  });
+  await api("/phantom/risks", {
+    method: "POST",
+    body: {
+      description: `Demo PHANTOM risk ${suffix}`,
+      severity: "high",
+      legalOwner: "legal@sylion.local",
+      cisoOwner: "ciso@sylion.local",
+      residualRisk: "Requires human gate and no baseline execution approval.",
+      mitigationPlan: "Keep PHANTOM as separate governance track with evidence-only review.",
+      evidenceRefs: ["demo-risk-ref"]
+    }
+  });
+  const templates = await api("/phantom/policy-templates");
+  const phantomPackage = await api("/phantom/packages", {
+    method: "POST",
+    body: {
+      name: `Demo PHANTOM Package ${suffix}`,
+      description: "Administrative readiness and evidence lifecycle only.",
+      policyTemplateId: templates.templates[0].id,
+      capabilityIds: [phantomCapability.capability.id],
+      tierMinimum: "PRO"
+    }
+  });
+  const phantomEvidence = await api("/phantom/evidence-bundles", {
+    method: "POST",
+    body: {
+      packageId: phantomPackage.package.id,
+      summary: "Demo PHANTOM evidence bundle",
+      evidenceRefs: ["legal memo", "CISO risk note", "architect boundary note"],
+      controlsSatisfied: ["Human gate ownership", "No baseline execution"]
+    }
+  });
+  const phantomPack = await api("/phantom/approval-packs", {
+    method: "POST",
+    body: {
+      packageId: phantomPackage.package.id,
+      approvalIds: [phantomApproval.approval.id],
+      evidenceBundleIds: [phantomEvidence.bundle.id],
+      summary: "Demo PHANTOM approval pack"
+    }
+  });
+  await api("/phantom/readiness/evaluate", {
+    method: "POST",
+    body: {
+      packageId: phantomPackage.package.id,
+      approvalPackId: phantomPack.pack.id,
+      evidenceBundleId: phantomEvidence.bundle.id,
+      operatorId: operator.operator.id
+    }
+  });
+  await api("/phantom/simulations", {
+    method: "POST",
+    body: {
+      packageId: phantomPackage.package.id,
+      scenario: "readiness_review",
+      assumptions: ["No live connector", "Panel review only"],
+      operatorId: operator.operator.id
+    }
+  });
+  await api("/phantom/assignment-plans", {
+    method: "POST",
+    body: {
+      packageId: phantomPackage.package.id,
+      operators: [operator.operator.id]
+    }
+  });
+  const phantomReview = await api("/phantom/review-board", {
+    method: "POST",
+    body: {
+      packageId: phantomPackage.package.id,
+      title: "Demo PHANTOM governance board review",
+      summary: "Control-plane readiness review only",
+      legalOwner: "legal@sylion.local",
+      cisoOwner: "ciso@sylion.local",
+      architectOwner: "architect@sylion.local",
+      complianceOwner: "compliance@sylion.local",
+      evidenceRefs: ["demo-review-board-ref"]
+    }
+  });
+  for (const owner of ["legal", "ciso", "architect", "compliance"]) {
+    await api(`/phantom/review-board/${phantomReview.item.id}/ack`, {
+      method: "POST",
+      body: { owner, note: `Demo acknowledgement: ${owner}` }
+    });
+  }
+  await api("/phantom/policy-simulations", {
+    method: "POST",
+    body: {
+      packageId: phantomPackage.package.id,
+      scenario: "control_gap",
+      assumptions: ["Metadata only", "No baseline execution"],
+      expectedControls: ["Human gate", "No baseline execution", "Legal sign-off"]
+    }
+  });
+  await api("/phantom/exceptions", {
+    method: "POST",
+    body: {
+      packageId: phantomPackage.package.id,
+      reviewBoardItemId: phantomReview.item.id,
+      evidenceBundleId: phantomEvidence.bundle.id,
+      scope: "Demo review timing exception",
+      justification: "Administrative review sequencing exception only",
+      expiresAt: "2026-12-31T23:00:00.000Z",
+      legalOwner: "legal@sylion.local",
+      cisoOwner: "ciso@sylion.local",
+      complianceOwner: "compliance@sylion.local"
+    }
+  });
+  await api(`/phantom/packages/${phantomPackage.package.id}/evidence-coverage`);
   $("#flow-state").textContent = "Completed";
   toast("Demo flow completed");
   await refreshAll();

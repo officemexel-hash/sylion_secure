@@ -35,6 +35,8 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(html.body, /data-view="phantom"/);
     assert.match(html.body, /id="phantom-capability-form"/);
     assert.match(html.body, /id="phantom-package-form"/);
+    assert.match(html.body, /id="phantom-review-matrix-cards"/);
+    assert.match(html.body, /Package Review Matrix/);
     assert.match(html.body, /id="phantom-readiness-form"/);
     assert.match(html.body, /id="phantom-simulation-form"/);
     assert.match(html.body, /class="help-tip"/);
@@ -62,6 +64,8 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(js.body, /handleCredentialAction/);
     assert.match(js.body, /createPhantomApproval/);
     assert.match(js.body, /createPhantomPackage/);
+    assert.match(js.body, /phantom-review-matrix-cards/);
+    assert.match(js.body, /Owner ack/);
     assert.match(js.body, /evaluatePhantomReadiness/);
     assert.match(js.body, /runPhantomSimulation/);
     assert.match(js.body, /createRecoveryRequest/);

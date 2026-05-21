@@ -6,6 +6,10 @@
   "scripts": {
     "start:admin-api": "node services/admin-api/src/server.js",
     "start:admin-api:persistent": "node --experimental-sqlite services/admin-api/src/server.js",
-    "test": "node --test services/admin-api/test/*.test.js"
+    "test": "node --test services/admin-api/test/*.test.js",
+    "test:dashboard": "node scripts/admin-dashboard-smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
   }
 }
