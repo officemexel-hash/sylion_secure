@@ -304,6 +304,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { vpn: operatorPortal.vpnStatus({ operatorActor, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/connection-path") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { path: operatorPortal.connectionPath({ operatorActor, correlationId }) });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/vpn-install-package") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { package: operatorPortal.vpnInstallPackage({ operatorActor, correlationId }) });
@@ -1368,6 +1372,18 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           operators: operators.list({
             actor,
             tenantId: url.searchParams.get("tenantId"),
+            correlationId
+          })
+        });
+      }
+
+      const operatorConnectionPathMatch = url.pathname.match(/^\/operators\/([^/]+)\/connection-path$/);
+      if (req.method === "GET" && operatorConnectionPathMatch) {
+        return send(res, 200, {
+          path: operatorPortal.adminConnectionPath({
+            actor,
+            operatorId: operatorConnectionPathMatch[1],
+            terminalMode: url.searchParams.get("terminalMode") || "pixel_grapheneos",
             correlationId
           })
         });

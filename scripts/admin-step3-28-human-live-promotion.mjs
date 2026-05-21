@@ -19,7 +19,17 @@ async function clickButton(page, label) {
 }
 
 async function waitForToast(page, text, timeout = 30000) {
-  await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent?.includes(expected), text, { timeout });
+  try {
+    await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent?.includes(expected), text, { timeout });
+  } catch (error) {
+    const currentToast = await page.locator("#toast").innerText().catch(() => "");
+    throw new Error(`Timed out waiting for toast "${text}". Current toast: "${currentToast}"`, { cause: error });
+  }
+}
+
+async function waitForDashboardIdle(page) {
+  await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(250);
 }
 
 async function maybeCompleteStepUp(page, actionLabel) {
@@ -126,6 +136,7 @@ async function run() {
     await selectValue(page, "#tenant-form select[name='tier']", "PRO");
     await clickButton(page, "Create Tenant");
     await waitForToast(page, "Tenant created");
+    await waitForDashboardIdle(page);
     const tenant = await latestByName(page, "/tenants", "tenants", (item) => item.name === `Step 3.28 Tenant ${runId}`);
     if (!tenant) throw new Error("Created tenant not found after dashboard click");
     actions.push("tenant_created_via_dashboard");
@@ -135,6 +146,7 @@ async function run() {
     await selectValue(page, "#operator-form select[name='tier']", "PRO");
     await clickButton(page, "Create Operator");
     await waitForToast(page, "Operator created with automatic G1/G2/WORKLOAD baseline");
+    await waitForDashboardIdle(page);
     const operator = await latestByName(page, "/operators", "operators", (item) => item.displayName === `Step 3.28 Operator ${runId}`);
     if (!operator) throw new Error("Created operator not found after dashboard click");
     const pipelinesAfterOperator = await apiInPage(page, `/operator-provisioning/pipelines?operatorId=${encodeURIComponent(operator.id)}`);
@@ -151,6 +163,7 @@ async function run() {
     await fill(page, "#provider-form input[name='apiSecret']", providerSecret);
     await fill(page, "#provider-form input[name='regions']", "fsn1");
     actions.push(await clickSensitiveButton(page, "Save Provider", "Provider saved; secret cleared from form", "provider_save"));
+    await waitForDashboardIdle(page);
     const provider = await latestByName(page, "/providers", "providers", (item) => item.providerKey === "hetzner");
     if (!provider) throw new Error("Created provider not found after dashboard click");
     actions.push("provider_reference_created_via_dashboard");
@@ -164,6 +177,7 @@ async function run() {
     await fill(page, "#approval-form input[name='evidenceRefs']", "release://step3-28/human-live-promotion");
     await clickButton(page, "Create Approval");
     await waitForToast(page, "Provisioning approval created");
+    await waitForDashboardIdle(page);
     const approval = await latestByName(page, "/provisioning/approvals", "approvals", (item) => item.reasonCode === `step3_28_live_promotion_${runId}`);
     if (!approval) throw new Error("Created approval not found after dashboard click");
     await selectValue(page, "#approval-status-select", approval.id);
@@ -171,6 +185,7 @@ async function run() {
     await fill(page, "#approval-status-form input[name='note']", "Step 3.28 human dashboard promotion approval");
     await clickButton(page, "Update Status");
     await waitForToast(page, "Provisioning approval status updated");
+    await waitForDashboardIdle(page);
     const approvalsAfterUpdate = await apiInPage(page, "/provisioning/approvals");
     const approved = approvalsAfterUpdate.approvals.find((item) => item.id === approval.id);
     if (approved?.status !== "approved_for_execution") throw new Error("Approval was not updated to approved_for_execution");

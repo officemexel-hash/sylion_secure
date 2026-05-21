@@ -1,10 +1,11 @@
 {
   "baseUrl": "http://127.0.0.1:8099",
-  "operatorId": "op_97cd8902-901b-42b3-acbc-d85fb6cecaf7",
+  "operatorId": "op_6492c4bb-1b0b-44dd-b788-ab108db212fd",
   "status": "passed",
   "actions": [
     "operator_session_loaded",
     "view_devices",
+    "view_connection_path",
     "view_vpn_status",
     "view_fido2_policy",
     "view_hsm_refs",
@@ -14,5 +15,5 @@
     "operator_hsm_refs_saved"
   ],
   "issues": [],
-  "checkedAt": "2026-05-21T18:34:47.117Z"
+  "checkedAt": "2026-05-21T20:10:13.684Z"
 }

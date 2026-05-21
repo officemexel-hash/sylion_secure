@@ -97,7 +97,7 @@ async function run() {
     await page.getByText(seeded.operatorName, { exact: false }).waitFor({ timeout: 10000 });
     actions.push("operator_session_loaded");
 
-    for (const label of ["Devices", "VPN status", "FIDO2 policy", "HSM refs", "Subscription", "My audit"]) {
+    for (const label of ["Devices", "Connection Path", "VPN status", "FIDO2 policy", "HSM refs", "Subscription", "My audit"]) {
       await page.getByRole("link", { name: label }).click();
       await page.waitForTimeout(250);
       actions.push(`view_${label.toLowerCase().replaceAll(" ", "_")}`);
@@ -115,8 +115,10 @@ async function run() {
     await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("HSM references saved"));
     actions.push("operator_hsm_refs_saved");
 
+    await page.getByRole("link", { name: "Connection Path" }).click();
+    await page.getByText("Communicator microVMs", { exact: true }).waitFor({ timeout: 10000 });
     const mainText = await page.locator("main").innerText();
-    for (const expected of ["Reference-only", "HSM/BYO-HSM", "Store references"]) {
+    for (const expected of ["Connection Path", "VPN segments", "Communicator microVMs", "ipsec_ikev2"]) {
       if (!mainText.includes(expected)) issues.push(`Missing operator portal text: ${expected}`);
     }
 

@@ -1,0 +1,35 @@
+{
+  "baseUrl": "http://127.0.0.1:18099",
+  "adbSerial": "46141FDAP009CZ",
+  "operatorId": "op_b8797447-a8dc-46f5-a34e-1f2ffb42f7d5",
+  "tenantId": "tenant_b1d9992c-d007-450c-89aa-967982e28c11",
+  "pixelDeviceId": "device_022d1926-e430-4ee7-91be-8d61f58b1a22",
+  "artifactId": "artifact_2f707e7a-c94a-48f9-b808-0e1229fb12a8",
+  "pipelineId": "op_pipe_6b9f1549-ed57-49ed-9c3a-497d07e730cf",
+  "localLabId": "local_lab_vps_223ae6e1-4f60-4ed9-b481-27033604535e",
+  "environmentId": "op_env_9fd23023-e9a7-40b8-bc6f-20daf007912e",
+  "operatorSessionId": "op_session_7e965396-6877-472f-9f1f-ecf8bf22ca35",
+  "vpnState": "local_lab_connected",
+  "vpnTransport": "ipsec_ikev2_planned",
+  "connectionPathState": "local_lab_connected",
+  "connectionPathSegments": [
+    "T0",
+    "T1",
+    "T2"
+  ],
+  "communicatorMicroVmSlots": [
+    "whatsapp",
+    "signal",
+    "telegram"
+  ],
+  "vpnInstallState": "blocked_human_gate",
+  "streamTarget": "591x1280",
+  "streamResizePolicy": "server_side_dynamic_resolution",
+  "terminalMode": "pixel_grapheneos",
+  "terminalEligibleDevices": 2,
+  "pixelProfileAvailable": true,
+  "productionExecutionAllowed": false,
+  "operationalDataOnTerminal": false,
+  "openedOperatorPortalOnPixel": true,
+  "checkedAt": "2026-05-21T20:09:49.999Z"
+}

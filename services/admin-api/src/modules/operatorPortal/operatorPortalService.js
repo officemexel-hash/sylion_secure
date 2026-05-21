@@ -138,7 +138,7 @@ export class OperatorPortalService {
 
   workloads({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
-    return this.subscriptions.listAllocationsForOperatorScoped(operatorActor.operatorId).map((allocation) => ({
+    const allocations = this.subscriptions.listAllocationsForOperatorScoped(operatorActor.operatorId).map((allocation) => ({
       id: allocation.id,
       name: allocation.appName,
       state: allocation.status,
@@ -147,13 +147,53 @@ export class OperatorPortalService {
       cdrRequired: true,
       executionPlanned: false
     }));
+    if (allocations.length) return allocations;
+    return this.#latestMicroVmSlots(operatorActor.operatorId).map((slot) => ({
+      id: slot.id,
+      name: slot.appName,
+      state: slot.status,
+      count: 1,
+      targetLayer: slot.targetVpsRole,
+      cdrRequired: slot.cdrRequired,
+      executionPlanned: false,
+      microVmId: slot.microVmId,
+      isolation: slot.isolation
+    }));
+  }
+
+  connectionPath({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    return this.#connectionPathForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId
+    });
+  }
+
+  adminConnectionPath({ actor, operatorId, terminalMode = TERMINAL_MODES.PIXEL, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "operator.environment.read", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE
+    });
+    this.#requireOperator(operatorId);
+    return this.#connectionPathForOperator({
+      operatorId,
+      terminalMode: normalizeTerminalMode(terminalMode),
+      deviceId: null
+    });
   }
 
   vpnStatus({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
-    const environments = this.operatorEnvironments.listForOperatorScoped(operatorActor.operatorId);
-    const ready = environments.find((environment) => environment.status === "environment_ready");
+    const ready = this.#latestReadyEnvironment(operatorActor.operatorId);
     const state = ready ? "local_lab_connected" : "configuration_pending";
+    const path = this.#connectionPathForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId
+    });
     return {
       state,
       terminalMode: operatorActor.terminalMode,
@@ -166,12 +206,14 @@ export class OperatorPortalService {
         workload: ready ? `local-lab://${operatorActor.operatorId}/workload` : null
       },
       path: [
-        operatorActor.terminalMode === TERMINAL_MODES.PIXEL ? "Pixel GrapheneOS terminal" : "Laptop web terminal",
+        path.nodes.find((node) => node.role === "TERMINAL")?.label || "Operator terminal",
         "Puli AX IPsec gateway",
         "G1 network gateway",
         "G2 access broker",
         "WORKLOAD microVM layer"
       ],
+      segments: path.segments,
+      microVmSlots: path.microVmSlots,
       lastHandshake: null,
       sideEffectAllowed: false,
       productionExecutionAllowed: false
@@ -348,6 +390,186 @@ export class OperatorPortalService {
       hsmRequiredForProduction: true,
       productionExecutionAllowed: false
     };
+  }
+
+  #connectionPathForOperator({ operatorId, terminalMode, deviceId }) {
+    const operator = this.#requireOperator(operatorId);
+    const mode = normalizeTerminalMode(terminalMode);
+    const ready = this.#latestReadyEnvironment(operatorId);
+    const latestEnvironment = ready || this.#latestEnvironment(operatorId);
+    const routeState = ready ? "local_lab_connected" : "configuration_pending";
+    const blockers = [
+      "real_ipsec_profile_not_deployed",
+      "hsm_or_secure_element_client_certificate_required",
+      "puli_ax_physical_package_validation_pending",
+      "dns_leak_and_kill_switch_tests_required",
+      "firecracker_host_qualification_required_for_real_launch",
+      "fido2_operator_unlock_required"
+    ];
+    const terminalLabel = mode === TERMINAL_MODES.PIXEL ? "Pixel GrapheneOS terminal" : "Laptop web terminal";
+    const nodes = [
+      {
+        id: "terminal",
+        role: "TERMINAL",
+        label: terminalLabel,
+        terminalMode: mode,
+        deviceId,
+        zone: "terminal",
+        operationalDataStored: false,
+        status: routeState
+      },
+      {
+        id: "g1",
+        role: "G1",
+        label: "G1 ingress VPN gateway",
+        zone: "G1",
+        providerResourceId: this.#resourceRef(latestEnvironment, "G1", operatorId),
+        status: ready ? "reachable_local_lab" : "planned"
+      },
+      {
+        id: "g2",
+        role: "G2",
+        label: "G2 access broker",
+        zone: "G2",
+        providerResourceId: this.#resourceRef(latestEnvironment, "G2", operatorId),
+        status: ready ? "reachable_local_lab" : "planned"
+      },
+      {
+        id: "workload",
+        role: "WORKLOAD",
+        label: "WORKLOAD Firecracker host",
+        zone: "WORKLOAD",
+        providerResourceId: this.#resourceRef(latestEnvironment, "WORKLOAD", operatorId),
+        status: ready ? "reachable_local_lab" : "planned"
+      }
+    ];
+    const segments = [
+      this.#vpnSegment({
+        id: "T0",
+        from: "terminal",
+        to: "g1",
+        state: routeState,
+        routePolicy: "terminal_default_route_to_g1_only",
+        dnsPolicy: "dns_through_tunnel_only",
+        killSwitch: "terminal_always_on_block_without_vpn",
+        certRef: `cert-ref://${operatorId}/terminal-to-g1`
+      }),
+      this.#vpnSegment({
+        id: "T1",
+        from: "g1",
+        to: "g2",
+        state: ready ? "local_lab_linked" : "configuration_pending",
+        routePolicy: "g1_allows_only_g2_broker_routes",
+        dnsPolicy: "no_terminal_dns_visibility",
+        killSwitch: "g1_default_drop_until_ipsec_up",
+        certRef: `cert-ref://${operatorId}/g1-to-g2`
+      }),
+      this.#vpnSegment({
+        id: "T2",
+        from: "g2",
+        to: "workload",
+        state: ready ? "local_lab_linked" : "configuration_pending",
+        routePolicy: "g2_broker_to_workload_microvm_only",
+        dnsPolicy: "workload_dns_policy_cdr_aware",
+        killSwitch: "g2_default_drop_until_workload_path_up",
+        certRef: `cert-ref://${operatorId}/g2-to-workload`
+      })
+    ];
+    const microVmSlots = this.#microVmSlotsForEnvironment({ environment: latestEnvironment, operatorId });
+    return {
+      operatorId,
+      tenantId: operator.tenantId,
+      terminalMode: mode,
+      deviceId,
+      state: routeState,
+      router: {
+        model: "GL.iNet GL-XE3000 Puli AX",
+        packageStatus: "physical_validation_pending",
+        baselineRole: "access_router",
+        openWrtHardeningRequired: true
+      },
+      baseline: {
+        vpsRoles: ["G1", "G2", "WORKLOAD"],
+        transport: "ipsec_ikev2",
+        microVmIsolation: "firecracker_microvm_per_communicator",
+        cdrRequired: true,
+        hsmBackedPkiRequired: true
+      },
+      nodes,
+      segments,
+      microVmSlots,
+      blockers,
+      terminalOperationalDataStored: false,
+      secretsReleaseAllowed: false,
+      sideEffectAllowed: false,
+      productionExecutionAllowed: false,
+      generatedAt: isoNow()
+    };
+  }
+
+  #vpnSegment({ id, from, to, state, routePolicy, dnsPolicy, killSwitch, certRef }) {
+    return {
+      id,
+      from,
+      to,
+      state,
+      protocol: "ipsec_ikev2",
+      authentication: "mutual_certificate",
+      cryptoProfile: "aes256gcm16-prfsha384-ecp384_planned",
+      certRef,
+      routePolicy,
+      dnsPolicy,
+      killSwitch,
+      sideEffectAllowed: false,
+      productionExecutionAllowed: false
+    };
+  }
+
+  #microVmSlotsForEnvironment({ environment, operatorId }) {
+    const runtimes = environment?.mockFirecracker?.runtimes || [];
+    if (runtimes.length) {
+      return runtimes.map((runtime, index) => this.#microVmSlot({ runtime, operatorId, index }));
+    }
+    return this.#latestMicroVmSlots(operatorId);
+  }
+
+  #latestMicroVmSlots(operatorId) {
+    const environment = this.#latestEnvironment(operatorId);
+    return (environment?.mockFirecracker?.runtimes || []).map((runtime, index) => this.#microVmSlot({ runtime, operatorId, index }));
+  }
+
+  #microVmSlot({ runtime, operatorId, index }) {
+    const templateKey = runtime.templateKey || String(runtime.appName || `communicator_${index + 1}`).toLowerCase().replaceAll(" ", "_");
+    return {
+      id: runtime.id || newId("microvm_slot"),
+      microVmId: runtime.id || `microvm://${operatorId}/${templateKey}/${index + 1}`,
+      operatorId,
+      templateKey,
+      appName: runtime.appName || templateKey,
+      status: runtime.status || "planned",
+      targetVpsRole: "WORKLOAD",
+      isolation: "firecracker_microvm",
+      networkNamespace: `sylion-${operatorId}-${templateKey}-${index + 1}`,
+      egressPolicy: "via_g2_policy_gateway_only",
+      cdrRequired: true,
+      secretsReleaseAllowed: false,
+      terminalDataStored: false,
+      productionExecutionAllowed: false
+    };
+  }
+
+  #latestReadyEnvironment(operatorId) {
+    return this.operatorEnvironments.listForOperatorScoped(operatorId)
+      .filter((environment) => environment.status === "environment_ready")
+      .at(-1) || null;
+  }
+
+  #latestEnvironment(operatorId) {
+    return this.operatorEnvironments.listForOperatorScoped(operatorId).at(-1) || null;
+  }
+
+  #resourceRef(environment, role, operatorId) {
+    return environment?.localProvider?.resources?.find((resource) => resource.role === role)?.providerResourceId || `planned://${operatorId}/${role.toLowerCase()}`;
   }
 
   #requireOperator(operatorId) {

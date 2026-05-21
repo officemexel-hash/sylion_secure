@@ -99,6 +99,10 @@ export class AdminApiClient {
     return this.request(`/operator-provisioning/pipelines/${pipelineId}/local-environment`, { method: "POST" });
   }
 
+  getOperatorConnectionPath(operatorId, terminalMode = "pixel_grapheneos") {
+    return this.request(`/operators/${operatorId}/connection-path?terminalMode=${encodeURIComponent(terminalMode)}`);
+  }
+
   startLocalOperatorEnvironment(environmentId) {
     return this.request(`/operator-environments/${environmentId}/start-local`, { method: "POST" });
   }

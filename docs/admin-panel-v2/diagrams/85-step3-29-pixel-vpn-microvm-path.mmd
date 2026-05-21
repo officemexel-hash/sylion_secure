@@ -1,0 +1,19 @@
+flowchart LR
+    Pixel["Pixel GrapheneOS Terminal"]
+    Laptop["Laptop Web Terminal"]
+    Router["Puli AX Access Router"]
+    G1["G1 VPS: Ingress VPN Gateway"]
+    G2["G2 VPS: Access Broker"]
+    Workload["WORKLOAD VPS: Firecracker Host"]
+    WhatsApp["microVM: WhatsApp"]
+    Signal["microVM: Signal"]
+    Telegram["microVM: Telegram"]
+
+    Pixel -->|"T0 IPsec IKEv2"| Router
+    Laptop -->|"T0 IPsec IKEv2"| Router
+    Router -->|"T0 IPsec IKEv2"| G1
+    G1 -->|"T1 IPsec IKEv2"| G2
+    G2 -->|"T2 IPsec/Internal gated path"| Workload
+    Workload --> WhatsApp
+    Workload --> Signal
+    Workload --> Telegram

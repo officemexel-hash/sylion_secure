@@ -105,6 +105,16 @@ test("/operator-api/vpn-status requires an operator portal session", async () =>
   }
 });
 
+test("/operator-api/connection-path requires an operator portal session", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const res = await getJson(baseUrl, "/operator-api/connection-path");
+    assert.equal(res.status, 401);
+  } finally {
+    await close();
+  }
+});
+
 test("/operator-api/vpn-install-package requires an operator portal session", async () => {
   const { baseUrl, close } = await startTestServer();
   try {

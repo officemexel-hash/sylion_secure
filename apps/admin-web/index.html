@@ -306,9 +306,29 @@
               <button type="submit">Check Environment Secrets</button>
             </form>
           </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Connection Path <span class="help-tip" tabindex="0" data-tip="Shows the operator terminal path: Pixel or laptop terminal to G1, G2, WORKLOAD and isolated communicator microVM slots. This is status/evidence only and does not deploy VPN.">?</span></h2>
+              <span class="pill">Step 3.29</span>
+            </div>
+            <form id="operator-connection-path-form">
+              <label>Operator <select name="operatorId" id="operator-connection-path-select"></select></label>
+              <label>Terminal
+                <select name="terminalMode">
+                  <option value="pixel_grapheneos">Pixel GrapheneOS</option>
+                  <option value="laptop_web_terminal">Laptop web terminal</option>
+                </select>
+              </label>
+              <button type="submit">Load Connection Path</button>
+            </form>
+          </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Operators</h2></div>
             <div class="cards" id="operator-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Operator Connection Path</h2><span class="pill warn">No prod VPN</span></div>
+            <div class="cards" id="operator-connection-path-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Communicator Templates</h2><span class="pill">Firecracker plan</span></div>

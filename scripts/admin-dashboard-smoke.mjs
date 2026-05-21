@@ -34,7 +34,17 @@ async function setInputValue(page, selector, value) {
 }
 
 async function waitForToast(page, text, timeout = 30000) {
-  await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent?.includes(expected), text, { timeout });
+  try {
+    await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent?.includes(expected), text, { timeout });
+  } catch (error) {
+    const currentToast = await page.locator("#toast").innerText().catch(() => "");
+    throw new Error(`Timed out waiting for toast "${text}". Current toast: "${currentToast}"`, { cause: error });
+  }
+}
+
+async function waitForDashboardIdle(page) {
+  await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(250);
 }
 
 async function maybeCompleteStepUp(page) {
@@ -179,6 +189,7 @@ async function run() {
     await page.getByRole("button", { name: "Register Backend" }).click();
     await maybeCompleteStepUp(page);
     await waitForToast(page, "Secret backend contract recorded");
+    await waitForDashboardIdle(page);
     const liveTuple = await chooseLiveProviderTuple(page);
     await selectOptionValue(page, "#live-cloud-provider-select", liveTuple.provider.id);
     await selectOptionValue(page, "#live-cloud-operator-select", liveTuple.operator.id);
@@ -187,6 +198,7 @@ async function run() {
     await page.getByRole("button", { name: "Request Live VPS Set" }).click();
     await maybeCompleteStepUp(page);
     await waitForToast(page, "Live cloud request recorded");
+    await waitForDashboardIdle(page);
     await page.waitForTimeout(750);
     const rehearsalTuple = await chooseLiveProviderTuple(page);
     await selectOptionValue(page, "#provider-rehearsal-provider-select", rehearsalTuple.provider.id);
@@ -196,9 +208,11 @@ async function run() {
     await page.getByRole("button", { name: "Run Rehearsal" }).click();
     await maybeCompleteStepUp(page);
     await waitForToast(page, "Provider rehearsal completed");
+    await waitForDashboardIdle(page);
     await page.getByRole("button", { name: "Qualify Host" }).click();
     await maybeCompleteStepUp(page);
     await waitForToast(page, "Firecracker host qualification recorded");
+    await waitForDashboardIdle(page);
     await page.waitForTimeout(500);
     await selectLastOption(page, "#firecracker-rehearsal-host-select");
     await selectLastOption(page, "#firecracker-rehearsal-operator-select");

@@ -205,6 +205,38 @@
     }
   }
 
+  async function loadConnectionPath() {
+    const data = await fetchJson("/operator-api/connection-path");
+    if (data.error) {
+      setText("#path-state", data.error);
+      return;
+    }
+    const path = data.path;
+    setText("#path-state", path.state);
+    setText("#path-terminal", path.nodes?.find((node) => node.role === "TERMINAL")?.label || path.terminalMode);
+    setText("#path-router", `${path.router?.model || "Puli AX"} - ${path.router?.packageStatus || "pending"}`);
+    setText("#path-transport", path.baseline?.transport || "ipsec_ikev2");
+    setText("#path-blockers", (path.blockers || []).join(", ") || "-");
+    const segments = $("#path-segments");
+    if (segments) {
+      segments.innerHTML = (path.segments || []).map((segment) => `
+        <li>
+          <strong>${escapeHtml(segment.id)}: ${escapeHtml(segment.from)} -> ${escapeHtml(segment.to)}</strong>
+          <span>${escapeHtml(segment.protocol)} | ${escapeHtml(segment.state)} | ${escapeHtml(segment.killSwitch)}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No VPN segments yet.</li>`;
+    }
+    const microvms = $("#path-microvms");
+    if (microvms) {
+      microvms.innerHTML = (path.microVmSlots || []).map((slot) => `
+        <li>
+          <strong>${escapeHtml(slot.appName)}</strong>
+          <span>${escapeHtml(slot.isolation)} | ${escapeHtml(slot.status)} | CDR ${escapeHtml(slot.cdrRequired)}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No communicator microVM slots yet.</li>`;
+    }
+  }
+
   async function loadStreaming() {
     const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
     const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
@@ -283,6 +315,7 @@
     if (viewId === "overview") loadOverview();
     if (viewId === "devices") loadDevices();
     if (viewId === "workloads") loadWorkloads();
+    if (viewId === "connection-path") loadConnectionPath();
     if (viewId === "vpn") loadVpn();
     if (viewId === "streaming") loadStreaming();
     if (viewId === "audit") loadAudit();

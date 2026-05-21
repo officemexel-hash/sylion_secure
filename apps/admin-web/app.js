@@ -6,6 +6,7 @@ const state = {
   operatorProvisioningTemplates: [],
   operatorProvisioningPipelines: [],
   operatorEnvironments: [],
+  operatorConnectionPath: null,
   providers: [],
   devices: [],
   authorizedApps: [],
@@ -415,6 +416,7 @@ function render() {
   renderSelect("#environment-failure-select", state.operatorEnvironments, "No environments", "status");
   renderSelect("#environment-rollback-select", state.operatorEnvironments, "No environments", "status");
   renderSelect("#environment-secrets-select", state.operatorEnvironments, "No environments", "status");
+  renderSelect("#operator-connection-path-select", state.operators, "No operators", "displayName");
   renderSelect("#secrets-check-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#plan-operator-select", state.operators, "No operators", "displayName");
@@ -484,6 +486,32 @@ function render() {
     ["Tenant", operator.tenantId],
     ["Router", operator.baseline?.router]
   ])).join("") || empty("No operators yet.");
+
+  $("#operator-connection-path-cards").innerHTML = state.operatorConnectionPath ? [
+    card("Terminal path", [
+      ["Operator", state.operatorConnectionPath.operatorId],
+      ["State", state.operatorConnectionPath.state],
+      ["Terminal", state.operatorConnectionPath.terminalMode],
+      ["Router", state.operatorConnectionPath.router?.model],
+      ["Transport", state.operatorConnectionPath.baseline?.transport],
+      ["Prod exec", String(state.operatorConnectionPath.productionExecutionAllowed)]
+    ]),
+    ...state.operatorConnectionPath.segments.map((segment) => card(segment.id, [
+      ["Route", `${segment.from} -> ${segment.to}`],
+      ["Protocol", segment.protocol],
+      ["State", segment.state],
+      ["Kill switch", segment.killSwitch],
+      ["Cert", segment.certRef]
+    ])),
+    ...state.operatorConnectionPath.microVmSlots.map((slot) => card(slot.appName, [
+      ["Template", slot.templateKey],
+      ["Status", slot.status],
+      ["Isolation", slot.isolation],
+      ["Namespace", slot.networkNamespace],
+      ["CDR", String(slot.cdrRequired)],
+      ["Secrets", String(slot.secretsReleaseAllowed)]
+    ]))
+  ].join("") : empty("Load an operator connection path to inspect Pixel/Laptop -> G1 -> G2 -> WORKLOAD -> microVM chain.");
 
   $("#pipeline-template-cards").innerHTML = state.operatorProvisioningTemplates.map((template) => card(template.name, [
     ["Key", template.key],
@@ -1355,6 +1383,19 @@ async function checkEnvironmentSecrets(event) {
   await api(`/operator-environments/${data.environmentId}/secrets-release-check`, { method: "POST" });
   toast("Environment secrets remain blocked");
   await refreshAll();
+}
+
+async function loadOperatorConnectionPath(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.operatorId) {
+    toast("Create an operator before loading connection path", "warn");
+    return;
+  }
+  const result = await api(`/operators/${data.operatorId}/connection-path?terminalMode=${encodeURIComponent(data.terminalMode)}`);
+  state.operatorConnectionPath = result.path;
+  toast("Operator connection path loaded");
+  render();
 }
 
 async function createProvider(event) {
@@ -2457,6 +2498,7 @@ function bind() {
   $("#environment-failure-form").addEventListener("submit", (event) => injectEnvironmentFailure(event).catch(showError));
   $("#environment-rollback-form").addEventListener("submit", (event) => rollbackEnvironment(event).catch(showError));
   $("#environment-secrets-form").addEventListener("submit", (event) => checkEnvironmentSecrets(event).catch(showError));
+  $("#operator-connection-path-form").addEventListener("submit", (event) => loadOperatorConnectionPath(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
   $("#secret-backend-form").addEventListener("submit", (event) => configureSecretBackend(event).catch(showError));
   $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));

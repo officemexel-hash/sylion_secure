@@ -212,9 +212,10 @@ async function run() {
     }
   });
   const viewport = { width: 390, height: 844, dpr: 3 };
-  const [me, vpn, vpnInstall, stream, devices, profiles] = await Promise.all([
+  const [me, vpn, connectionPath, vpnInstall, stream, devices, profiles] = await Promise.all([
     operatorRequest(sessionPayload.session.token, "/operator-api/me"),
     operatorRequest(sessionPayload.session.token, "/operator-api/vpn-status"),
+    operatorRequest(sessionPayload.session.token, "/operator-api/connection-path"),
     operatorRequest(sessionPayload.session.token, "/operator-api/vpn-install-package"),
     operatorRequest(sessionPayload.session.token, `/operator-api/streaming-profile?width=${viewport.width}&height=${viewport.height}&dpr=${viewport.dpr}`),
     operatorRequest(sessionPayload.session.token, "/operator-api/devices"),
@@ -231,7 +232,7 @@ async function run() {
     "-a",
     "android.intent.action.VIEW",
     "-d",
-    `${baseUrl}/operator`
+    `${baseUrl}/operator#connection-path`
   ]);
 
   const summary = {
@@ -247,6 +248,9 @@ async function run() {
     operatorSessionId: sessionPayload.session.id,
     vpnState: vpn.vpn.state,
     vpnTransport: vpn.vpn.transport,
+    connectionPathState: connectionPath.path.state,
+    connectionPathSegments: connectionPath.path.segments.map((segment) => segment.id),
+    communicatorMicroVmSlots: connectionPath.path.microVmSlots.map((slot) => slot.templateKey),
     vpnInstallState: vpnInstall.package.installState,
     streamTarget: `${stream.profile.stream.targetWidth}x${stream.profile.stream.targetHeight}`,
     streamResizePolicy: stream.profile.stream.resizePolicy,
