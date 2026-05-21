@@ -171,7 +171,78 @@ Dodać item:
 
 ---
 
-## 4. Konsekwencje
+## 4. Hardware Bill of Materials (BoM) hierarchy
+
+Per Architect request: explicit ranked BoM dla mobile router profile. Każdy tier ma jasne kryterium awansu/odrzucenia.
+
+### 4.1 BoM matrix
+
+| Tier | Model | Cellular | SIM | Battery | OpenWrt path | `phantom-a` eligible | Procurement status |
+|---|---|---|---|---|---|---|---|
+| **T1 Primary** | GL.iNet **GL-XE3000 Puli AX** | Quectel RM520N-GL 5G NSA/SA ? | 2× nano-SIM | 10 000 mAh ? | GL OS 4.x (21.02 base) | TAK | Active procurement (per ADR-001) |
+| **T2 Secondary** | GL.iNet **GL-MT3000 Beryl AX** + Quectel **EG25-G** USB dongle | LTE Cat 4 (via dongle) | w dongle | brak (zewnętrzny pack) | mainline OpenWrt 23.05+ ✅ | TAK (suboptymalnie — brak baterii) | Keep 2-3 sztuki w lab/zapasie |
+| **T3 Tertiary** | **Banana Pi BPI-R4** + Quectel **RM520N-GL** M.2 + custom enclosure z baterią | 5G NSA/SA | w module M.2 | wymaga custom enclosure | mainline OpenWrt 24.x ✅ | TAK (wymaga ADR-004) | Custom build, Phase 3 |
+| **T4 Quaternary** | **NanoPi R6C** + Quectel **EM7565** lub **EG25-G** mini-PCIe | LTE/5G | w module | brak | mainline | TAK (DIY) | Backup DIY option |
+
+### 4.2 Rejected explicit (NIE deployable)
+
+| Model | Powód odrzucenia | Notatka |
+|---|---|---|
+| GL.iNet **GL-E5800 Mudi 7** | Brak eSIM Management (PHANTOM §16) | nawet jako legacy nie używamy |
+| GL.iNet **GL-E750V2 Mudi v2** | Poniżej RAM gate (M4 Księgi); LEGACY-only (per §2) | istniejące deployments do migracji w 12 mc |
+| **Teltonika RUTX50** | Welded eSIM (PHANTOM §16) | brak slotu nano-SIM |
+| **Teltonika RUTX09/RUTX11** | RutOS proprietary; częściowy eSIM weld | M1 gate fail |
+| **Peplink BR1 Pro 5G** | Welded eSIM, proprietary firmware | M1/PHANTOM fail |
+| **Cradlepoint W1850/W2850** | Welded eSIM, NetCloud SaaS dependency | M1/PHANTOM fail |
+| **Sierra Wireless AirLink** | Welded eSIM, proprietary ALEOS | M1 fail |
+| **MikroTik Chateau LTE12** | RouterOS, nie OpenWrt | M1 fail |
+| **Verizon JetPack / carrier-locked hotspoty** | Phone-home, proprietary, carrier-locked | M1/M8 fail |
+| **Chińskie no-name (ZBT, etc. z AliExpress)** | Supply chain risk, brak verifiable provenance | M8 fail |
+
+### 4.3 Watch list (rozważane do przyszłych ADR-ów)
+
+| Model | Czego nie wiemy | Decyzja |
+|---|---|---|
+| **OpenWrt One + cellular HAT** | Czy HAT z cellular jest dostępny + zweryfikowany supply chain | Re-evaluate Q3 2026 |
+| **Banana Pi BPI-R3 mini** + LTE module | Niższy koszt vs R4 ale słabszy CPU dla AES throughput | Lab benchmark planowany |
+| **GL.iNet następca Puli AX (np. potencjalny "Puli AX2")** | Vendor roadmap nieznany | Monitor GL.iNet releases |
+| **Quectel RG520N-EU** (kolejna generacja modemu) | EOL EG25-G horyzont | Wymiana modemu w T2/T3 gdy EOL |
+
+### 4.4 EOL monitoring policy
+
+| Trigger | Action |
+|---|---|
+| Vendor announcement EOL na T1 (Puli AX) | Promote T2 do T1 (po revalidation gates), nowy T2 = T3 (BPI-R4). Notify Procurement + CISO |
+| EOL na modem (np. EG25-G end of production) | Sprawdzić nowsze Quectel SKU z tym samym AT interface, update T2 dongle |
+| OpenWrt mainline drops support dla MediaTek lub Qualcomm SoC w naszym T1/T2 | Force migration do T3 (BPI-R4 mainline) |
+| Quectel firmware update blokuje AT IMEI access | **PHANTOM `phantom-a` profile blocked** — nie dotyczy baseline, ale Legal review wymagana |
+| Krytyczne CVE na baseband z brakującym patchem >90 dni | Rotacja hardware ad-hoc (per Analiza R16 acceleration) |
+
+### 4.5 Stock-holding policy (Procurement)
+
+| Tier | Lab inventory | Production buffer | Refresh cycle |
+|---|---|---|---|
+| T1 Puli AX | 3-5 sztuki (test, RMA-replacement, dev) | per-customer demand + 20% safety stock | quarterly review |
+| T2 Beryl AX + EG25-G | 2-3 sztuki | per-incident replacement only | semi-annual review |
+| T3 BPI-R4 | 1-2 sztuki dev | not-stocked until ADR-004 ACCEPTED | n/a |
+| T4 NanoPi DIY | 1 sztuka lab | not-stocked | n/a |
+
+### 4.6 Per-jurisdiction availability constraints
+
+Niektóre routery mają regionalne ograniczenia (FCC/CE/IC certification, frequency bands):
+
+| Region | T1 Puli AX | T2 Beryl AX | T3 BPI-R4 | T4 NanoPi |
+|---|---|---|---|---|
+| EU (UE) | ✅ CE marked, bands 1/3/7/20/28/38/41 | ✅ CE | ⚠️ no built-in modem cert | ⚠️ no built-in modem cert |
+| US | ⚠️ FCC ID weryfikacja per SKU | ✅ FCC | ⚠️ jw. | ⚠️ jw. |
+| UK post-Brexit | ✅ UKCA | ✅ | ⚠️ | ⚠️ |
+| Chiny / Rosja / Iran | ❌ — z wielu powodów (regulacyjnych + politycznych) | ❌ | ❌ | ❌ |
+
+Per ADR-cloud-provider-001 strategy: SYLION operuje w jurysdykcjach gdzie cellular hardware jest cert'owany. PHANTOM jurisdictional rotation szanuje te ograniczenia.
+
+---
+
+## 5. Konsekwencje
 
 ### 4.1 Pozytywne
 
@@ -195,7 +266,7 @@ Dodać item:
 
 ---
 
-## 5. Implementation plan
+## 6. Implementation plan
 
 | Tydzień | Owner | Deliverable |
 |---|---|---|
@@ -209,7 +280,7 @@ Dodać item:
 
 ---
 
-## 6. HUMAN GATE / Open items
+## 7. HUMAN GATE / Open items
 
 1. **Czy są istniejące Mudi v2 deployments?** Jeśli tak, ile i z jakim ryzykiem migracji? → Architect + Ops
 2. **Analiza Zagrożeń v2** — kto pisze, w jakim timeframe? → CISO + Architect
@@ -219,7 +290,7 @@ Dodać item:
 
 ---
 
-## 7. Sign-off
+## 8. Sign-off
 
 | Rola | Nazwisko | Data | Decyzja | Komentarz |
 |---|---|---|---|---|
