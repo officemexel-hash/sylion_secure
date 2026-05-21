@@ -20,7 +20,11 @@ test("Step 3.34 live Hetzner workload binds UI services to the private operator 
 
   assert.match(startScript, /private_ip=.*10\\\\\.42/);
   assert.match(startScript, /-p "\$private_ip:3013:6901"/);
+  assert.match(startScript, /-p "\$private_ip:3014:3000"/);
+  assert.match(startScript, /-p "\$private_ip:3015:3000"/);
   assert.match(startScript, /-p "\$private_ip:3001:3000"/);
   assert.match(startScript, /docker rm -f[\s\S]*sylion-signal-desktop/);
+  assert.match(startScript, /sylion-zangi-web/);
+  assert.match(startScript, /sylion-exodus/);
   assert.doesNotMatch(startScript, /-p 127\.0\.0\.1:3013:6901/);
 });

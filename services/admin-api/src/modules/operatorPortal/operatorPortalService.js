@@ -10,15 +10,16 @@ const TERMINAL_MODES = Object.freeze({
 });
 
 const WORKLOAD_CONTROL_APPS = Object.freeze([
-  { key: "whatsapp", name: "WhatsApp" },
-  { key: "signal", name: "Signal" },
-  { key: "telegram", name: "Telegram" },
-  { key: "threema", name: "Threema" },
-  { key: "zangi", name: "Zangi" },
-  { key: "matrix_client", name: "Matrix Client" },
-  { key: "matrix_server", name: "Matrix Server" },
-  { key: "duckduckgo_browser", name: "DuckDuckGo Browser" },
-  { key: "libreoffice", name: "LibreOffice" }
+  { key: "whatsapp", name: "WhatsApp", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "signal", name: "Signal", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "telegram", name: "Telegram", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "threema", name: "Threema", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "zangi", name: "Zangi", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "matrix_client", name: "Matrix Client", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "matrix_server", name: "Matrix Server", category: "server", isolation: "dedicated_service_workload", cdrRequired: true },
+  { key: "duckduckgo_browser", name: "DuckDuckGo Browser", category: "browser", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "libreoffice", name: "LibreOffice", category: "office", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "exodus", name: "Exodus", category: "wallet", isolation: "dedicated_wallet_workload", cdrRequired: true, requiresOperatorRiskAcceptance: true }
 ]);
 
 const WORKLOAD_CONTROL_ACTIONS = new Set(["scale_to_counts", "rotate_app", "recreate_all"]);

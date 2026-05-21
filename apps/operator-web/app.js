@@ -538,6 +538,7 @@
     setText("#workload-control-quota", `${c.quota.tier}: ${c.quota.maxWorkloadEnvironments} environments, ${c.quota.maxAppsPerOperator} app families`);
     setText("#workload-control-current", countsToText(c.currentCounts));
     setText("#workload-control-last", c.latestRequest ? `${c.latestRequest.action} -> ${c.latestRequest.state} (${c.latestRequest.totalRequested}/${c.quota.maxWorkloadEnvironments})` : "none");
+    renderWorkloadCatalog(c);
     const form = $("#workload-control-form");
     if (form) {
       const counts = c.latestDesiredCounts || c.currentCounts || {};
@@ -545,6 +546,7 @@
         if (form.elements[key]) form.elements[key].value = value;
       });
     }
+    renderWorkloadPreview(c.latestDesiredCounts || c.currentCounts || {}, c.latestRequest);
   }
 
   async function requestWorkloadControl(event) {
@@ -559,7 +561,8 @@
       "matrix_client",
       "matrix_server",
       "duckduckgo_browser",
-      "libreoffice"
+      "libreoffice",
+      "exodus"
     ];
     const desiredCounts = Object.fromEntries(appKeys.map((key) => [key, Number(data[key] || 0)]));
     const result = await fetchJson("/operator-api/workload-control/requests", {
@@ -573,6 +576,45 @@
     setText("#session-status", result.error || `Workload control queued: ${result.request.state}`);
     await loadWorkloadControl();
     await loadAudit();
+  }
+
+  function renderWorkloadCatalog(control) {
+    const catalog = $("#workload-app-catalog");
+    if (!catalog) return;
+    const counts = control.latestDesiredCounts || control.currentCounts || {};
+    catalog.innerHTML = (control.catalog || []).map((app) => {
+      const count = Number(counts[app.key] || 0);
+      const risk = app.requiresOperatorRiskAcceptance ? `<span class="badge badge-warn">operator risk</span>` : "";
+      return `
+        <article class="app-tile">
+          <div>
+            <strong>${escapeHtml(app.name)}</strong>
+            <span>${escapeHtml(app.category)} | ${escapeHtml(app.isolation)}</span>
+          </div>
+          <div class="app-tile-meta">
+            <span class="badge">${escapeHtml(count)} env</span>
+            <span class="badge">CDR ${escapeHtml(app.cdrRequired)}</span>
+            ${risk}
+          </div>
+        </article>
+      `;
+    }).join("") || `<div class="placeholder">No authorized workload apps.</div>`;
+  }
+
+  function renderWorkloadPreview(counts, latestRequest) {
+    const preview = $("#workload-control-preview");
+    if (!preview) return;
+    const entries = Object.entries(counts || {}).filter(([, value]) => Number(value) > 0);
+    const total = entries.reduce((sum, [, value]) => sum + Number(value), 0);
+    const action = latestRequest?.action || "scale_to_counts";
+    const rotate = latestRequest?.rotateApp ? ` | rotate: ${latestRequest.rotateApp}` : "";
+    preview.classList.remove("placeholder");
+    preview.innerHTML = `
+      <strong>Execution preview</strong>
+      <span>${escapeHtml(action)}${escapeHtml(rotate)} | total requested: ${escapeHtml(total)}</span>
+      <span>${escapeHtml(entries.map(([key, value]) => `${key} x${value}`).join(", ") || "no environments selected")}</span>
+      <span>Runner status: control-plane queued, production side effects blocked until human gate.</span>
+    `;
   }
 
   function setText(sel, value) {

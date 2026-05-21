@@ -100,14 +100,15 @@ test("Step 3.32 operator can queue communicator environment counts within tier q
       matrix_client: 0,
       matrix_server: 0,
       duckduckgo_browser: 1,
-      libreoffice: 1
+      libreoffice: 1,
+      exodus: 1
     };
     const queued = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
       method: "POST",
       body: { action: "scale_to_counts", desiredCounts }
     });
     assert.equal(queued.status, 201);
-    assert.equal(queued.payload.request.totalRequested, 8);
+    assert.equal(queued.payload.request.totalRequested, 9);
     assert.equal(queued.payload.request.controlPlaneOnly, true);
     assert.equal(queued.payload.request.sideEffectAllowed, false);
     assert.equal(queued.payload.request.productionExecutionAllowed, false);
@@ -116,6 +117,8 @@ test("Step 3.32 operator can queue communicator environment counts within tier q
     const after = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control");
     assert.equal(after.payload.control.latestRequest.state, "queued_control_plane_update");
     assert.equal(after.payload.control.latestDesiredCounts.signal, 2);
+    assert.ok(after.payload.control.catalog.some((app) => app.key === "exodus" && app.category === "wallet"));
+    assert.equal(after.payload.control.latestDesiredCounts.exodus, 1);
 
     const audit = app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id);
     assert.ok(audit.some((event) => event.action === "operator_portal.workload_control_requested"));

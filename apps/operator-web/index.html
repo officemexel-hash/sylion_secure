@@ -107,6 +107,9 @@
           <dt>Current</dt><dd id="workload-control-current">-</dd>
           <dt>Last request</dt><dd id="workload-control-last">-</dd>
         </dl>
+        <div id="workload-app-catalog" class="app-catalog">
+          <div class="placeholder">Loading authorized workload catalog...</div>
+        </div>
         <form id="workload-control-form" class="dense-form">
           <label>WhatsApp <input name="whatsapp" type="number" min="0" max="30" value="0"></label>
           <label>Signal <input name="signal" type="number" min="0" max="30" value="0"></label>
@@ -117,6 +120,7 @@
           <label>Matrix Server <input name="matrix_server" type="number" min="0" max="30" value="0"></label>
           <label>DuckDuckGo Browser <input name="duckduckgo_browser" type="number" min="0" max="30" value="0"></label>
           <label>LibreOffice <input name="libreoffice" type="number" min="0" max="30" value="0"></label>
+          <label>Exodus <input name="exodus" type="number" min="0" max="30" value="0"></label>
           <label>Action
             <select name="action">
               <option value="scale_to_counts">Set desired counts</option>
@@ -135,11 +139,13 @@
               <option value="matrix_server">Matrix Server</option>
               <option value="duckduckgo_browser">DuckDuckGo Browser</option>
               <option value="libreoffice">LibreOffice</option>
+              <option value="exodus">Exodus</option>
             </select>
           </label>
           <button type="submit" class="primary">Queue workload change</button>
         </form>
-        <p class="hint">Production deletion remains disabled here: the panel records intent, quota decision and audit event, then the orchestrator/runner will execute once gated.</p>
+        <div id="workload-control-preview" class="workload-preview placeholder">No pending request preview.</div>
+        <p class="hint">Production deletion remains disabled here: the panel records intent, quota decision and audit event, then the orchestrator/runner will execute once gated. Exodus is treated as a dedicated wallet workload with explicit operator risk acceptance and no terminal-side secret storage.</p>
       </article>
     </section>
 

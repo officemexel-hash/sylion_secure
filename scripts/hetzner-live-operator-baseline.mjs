@@ -232,6 +232,34 @@ write_files:
             - "127.0.0.1:3012:3000"
           volumes:
             - threema_config:/config
+        zangi:
+          image: lscr.io/linuxserver/chromium:latest
+          container_name: sylion-zangi-web
+          restart: unless-stopped
+          shm_size: "1gb"
+          environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=UTC
+            - TITLE=SYLION Zangi
+          ports:
+            - "127.0.0.1:3014:3000"
+          volumes:
+            - zangi_config:/config
+        exodus:
+          image: lscr.io/linuxserver/chromium:latest
+          container_name: sylion-exodus
+          restart: unless-stopped
+          shm_size: "1gb"
+          environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=UTC
+            - TITLE=SYLION Exodus
+          ports:
+            - "127.0.0.1:3015:3000"
+          volumes:
+            - exodus_config:/config
         signal:
           image: sylion/signal-workload:prod-candidate
           container_name: sylion-signal-desktop
@@ -250,6 +278,8 @@ write_files:
         whatsapp_config:
         telegram_config:
         threema_config:
+        zangi_config:
+        exodus_config:
         signal_profile:
   - path: /opt/sylion-workloads/signal-workload.Dockerfile
     permissions: "0644"
@@ -283,12 +313,14 @@ write_files:
 
       docker build -t sylion/signal-workload:prod-candidate -f /opt/sylion-workloads/signal-workload.Dockerfile /opt/sylion-workloads
 
-      docker rm -f sylion-duckduckgo sylion-libreoffice sylion-whatsapp-web sylion-telegram-web sylion-threema-web sylion-signal-desktop 2>/dev/null || true
+      docker rm -f sylion-duckduckgo sylion-libreoffice sylion-whatsapp-web sylion-telegram-web sylion-threema-web sylion-zangi-web sylion-exodus sylion-signal-desktop 2>/dev/null || true
       docker volume create sylion_duckduckgo_config >/dev/null
       docker volume create sylion_libreoffice_config >/dev/null
       docker volume create sylion_whatsapp_config >/dev/null
       docker volume create sylion_telegram_config >/dev/null
       docker volume create sylion_threema_config >/dev/null
+      docker volume create sylion_zangi_config >/dev/null
+      docker volume create sylion_exodus_config >/dev/null
       docker volume create sylion_signal_profile >/dev/null
 
       docker run -d --name sylion-duckduckgo --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION DuckDuckGo' -p "$private_ip:3001:3000" -v sylion_duckduckgo_config:/config lscr.io/linuxserver/firefox:latest
@@ -296,6 +328,8 @@ write_files:
       docker run -d --name sylion-whatsapp-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION WhatsApp Web' -p "$private_ip:3010:3000" -v sylion_whatsapp_config:/config lscr.io/linuxserver/chromium:latest
       docker run -d --name sylion-telegram-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Telegram Web' -p "$private_ip:3011:3000" -v sylion_telegram_config:/config lscr.io/linuxserver/chromium:latest
       docker run -d --name sylion-threema-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Threema Web' -p "$private_ip:3012:3000" -v sylion_threema_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-zangi-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Zangi' -p "$private_ip:3014:3000" -v sylion_zangi_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-exodus --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Exodus' -p "$private_ip:3015:3000" -v sylion_exodus_config:/config lscr.io/linuxserver/chromium:latest
       docker run -d --name sylion-signal-desktop --restart unless-stopped --shm-size 1g -e VNC_PW=sylion-signal-local -e KASM_RESOLUTION=1080x2400 -p "$private_ip:3013:6901" -v sylion_signal_profile:/home/kasm-user/.config/Signal sylion/signal-workload:prod-candidate
 
       docker exec sylion-signal-desktop dpkg-query -W signal-desktop > /opt/sylion-workloads/signal-version.txt
@@ -305,7 +339,7 @@ write_files:
     content: |
       SYLION WORKLOAD host.
       noVNC services bind to the operator private network address only:
-      duckduckgo 3001, libreoffice 3002, whatsapp web 3010, telegram web 3011, threema web 3012, signal desktop 3013.
+      duckduckgo 3001, libreoffice 3002, whatsapp web 3010, telegram web 3011, threema web 3012, signal desktop 3013, zangi 3014, exodus 3015.
       Reach them through G2/thin-client or an explicitly authorized diagnostic SSH tunnel.
 runcmd:
   - [ bash, -lc, "systemctl enable --now docker" ]

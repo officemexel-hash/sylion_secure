@@ -107,6 +107,7 @@ async function run() {
     await page.locator('input[name="whatsapp"]').fill("2");
     await page.locator('input[name="signal"]').fill("1");
     await page.locator('input[name="zangi"]').fill("1");
+    await page.locator('input[name="exodus"]').fill("1");
     await page.getByRole("button", { name: "Queue workload change" }).click();
     await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Workload control queued"));
     actions.push("operator_workload_control_queued");
