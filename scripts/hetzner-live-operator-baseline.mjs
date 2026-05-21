@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
 
@@ -95,11 +95,163 @@ function sanitizeCreated(payload) {
       providerResourceId: resource.providerResourceId,
       name: resource.name,
       location: resource.location,
+      publicIpv4: resource.publicIpv4,
+      publicIpv6: resource.publicIpv6,
       status: resource.status
     })),
     tokenLogged: false,
     checkedAt: new Date().toISOString()
   };
+}
+
+async function readSshPublicKey() {
+  if (process.env.SYLION_LIVE_SSH_PUBLIC_KEY) return process.env.SYLION_LIVE_SSH_PUBLIC_KEY.trim();
+  const publicKeyPath = process.env.SYLION_LIVE_SSH_PUBLIC_KEY_PATH || ".deploy/sylion_hetzner_admin_ed25519.pub";
+  try {
+    return (await readFile(publicKeyPath, "utf8")).trim();
+  } catch {
+    return null;
+  }
+}
+
+function baseCloudInit({ role, publicKey }) {
+  return `#cloud-config
+package_update: true
+package_upgrade: false
+packages:
+  - curl
+  - ca-certificates
+  - nftables
+  - strongswan
+  - jq
+users:
+  - name: sylion
+    groups: sudo
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+      - ${publicKey}
+write_files:
+  - path: /etc/sylion-role
+    permissions: "0644"
+    content: "${role}"
+runcmd:
+  - [ bash, -lc, "systemctl enable --now nftables || true" ]
+  - [ bash, -lc, "echo '${role} ready at $(date -Is)' > /var/log/sylion-bootstrap.log" ]
+`;
+}
+
+function workloadCloudInit({ publicKey }) {
+  return `#cloud-config
+package_update: true
+package_upgrade: false
+packages:
+  - curl
+  - ca-certificates
+  - docker.io
+  - docker-compose-plugin
+  - nftables
+  - jq
+users:
+  - name: sylion
+    groups: sudo,docker
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+      - ${publicKey}
+write_files:
+  - path: /opt/sylion-workloads/docker-compose.yml
+    permissions: "0644"
+    content: |
+      services:
+        duckduckgo:
+          image: lscr.io/linuxserver/firefox:latest
+          container_name: sylion-duckduckgo
+          restart: unless-stopped
+          shm_size: "1gb"
+          environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=UTC
+            - TITLE=SYLION DuckDuckGo
+          ports:
+            - "127.0.0.1:3001:3000"
+          volumes:
+            - duckduckgo_config:/config
+        libreoffice:
+          image: lscr.io/linuxserver/libreoffice:latest
+          container_name: sylion-libreoffice
+          restart: unless-stopped
+          shm_size: "1gb"
+          environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=UTC
+          ports:
+            - "127.0.0.1:3002:3000"
+          volumes:
+            - libreoffice_config:/config
+        whatsapp:
+          image: lscr.io/linuxserver/chromium:latest
+          container_name: sylion-whatsapp-web
+          restart: unless-stopped
+          shm_size: "1gb"
+          environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=UTC
+            - TITLE=SYLION WhatsApp Web
+          ports:
+            - "127.0.0.1:3010:3000"
+          volumes:
+            - whatsapp_config:/config
+        telegram:
+          image: lscr.io/linuxserver/chromium:latest
+          container_name: sylion-telegram-web
+          restart: unless-stopped
+          shm_size: "1gb"
+          environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=UTC
+            - TITLE=SYLION Telegram Web
+          ports:
+            - "127.0.0.1:3011:3000"
+          volumes:
+            - telegram_config:/config
+        threema:
+          image: lscr.io/linuxserver/chromium:latest
+          container_name: sylion-threema-web
+          restart: unless-stopped
+          shm_size: "1gb"
+          environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=UTC
+            - TITLE=SYLION Threema Web
+          ports:
+            - "127.0.0.1:3012:3000"
+          volumes:
+            - threema_config:/config
+      volumes:
+        duckduckgo_config:
+        libreoffice_config:
+        whatsapp_config:
+        telegram_config:
+        threema_config:
+  - path: /opt/sylion-workloads/README.txt
+    permissions: "0644"
+    content: |
+      SYLION WORKLOAD host.
+      Local noVNC services bind to 127.0.0.1 only:
+      duckduckgo 3001, libreoffice 3002, whatsapp web 3010, telegram web 3011, threema web 3012.
+      Reach them through G2/thin-client or SSH tunnel for diagnostics.
+runcmd:
+  - [ bash, -lc, "systemctl enable --now docker" ]
+  - [ bash, -lc, "cd /opt/sylion-workloads && docker compose up -d" ]
+  - [ bash, -lc, "docker ps --format '{{.Names}} {{.Status}}' > /opt/sylion-workloads/container-status.txt" ]
+  - [ bash, -lc, "echo 'WORKLOAD ready at $(date -Is)' > /var/log/sylion-bootstrap.log" ]
+`;
 }
 
 async function run() {
@@ -124,6 +276,8 @@ async function run() {
     throw new Error(`Hetzner live baseline preflight failed: ${preflight.reason}`);
   }
   const { client, credentialId } = await loginClient();
+  const publicKey = await readSshPublicKey();
+  if (!publicKey) throw new Error("SSH public key is required for live baseline verification");
   await stepUp(client, credentialId);
   const tenant = await client.createTenant({
     name: process.env.SYLION_LIVE_TENANT_NAME || `SYLION Live Tenant ${Date.now()}`,
@@ -154,7 +308,18 @@ async function run() {
       providerId: provider.provider.id,
       region,
       serverType,
+      serverTypesByRole: {
+        G1: process.env.SYLION_HETZNER_G1_SERVER_TYPE || serverType,
+        G2: process.env.SYLION_HETZNER_G2_SERVER_TYPE || serverType,
+        WORKLOAD: process.env.SYLION_HETZNER_WORKLOAD_SERVER_TYPE || "cpx31"
+      },
       image,
+      sshKeys: [],
+      userDataByRole: {
+        G1: baseCloudInit({ role: "G1", publicKey }),
+        G2: baseCloudInit({ role: "G2", publicKey }),
+        WORKLOAD: workloadCloudInit({ publicKey })
+      },
       idempotencyKey: process.env.SYLION_LIVE_IDEMPOTENCY_KEY || `live-operator-${Date.now()}`,
       liveConfirmed: true,
       evidenceRefs: ["script://hetzner-live-operator-baseline"]

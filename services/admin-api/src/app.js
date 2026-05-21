@@ -1468,7 +1468,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             idempotencyKey: req.headers["idempotency-key"] || body.liveBaseline.idempotencyKey || `operator-live-${operator.id}`,
             liveConfirmed: body.liveBaseline.liveConfirmed === true,
             serverType: body.liveBaseline.serverType || "cx22",
+            serverTypesByRole: body.liveBaseline.serverTypesByRole || {},
             image: body.liveBaseline.image || "ubuntu-24.04",
+            sshKeys: body.liveBaseline.sshKeys || [],
+            userDataByRole: body.liveBaseline.userDataByRole || {},
             correlationId
           });
           liveBaseline = {

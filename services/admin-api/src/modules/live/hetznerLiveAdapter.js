@@ -37,16 +37,27 @@ export class HetznerLiveAdapter {
     this.transport = transport;
   }
 
-  async createVpsSet({ operatorId, region, serverType = "cx22", image = "ubuntu-24.04", labels = {}, idempotencyKey }) {
+  async createVpsSet({
+    operatorId,
+    region,
+    serverType = "cx22",
+    serverTypesByRole = {},
+    image = "ubuntu-24.04",
+    labels = {},
+    idempotencyKey,
+    sshKeys = [],
+    userDataByRole = {}
+  }) {
     const token = requireToken(this.token);
     const created = [];
     try {
       for (const role of ["G1", "G2", "WORKLOAD"]) {
         const body = {
           name: serverName({ operatorId, role, idempotencyKey }),
-          server_type: serverType,
+          server_type: serverTypesByRole[role] || serverType,
           image,
           location: region,
+          public_net: { enable_ipv4: true, enable_ipv6: true },
           labels: {
             ...labels,
             sylion_operator: operatorId,
@@ -54,6 +65,8 @@ export class HetznerLiveAdapter {
             sylion_baseline: "three_vps_per_operator"
           }
         };
+        if (sshKeys.length) body.ssh_keys = sshKeys;
+        if (userDataByRole[role]) body.user_data = userDataByRole[role];
         const response = await this.transport(`${HETZNER_API}/servers`, {
           method: "POST",
           headers: {
@@ -75,6 +88,8 @@ export class HetznerLiveAdapter {
           providerResourceId: String(payload.server?.id || payload.server?.name || body.name),
           name: payload.server?.name || body.name,
           location: payload.server?.datacenter?.location?.name || region,
+          publicIpv4: payload.server?.public_net?.ipv4?.ip || null,
+          publicIpv6: payload.server?.public_net?.ipv6?.ip || null,
           rollback: {
             action: "delete_server",
             providerResourceId: String(payload.server?.id || payload.server?.name || body.name),
@@ -123,6 +138,8 @@ export class HetznerLiveAdapter {
       providerResourceId: String(server.id || server.name),
       name: server.name || null,
       location: server.datacenter?.location?.name || null,
+      publicIpv4: server.public_net?.ipv4?.ip || null,
+      publicIpv6: server.public_net?.ipv6?.ip || null,
       status: server.status || "unknown"
     }));
   }

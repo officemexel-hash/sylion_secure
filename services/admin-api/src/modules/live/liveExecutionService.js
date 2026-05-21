@@ -91,6 +91,8 @@ function sanitizeProviderResource(resource = {}) {
     providerResourceId: String(resource.providerResourceId || resource.id || resource.name || "unknown"),
     name: resource.name || null,
     location: resource.location || null,
+    publicIpv4: resource.publicIpv4 || null,
+    publicIpv6: resource.publicIpv6 || null,
     status: resource.status || "created",
     rollback: resource.rollback ? {
       action: resource.rollback.action || "delete_server",
@@ -513,7 +515,10 @@ export class LiveExecutionService {
     idempotencyKey,
     liveConfirmed = false,
     serverType = "cx22",
+    serverTypesByRole = {},
     image = "ubuntu-24.04",
+    sshKeys = [],
+    userDataByRole = {},
     correlationId
   }) {
     const corr = requireCorrelationId(correlationId);
@@ -558,7 +563,10 @@ export class LiveExecutionService {
       operatorId,
       region,
       serverType,
+      serverTypesByRole,
       image,
+      sshKeys,
+      userDataByRole,
       labels: { sylion_tenant: operator.tenantId },
       idempotencyKey: key
     })).map(sanitizeProviderResource);
