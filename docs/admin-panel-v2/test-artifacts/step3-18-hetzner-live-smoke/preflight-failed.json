@@ -1,0 +1,14 @@
+{
+  "provider": "hetzner",
+  "status": "preflight_failed",
+  "reason": "hetzner_token_rejected",
+  "checks": [
+    {
+      "name": "locations",
+      "status": 401,
+      "ok": false
+    }
+  ],
+  "tokenLogged": false,
+  "checkedAt": "2026-05-21T17:12:55.496Z"
+}

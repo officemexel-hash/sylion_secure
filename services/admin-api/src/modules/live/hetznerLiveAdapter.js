@@ -25,48 +25,65 @@ export class HetznerLiveAdapter {
   async createVpsSet({ operatorId, region, serverType = "cx22", image = "ubuntu-24.04", labels = {}, idempotencyKey }) {
     const token = requireToken(this.token);
     const created = [];
-    for (const role of ["G1", "G2", "WORKLOAD"]) {
-      const body = {
-        name: serverName({ operatorId, role, idempotencyKey }),
-        server_type: serverType,
-        image,
-        location: region,
-        labels: {
-          ...labels,
-          sylion_operator: operatorId,
-          sylion_role: role.toLowerCase(),
-          sylion_baseline: "three_vps_per_operator"
+    try {
+      for (const role of ["G1", "G2", "WORKLOAD"]) {
+        const body = {
+          name: serverName({ operatorId, role, idempotencyKey }),
+          server_type: serverType,
+          image,
+          location: region,
+          labels: {
+            ...labels,
+            sylion_operator: operatorId,
+            sylion_role: role.toLowerCase(),
+            sylion_baseline: "three_vps_per_operator"
+          }
+        };
+        const response = await this.transport(`${HETZNER_API}/servers`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${token}`,
+            "content-type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+          throw validationError("Hetzner live server creation failed", {
+            status: response.status,
+            role,
+            tokenLogged: false
+          });
         }
-      };
-      const response = await this.transport(`${HETZNER_API}/servers`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "content-type": "application/json"
-        },
-        body: JSON.stringify(body)
-      });
-      if (!response.ok) {
-        throw validationError("Hetzner live server creation failed", {
-          status: response.status,
+        const payload = await response.json();
+        created.push({
           role,
-          tokenLogged: false
+          providerResourceId: String(payload.server?.id || payload.server?.name || body.name),
+          name: payload.server?.name || body.name,
+          location: payload.server?.datacenter?.location?.name || region,
+          rollback: {
+            action: "delete_server",
+            providerResourceId: String(payload.server?.id || payload.server?.name || body.name),
+            idempotencyKey
+          }
         });
       }
-      const payload = await response.json();
-      created.push({
-        role,
-        providerResourceId: String(payload.server?.id || payload.server?.name || body.name),
-        name: payload.server?.name || body.name,
-        location: payload.server?.datacenter?.location?.name || region,
-        rollback: {
+      return created;
+    } catch (error) {
+      const cleanupResults = await this.deleteVpsSet({
+        actions: created.map((resource) => ({
           action: "delete_server",
-          providerResourceId: String(payload.server?.id || payload.server?.name || body.name),
+          role: resource.role,
+          providerResourceId: resource.providerResourceId,
           idempotencyKey
-        }
+        }))
+      });
+      throw validationError("Hetzner live server creation failed and partial cleanup was attempted", {
+        partialResourceCount: created.length,
+        cleanupResults,
+        tokenLogged: false,
+        cause: error.code || error.message
       });
     }
-    return created;
   }
 
   async listVpsSet({ operatorId }) {

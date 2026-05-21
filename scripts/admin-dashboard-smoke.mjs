@@ -25,6 +25,64 @@ async function selectLastOption(page, selector) {
   });
 }
 
+async function selectOptionValue(page, selector, value) {
+  await page.locator(selector).selectOption(value);
+}
+
+async function setInputValue(page, selector, value) {
+  await page.locator(selector).fill(value);
+}
+
+async function apiInPage(page, path) {
+  return page.evaluate(async (requestPath) => {
+    const token = sessionStorage.getItem("sylion.admin.token");
+    const response = await fetch(requestPath, {
+      headers: {
+        authorization: `Bearer ${token}`,
+        "x-correlation-id": `corr_smoke_${crypto.randomUUID()}`
+      }
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload?.error?.message || `API request failed for ${requestPath}`);
+    }
+    return payload;
+  }, path);
+}
+
+async function captureScreenshot(page, fileName, options = {}) {
+  const path = join(outputDir, fileName);
+  try {
+    await page.screenshot({ path, fullPage: options.fullPage ?? true });
+  } catch (error) {
+    if (!String(error?.message || "").includes("Unable to capture screenshot")) {
+      throw error;
+    }
+    await page.screenshot({ path, fullPage: false });
+  }
+}
+
+async function chooseLiveProviderTuple(page) {
+  const [providersPayload, operatorsPayload, approvalsPayload] = await Promise.all([
+    apiInPage(page, "/providers"),
+    apiInPage(page, "/operators"),
+    apiInPage(page, "/provisioning/approvals")
+  ]);
+  const providers = providersPayload.providers || [];
+  const operators = operatorsPayload.operators || [];
+  const approvals = approvalsPayload.approvals || [];
+  const provider = [...providers].reverse().find((item) => item.providerKey === "hetzner");
+  const approval = [...approvals].reverse().find((item) => {
+    const operator = operators.find((candidate) => candidate.id === item.operatorId);
+    return item.status === "approved_for_execution" && operator?.baseline?.vpsPerOperator === 3;
+  });
+  const operator = approval ? operators.find((item) => item.id === approval.operatorId) : null;
+  if (!provider || !operator || !approval) {
+    throw new Error("Dashboard smoke could not find a coherent Hetzner provider/operator/approval tuple");
+  }
+  return { provider, operator, approval };
+}
+
 async function run() {
   const { chromium } = await loadPlaywright();
   await mkdir(outputDir, { recursive: true });
@@ -68,12 +126,12 @@ async function run() {
     await page.getByRole("button", { name: "Start Local Harness" }).click();
     await page.locator("#toast").getByText("Local harness started", { exact: false }).waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.screenshot({ path: join(outputDir, "operator-environment-ready-desktop.png"), fullPage: true });
+    await captureScreenshot(page, "operator-environment-ready-desktop.png");
     await selectLastOption(page, "#environment-failure-select");
     await page.getByRole("button", { name: "Inject Failure" }).click();
     await page.locator("#toast").getByText("Local harness failure injected", { exact: false }).waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.screenshot({ path: join(outputDir, "operator-environment-failed-desktop.png"), fullPage: true });
+    await captureScreenshot(page, "operator-environment-failed-desktop.png");
     await selectLastOption(page, "#environment-rollback-select");
     await page.getByRole("button", { name: "Rollback Environment" }).click();
     await page.locator("#toast").getByText("Local harness rolled back", { exact: false }).waitFor({ timeout: 10000 });
@@ -81,7 +139,7 @@ async function run() {
     await selectLastOption(page, "#environment-secrets-select");
     await page.getByRole("button", { name: "Check Environment Secrets" }).click();
     await page.locator("#toast").getByText("Environment secrets remain blocked", { exact: false }).waitFor({ timeout: 10000 });
-    await page.screenshot({ path: join(outputDir, "operator-pipeline-local-lab-desktop.png"), fullPage: true });
+    await captureScreenshot(page, "operator-pipeline-local-lab-desktop.png");
     actions.push("operator_pipeline_local_environment_failure_rollback");
 
     await clickButton(page, "PHANTOM");
@@ -100,21 +158,26 @@ async function run() {
 
     await clickButton(page, "Providers");
     await page.getByText("Live Cloud Gate").waitFor({ timeout: 10000 });
-    await selectLastOption(page, "#live-cloud-provider-select");
-    await selectLastOption(page, "#live-cloud-operator-select");
-    await selectLastOption(page, "#live-cloud-approval-select");
+    const liveTuple = await chooseLiveProviderTuple(page);
+    await selectOptionValue(page, "#live-cloud-provider-select", liveTuple.provider.id);
+    await selectOptionValue(page, "#live-cloud-operator-select", liveTuple.operator.id);
+    await selectOptionValue(page, "#live-cloud-approval-select", liveTuple.approval.id);
+    await setInputValue(page, "#live-cloud-form input[name='idempotencyKey']", `live-smoke-${Date.now()}`);
     await page.getByRole("button", { name: "Request Live VPS Set" }).click();
     await page.locator("#toast").getByText("Live cloud request recorded", { exact: false }).waitFor({ timeout: 10000 });
-    await selectLastOption(page, "#provider-rehearsal-provider-select");
-    await selectLastOption(page, "#provider-rehearsal-operator-select");
-    await selectLastOption(page, "#provider-rehearsal-approval-select");
+    await page.waitForTimeout(750);
+    const rehearsalTuple = await chooseLiveProviderTuple(page);
+    await selectOptionValue(page, "#provider-rehearsal-provider-select", rehearsalTuple.provider.id);
+    await selectOptionValue(page, "#provider-rehearsal-operator-select", rehearsalTuple.operator.id);
+    await selectOptionValue(page, "#provider-rehearsal-approval-select", rehearsalTuple.approval.id);
+    await setInputValue(page, "#provider-rehearsal-form input[name='idempotencyKey']", `step3-18-rehearsal-${Date.now()}`);
     await page.getByRole("button", { name: "Run Rehearsal" }).click();
     await page.locator("#toast").getByText("Provider rehearsal completed", { exact: false }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Qualify Host" }).click();
     await page.locator("#toast").getByText("Firecracker host qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Qualify CPU Gate" }).click();
     await page.locator("#toast").getByText("CPU confidential-computing qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
-    await page.screenshot({ path: join(outputDir, "live-execution-desktop.png"), fullPage: true });
+    await captureScreenshot(page, "live-execution-desktop.png");
     actions.push("live_cloud_rehearsal_firecracker_cpu_gates");
     const providersText = await page.locator("main").innerText();
     for (const expected of ["Provider Rehearsals", "smoke_passed", "Live Rollback Plans", "Rollback ready", "Secret source", "hetzner", "blocked_human_gate"]) {
@@ -130,7 +193,7 @@ async function run() {
     const views = ["Overview", "Operators", "Provisioning", "Approvals", "Subscriptions", "Devices", "Providers", "Security", "PHANTOM", "Release", "Audit"];
     for (const view of views) {
       await clickButton(page, view);
-      await page.screenshot({ path: join(outputDir, `${view.toLowerCase()}-desktop.png`), fullPage: true });
+      await captureScreenshot(page, `${view.toLowerCase()}-desktop.png`);
     }
 
     await clickButton(page, "PHANTOM");
@@ -152,9 +215,9 @@ async function run() {
     }
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.screenshot({ path: join(outputDir, "phantom-mobile.png"), fullPage: true });
+    await captureScreenshot(page, "phantom-mobile.png");
     await clickButton(page, "Release");
-    await page.screenshot({ path: join(outputDir, "release-mobile.png"), fullPage: true });
+    await captureScreenshot(page, "release-mobile.png");
 
     await browser.close();
   } catch (error) {

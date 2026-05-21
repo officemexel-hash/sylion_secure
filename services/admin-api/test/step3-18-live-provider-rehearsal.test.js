@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createApp } from "../src/app.js";
 import { AdminApiClient } from "../src/sdk/adminApiClient.js";
+import { HetznerLiveAdapter } from "../src/modules/live/hetznerLiveAdapter.js";
 
 async function startTestServer(liveExecutionOptions = {}) {
   const app = createApp({ liveExecutionOptions });
@@ -198,4 +199,43 @@ test("Step 3.18 live provider rehearsal calls create, list, and cleanup only beh
   } finally {
     await close();
   }
+});
+
+test("Step 3.18 Hetzner adapter attempts partial cleanup when create fails mid-baseline", async () => {
+  const calls = [];
+  const transport = async (url, options = {}) => {
+    calls.push([options.method || "GET", url]);
+    if (options.method === "POST" && calls.filter(([method]) => method === "POST").length === 1) {
+      return {
+        ok: true,
+        async json() {
+          return { server: { id: 1818, name: "partial-g1", datacenter: { location: { name: "fsn1" } } } };
+        }
+      };
+    }
+    if (options.method === "POST") {
+      return {
+        ok: false,
+        status: 422,
+        async json() {
+          return { error: { code: "invalid_input" } };
+        }
+      };
+    }
+    if (options.method === "DELETE") {
+      return { ok: true, status: 204 };
+    }
+    return { ok: false, status: 500 };
+  };
+  const adapter = new HetznerLiveAdapter({ token: "test-token-with-safe-length", transport });
+  await assert.rejects(
+    () => adapter.createVpsSet({
+      operatorId: "op_partial_cleanup",
+      region: "fsn1",
+      idempotencyKey: "step3-18-partial-cleanup"
+    }),
+    /partial cleanup was attempted/
+  );
+  assert.equal(calls.filter(([method]) => method === "DELETE").length, 1);
+  assert.ok(calls.some(([method, url]) => method === "DELETE" && url.includes("/servers/1818")));
 });
