@@ -10,6 +10,7 @@ import { SubscriptionService } from "./modules/subscriptions/subscriptionService
 import { TenantService } from "./modules/tenants/tenantService.js";
 import { OperatorService } from "./modules/operators/operatorService.js";
 import { ProvisioningPlanService } from "./modules/provisioning/provisioningPlanService.js";
+import { OperatorProvisioningPipelineService } from "./modules/provisioning/operatorProvisioningPipelineService.js";
 import { AppCatalogService } from "./modules/apps/appCatalogService.js";
 import { CdrService } from "./modules/cdr/cdrService.js";
 import { MonitoringService } from "./modules/monitoring/monitoringService.js";
@@ -139,6 +140,13 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     store,
     ...liveExecutionOptions
   });
+  const operatorProvisioning = new OperatorProvisioningPipelineService({
+    audit,
+    rbac,
+    operators,
+    subscriptions,
+    store
+  });
 
   const services = {
     audit,
@@ -165,7 +173,8 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     approvals,
     orchestrator,
     release,
-    liveExecution
+    liveExecution,
+    operatorProvisioning
   };
 
   async function handle(req, res) {
@@ -362,6 +371,52 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       if (req.method === "POST" && url.pathname === "/auth/logout") {
         return send(res, 200, auth.logout({ actor, correlationId }));
+      }
+
+      if (req.method === "GET" && url.pathname === "/operator-provisioning/templates") {
+        return send(res, 200, { templates: operatorProvisioning.listTemplates({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/operator-provisioning/pipelines") {
+        return send(res, 200, {
+          pipelines: operatorProvisioning.listPipelines({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const operatorPipelineMatch = url.pathname.match(/^\/operators\/([^/]+)\/provisioning-pipeline$/);
+      if (req.method === "POST" && operatorPipelineMatch) {
+        const body = await readJson(req);
+        const pipeline = operatorProvisioning.createDraft({
+          actor,
+          operatorId: operatorPipelineMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { pipeline });
+      }
+
+      const localLabPipelineMatch = url.pathname.match(/^\/operator-provisioning\/pipelines\/([^/]+)\/local-lab-vps$/);
+      if (req.method === "POST" && localLabPipelineMatch) {
+        const pipeline = operatorProvisioning.createLocalLabVpsSet({
+          actor,
+          pipelineId: localLabPipelineMatch[1],
+          correlationId
+        });
+        return send(res, 201, { pipeline });
+      }
+
+      const secretsCheckMatch = url.pathname.match(/^\/operator-provisioning\/pipelines\/([^/]+)\/secrets-release-check$/);
+      if (req.method === "POST" && secretsCheckMatch) {
+        const check = operatorProvisioning.checkSecretsRelease({
+          actor,
+          pipelineId: secretsCheckMatch[1],
+          correlationId
+        });
+        return send(res, 201, { check });
       }
 
       if (req.method === "POST" && url.pathname === "/auth/step-up/options") {
@@ -813,7 +868,14 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "POST" && url.pathname === "/operators") {
         const body = await readJson(req);
         const operator = operators.create({ actor, ...body, correlationId });
-        return send(res, 201, { operator });
+        const provisioningDraft = operatorProvisioning.createDraft({
+          actor,
+          operatorId: operator.id,
+          requestedTemplates: body.requestedTemplates,
+          autoCreated: true,
+          correlationId
+        });
+        return send(res, 201, { operator, provisioningDraft });
       }
 
       if (req.method === "GET" && url.pathname === "/operators") {

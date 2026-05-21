@@ -1,0 +1,21 @@
+sequenceDiagram
+  actor Admin
+  participant UI as Admin Dashboard
+  participant API as Admin API
+  participant Pipeline as Operator Pipeline
+  participant Audit as Audit
+
+  Admin->>UI: Create operator
+  UI->>API: POST /operators
+  API->>Pipeline: createDraft(operatorId, templates)
+  Pipeline->>Audit: pipeline_draft_created
+  API-->>UI: operator + provisioningDraft
+  Admin->>UI: Create Local VPS Set
+  UI->>API: POST /operator-provisioning/pipelines/:id/local-lab-vps
+  API->>Pipeline: createLocalLabVpsSet
+  Pipeline->>Audit: local_lab_vps_created
+  API-->>UI: local_lab_ready
+  Admin->>UI: Check Secrets Release
+  UI->>API: POST /operator-provisioning/pipelines/:id/secrets-release-check
+  Pipeline->>Audit: secrets_release_checked
+  API-->>UI: allowed=false

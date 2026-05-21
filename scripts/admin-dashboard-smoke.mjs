@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-12-live-execution-regression");
+const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-13-operator-pipeline-regression");
 const baseUrl = process.env.SYLION_ADMIN_URL || "http://127.0.0.1:8099/admin";
 
 async function loadPlaywright() {
@@ -13,7 +13,7 @@ async function loadPlaywright() {
 }
 
 async function clickButton(page, label) {
-  await page.getByRole("button", { name: label }).click();
+  await page.getByRole("button", { name: label, exact: true }).click();
 }
 
 async function run() {
@@ -36,6 +36,18 @@ async function run() {
 
     await clickButton(page, "Overview");
     await clickButton(page, "Run Demo Flow");
+
+    await clickButton(page, "Operators");
+    await page.getByRole("heading", { name: "Provisioning Pipeline ?" }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Create Pipeline Draft" }).click();
+    await page.locator("#toast").getByText("Operator provisioning draft created", { exact: false }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Create Local VPS Set" }).click();
+    await page.locator("#toast").getByText("Local virtual VPS set created", { exact: false }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Check Secrets Release" }).click();
+    await page.locator("#toast").getByText("Secrets release remains blocked for local lab", { exact: false }).waitFor({ timeout: 10000 });
+    await page.screenshot({ path: join(outputDir, "operator-pipeline-local-lab-desktop.png"), fullPage: true });
+    actions.push("operator_pipeline_local_lab_vps_secrets_gate");
+
     await clickButton(page, "PHANTOM");
     await page.getByText("Package Review Matrix").waitFor({ timeout: 10000 });
     actions.push("login_demo_phantom");
@@ -83,6 +95,12 @@ async function run() {
     const releaseText = await page.locator("main").innerText();
     for (const expected of ["Release Gate Control", "not_ready_for_production_execution", "PHANTOM execution=false", "Problem Registry", "Evidence Artifact Index", "Live Execution Proof", "CPU confidential gate", "Baseline locked"]) {
       if (!releaseText.includes(expected)) issues.push(`Missing release dashboard text: ${expected}`);
+    }
+
+    await clickButton(page, "Operators");
+    const operatorText = await page.locator("main").innerText();
+    for (const expected of ["Provisioning Pipeline", "Local Virtual VPS", "Secrets Gate", "Operator Provisioning Pipelines", "Secrets locked", "local_lab_ready"]) {
+      if (!operatorText.includes(expected)) issues.push(`Missing operator provisioning dashboard text: ${expected}`);
     }
 
     await page.setViewportSize({ width: 390, height: 844 });

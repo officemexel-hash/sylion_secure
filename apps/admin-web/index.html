@@ -215,9 +215,48 @@
               <button type="submit">Create Operator</button>
             </form>
           </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Provisioning Pipeline <span class="help-tip" tabindex="0" data-tip="Creates a local lab provisioning draft with communicator microVM plans. Local lab VPS records are not real cloud resources and do not release secrets.">?</span></h2>
+              <span class="pill">Local lab</span>
+            </div>
+            <form id="pipeline-draft-form">
+              <label>Operator <select name="operatorId" id="pipeline-operator-select"></select></label>
+              <label>Communicators <input name="requestedTemplates" value="whatsapp,signal,telegram"></label>
+              <button type="submit">Create Pipeline Draft</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Local Virtual VPS <span class="help-tip" tabindex="0" data-tip="Creates a local lab G1/G2/WORKLOAD VPS set as audited metadata for end-to-end testing. It does not call Hetzner or launch Firecracker.">?</span></h2>
+              <span class="pill warn">No cloud</span>
+            </div>
+            <form id="local-lab-vps-form">
+              <label>Pipeline <select name="pipelineId" id="local-lab-pipeline-select"></select></label>
+              <button type="submit">Create Local VPS Set</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Secrets Gate <span class="help-tip" tabindex="0" data-tip="Checks whether workload secrets could be released. Local lab keeps this denied by design.">?</span></h2>
+              <span class="pill warn">Default deny</span>
+            </div>
+            <form id="secrets-release-check-form">
+              <label>Pipeline <select name="pipelineId" id="secrets-check-pipeline-select"></select></label>
+              <button type="submit">Check Secrets Release</button>
+            </form>
+          </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Operators</h2></div>
             <div class="cards" id="operator-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Communicator Templates</h2><span class="pill">Firecracker plan</span></div>
+            <div class="cards" id="pipeline-template-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Operator Provisioning Pipelines</h2><span class="pill warn">Secrets locked</span></div>
+            <div class="cards" id="operator-pipeline-cards"></div>
           </article>
         </section>
 

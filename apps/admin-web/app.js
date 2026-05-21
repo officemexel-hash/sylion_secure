@@ -3,6 +3,8 @@ const state = {
   session: JSON.parse(sessionStorage.getItem("sylion.admin.session") || "null"),
   tenants: [],
   operators: [],
+  operatorProvisioningTemplates: [],
+  operatorProvisioningPipelines: [],
   providers: [],
   devices: [],
   authorizedApps: [],
@@ -187,6 +189,8 @@ async function refreshAll() {
     session,
     tenants,
     operators,
+    operatorProvisioningTemplates,
+    operatorProvisioningPipelines,
     providers,
     devices,
     authorizedApps,
@@ -232,6 +236,8 @@ async function refreshAll() {
     api("/auth/session"),
     api("/tenants"),
     api("/operators"),
+    api("/operator-provisioning/templates").catch(() => ({ templates: [] })),
+    api("/operator-provisioning/pipelines").catch(() => ({ pipelines: [] })),
     api("/providers"),
     api("/devices"),
     api("/apps"),
@@ -277,6 +283,8 @@ async function refreshAll() {
   state.session = session.session;
   state.tenants = tenants.tenants;
   state.operators = operators.operators;
+  state.operatorProvisioningTemplates = operatorProvisioningTemplates.templates;
+  state.operatorProvisioningPipelines = operatorProvisioningPipelines.pipelines;
   state.providers = providers.providers;
   state.devices = devices.devices;
   state.authorizedApps = authorizedApps.apps;
@@ -350,6 +358,9 @@ function render() {
   $("#webauthn-mode").value = state.webAuthnMode;
 
   renderSelect("#operator-tenant-select", state.tenants, "No tenants");
+  renderSelect("#pipeline-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#local-lab-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
+  renderSelect("#secrets-check-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#plan-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#job-operator-select", state.operators, "No operators", "displayName");
@@ -408,6 +419,23 @@ function render() {
     ["Tenant", operator.tenantId],
     ["Router", operator.baseline?.router]
   ])).join("") || empty("No operators yet.");
+
+  $("#pipeline-template-cards").innerHTML = state.operatorProvisioningTemplates.map((template) => card(template.name, [
+    ["Key", template.key],
+    ["Isolation", template.isolation],
+    ["vCPU", String(template.defaults?.vcpu)],
+    ["Memory", `${template.defaults?.memoryMiB} MiB`],
+    ["CDR", String(template.cdrRequired)]
+  ])).join("") || empty("No communicator templates available.");
+
+  $("#operator-pipeline-cards").innerHTML = state.operatorProvisioningPipelines.map((pipeline) => card(pipeline.id, [
+    ["Operator", pipeline.operatorId],
+    ["Status", pipeline.status],
+    ["Workloads", String(pipeline.workloads?.length || 0)],
+    ["Lab VPS", String(pipeline.localLab?.vps?.length || 0)],
+    ["Firecracker", String(pipeline.firecrackerPlan?.workloads?.length || 0)],
+    ["Secrets", String(pipeline.secretsRelease?.allowed)]
+  ])).join("") || empty("No operator provisioning pipelines yet.");
 
   $("#provider-cards").innerHTML = state.providers.map((provider) => card(provider.displayName, [
     ["Provider", provider.providerKey],
@@ -1033,8 +1061,53 @@ function setWebAuthnMode(event) {
 async function createOperator(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  await api("/operators", { method: "POST", body: data });
-  toast("Operator created");
+  await api("/operators", {
+    method: "POST",
+    body: {
+      ...data,
+      requestedTemplates: ["whatsapp", "signal", "telegram"]
+    }
+  });
+  toast("Operator created with provisioning draft");
+  await refreshAll();
+}
+
+async function createPipelineDraft(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.operatorId) {
+    toast("Create an operator before pipeline draft", "warn");
+    return;
+  }
+  await api(`/operators/${data.operatorId}/provisioning-pipeline`, {
+    method: "POST",
+    body: { requestedTemplates: splitCsv(data.requestedTemplates) }
+  });
+  toast("Operator provisioning draft created");
+  await refreshAll();
+}
+
+async function createLocalLabVpsSet(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.pipelineId) {
+    toast("Create a pipeline before local VPS set", "warn");
+    return;
+  }
+  await api(`/operator-provisioning/pipelines/${data.pipelineId}/local-lab-vps`, { method: "POST" });
+  toast("Local virtual VPS set created");
+  await refreshAll();
+}
+
+async function checkSecretsRelease(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.pipelineId) {
+    toast("Create a pipeline before secrets check", "warn");
+    return;
+  }
+  await api(`/operator-provisioning/pipelines/${data.pipelineId}/secrets-release-check`, { method: "POST" });
+  toast("Secrets release remains blocked for local lab");
   await refreshAll();
 }
 
@@ -1961,6 +2034,9 @@ function bind() {
   $("#enroll-button").addEventListener("click", () => enrollSecurityKey().catch(showError));
   $("#tenant-form").addEventListener("submit", (event) => createTenant(event).catch(showError));
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
+  $("#pipeline-draft-form").addEventListener("submit", (event) => createPipelineDraft(event).catch(showError));
+  $("#local-lab-vps-form").addEventListener("submit", (event) => createLocalLabVpsSet(event).catch(showError));
+  $("#secrets-release-check-form").addEventListener("submit", (event) => checkSecretsRelease(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
   $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
   $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));

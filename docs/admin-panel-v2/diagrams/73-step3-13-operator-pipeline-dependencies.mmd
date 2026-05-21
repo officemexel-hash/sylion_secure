@@ -1,0 +1,13 @@
+flowchart TD
+  AdminUI["Admin Dashboard Operators View"] --> PipelineAPI["Operator Provisioning API"]
+  OperatorAPI["Operator API"] --> PipelineAPI
+  PipelineAPI --> OperatorStore["Operator Store"]
+  PipelineAPI --> SubscriptionStore["Subscription Store"]
+  PipelineAPI --> TemplateCatalog["Communicator Template Catalog"]
+  PipelineAPI --> LocalLab["Local Lab VPS Set"]
+  LocalLab --> FirecrackerPlan["Firecracker Workload Plan"]
+  FirecrackerPlan --> SecretsGate["Secrets Release Gate"]
+  SecretsGate --> Audit["Audit Hash Chain"]
+  PipelineAPI --> Audit
+  ReleaseGate["Release Gate"] --> SecretsGate
+  Phantom["PHANTOM Governance"] -. "separate; cannot unlock baseline" .-> ReleaseGate

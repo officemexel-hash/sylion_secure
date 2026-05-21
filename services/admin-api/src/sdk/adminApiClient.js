@@ -63,6 +63,26 @@ export class AdminApiClient {
     return this.request("/auth/session");
   }
 
+  listOperatorProvisioningTemplates() {
+    return this.request("/operator-provisioning/templates");
+  }
+
+  listOperatorProvisioningPipelines(operatorId = null) {
+    return this.request(`/operator-provisioning/pipelines${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  createOperatorProvisioningDraft(operatorId, body = {}) {
+    return this.request(`/operators/${operatorId}/provisioning-pipeline`, { method: "POST", body });
+  }
+
+  createLocalLabVpsSet(pipelineId) {
+    return this.request(`/operator-provisioning/pipelines/${pipelineId}/local-lab-vps`, { method: "POST" });
+  }
+
+  checkPipelineSecretsRelease(pipelineId) {
+    return this.request(`/operator-provisioning/pipelines/${pipelineId}/secrets-release-check`, { method: "POST" });
+  }
+
   getReleaseSummary() {
     return this.request("/release/summary");
   }
