@@ -1,0 +1,29 @@
+flowchart TD
+    Runner["Step 3.28 Playwright Human Runner"]
+    AdminUI["Admin Dashboard"]
+    Auth["WebAuthn/FIDO2 Simulator"]
+    Tenant["Tenant Form"]
+    Operator["Operator Form + Automatic Baseline"]
+    Provider["Provider Form + Secret Reference"]
+    Approval["Approval Form + Status Update"]
+    Promotion["Promote Baseline Form"]
+    LiveAPI["Live Promotion Endpoint"]
+    Rollback["Rollback Plan Registry"]
+    Audit["Hash-Chained Audit"]
+    Evidence["Screenshot + JSON Evidence Pack"]
+
+    Runner --> AdminUI
+    AdminUI --> Auth
+    AdminUI --> Tenant
+    AdminUI --> Operator
+    AdminUI --> Provider
+    AdminUI --> Approval
+    AdminUI --> Promotion
+    Operator --> Promotion
+    Approval --> Promotion
+    Promotion --> LiveAPI
+    LiveAPI --> Rollback
+    LiveAPI --> Audit
+    Runner --> Evidence
+    Audit --> Evidence
+    Rollback --> Evidence

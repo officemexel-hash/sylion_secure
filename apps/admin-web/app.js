@@ -1359,6 +1359,7 @@ async function checkEnvironmentSecrets(event) {
 
 async function createProvider(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   const data = formData(event.currentTarget);
   await withStepUpRetry(() => api("/providers", {
     method: "POST",
@@ -1370,7 +1371,7 @@ async function createProvider(event) {
       testConnection: { mode: "mock", status: "passed" }
     }
   }), "Save Provider");
-  event.currentTarget.apiSecret.value = "";
+  form.elements.namedItem("apiSecret").value = "";
   toast("Provider saved; secret cleared from form");
   await refreshAll();
 }

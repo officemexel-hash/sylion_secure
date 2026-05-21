@@ -8,6 +8,7 @@
     "start:admin-api:persistent": "node --experimental-sqlite services/admin-api/src/server.js",
     "test": "node --test services/admin-api/test/*.test.js",
     "test:dashboard": "node scripts/admin-dashboard-smoke.mjs",
+    "test:dashboard-live-promotion": "node scripts/admin-step3-28-human-live-promotion.mjs",
     "test:operator-portal": "node scripts/operator-portal-smoke.mjs",
     "test:pixel-adb-operator-lab": "node scripts/pixel-adb-operator-lab.mjs",
     "test:hetzner-live-smoke": "node scripts/hetzner-live-smoke.mjs"

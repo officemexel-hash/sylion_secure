@@ -1,0 +1,51 @@
+{
+  "baseUrl": "http://127.0.0.1:18099/admin",
+  "status": "passed",
+  "runId": "step3-28-1779392756326",
+  "tenantId": "tenant_69eed1a8-273c-4c18-a6ac-7cecaa6b77ff",
+  "operatorId": "op_d9c9daf4-8d13-4862-aa77-42e43a303b79",
+  "providerId": "provider_6503b545-4e9b-4998-8564-7e6410d487a7",
+  "approvalId": "approval_cedbf8a0-b8b6-4d54-854c-69565d36c428",
+  "localBaselineId": "op_pipe_9112fa9c-fe8e-48ad-adfd-c0185c0187c2",
+  "liveRequestId": "live_req_8c36efb7-328a-4fdc-a3e7-60a57dd3b574",
+  "liveRequestStatus": "blocked_human_gate",
+  "liveRequestSideEffectAllowed": false,
+  "liveRequestProductionExecutionAllowed": false,
+  "liveRequestBlockers": [
+    "provider_mode_not_live",
+    "live_allowed_flag_false",
+    "hetzner_api_token_missing",
+    "operator_not_allowlisted",
+    "region_not_allowlisted",
+    "live_server_cap_below_baseline"
+  ],
+  "rollbackPlanId": "live_rb_ed32d1b2-5b6a-415a-a095-35658903ad84",
+  "rollbackPlanStatus": "planned_blocked_no_resources",
+  "auditEvents": [
+    "live_cloud.rollback_plan_created",
+    "live_cloud.vps_set_blocked"
+  ],
+  "screenshots": [
+    "./docs/admin-panel-v2/test-artifacts/step3-28-human-live-promotion/01-overview-login.png",
+    "./docs/admin-panel-v2/test-artifacts/step3-28-human-live-promotion/02-operator-baseline.png",
+    "./docs/admin-panel-v2/test-artifacts/step3-28-human-live-promotion/03-provider-reference.png",
+    "./docs/admin-panel-v2/test-artifacts/step3-28-human-live-promotion/04-approval-approved.png",
+    "./docs/admin-panel-v2/test-artifacts/step3-28-human-live-promotion/05-promote-baseline-ready.png",
+    "./docs/admin-panel-v2/test-artifacts/step3-28-human-live-promotion/06-promote-baseline-result.png",
+    "./docs/admin-panel-v2/test-artifacts/step3-28-human-live-promotion/07-audit-evidence.png",
+    "./docs/admin-panel-v2/test-artifacts/step3-28-human-live-promotion/08-mobile-providers.png"
+  ],
+  "actions": [
+    "admin_logged_in_with_fido2_simulator",
+    "tenant_created_via_dashboard",
+    "operator_created_with_automatic_local_baseline",
+    "provider_save_step_up_not_required",
+    "provider_reference_created_via_dashboard",
+    "approval_created_and_approved_via_dashboard",
+    "baseline_promotion_step_up_not_required",
+    "baseline_promotion_submitted_via_dashboard"
+  ],
+  "issues": [],
+  "secretLeakDetected": false,
+  "checkedAt": "2026-05-21T19:46:16.339Z"
+}

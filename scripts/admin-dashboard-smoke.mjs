@@ -37,6 +37,14 @@ async function waitForToast(page, text, timeout = 30000) {
   await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent?.includes(expected), text, { timeout });
 }
 
+async function maybeCompleteStepUp(page) {
+  const modal = page.locator("#step-up-modal");
+  if (await modal.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await page.getByRole("button", { name: "Verify FIDO2", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector("#step-up-modal")?.hidden === true, null, { timeout: 10000 });
+  }
+}
+
 async function apiInPage(page, path) {
   return page.evaluate(async (requestPath) => {
     const token = sessionStorage.getItem("sylion.admin.token");
@@ -169,6 +177,7 @@ async function run() {
     await page.locator("#secret-backend-form input[name='displayName']").fill(`Vault Transit Smoke ${Date.now()}`);
     await page.locator("#secret-backend-form input[name='endpointReference']").fill("vault://sylion/smoke/transit");
     await page.getByRole("button", { name: "Register Backend" }).click();
+    await maybeCompleteStepUp(page);
     await waitForToast(page, "Secret backend contract recorded");
     const liveTuple = await chooseLiveProviderTuple(page);
     await selectOptionValue(page, "#live-cloud-provider-select", liveTuple.provider.id);
@@ -176,6 +185,7 @@ async function run() {
     await selectOptionValue(page, "#live-cloud-approval-select", liveTuple.approval.id);
     await setInputValue(page, "#live-cloud-form input[name='idempotencyKey']", `live-smoke-${Date.now()}`);
     await page.getByRole("button", { name: "Request Live VPS Set" }).click();
+    await maybeCompleteStepUp(page);
     await waitForToast(page, "Live cloud request recorded");
     await page.waitForTimeout(750);
     const rehearsalTuple = await chooseLiveProviderTuple(page);
@@ -184,15 +194,19 @@ async function run() {
     await selectOptionValue(page, "#provider-rehearsal-approval-select", rehearsalTuple.approval.id);
     await setInputValue(page, "#provider-rehearsal-form input[name='idempotencyKey']", `step3-18-rehearsal-${Date.now()}`);
     await page.getByRole("button", { name: "Run Rehearsal" }).click();
+    await maybeCompleteStepUp(page);
     await waitForToast(page, "Provider rehearsal completed");
     await page.getByRole("button", { name: "Qualify Host" }).click();
+    await maybeCompleteStepUp(page);
     await waitForToast(page, "Firecracker host qualification recorded");
     await page.waitForTimeout(500);
     await selectLastOption(page, "#firecracker-rehearsal-host-select");
     await selectLastOption(page, "#firecracker-rehearsal-operator-select");
     await page.getByRole("button", { name: "Run Launch Rehearsal" }).click();
+    await maybeCompleteStepUp(page);
     await waitForToast(page, "Firecracker launch rehearsal recorded");
     await page.getByRole("button", { name: "Qualify CPU Gate" }).click();
+    await maybeCompleteStepUp(page);
     await waitForToast(page, "CPU confidential-computing qualification recorded");
     await captureScreenshot(page, "live-execution-desktop.png");
     actions.push("live_cloud_rehearsal_firecracker_launch_rehearsal_cpu_gates");
@@ -204,6 +218,7 @@ async function run() {
     await clickButton(page, "PHANTOM");
     await page.getByRole("heading", { name: "Execution Requests" }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Create Execution Request" }).click();
+    await maybeCompleteStepUp(page);
     await waitForToast(page, "PHANTOM execution request gated");
     actions.push("phantom_execution_request_gate");
 
