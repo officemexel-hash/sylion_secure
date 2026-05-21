@@ -26,6 +26,7 @@ import { ImageFactoryService } from "./modules/images/imageFactoryService.js";
 import { OrchestratorService } from "./modules/orchestrator/orchestratorService.js";
 import { PhantomGovernanceService } from "./modules/phantom/phantomGovernanceService.js";
 import { ProvisioningApprovalService } from "./modules/approvals/provisioningApprovalService.js";
+import { ReleaseControlService } from "./modules/release/releaseControlService.js";
 import { AppError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -127,6 +128,7 @@ export function createApp({ store = null, authOptions = {} } = {}) {
     monitoring,
     store
   });
+  const release = new ReleaseControlService({ audit, rbac, approvals, phantom, store });
 
   const services = {
     audit,
@@ -151,7 +153,8 @@ export function createApp({ store = null, authOptions = {} } = {}) {
     imageFactory,
     phantom,
     approvals,
-    orchestrator
+    orchestrator,
+    release
   };
 
   async function handle(req, res) {
@@ -209,6 +212,74 @@ export function createApp({ store = null, authOptions = {} } = {}) {
 
       if (req.method === "GET" && url.pathname === "/auth/session") {
         return send(res, 200, { session: auth.sessionFromActor(actor) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/release/summary") {
+        return send(res, 200, { summary: release.summary({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/release/gates") {
+        return send(res, 200, { gates: release.listGates({ actor, correlationId }) });
+      }
+
+      const releaseGateStatusMatch = url.pathname.match(/^\/release\/gates\/([^/]+)\/status$/);
+      if (req.method === "POST" && releaseGateStatusMatch) {
+        const body = await readJson(req);
+        const gate = release.updateGateStatus({
+          actor,
+          gateId: releaseGateStatusMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { gate });
+      }
+
+      if (req.method === "GET" && url.pathname === "/release/problems") {
+        return send(res, 200, { problems: release.listProblems({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/release/problems") {
+        const body = await readJson(req);
+        const problem = release.createProblem({ actor, ...body, correlationId });
+        return send(res, 201, { problem });
+      }
+
+      const releaseProblemStatusMatch = url.pathname.match(/^\/release\/problems\/([^/]+)\/status$/);
+      if (req.method === "POST" && releaseProblemStatusMatch) {
+        const body = await readJson(req);
+        const problem = release.updateProblemStatus({
+          actor,
+          problemId: releaseProblemStatusMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { problem });
+      }
+
+      if (req.method === "GET" && url.pathname === "/release/human-tests") {
+        return send(res, 200, { scenarios: release.listTests({ actor, correlationId }) });
+      }
+
+      const releaseTestStatusMatch = url.pathname.match(/^\/release\/human-tests\/([^/]+)\/status$/);
+      if (req.method === "POST" && releaseTestStatusMatch) {
+        const body = await readJson(req);
+        const scenario = release.updateTestStatus({
+          actor,
+          scenarioId: releaseTestStatusMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { scenario });
+      }
+
+      if (req.method === "GET" && url.pathname === "/release/evidence-artifacts") {
+        return send(res, 200, { artifacts: release.listArtifacts({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/release/evidence-artifacts") {
+        const body = await readJson(req);
+        const artifact = release.createArtifact({ actor, ...body, correlationId });
+        return send(res, 201, { artifact });
       }
 
       if (req.method === "POST" && url.pathname === "/auth/logout") {

@@ -59,7 +59,11 @@ export const RESOURCE_TYPES = Object.freeze({
   PROVISIONING_APPROVAL: "provisioning_approval",
   OPERATOR_READINESS: "operator_readiness",
   WORKLOAD_LIFECYCLE: "workload_lifecycle",
-  PROVIDER_DRY_RUN_PLAN: "provider_dry_run_plan"
+  PROVIDER_DRY_RUN_PLAN: "provider_dry_run_plan",
+  RELEASE_GATE: "release_gate",
+  RELEASE_PROBLEM: "release_problem",
+  RELEASE_TEST_SCENARIO: "release_test_scenario",
+  EVIDENCE_ARTIFACT: "evidence_artifact"
 });
 
 export const DEVICE_TYPES = Object.freeze({

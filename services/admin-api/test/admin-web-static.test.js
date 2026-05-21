@@ -33,6 +33,7 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(html.body, /id="credential-cards"/);
     assert.match(html.body, /id="auth-policy-cards"/);
     assert.match(html.body, /data-view="phantom"/);
+    assert.match(html.body, /data-view="release"/);
     assert.match(html.body, /id="phantom-capability-form"/);
     assert.match(html.body, /id="phantom-package-form"/);
     assert.match(html.body, /id="phantom-review-matrix-cards"/);
@@ -55,6 +56,10 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(html.body, /id="phantom-review-board-form"/);
     assert.match(html.body, /id="phantom-policy-simulation-form"/);
     assert.match(html.body, /id="phantom-exception-form"/);
+    assert.match(html.body, /id="release-problem-form"/);
+    assert.match(html.body, /id="human-test-status-form"/);
+    assert.match(html.body, /id="evidence-artifact-form"/);
+    assert.match(html.body, /Release Gate Control/);
 
     const js = await getText(baseUrl, "/admin/app.js");
     assert.equal(js.status, 200);
@@ -80,6 +85,10 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(js.body, /createPhantomReviewBoardItem/);
     assert.match(js.body, /runPhantomPolicySimulation/);
     assert.match(js.body, /createPhantomException/);
+    assert.match(js.body, /renderRelease/);
+    assert.match(js.body, /createReleaseProblem/);
+    assert.match(js.body, /createEvidenceArtifact/);
+    assert.match(js.body, /updateHumanTestStatus/);
 
     const css = await getText(baseUrl, "/admin/styles.css");
     assert.equal(css.status, 200);

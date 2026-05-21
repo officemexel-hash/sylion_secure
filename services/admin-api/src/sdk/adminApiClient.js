@@ -63,6 +63,46 @@ export class AdminApiClient {
     return this.request("/auth/session");
   }
 
+  getReleaseSummary() {
+    return this.request("/release/summary");
+  }
+
+  listReleaseGates() {
+    return this.request("/release/gates");
+  }
+
+  updateReleaseGateStatus(gateId, body) {
+    return this.request(`/release/gates/${gateId}/status`, { method: "POST", body });
+  }
+
+  listReleaseProblems() {
+    return this.request("/release/problems");
+  }
+
+  createReleaseProblem(body) {
+    return this.request("/release/problems", { method: "POST", body });
+  }
+
+  updateReleaseProblemStatus(problemId, body) {
+    return this.request(`/release/problems/${problemId}/status`, { method: "POST", body });
+  }
+
+  listHumanTestScenarios() {
+    return this.request("/release/human-tests");
+  }
+
+  updateHumanTestScenarioStatus(scenarioId, body) {
+    return this.request(`/release/human-tests/${scenarioId}/status`, { method: "POST", body });
+  }
+
+  listEvidenceArtifacts() {
+    return this.request("/release/evidence-artifacts");
+  }
+
+  createEvidenceArtifact(body) {
+    return this.request("/release/evidence-artifacts", { method: "POST", body });
+  }
+
   logout() {
     return this.request("/auth/logout", { method: "POST" });
   }

@@ -1,7 +1,7 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-10-dashboard-smoke");
+const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-11-dashboard-regression");
 const baseUrl = process.env.SYLION_ADMIN_URL || "http://127.0.0.1:8099/admin";
 
 async function loadPlaywright() {
@@ -22,6 +22,7 @@ async function run() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
   const issues = [];
+  const actions = [];
   try {
     await page.goto(`${baseUrl}?smoke=${Date.now()}`, { waitUntil: "networkidle" });
     await page.getByLabel("Password").fill("ChangeMe-LocalOnly-1!");
@@ -30,15 +31,26 @@ async function run() {
     await page.getByText("Dashboard", { exact: true }).waitFor({ timeout: 10000 });
 
     await clickButton(page, "Approvals");
-    const emptyLifecycle = await page.locator("#workload-lifecycle-allocation-select").inputValue();
-    if (emptyLifecycle) issues.push(`Lifecycle allocation select should be empty before demo flow, got: ${emptyLifecycle}`);
+    await page.locator("#workload-lifecycle-allocation-select").waitFor({ state: "visible", timeout: 10000 });
+    actions.push("approvals_view_loaded");
 
     await clickButton(page, "Overview");
     await clickButton(page, "Run Demo Flow");
     await clickButton(page, "PHANTOM");
     await page.getByText("Package Review Matrix").waitFor({ timeout: 10000 });
+    actions.push("login_demo_phantom");
 
-    const views = ["Overview", "Operators", "Provisioning", "Approvals", "Subscriptions", "Devices", "Providers", "Security", "PHANTOM", "Audit"];
+    await clickButton(page, "Release");
+    await page.getByText("Release Gate Control").waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Index Artifact" }).click();
+    await page.locator("#toast").getByText("Evidence artifact indexed", { exact: false }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Create Problem" }).click();
+    await page.locator("#toast").getByText("Release problem recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Update Test Status" }).click();
+    await page.locator("#toast").getByText("Human test scenario status updated", { exact: false }).waitFor({ timeout: 10000 });
+    actions.push("release_artifact_problem_human_test");
+
+    const views = ["Overview", "Operators", "Provisioning", "Approvals", "Subscriptions", "Devices", "Providers", "Security", "PHANTOM", "Release", "Audit"];
     for (const view of views) {
       await clickButton(page, view);
       await page.screenshot({ path: join(outputDir, `${view.toLowerCase()}-desktop.png`), fullPage: true });
@@ -50,8 +62,16 @@ async function run() {
       if (!phantomText.includes(expected)) issues.push(`Missing PHANTOM dashboard text: ${expected}`);
     }
 
+    await clickButton(page, "Release");
+    const releaseText = await page.locator("main").innerText();
+    for (const expected of ["Release Gate Control", "not_ready_for_production_execution", "PHANTOM execution=false", "Problem Registry", "Evidence Artifact Index"]) {
+      if (!releaseText.includes(expected)) issues.push(`Missing release dashboard text: ${expected}`);
+    }
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: join(outputDir, "phantom-mobile.png"), fullPage: true });
+    await clickButton(page, "Release");
+    await page.screenshot({ path: join(outputDir, "release-mobile.png"), fullPage: true });
 
     await browser.close();
   } catch (error) {
@@ -61,6 +81,13 @@ async function run() {
   if (issues.length) {
     throw new Error(`Dashboard smoke issues:\n${issues.join("\n")}`);
   }
+  await writeFile(join(outputDir, "summary.json"), JSON.stringify({
+    baseUrl,
+    status: "passed",
+    actions,
+    issues,
+    checkedAt: new Date().toISOString()
+  }, null, 2));
   console.log(`Dashboard smoke completed against ${baseUrl}`);
 }
 

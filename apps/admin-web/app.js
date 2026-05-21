@@ -38,6 +38,11 @@ const state = {
   phantomExceptions: [],
   phantomCoverage: [],
   phantomAuditCorrelation: null,
+  releaseSummary: null,
+  releaseGates: [],
+  releaseProblems: [],
+  humanTests: [],
+  evidenceArtifacts: [],
   lastPlanId: null,
   lastPlanOperatorId: null,
   credentialId: localStorage.getItem("sylion.admin.credentialId") || null,
@@ -201,6 +206,11 @@ async function refreshAll() {
     phantomPolicySimulations,
     phantomExceptions,
     phantomAuditCorrelation,
+    releaseSummary,
+    releaseGates,
+    releaseProblems,
+    humanTests,
+    evidenceArtifacts,
     subscriptionPlans,
     quotaDecisions,
     provisioningApprovals,
@@ -236,6 +246,11 @@ async function refreshAll() {
     api("/phantom/policy-simulations").catch(() => ({ simulations: [] })),
     api("/phantom/exceptions").catch(() => ({ exceptions: [] })),
     api("/phantom/audit-correlation").catch(() => ({ summary: null })),
+    api("/release/summary").catch(() => ({ summary: null })),
+    api("/release/gates").catch(() => ({ gates: [] })),
+    api("/release/problems").catch(() => ({ problems: [] })),
+    api("/release/human-tests").catch(() => ({ scenarios: [] })),
+    api("/release/evidence-artifacts").catch(() => ({ artifacts: [] })),
     api("/subscription/plans").catch(() => ({ plans: [] })),
     api("/subscription/quota-decisions").catch(() => ({ decisions: [] })),
     api("/provisioning/approvals").catch(() => ({ approvals: [] })),
@@ -271,6 +286,11 @@ async function refreshAll() {
   state.phantomPolicySimulations = phantomPolicySimulations.simulations;
   state.phantomExceptions = phantomExceptions.exceptions;
   state.phantomAuditCorrelation = phantomAuditCorrelation.summary;
+  state.releaseSummary = releaseSummary.summary;
+  state.releaseGates = releaseGates.gates;
+  state.releaseProblems = releaseProblems.problems;
+  state.humanTests = humanTests.scenarios;
+  state.evidenceArtifacts = evidenceArtifacts.artifacts;
   state.phantomCoverage = await Promise.all(
     state.phantomPackages.map((pkg) => api(`/phantom/packages/${pkg.id}/evidence-coverage`)
       .then((result) => result.coverage)
@@ -347,6 +367,7 @@ function render() {
   renderSelect("#phantom-exception-evidence-select", state.phantomEvidenceBundles, "No evidence bundles", "summary");
   renderSelect("#phantom-review-ack-select", state.phantomReviewBoardItems, "No review items", "title");
   renderSelect("#phantom-coverage-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#human-test-select", state.humanTests, "No test scenarios", "title");
 
   $("#ksiega-status-cards").innerHTML = (state.systemStatus?.ksiega34 || []).map((item) => card(item.label, [
     ["Status", item.status],
@@ -611,6 +632,8 @@ function render() {
     ["Execution", String(state.phantomAuditCorrelation.executionAllowed)]
   ]) : empty("PHANTOM audit correlation unavailable.");
 
+  renderRelease();
+
   const recent = state.audit.slice(-8).reverse();
   $("#audit-table").innerHTML = recent.map((event) => `
     <tr>
@@ -630,6 +653,68 @@ function render() {
       <td><code>${escapeHtml(String(event.hash || "").slice(0, 14))}</code></td>
     </tr>
   `).join("") || tableEmpty(5, "No audit events yet.");
+}
+
+function renderRelease() {
+  const summary = state.releaseSummary;
+  $("#release-decision").textContent = summary?.decision || "not evaluated";
+  $("#release-ksiega").textContent = summary?.księga34
+    ? `${summary.księga34.implemented} implemented / ${summary.księga34.blocked} blocked`
+    : "Księga 3.4 unknown";
+  $("#release-phantom").textContent = summary?.phantom?.executionSafe
+    ? "PHANTOM execution=false"
+    : "PHANTOM needs review";
+
+  $("#release-gate-cards").innerHTML = state.releaseGates.map((gate) => card(gate.title, [
+    ["Status", gate.status],
+    ["Module", gate.moduleKey],
+    ["Owner", gate.owner],
+    ["Human gate", String(gate.humanGateRequired)],
+    ["Prod exec", String(gate.productionExecutionAllowed)],
+    ["Blockers", gate.blockers?.join(", ") || "-"]
+  ])).join("") || empty("No release gates recorded.");
+
+  $("#human-test-cards").innerHTML = state.humanTests.map((scenario) => card(scenario.title, [
+    ["View", scenario.view],
+    ["Status", scenario.status],
+    ["Evidence", String(scenario.evidenceArtifactIds?.length || 0)],
+    ["Last run", scenario.lastRunAt || "-"]
+  ])).join("") || empty("No human test scenarios recorded.");
+
+  $("#release-problem-cards").innerHTML = state.releaseProblems.map((problem) => card(problem.title, [
+    ["Severity", problem.severity],
+    ["Category", problem.category],
+    ["Module", problem.moduleKey],
+    ["Status", problem.status],
+    ["Owner", problem.owner],
+    ["Evidence", String(problem.evidenceArtifactIds?.length || 0)]
+  ])).join("") || empty("No release problems recorded.");
+
+  $("#evidence-artifact-cards").innerHTML = state.evidenceArtifacts.map((artifact) => card(artifact.path, [
+    ["Type", artifact.type],
+    ["Source", artifact.source],
+    ["Module", artifact.linkedModule],
+    ["Hash", String(artifact.sha256 || "").slice(0, 14)]
+  ])).join("") || empty("No evidence artifacts indexed.");
+
+  $("#release-ksiega-cards").innerHTML = (summary?.księga34?.controls || state.systemStatus?.ksiega34 || []).map((item) => card(item.label, [
+    ["Key", item.key],
+    ["Status", item.status],
+    ["Next", item.nextAction]
+  ])).join("") || empty("Księga 3.4 status unavailable.");
+
+  $("#release-phantom-cards").innerHTML = [
+    card("PHANTOM release boundary", [
+      ["Execution safe", String(summary?.phantom?.executionSafe ?? false)],
+      ["Execution allowed", String(summary?.phantom?.executionAllowed ?? false)],
+      ["Certification claim", String(summary?.phantom?.certificationClaim ?? false)]
+    ]),
+    ...(summary?.phantom?.controls || state.systemStatus?.phantom || []).map((item) => card(item.label, [
+      ["Key", item.key],
+      ["Status", item.status],
+      ["Execution", String(item.executionAllowed)]
+    ]))
+  ].join("");
 }
 
 function renderSelect(selector, rows, emptyLabel, labelKey = "name") {
@@ -1324,6 +1409,55 @@ async function evaluatePhantomCoverage(event) {
   render();
 }
 
+async function createEvidenceArtifact(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/release/evidence-artifacts", {
+    method: "POST",
+    body: {
+      type: data.type,
+      path: data.path,
+      source: data.source,
+      linkedModule: data.linkedModule
+    }
+  });
+  toast("Evidence artifact indexed for release gate review");
+  await refreshAll();
+}
+
+async function createReleaseProblem(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/release/problems", {
+    method: "POST",
+    body: {
+      title: data.title,
+      severity: data.severity,
+      category: data.category,
+      moduleKey: data.moduleKey,
+      owner: data.owner,
+      evidenceArtifactIds: splitCsv(data.evidenceArtifactIds)
+    }
+  });
+  toast("Release problem recorded");
+  await refreshAll();
+}
+
+async function updateHumanTestStatus(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/release/human-tests/${data.scenarioId}/status`, {
+    method: "POST",
+    body: {
+      status: data.status,
+      evidenceArtifactIds: splitCsv(data.evidenceArtifactIds),
+      note: data.note
+    }
+  });
+  toast("Human test scenario status updated");
+  await refreshAll();
+}
+
 async function handleCredentialAction(event) {
   const action = event.target.dataset.credentialAction;
   if (!action) return;
@@ -1644,6 +1778,7 @@ function setView(name) {
     providers: ["Providers", "Add provider accounts without retaining plaintext secrets."],
     security: ["Security", "Review core V2 security boundaries."],
     phantom: ["PHANTOM", "Governance-only separate track with HUMAN GATE."],
+    release: ["Release", "Production readiness gates, human tests, problem registry and evidence."],
     audit: ["Audit", "Inspect hash-chained audit events."]
   };
   $("#view-title").textContent = titles[name]?.[0] || "Dashboard";
@@ -1684,6 +1819,9 @@ function bind() {
   $("#phantom-exception-form").addEventListener("submit", (event) => createPhantomException(event).catch(showError));
   $("#phantom-review-ack-form").addEventListener("submit", (event) => acknowledgePhantomReviewOwner(event).catch(showError));
   $("#phantom-coverage-form").addEventListener("submit", (event) => evaluatePhantomCoverage(event).catch(showError));
+  $("#evidence-artifact-form").addEventListener("submit", (event) => createEvidenceArtifact(event).catch(showError));
+  $("#release-problem-form").addEventListener("submit", (event) => createReleaseProblem(event).catch(showError));
+  $("#human-test-status-form").addEventListener("submit", (event) => updateHumanTestStatus(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));

@@ -25,6 +25,7 @@
         <button data-view="providers">Providers</button>
         <button data-view="security">Security</button>
         <button data-view="phantom">PHANTOM</button>
+        <button data-view="release">Release</button>
         <button data-view="audit">Audit</button>
       </nav>
     </aside>
@@ -981,6 +982,117 @@
               <span class="pill">Hash chain</span>
             </div>
             <div class="cards" id="phantom-audit-correlation-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="release" hidden>
+          <article class="panel wide command-panel">
+            <div>
+              <span class="eyebrow">Production Readiness</span>
+              <h2>Release Gate Control <span class="help-tip" tabindex="0" data-tip="Shows whether the current system is ready for metadata release review. It never approves real provider mutation, Firecracker launch or PHANTOM live behavior.">?</span></h2>
+            </div>
+            <div class="command-grid">
+              <span id="release-decision">Loading</span>
+              <span id="release-ksiega">Księga 3.4</span>
+              <span id="release-phantom">PHANTOM blocked</span>
+            </div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Release Gates <span class="help-tip" tabindex="0" data-tip="Rolls up module readiness, blockers, tests and human gates. Production execution remains blocked until explicitly approved outside this dashboard.">?</span></h2>
+              <span class="pill warn">HUMAN GATE aware</span>
+            </div>
+            <div class="cards" id="release-gate-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Human Test Center <span class="help-tip" tabindex="0" data-tip="Tracks human-style dashboard scenarios and links them to Playwright screenshots or manual evidence.">?</span></h2>
+              <span class="pill">Scenario runner</span>
+            </div>
+            <form id="human-test-status-form">
+              <label>Scenario <select name="scenarioId" id="human-test-select"></select></label>
+              <label>Status
+                <select name="status">
+                  <option>passed</option>
+                  <option>failed</option>
+                  <option>blocked</option>
+                  <option>needs_human_review</option>
+                </select>
+              </label>
+              <label>Evidence IDs <input name="evidenceArtifactIds" value=""></label>
+              <label>Note <input name="note" value="Dashboard human review completed"></label>
+              <button type="submit">Update Test Status</button>
+            </form>
+            <div class="cards" id="human-test-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Problem Registry <span class="help-tip" tabindex="0" data-tip="Records defects, UX issues, test gaps and compliance gaps found by humans or Playwright.">?</span></h2>
+              <span class="pill warn">Blocker rollup</span>
+            </div>
+            <form id="release-problem-form">
+              <label>Title <input name="title" value="Manual dashboard review finding"></label>
+              <label>Severity
+                <select name="severity">
+                  <option>medium</option>
+                  <option>high</option>
+                  <option>critical</option>
+                  <option>low</option>
+                </select>
+              </label>
+              <label>Category
+                <select name="category">
+                  <option>ux_issue</option>
+                  <option>defect</option>
+                  <option>test_gap</option>
+                  <option>compliance_gap</option>
+                  <option>architecture_gap</option>
+                  <option>security_gap</option>
+                </select>
+              </label>
+              <label>Module <input name="moduleKey" value="admin_web"></label>
+              <label>Owner <input name="owner" value="qa"></label>
+              <label>Evidence IDs <input name="evidenceArtifactIds" value=""></label>
+              <button type="submit">Create Problem</button>
+            </form>
+            <div class="cards" id="release-problem-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Evidence Artifact Index <span class="help-tip" tabindex="0" data-tip="Indexes screenshots, logs and summaries by path and hash. Do not store secrets or operational payloads here.">?</span></h2>
+              <span class="pill">Hash indexed</span>
+            </div>
+            <form id="evidence-artifact-form">
+              <label>Type
+                <select name="type">
+                  <option>screenshot</option>
+                  <option>test_log</option>
+                  <option>json_summary</option>
+                  <option>manual_note</option>
+                  <option>coverage_report</option>
+                  <option>release_note</option>
+                </select>
+              </label>
+              <label>Path <input name="path" value="docs/admin-panel-v2/test-artifacts/step3-11-dashboard-regression/release-desktop.png"></label>
+              <label>Source <input name="source" value="playwright"></label>
+              <label>Module <input name="linkedModule" value="release"></label>
+              <button type="submit">Index Artifact</button>
+            </form>
+            <div class="cards" id="evidence-artifact-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Księga 3.4 Matrix <span class="help-tip" tabindex="0" data-tip="Baseline controls and production blockers. Blocked items are not production-ready.">?</span></h2>
+              <span class="pill warn">Baseline controls</span>
+            </div>
+            <div class="cards compact" id="release-ksiega-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>PHANTOM Boundary Proof <span class="help-tip" tabindex="0" data-tip="PHANTOM maturity is governance-only. It cannot unlock orchestrator jobs and cannot claim certification.">?</span></h2>
+              <span class="pill phantom">Separate track</span>
+            </div>
+            <div class="cards compact" id="release-phantom-cards"></div>
           </article>
         </section>
 
