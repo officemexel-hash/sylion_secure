@@ -52,6 +52,7 @@ const state = {
   liveExecutionSummary: null,
   liveCloudRequests: [],
   liveRollbackPlans: [],
+  liveProviderRehearsals: [],
   firecrackerQualifications: [],
   cpuConfidentialQualifications: [],
   phantomExecutionRequests: [],
@@ -231,6 +232,7 @@ async function refreshAll() {
     liveExecutionSummary,
     liveCloudRequests,
     liveRollbackPlans,
+    liveProviderRehearsals,
     firecrackerQualifications,
     cpuConfidentialQualifications,
     phantomExecutionRequests,
@@ -282,6 +284,7 @@ async function refreshAll() {
     api("/live-execution/summary").catch(() => ({ summary: null })),
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
     api("/live-execution/cloud/rollback-plans").catch(() => ({ plans: [] })),
+    api("/live-execution/cloud/rehearsals").catch(() => ({ rehearsals: [] })),
     api("/live-execution/firecracker/host-qualifications").catch(() => ({ qualifications: [] })),
     api("/live-execution/cpu-confidential/qualifications").catch(() => ({ qualifications: [] })),
     api("/live-execution/phantom/requests").catch(() => ({ requests: [] })),
@@ -333,6 +336,7 @@ async function refreshAll() {
   state.liveExecutionSummary = liveExecutionSummary.summary;
   state.liveCloudRequests = liveCloudRequests.requests;
   state.liveRollbackPlans = liveRollbackPlans.plans;
+  state.liveProviderRehearsals = liveProviderRehearsals.rehearsals;
   state.firecrackerQualifications = firecrackerQualifications.qualifications;
   state.cpuConfidentialQualifications = cpuConfidentialQualifications.qualifications;
   state.phantomExecutionRequests = phantomExecutionRequests.requests;
@@ -405,6 +409,9 @@ function render() {
   renderSelect("#live-cloud-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#live-cloud-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#live-cloud-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#provider-rehearsal-provider-select", state.providers, "No providers", "displayName");
+  renderSelect("#provider-rehearsal-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#provider-rehearsal-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
   renderSelect("#subscription-tenant-select", state.tenants, "No tenants");
   renderSelect("#subscription-plan-select", state.subscriptionPlans, "No plans", "name");
   renderSelect("#billing-tenant-select", state.tenants, "No tenants");
@@ -516,6 +523,17 @@ function render() {
     ["Side effect", String(request.sideEffectAllowed)],
     ["Blockers", request.gate?.blockers?.join(", ") || "-"]
   ])).join("") || empty("No live cloud requests recorded.");
+
+  $("#provider-rehearsal-cards").innerHTML = state.liveProviderRehearsals.map((rehearsal) => card(rehearsal.id, [
+    ["Status", rehearsal.status],
+    ["Mode", rehearsal.rehearsalMode],
+    ["Provider", rehearsal.providerKey],
+    ["Operator", rehearsal.operatorId],
+    ["Resources", String(rehearsal.resources?.length || 0)],
+    ["Phases", rehearsal.phases?.map((phase) => `${phase.name}:${phase.status}`).join(", ") || "-"],
+    ["Side effect", String(rehearsal.sideEffectAllowed)],
+    ["Blockers", rehearsal.gate?.blockers?.join(", ") || "-"]
+  ])).join("") || empty("No provider rehearsals recorded.");
 
   $("#live-rollback-plan-cards").innerHTML = state.liveRollbackPlans.map((plan) => card(plan.id, [
     ["Provider", plan.providerKey],
@@ -1315,6 +1333,29 @@ async function requestLiveCloudVpsSet(event) {
     }
   }), "Live Cloud VPS Set");
   toast("Live cloud request recorded with gate decision");
+  await refreshAll();
+}
+
+async function runProviderRehearsal(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const provider = state.providers.find((item) => item.id === data.providerId);
+  if (!provider) throw new Error("Select a provider before running rehearsal");
+  await withStepUpRetry(() => api(`/live-execution/cloud/${provider.providerKey}/rehearsal`, {
+    method: "POST",
+    extraHeaders: { "idempotency-key": data.idempotencyKey },
+    body: {
+      providerId: data.providerId,
+      operatorId: data.operatorId,
+      approvalId: data.approvalId,
+      region: data.region,
+      idempotencyKey: data.idempotencyKey,
+      rehearsalMode: data.rehearsalMode,
+      liveConfirmed: event.currentTarget.liveConfirmed.checked,
+      cleanupConfirmed: event.currentTarget.cleanupConfirmed.checked
+    }
+  }), "Provider Rehearsal");
+  toast("Provider rehearsal completed");
   await refreshAll();
 }
 
@@ -2258,6 +2299,7 @@ function bind() {
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
   $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
   $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));
+  $("#provider-rehearsal-form").addEventListener("submit", (event) => runProviderRehearsal(event).catch(showError));
   $("#firecracker-qualification-form").addEventListener("submit", (event) => qualifyFirecrackerHost(event).catch(showError));
   $("#cpu-confidential-qualification-form").addEventListener("submit", (event) => qualifyCpuConfidentialHost(event).catch(showError));
   $("#approved-app-form").addEventListener("submit", (event) => createApprovedWorkloadApp(event).catch(showError));

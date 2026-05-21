@@ -34,6 +34,7 @@ function safeArray(value = [], field) {
 
 const CPU_VENDORS = new Set(["intel", "amd", "unknown"]);
 const CONFIDENTIAL_MODES = new Set(["none", "intel_tdx", "amd_sev_snp"]);
+const PROVIDER_REHEARSAL_MODES = new Set(["gate_only", "adapter_sandbox", "live_provider"]);
 
 function normalizeLower(value, field, allowed) {
   const normalized = requireText(value, field).toLowerCase();
@@ -133,6 +134,7 @@ export class LiveExecutionService {
     this.hostQualifications = new PersistentMap({ store, collection: "firecracker_host_qualifications" });
     this.cpuQualifications = new PersistentMap({ store, collection: "cpu_confidential_qualifications" });
     this.rollbackPlans = new PersistentMap({ store, collection: "live_rollback_plans" });
+    this.providerRehearsals = new PersistentMap({ store, collection: "live_provider_rehearsals" });
     this.phantomRequests = new PersistentMap({ store, collection: "phantom_execution_requests" });
     this.idempotency = new Map();
     for (const request of this.requests.values()) {
@@ -155,6 +157,7 @@ export class LiveExecutionService {
       phantomLabAllowed: this.env.SYLION_PHANTOM_LAB_ALLOWED === "true",
       baselineUnlockState: this.#baselineUnlockState(),
       liveRequests: this.requests.size,
+      providerRehearsals: this.providerRehearsals.size,
       firecrackerQualifications: this.hostQualifications.size,
       cpuQualifications: this.cpuQualifications.size,
       confidentialReadyHosts: [...this.cpuQualifications.values()].filter((item) => item.secretsReleaseAllowed).length,
@@ -179,6 +182,174 @@ export class LiveExecutionService {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.LIVE_ROLLBACK_PLAN });
     return [...this.rollbackPlans.values()];
+  }
+
+  listProviderRehearsals({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.LIVE_PROVIDER_REHEARSAL
+    });
+    return [...this.providerRehearsals.values()];
+  }
+
+  async runProviderRehearsal({
+    actor,
+    providerKey,
+    providerId,
+    operatorId,
+    region,
+    approvalId,
+    idempotencyKey,
+    rehearsalMode = "adapter_sandbox",
+    liveConfirmed = false,
+    cleanupConfirmed = true,
+    serverType = "cx22",
+    image = "ubuntu-24.04",
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.manage", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.LIVE_PROVIDER_REHEARSAL
+    });
+    const provider = this.providers.get(providerId);
+    if (!provider) throw notFound("provider", providerId);
+    const operator = this.operators.get(operatorId);
+    if (!operator) throw notFound("operator", operatorId);
+    const requestedProviderKey = requireText(providerKey, "providerKey").toLowerCase();
+    if (provider.providerKey !== requestedProviderKey) {
+      throw validationError("Provider route does not match provider record", {
+        requestedProviderKey,
+        providerKey: provider.providerKey
+      });
+    }
+    if (operator.baseline?.vpsPerOperator !== 3) {
+      throw validationError("Live provider rehearsal requires exactly 3 VPS per operator", { operatorId });
+    }
+    const key = requireText(idempotencyKey, "idempotencyKey", 8);
+    const approval = this.approvals.assertExecutionApproved({ actor, approvalId, planId: null, correlationId: corr }).approval;
+    if (approval.operatorId !== operatorId) {
+      throw validationError("Approval does not match requested operator", {
+        approvalId,
+        operatorId,
+        approvalOperatorId: approval.operatorId
+      });
+    }
+    const mode = normalizeLower(rehearsalMode, "rehearsalMode", PROVIDER_REHEARSAL_MODES);
+    const gate = this.#evaluateProviderRehearsalGate({
+      providerKey: provider.providerKey,
+      operatorId,
+      region,
+      rehearsalMode: mode,
+      liveConfirmed,
+      cleanupConfirmed
+    });
+    if (!gate.allowed || mode === "gate_only") {
+      return this.#recordProviderRehearsal({
+        actor,
+        provider,
+        operator,
+        approvalId,
+        region,
+        idempotencyKey: key,
+        rehearsalMode: mode,
+        gate,
+        phases: [
+          {
+            name: "gate_evaluated",
+            status: gate.allowed ? "passed" : "blocked",
+            details: { blockers: gate.blockers }
+          }
+        ],
+        status: gate.allowed ? "gate_passed_no_adapter_calls" : "blocked_human_gate",
+        resources: [],
+        rollbackResults: [],
+        correlationId: corr
+      });
+    }
+
+    const adapter = this.#providerRehearsalAdapter(provider.providerKey, mode);
+    const phases = [{ name: "gate_evaluated", status: "passed", details: { mode } }];
+    const resources = (await adapter.createVpsSet({
+      operatorId,
+      region,
+      serverType,
+      image,
+      labels: { sylion_tenant: operator.tenantId, sylion_rehearsal: "true" },
+      idempotencyKey: key
+    })).map(sanitizeProviderResource);
+    phases.push({
+      name: "create_vps_set",
+      status: "passed",
+      details: { resourceCount: resources.length, roles: resources.map((resource) => resource.role) }
+    });
+    const roleSet = new Set(resources.map((resource) => resource.role));
+    const missingRoles = ["G1", "G2", "WORKLOAD"].filter((role) => !roleSet.has(role));
+    if (resources.length !== 3 || missingRoles.length > 0) {
+      phases.push({ name: "baseline_shape", status: "failed", details: { missingRoles } });
+      return this.#recordProviderRehearsal({
+        actor,
+        provider,
+        operator,
+        approvalId,
+        region,
+        idempotencyKey: key,
+        rehearsalMode: mode,
+        gate,
+        phases,
+        status: "failed_baseline_shape",
+        resources,
+        rollbackResults: [],
+        correlationId: corr
+      });
+    }
+    phases.push({ name: "baseline_shape", status: "passed", details: { requiredRoles: ["G1", "G2", "WORKLOAD"] } });
+
+    let reconciliation = [];
+    if (typeof adapter.listVpsSet === "function") {
+      reconciliation = (await adapter.listVpsSet({ operatorId })).map(sanitizeProviderResource);
+      phases.push({
+        name: "reconcile_vps_set",
+        status: "passed",
+        details: { resourceCount: reconciliation.length }
+      });
+    }
+
+    let rollbackResults = [];
+    if (cleanupConfirmed) {
+      rollbackResults = await adapter.deleteVpsSet({
+        actions: resources.map((resource) => ({
+          action: resource.rollback?.action || "delete_server",
+          role: resource.role,
+          providerResourceId: resource.providerResourceId,
+          idempotencyKey: key
+        }))
+      });
+      phases.push({
+        name: "cleanup_rollback",
+        status: "passed",
+        details: { resultCount: rollbackResults.length }
+      });
+    }
+
+    return this.#recordProviderRehearsal({
+      actor,
+      provider,
+      operator,
+      approvalId,
+      region,
+      idempotencyKey: key,
+      rehearsalMode: mode,
+      gate,
+      phases,
+      status: "smoke_passed",
+      resources,
+      reconciliation,
+      rollbackResults,
+      correlationId: corr
+    });
   }
 
   async reconcileProviderVpsSet({ actor, providerKey, providerId, operatorId, correlationId }) {
@@ -606,6 +777,131 @@ export class LiveExecutionService {
       mutationMode: blockers.length === 0 ? "live" : "blocked",
       baselineUnlockState: this.#baselineUnlockState()
     };
+  }
+
+  #evaluateProviderRehearsalGate({ providerKey, operatorId, region, rehearsalMode, liveConfirmed, cleanupConfirmed }) {
+    const cloudGate = this.#evaluateCloudGate({ providerKey, operatorId, region, liveConfirmed });
+    const blockers = [...cloudGate.blockers];
+    if (!PROVIDER_REHEARSAL_MODES.has(rehearsalMode)) blockers.push("unsupported_rehearsal_mode");
+    if (!cleanupConfirmed && rehearsalMode !== "gate_only") blockers.push("cleanup_confirmation_required");
+    if (rehearsalMode === "live_provider" && this.env.SYLION_LIVE_SMOKE_ALLOWED !== "true") {
+      blockers.push("live_smoke_env_flag_disabled");
+    }
+    if (rehearsalMode === "adapter_sandbox") {
+      const filtered = blockers.filter((blocker) => ![
+        "provider_mode_not_live",
+        "live_allowed_flag_false",
+        "hetzner_api_token_missing",
+        "operator_not_allowlisted",
+        "region_not_allowlisted",
+        "live_server_cap_below_baseline"
+      ].includes(blocker));
+      return {
+        ...cloudGate,
+        allowed: filtered.length === 0,
+        blockers: filtered,
+        rehearsalMode,
+        mutationMode: "adapter_sandbox",
+        providerSideEffectAllowed: false,
+        productionExecutionAllowed: false
+      };
+    }
+    return {
+      ...cloudGate,
+      allowed: blockers.length === 0,
+      blockers,
+      rehearsalMode,
+      mutationMode: rehearsalMode,
+      providerSideEffectAllowed: rehearsalMode === "live_provider" && blockers.length === 0,
+      productionExecutionAllowed: false
+    };
+  }
+
+  #providerRehearsalAdapter(providerKey, rehearsalMode) {
+    if (rehearsalMode === "adapter_sandbox") {
+      return {
+        async createVpsSet({ operatorId, region, idempotencyKey }) {
+          return ["G1", "G2", "WORKLOAD"].map((role) => ({
+            role,
+            providerResourceId: `sandbox://${providerKey}/${operatorId}/${role.toLowerCase()}/${idempotencyKey}`,
+            name: `sylion-${operatorId}-${role.toLowerCase()}-sandbox`,
+            location: region,
+            status: "sandbox_created",
+            rollback: {
+              action: "delete_server",
+              providerResourceId: `sandbox://${providerKey}/${operatorId}/${role.toLowerCase()}/${idempotencyKey}`,
+              idempotencyKey
+            }
+          }));
+        },
+        async listVpsSet({ operatorId }) {
+          return ["G1", "G2", "WORKLOAD"].map((role) => ({
+            role,
+            providerResourceId: `sandbox://${providerKey}/${operatorId}/${role.toLowerCase()}`,
+            status: "sandbox_running"
+          }));
+        },
+        async deleteVpsSet({ actions }) {
+          return actions.map((action) => ({ ...action, status: "sandbox_deleted" }));
+        }
+      };
+    }
+    return this.adapterFactory(providerKey);
+  }
+
+  #recordProviderRehearsal({
+    actor,
+    provider,
+    operator,
+    approvalId,
+    region,
+    idempotencyKey,
+    rehearsalMode,
+    gate,
+    phases,
+    status,
+    resources,
+    reconciliation = [],
+    rollbackResults,
+    correlationId
+  }) {
+    const rehearsal = {
+      id: newId("live_rehearsal"),
+      providerId: provider.id,
+      providerKey: provider.providerKey,
+      operatorId: operator.id,
+      tenantId: operator.tenantId,
+      approvalId,
+      region,
+      idempotencyKey,
+      rehearsalMode,
+      status,
+      gate,
+      phases,
+      resources,
+      reconciliation,
+      rollbackResults,
+      sideEffectAllowed: gate.providerSideEffectAllowed === true,
+      productionExecutionAllowed: false,
+      createdAt: isoNow(),
+      createdBy: actor.id
+    };
+    this.providerRehearsals.set(rehearsal.id, rehearsal);
+    this.audit.record({
+      actorId: actor.id,
+      action: "live_cloud.provider_rehearsal_completed",
+      resourceType: RESOURCE_TYPES.LIVE_PROVIDER_REHEARSAL,
+      resourceId: rehearsal.id,
+      tenantId: operator.tenantId,
+      operatorId: operator.id,
+      approvalId,
+      idempotencyKey,
+      correlationId,
+      policyDecision: status === "smoke_passed" || status === "gate_passed_no_adapter_calls" ? "allow" : "deny",
+      result: status,
+      newValue: rehearsal
+    });
+    return rehearsal;
   }
 
   #baselineUnlockState() {

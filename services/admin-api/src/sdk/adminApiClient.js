@@ -167,6 +167,10 @@ export class AdminApiClient {
     return this.request("/live-execution/cloud/rollback-plans");
   }
 
+  listLiveProviderRehearsals() {
+    return this.request("/live-execution/cloud/rehearsals");
+  }
+
   reconcileProviderLiveVpsSet(providerKey, body) {
     return this.request(`/live-execution/cloud/${providerKey}/reconcile`, { method: "POST", body });
   }
@@ -177,6 +181,14 @@ export class AdminApiClient {
 
   requestProviderLiveVpsSet(providerKey, body, idempotencyKey = body.idempotencyKey) {
     return this.request(`/live-execution/cloud/${providerKey}/vps-set`, {
+      method: "POST",
+      headers: { "idempotency-key": idempotencyKey },
+      body
+    });
+  }
+
+  runProviderLiveRehearsal(providerKey, body, idempotencyKey = body.idempotencyKey) {
+    return this.request(`/live-execution/cloud/${providerKey}/rehearsal`, {
       method: "POST",
       headers: { "idempotency-key": idempotencyKey },
       body

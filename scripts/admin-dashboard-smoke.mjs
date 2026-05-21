@@ -100,16 +100,24 @@ async function run() {
 
     await clickButton(page, "Providers");
     await page.getByText("Live Cloud Gate").waitFor({ timeout: 10000 });
+    await selectLastOption(page, "#live-cloud-provider-select");
+    await selectLastOption(page, "#live-cloud-operator-select");
+    await selectLastOption(page, "#live-cloud-approval-select");
     await page.getByRole("button", { name: "Request Live VPS Set" }).click();
     await page.locator("#toast").getByText("Live cloud request recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await selectLastOption(page, "#provider-rehearsal-provider-select");
+    await selectLastOption(page, "#provider-rehearsal-operator-select");
+    await selectLastOption(page, "#provider-rehearsal-approval-select");
+    await page.getByRole("button", { name: "Run Rehearsal" }).click();
+    await page.locator("#toast").getByText("Provider rehearsal completed", { exact: false }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Qualify Host" }).click();
     await page.locator("#toast").getByText("Firecracker host qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Qualify CPU Gate" }).click();
     await page.locator("#toast").getByText("CPU confidential-computing qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
     await page.screenshot({ path: join(outputDir, "live-execution-desktop.png"), fullPage: true });
-    actions.push("live_cloud_firecracker_cpu_gates");
+    actions.push("live_cloud_rehearsal_firecracker_cpu_gates");
     const providersText = await page.locator("main").innerText();
-    for (const expected of ["Live Rollback Plans", "Rollback ready", "Secret source", "hetzner", "blocked_human_gate"]) {
+    for (const expected of ["Provider Rehearsals", "smoke_passed", "Live Rollback Plans", "Rollback ready", "Secret source", "hetzner", "blocked_human_gate"]) {
       if (!providersText.includes(expected)) issues.push(`Missing live provider dashboard text: ${expected}`);
     }
 

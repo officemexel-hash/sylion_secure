@@ -368,6 +368,29 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
+              <h2>Provider Rehearsal <span class="help-tip" tabindex="0" data-tip="Runs the Step 3.18 provider smoke contract. Adapter sandbox has no cloud side effects; live provider mode requires explicit env gate and cleanup confirmation.">?</span></h2>
+              <span class="pill">Step 3.18</span>
+            </div>
+            <form id="provider-rehearsal-form">
+              <label>Provider <select name="providerId" id="provider-rehearsal-provider-select"></select></label>
+              <label>Operator <select name="operatorId" id="provider-rehearsal-operator-select"></select></label>
+              <label>Approval <select name="approvalId" id="provider-rehearsal-approval-select"></select></label>
+              <label>Region <input name="region" value="fsn1"></label>
+              <label>Idempotency <input name="idempotencyKey" value="step3-18-rehearsal-001"></label>
+              <label>Mode
+                <select name="rehearsalMode">
+                  <option value="adapter_sandbox" selected>Adapter sandbox</option>
+                  <option value="gate_only">Gate only</option>
+                  <option value="live_provider">Live provider</option>
+                </select>
+              </label>
+              <label class="check-row"><input type="checkbox" name="liveConfirmed" checked> I confirm rehearsal intent</label>
+              <label class="check-row"><input type="checkbox" name="cleanupConfirmed" checked> Cleanup/rollback must run</label>
+              <button type="submit">Run Rehearsal</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
               <h2>Firecracker Host <span class="help-tip" tabindex="0" data-tip="Qualifies a host for future Firecracker execution. It does not launch microVMs from the dashboard.">?</span></h2>
               <span class="pill warn">No launch</span>
             </div>
@@ -428,6 +451,10 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Live Cloud Requests</h2><span class="pill warn">Audited</span></div>
             <div class="cards" id="live-cloud-request-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Provider Rehearsals</h2><span class="pill">Smoke evidence</span></div>
+            <div class="cards" id="provider-rehearsal-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Live Rollback Plans <span class="help-tip" tabindex="0" data-tip="Every live provider request must have rollback metadata before mutation. Blocked requests keep no-op cleanup actions; executed requests store sanitized delete actions.">?</span></h2><span class="pill warn">Required</span></div>

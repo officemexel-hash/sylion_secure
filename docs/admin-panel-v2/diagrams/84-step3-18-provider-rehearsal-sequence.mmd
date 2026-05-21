@@ -1,0 +1,24 @@
+sequenceDiagram
+  participant Admin as "Admin dashboard"
+  participant API as "Admin API"
+  participant StepUp as "Fresh FIDO2 step-up"
+  participant Gate as "Provider rehearsal gate"
+  participant Adapter as "Hetzner adapter"
+  participant Audit as "Audit chain"
+
+  Admin->>API: Run provider rehearsal
+  API->>StepUp: Verify fresh step-up
+  StepUp-->>API: OK
+  API->>Gate: Check approval, operator, region, env, cleanup
+  alt adapter_sandbox
+    API->>Adapter: Synthetic create/list/delete
+    Adapter-->>API: G1/G2/WORKLOAD sandbox evidence
+    API->>Audit: smoke_passed sideEffectAllowed=false
+  else live_provider
+    API->>Adapter: Real create/list/delete after live smoke env gate
+    Adapter-->>API: sanitized provider evidence
+    API->>Audit: smoke_passed sideEffectAllowed=true
+  else blocked
+    Gate-->>API: blocker list
+    API->>Audit: blocked_human_gate
+  end

@@ -451,6 +451,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { plans: liveExecution.listRollbackPlans({ actor, correlationId }) });
       }
 
+      if (req.method === "GET" && url.pathname === "/live-execution/cloud/rehearsals") {
+        return send(res, 200, { rehearsals: liveExecution.listProviderRehearsals({ actor, correlationId }) });
+      }
+
       const providerReconcileMatch = url.pathname.match(/^\/live-execution\/cloud\/([^/]+)\/reconcile$/);
       if (req.method === "POST" && providerReconcileMatch) {
         const body = await readJson(req);
@@ -461,6 +465,23 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           correlationId
         });
         return send(res, 200, { reconciliation });
+      }
+
+      const providerRehearsalMatch = url.pathname.match(/^\/live-execution\/cloud\/([^/]+)\/rehearsal$/);
+      if (req.method === "POST" && providerRehearsalMatch) {
+        auth.requireFreshStepUp(actor, `live_cloud.${providerRehearsalMatch[1]}.rehearsal`, {
+          correlationId,
+          resourceType: "live_provider_rehearsal"
+        });
+        const body = await readJson(req);
+        const rehearsal = await liveExecution.runProviderRehearsal({
+          actor,
+          providerKey: providerRehearsalMatch[1],
+          idempotencyKey: req.headers["idempotency-key"] || body.idempotencyKey,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { rehearsal });
       }
 
       const rollbackExecuteMatch = url.pathname.match(/^\/live-execution\/cloud\/rollback-plans\/([^/]+)\/execute$/);
