@@ -33,6 +33,9 @@ test("provider registry stores provider API secret as references without plainte
   assert.deepEqual(provider.regions, ["fsn1", "hel1"]);
   assert.equal(provider.quota.instances, 8);
   assert.equal(provider.billingHealth.status, "healthy");
+  assert.equal(provider.runtimeCapabilities.containers, true);
+  assert.equal(provider.runtimeCapabilities.firecracker, "dedicated_only");
+  assert.equal(provider.runtimeCapabilities.recommendedTier, "STANDARD");
   assert.match(provider.apiSecretReference.secretReference, /^secret:\/\/admin-api\/secret_/);
   assert.equal(provider.connection.mode, "mock");
   assert.equal(provider.connection.status, "passed");
@@ -40,6 +43,37 @@ test("provider registry stores provider API secret as references without plainte
   const serialized = JSON.stringify({ provider, audit: audit.list() });
   assert.equal(serialized.includes(plaintext), false);
   assert.equal(Object.hasOwn(provider, "apiSecret"), false);
+});
+
+test("provider registry stores explicit runtime capability matrix for VPS providers", () => {
+  const audit = new AuditService();
+  const rbac = new RbacService({ audit });
+  const secrets = new SecretManagerService({ audit, rbac });
+  const providers = new ProviderRegistryService({ audit, rbac, secrets });
+
+  const provider = providers.create({
+    actor,
+    providerType: "aws",
+    apiSecret: "aws-secret-never-leak",
+    regions: ["eu-central-1"],
+    runtimeCapabilities: {
+      containers: true,
+      nestedKvm: "c8i_m8i_r8i_or_bare_metal",
+      bareMetalKvm: true,
+      firecracker: true,
+      intelTdx: "instance_family_review_required",
+      amdSevSnp: "nitro_confidential_review_required",
+      recommendedTier: "SOVEREIGN"
+    },
+    correlationId: "corr_provider_runtime_capabilities"
+  });
+
+  assert.equal(provider.providerKey, "aws");
+  assert.equal(provider.runtimeCapabilities.containers, true);
+  assert.equal(provider.runtimeCapabilities.firecracker, true);
+  assert.equal(provider.runtimeCapabilities.verificationRequired, true);
+  assert.equal(provider.runtimeCapabilities.recommendedTier, "SOVEREIGN");
+  assert.equal(JSON.stringify(provider).includes("aws-secret-never-leak"), false);
 });
 
 test("provider API secret rotation returns a new reference and emits audit without plaintext", () => {

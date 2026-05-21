@@ -576,6 +576,11 @@ function render() {
   $("#provider-cards").innerHTML = state.providers.map((provider) => card(provider.displayName, [
     ["Provider", provider.providerKey],
     ["Regions", provider.regions?.join(", ")],
+    ["Containers", String(provider.runtimeCapabilities?.containers)],
+    ["Firecracker", String(provider.runtimeCapabilities?.firecracker)],
+    ["TDX", String(provider.runtimeCapabilities?.intelTdx)],
+    ["SEV-SNP", String(provider.runtimeCapabilities?.amdSevSnp)],
+    ["Tier fit", provider.runtimeCapabilities?.recommendedTier || "-"],
     ["Secret", provider.apiSecretReference?.secretReference],
     ["Connection", provider.connection?.status]
   ])).join("") || empty("No providers yet.");
@@ -1492,6 +1497,7 @@ async function createProvider(event) {
       providerType: data.providerType,
       apiSecret: data.apiSecret,
       regions: splitCsv(data.regions),
+      runtimeCapabilities: runtimeCapabilitiesForClass(data.runtimeClass),
       billingHealth: { status: "healthy" },
       testConnection: { mode: "mock", status: "passed" }
     }
@@ -1499,6 +1505,16 @@ async function createProvider(event) {
   form.elements.namedItem("apiSecret").value = "";
   toast("Provider saved; secret cleared from form");
   await refreshAll();
+}
+
+function runtimeCapabilitiesForClass(runtimeClass) {
+  if (runtimeClass === "firecracker") {
+    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, intelTdx: false, amdSevSnp: false, recommendedTier: "PRO" };
+  }
+  if (runtimeClass === "confidential") {
+    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, intelTdx: true, amdSevSnp: true, recommendedTier: "SOVEREIGN" };
+  }
+  return { containers: true, nestedKvm: false, bareMetalKvm: false, firecracker: false, intelTdx: false, amdSevSnp: false, recommendedTier: "STANDARD" };
 }
 
 async function createProviderDryRunPlan(event) {

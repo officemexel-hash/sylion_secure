@@ -92,6 +92,8 @@ test("provider creation, list, and rotation expose secret references only", asyn
     assert.deepEqual(created.payload.provider.regions, ["fsn1", "nbg1"]);
     assert.equal(created.payload.provider.quota.vcpu, 24);
     assert.equal(created.payload.provider.billingHealth.status, "healthy");
+    assert.equal(created.payload.provider.runtimeCapabilities.containers, true);
+    assert.equal(created.payload.provider.runtimeCapabilities.firecracker, "dedicated_only");
     assert.match(created.payload.provider.apiSecretReference.secretReference, /^secret:\/\/admin-api\/secret_/);
     assert.equal(JSON.stringify(created.payload).includes(firstSecret), false);
 
@@ -152,6 +154,8 @@ test("custom providers are accepted with explicit metadata", async () => {
     assert.equal(created.payload.provider.providerKey, "sovereign-lab");
     assert.equal(created.payload.provider.metadata.extensible, true);
     assert.equal(created.payload.provider.metadata.docsUrl, "https://example.invalid/provider-docs");
+    assert.equal(created.payload.provider.runtimeCapabilities.containers, true);
+    assert.equal(created.payload.provider.runtimeCapabilities.firecracker, false);
     assert.equal(JSON.stringify(created.payload).includes("custom-provider-secret-never-leak"), false);
   } finally {
     await close();

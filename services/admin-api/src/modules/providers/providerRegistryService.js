@@ -9,14 +9,112 @@ const PROVIDER_METADATA = Object.freeze({
     displayName: "Hetzner Cloud",
     apiType: "token",
     defaultRegions: ["fsn1", "nbg1", "hel1", "ash", "hil"],
-    docsUrl: "https://docs.hetzner.cloud/"
+    docsUrl: "https://docs.hetzner.cloud/",
+    runtimeCapabilities: {
+      containers: true,
+      nestedKvm: false,
+      bareMetalKvm: "dedicated_only",
+      firecracker: "dedicated_only",
+      intelTdx: false,
+      amdSevSnp: false,
+      recommendedTier: "STANDARD"
+    }
   },
   ovh: {
     providerKey: "ovh",
     displayName: "OVHcloud",
     apiType: "application_secret",
     defaultRegions: ["gra", "rbx", "sbg", "waw", "bhs"],
-    docsUrl: "https://help.ovhcloud.com/csm/en-public-cloud-compute-api"
+    docsUrl: "https://help.ovhcloud.com/csm/en-public-cloud-compute-api",
+    runtimeCapabilities: {
+      containers: true,
+      nestedKvm: false,
+      bareMetalKvm: true,
+      firecracker: true,
+      intelTdx: "sgx_or_dedicated_confidential_only",
+      amdSevSnp: "bare_metal_review_required",
+      recommendedTier: "PRO"
+    }
+  },
+  aws: {
+    providerKey: "aws",
+    displayName: "AWS EC2",
+    apiType: "access_key",
+    defaultRegions: ["eu-central-1", "eu-west-1", "us-east-1"],
+    docsUrl: "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/amazon-ec2-nested-virtualization.html",
+    runtimeCapabilities: {
+      containers: true,
+      nestedKvm: "c8i_m8i_r8i_or_bare_metal",
+      bareMetalKvm: true,
+      firecracker: true,
+      intelTdx: "instance_family_review_required",
+      amdSevSnp: "nitro_confidential_review_required",
+      recommendedTier: "SOVEREIGN"
+    }
+  },
+  azure: {
+    providerKey: "azure",
+    displayName: "Microsoft Azure",
+    apiType: "service_principal",
+    defaultRegions: ["westeurope", "polandcentral", "germanywestcentral"],
+    docsUrl: "https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-vm-overview",
+    runtimeCapabilities: {
+      containers: true,
+      nestedKvm: "requires_supported_nested_virtualization_size",
+      bareMetalKvm: false,
+      firecracker: "nested_kvm_size_or_dedicated_host_required",
+      intelTdx: true,
+      amdSevSnp: true,
+      recommendedTier: "SOVEREIGN"
+    }
+  },
+  gcp: {
+    providerKey: "gcp",
+    displayName: "Google Cloud",
+    apiType: "service_account",
+    defaultRegions: ["europe-west1", "europe-west3", "us-central1"],
+    docsUrl: "https://cloud.google.com/confidential-computing/confidential-vm/docs/confidential-vm-overview",
+    runtimeCapabilities: {
+      containers: true,
+      nestedKvm: "nested_virtualization_supported_on_selected_machines",
+      bareMetalKvm: false,
+      firecracker: "nested_kvm_machine_required",
+      intelTdx: true,
+      amdSevSnp: true,
+      recommendedTier: "SOVEREIGN"
+    }
+  },
+  oracle: {
+    providerKey: "oracle",
+    displayName: "Oracle Cloud Infrastructure",
+    apiType: "api_key",
+    defaultRegions: ["eu-frankfurt-1", "uk-london-1", "us-ashburn-1"],
+    docsUrl: "https://docs.oracle.com/en-us/iaas/Content/Compute/References/confidential_compute.htm",
+    runtimeCapabilities: {
+      containers: true,
+      nestedKvm: "bare_metal_preferred",
+      bareMetalKvm: true,
+      firecracker: true,
+      intelTdx: "shape_review_required",
+      amdSevSnp: "amd_confidential_shape_review_required",
+      recommendedTier: "SOVEREIGN"
+    }
+  },
+  scaleway: {
+    providerKey: "scaleway",
+    displayName: "Scaleway Elastic Metal",
+    apiType: "token",
+    defaultRegions: ["fr-par", "nl-ams", "pl-waw"],
+    docsUrl: "https://www.scaleway.com/en/docs/tutorials/install-kvm-elastic-metal/",
+    runtimeCapabilities: {
+      containers: true,
+      nestedKvm: false,
+      bareMetalKvm: true,
+      firecracker: true,
+      intelTdx: false,
+      amdSevSnp: false,
+      recommendedTier: "PRO"
+    }
   }
 });
 
@@ -70,6 +168,19 @@ function normalizeConnectionResult(result) {
   };
 }
 
+function normalizeRuntimeCapabilities(capabilities = {}, defaults = {}) {
+  return {
+    containers: capabilities.containers ?? defaults.containers ?? true,
+    nestedKvm: capabilities.nestedKvm ?? defaults.nestedKvm ?? false,
+    bareMetalKvm: capabilities.bareMetalKvm ?? defaults.bareMetalKvm ?? false,
+    firecracker: capabilities.firecracker ?? defaults.firecracker ?? false,
+    intelTdx: capabilities.intelTdx ?? defaults.intelTdx ?? false,
+    amdSevSnp: capabilities.amdSevSnp ?? defaults.amdSevSnp ?? false,
+    recommendedTier: capabilities.recommendedTier || defaults.recommendedTier || "STANDARD",
+    verificationRequired: true
+  };
+}
+
 export class ProviderRegistryService {
   constructor({ audit, rbac, secrets, connectionTester = null, store = null }) {
     this.audit = audit;
@@ -89,6 +200,7 @@ export class ProviderRegistryService {
     regions,
     quota,
     billingHealth,
+    runtimeCapabilities,
     metadata = {},
     testConnection = { mode: "mock" },
     correlationId
@@ -134,6 +246,7 @@ export class ProviderRegistryService {
       regions: normalizeRegions(regions, base.defaultRegions),
       quota: normalizeQuota(quota),
       billingHealth: normalizeBillingHealth(billingHealth),
+      runtimeCapabilities: normalizeRuntimeCapabilities(runtimeCapabilities, base.runtimeCapabilities),
       connection: this.#testConnection({ providerKey: base.providerKey, testConnection, correlationId: corr }),
       createdAt: new Date().toISOString()
     };
@@ -281,6 +394,7 @@ export class ProviderRegistryService {
       providerKey,
       displayName: displayName || merged.displayName,
       defaultRegions: merged.defaultRegions || [],
+      runtimeCapabilities: merged.runtimeCapabilities || {},
       metadata: {
         providerKey,
         apiType: merged.apiType,

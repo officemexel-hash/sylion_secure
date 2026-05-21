@@ -396,10 +396,22 @@
                 <select name="providerType">
                   <option value="hetzner">Hetzner</option>
                   <option value="ovh">OVH</option>
+                  <option value="aws">AWS EC2</option>
+                  <option value="azure">Azure</option>
+                  <option value="gcp">Google Cloud</option>
+                  <option value="oracle">Oracle Cloud</option>
+                  <option value="scaleway">Scaleway Elastic Metal</option>
                 </select>
               </label>
               <label>API Secret <input name="apiSecret" type="password" placeholder="Provider API secret" required></label>
               <label>Regions <input name="regions" value="fsn1,nbg1"></label>
+              <label>Runtime class
+                <select name="runtimeClass">
+                  <option value="containers">Containers - Standard/Pro</option>
+                  <option value="firecracker">Firecracker/KVM - Pro+</option>
+                  <option value="confidential">TDX/SEV-SNP - Sovereign</option>
+                </select>
+              </label>
               <button type="submit">Save Provider</button>
             </form>
           </article>
