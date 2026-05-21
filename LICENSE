@@ -1,0 +1,84 @@
+SYLION Secure - Proprietary License (DRAFT)
+
+Copyright (c) 2026 SYLION. All rights reserved.
+
+THIS FILE IS A DRAFT PLACEHOLDER. THE FINAL LICENSE WORDING REQUIRES
+APPROVAL BY LEGAL COUNSEL BEFORE BEING TREATED AS AUTHORITATIVE.
+
+================================================================================
+
+1. STATEMENT OF RIGHTS
+
+   All rights in and to the source code, documentation, design records,
+   threat analyses, and any other materials in this repository (the "Work")
+   are reserved by the copyright holder.
+
+2. PURPOSE OF PUBLICATION
+
+   This repository is published for the purpose of:
+
+     (a) transparency to reviewers, auditors, and regulators;
+     (b) verification of architecture, security boundaries, and HUMAN GATE
+         enforcement claims;
+     (c) facilitation of responsible security disclosure under SECURITY.md.
+
+   Publication does not constitute a grant of license or rights to use,
+   reuse, modify, distribute, or commercialize the Work.
+
+3. PERMITTED INSPECTION
+
+   Subject to applicable law, you may:
+
+     (a) read and analyze the Work for the purpose of evaluation, audit,
+         security research, or compliance review;
+     (b) reference the Work in writing for the purpose of (a) above,
+         provided clear attribution and a link to this repository.
+
+4. RESTRICTED USES
+
+   You may not, without prior written permission from the copyright holder:
+
+     (a) copy, reproduce, distribute, or sublicense the Work or any portion
+         of it;
+     (b) modify, adapt, translate, or create derivative works based on the
+         Work;
+     (c) use the Work, in whole or in part, for any commercial purpose;
+     (d) use the Work to provide a service to third parties;
+     (e) extract, reuse, or operationalize any of the threat analyses or
+         PHANTOM [A] materials in any production system.
+
+5. PHANTOM [A] BOUNDARY
+
+   The Work includes documents and analyses related to autonomous PHANTOM
+   capabilities ("[A] Material"). The [A] Material is published as
+   documentation of design intent and residual risk. It is not intended
+   as, and must not be used as, operational instructions.
+
+   The copyright holder asserts that no use of the [A] Material to enable
+   illegal surveillance evasion, identity falsification, unauthorized
+   interception, or any other unlawful conduct is permitted under this
+   license.
+
+6. NO WARRANTY
+
+   THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
+   THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE WORK OR THE USE OR OTHER
+   DEALINGS IN THE WORK.
+
+7. APPLICABLE LAW
+
+   The applicable governing law for this license is to be set by Legal
+   counsel in the final non-draft version of this file.
+
+8. CONTACT
+
+   For questions about this license, licensing requests, or commercial
+   inquiries: refer to SECURITY.md and project contact channels.
+
+================================================================================
+
+END OF DRAFT LICENSE PLACEHOLDER
