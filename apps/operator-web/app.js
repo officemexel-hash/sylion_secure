@@ -119,6 +119,7 @@
       return;
     }
     setText("#operator-session", `${me.me.displayName} (${me.me.tier})`);
+    updateSessionCountdown();
     const vpn = await fetchJson("/operator-api/vpn-status");
     if (!vpn.error) setText("#vpn-overview", vpn.vpn.state);
     await loadStreaming();
@@ -195,6 +196,151 @@
     });
     setText("#session-status", result.error || "HSM references saved");
     await loadHsm();
+  }
+
+  async function loadUnlockPolicy() {
+    const list = $("#unlock-list");
+    if (!list) return;
+    const data = await fetchJson("/operator-api/settings/unlock");
+    if (data.error) {
+      list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
+      return;
+    }
+    const p = data.policy;
+    const form = $("#unlock-form");
+    if (form) {
+      form.elements.sessionHours.value = p.sessionHours;
+      form.elements.sessionHours.max = p.maxSessionHoursByTier;
+      form.elements.fido2RequiredAtSessionEnd.checked = p.fido2?.requiredAtSessionEnd !== false;
+    }
+    list.innerHTML = Object.values(p.layers || {}).map((layer) => `
+      <li>
+        <strong>${escapeHtml(layer.layer.toUpperCase())}</strong>
+        <span>password set: ${escapeHtml(layer.passwordSet)} | rotated: ${escapeHtml(layer.rotatedAt || "never")} | material stored: ${escapeHtml(layer.passwordMaterialStored)}</span>
+      </li>
+    `).join("") + `
+      <li><strong>Session</strong><span>${escapeHtml(p.sessionHours)}h active window, max ${escapeHtml(p.maxSessionHoursByTier)}h for tier, FIDO2 deferred: ${escapeHtml(p.fido2?.deferred)}</span></li>
+    `;
+  }
+
+  async function loadSafetyPolicy() {
+    const list = $("#safety-list");
+    if (!list) return;
+    const data = await fetchJson("/operator-api/settings/safety");
+    if (data.error) {
+      list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
+      return;
+    }
+    const p = data.policy;
+    const form = $("#safety-form");
+    if (form) {
+      form.elements.backupEnabled.checked = p.backup?.enabled === true;
+      form.elements.backupCadenceHours.value = p.backup?.cadenceHours || 24;
+      form.elements.inactivityWipeEnabled.checked = p.inactivityWipe?.enabled !== false;
+      form.elements.inactivityWipeDays.value = p.inactivityWipe?.afterDays || 14;
+    }
+    list.innerHTML = `
+      <li><strong>Backup</strong><span>${escapeHtml(p.backup.enabled)} | ${escapeHtml(p.backup.scope)} every ${escapeHtml(p.backup.cadenceHours)}h | workload data included: ${escapeHtml(p.backup.workloadDataIncluded)}</span></li>
+      <li><strong>Inactivity wipe</strong><span>${escapeHtml(p.inactivityWipe.enabled)} after ${escapeHtml(p.inactivityWipe.afterDays)} days | state ${escapeHtml(p.inactivityWipe.state)}</span></li>
+      ${Object.values(p.panicCodes || {}).map((entry) => `<li><strong>${escapeHtml(entry.level)}</strong><span>code set: ${escapeHtml(entry.codeSet)} | rotated: ${escapeHtml(entry.rotatedAt || "never")} | material stored: ${escapeHtml(entry.codeMaterialStored)}</span></li>`).join("")}
+    `;
+  }
+
+  async function saveSafetyPolicy(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/settings/safety", {
+      method: "POST",
+      body: {
+        backupEnabled: data.backupEnabled === "on",
+        backupCadenceHours: Number(data.backupCadenceHours),
+        inactivityWipeEnabled: data.inactivityWipeEnabled === "on",
+        inactivityWipeDays: Number(data.inactivityWipeDays),
+        data_wipeCode: data.data_wipeCode,
+        environment_destroyCode: data.environment_destroyCode,
+        account_revokeCode: data.account_revokeCode
+      }
+    });
+    setText("#session-status", result.error || "Safety policy saved");
+    event.currentTarget.reset();
+    await loadSafetyPolicy();
+  }
+
+  async function loadJurisdictionPolicy() {
+    const list = $("#jurisdiction-list");
+    if (!list) return;
+    const data = await fetchJson("/operator-api/settings/jurisdiction");
+    if (data.error) {
+      list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
+      return;
+    }
+    const p = data.policy;
+    const form = $("#jurisdiction-form");
+    if (form) {
+      form.elements.mode.value = p.mode;
+      form.elements.regions.value = (p.regions || []).join(",");
+    }
+    list.innerHTML = `<li><strong>${escapeHtml(p.mode)}</strong><span>tier mode: ${escapeHtml(p.subscriptionMode)} | regions: ${escapeHtml((p.regions || []).join(", ") || "none")} | state: ${escapeHtml(p.state)}</span></li>`;
+  }
+
+  async function saveJurisdictionPolicy(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/settings/jurisdiction", {
+      method: "POST",
+      body: {
+        mode: data.mode,
+        regions: splitCsv(data.regions)
+      }
+    });
+    setText("#session-status", result.error || "Jurisdiction policy saved");
+    await loadJurisdictionPolicy();
+  }
+
+  async function loadMatrixServer() {
+    const list = $("#matrix-list");
+    if (!list) return;
+    const data = await fetchJson("/operator-api/matrix-server");
+    if (data.error) {
+      list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
+      return;
+    }
+    const request = data.matrix.latestRequest;
+    list.innerHTML = request
+      ? `<li><strong>${escapeHtml(request.hostname)}</strong><span>${escapeHtml(request.state)} | federation: ${escapeHtml(request.federation)} | addon required: ${escapeHtml(request.addonRequired)}</span></li>`
+      : `<li class="placeholder">No Matrix server request yet.</li>`;
+  }
+
+  async function requestMatrixServer(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/matrix-server/requests", {
+      method: "POST",
+      body: {
+        hostname: data.hostname,
+        federation: data.federation === "on"
+      }
+    });
+    setText("#session-status", result.error || `Matrix request queued: ${result.request.state}`);
+    await loadMatrixServer();
+  }
+
+  async function saveUnlockPolicy(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/settings/unlock", {
+      method: "POST",
+      body: {
+        sessionHours: Number(data.sessionHours),
+        g1Password: data.g1Password,
+        g2Password: data.g2Password,
+        workloadPassword: data.workloadPassword,
+        fido2RequiredAtSessionEnd: data.fido2RequiredAtSessionEnd === "on"
+      }
+    });
+    setText("#session-status", result.error || "Unlock policy saved");
+    event.currentTarget.reset();
+    await loadUnlockPolicy();
   }
 
   async function loadVpn() {
@@ -355,6 +501,20 @@
     setText("#subscription-quota", `max environments: ${data.subscription.quota?.maxWorkloadEnvironments ?? "-"}`);
   }
 
+  async function requestSubscriptionChange(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/subscription/requests", {
+      method: "POST",
+      body: {
+        action: data.action,
+        targetTier: data.targetTier
+      }
+    });
+    setText("#subscription-request-status", result.error || `${result.request.action} -> ${result.request.state} (${result.request.currentTier} to ${result.request.targetTier})`);
+    setText("#session-status", result.error || "Subscription request queued");
+  }
+
   async function loadWorkloads() {
     const list = $("#workloads-list");
     if (!list) return;
@@ -368,6 +528,53 @@
       .join("") || `<li class="placeholder">No workload allocations yet.</li>`;
   }
 
+  async function loadWorkloadControl() {
+    const data = await fetchJson("/operator-api/workload-control");
+    if (data.error) {
+      setText("#workload-control-quota", data.error);
+      return;
+    }
+    const c = data.control;
+    setText("#workload-control-quota", `${c.quota.tier}: ${c.quota.maxWorkloadEnvironments} environments, ${c.quota.maxAppsPerOperator} app families`);
+    setText("#workload-control-current", countsToText(c.currentCounts));
+    setText("#workload-control-last", c.latestRequest ? `${c.latestRequest.action} -> ${c.latestRequest.state} (${c.latestRequest.totalRequested}/${c.quota.maxWorkloadEnvironments})` : "none");
+    const form = $("#workload-control-form");
+    if (form) {
+      const counts = c.latestDesiredCounts || c.currentCounts || {};
+      Object.entries(counts).forEach(([key, value]) => {
+        if (form.elements[key]) form.elements[key].value = value;
+      });
+    }
+  }
+
+  async function requestWorkloadControl(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const appKeys = [
+      "whatsapp",
+      "signal",
+      "telegram",
+      "threema",
+      "zangi",
+      "matrix_client",
+      "matrix_server",
+      "duckduckgo_browser",
+      "libreoffice"
+    ];
+    const desiredCounts = Object.fromEntries(appKeys.map((key) => [key, Number(data[key] || 0)]));
+    const result = await fetchJson("/operator-api/workload-control/requests", {
+      method: "POST",
+      body: {
+        action: data.action,
+        rotateApp: data.rotateApp,
+        desiredCounts
+      }
+    });
+    setText("#session-status", result.error || `Workload control queued: ${result.request.state}`);
+    await loadWorkloadControl();
+    await loadAudit();
+  }
+
   function setText(sel, value) {
     const el = $(sel);
     if (el) el.textContent = value;
@@ -375,6 +582,27 @@
 
   function splitCsv(value) {
     return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+  }
+
+  function countsToText(counts = {}) {
+    const entries = Object.entries(counts).filter(([, value]) => Number(value) > 0);
+    return entries.length ? entries.map(([key, value]) => `${key}:${value}`).join(", ") : "none";
+  }
+
+  function updateSessionCountdown() {
+    const expiresAt = state.session?.expiresAt;
+    if (!expiresAt) {
+      setText("#session-countdown", "Session timer unavailable.");
+      return;
+    }
+    const ms = Date.parse(expiresAt) - Date.now();
+    if (!Number.isFinite(ms) || ms <= 0) {
+      setText("#session-countdown", "Session expired. Re-authentication required.");
+      return;
+    }
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    setText("#session-countdown", `Session expires in ${hours}h ${minutes}m. After that, layer passwords and FIDO2 re-auth are required.`);
   }
 
   function escapeHtml(value) {
@@ -391,11 +619,16 @@
     if (viewId === "overview") loadOverview();
     if (viewId === "devices") loadDevices();
     if (viewId === "workloads") loadWorkloads();
+    if (viewId === "workload-control") loadWorkloadControl();
     if (viewId === "connection-path") loadConnectionPath();
     if (viewId === "signal-preview") loadSignalPreview();
     if (viewId === "vpn") loadVpn();
     if (viewId === "streaming") loadStreaming();
     if (viewId === "audit") loadAudit();
+    if (viewId === "settings-unlock") loadUnlockPolicy();
+    if (viewId === "settings-safety") loadSafetyPolicy();
+    if (viewId === "settings-jurisdiction") loadJurisdictionPolicy();
+    if (viewId === "matrix-server") loadMatrixServer();
     if (viewId === "settings-fido2") loadFido2();
     if (viewId === "settings-hsm") loadHsm();
     if (viewId === "subscription") loadSubscription();
@@ -405,6 +638,12 @@
     bootstrapLocalLabToken();
     $(".sidebar").addEventListener("click", handleNav);
     $("#session-form").addEventListener("submit", createLocalSession);
+    $("#workload-control-form").addEventListener("submit", requestWorkloadControl);
+    $("#unlock-form").addEventListener("submit", saveUnlockPolicy);
+    $("#safety-form").addEventListener("submit", saveSafetyPolicy);
+    $("#jurisdiction-form").addEventListener("submit", saveJurisdictionPolicy);
+    $("#matrix-form").addEventListener("submit", requestMatrixServer);
+    $("#subscription-form").addEventListener("submit", requestSubscriptionChange);
     $("#fido2-form").addEventListener("submit", saveFido2);
     $("#hsm-form").addEventListener("submit", saveHsm);
     if (state.session) {
@@ -413,6 +652,8 @@
     const initialView = (location.hash || "#overview").replace("#", "");
     setActiveView(initialView);
     loadViewData(initialView);
+    updateSessionCountdown();
+    setInterval(updateSessionCountdown, 30000);
     window.addEventListener("resize", () => {
       if ($("#streaming")?.classList.contains("active")) loadStreaming();
     });

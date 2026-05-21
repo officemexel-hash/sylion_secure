@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { DEVICE_TYPES, RESOURCE_TYPES } from "../../domain/constants.js";
+import { DEVICE_TYPES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { AppError, notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
@@ -8,6 +8,23 @@ const TERMINAL_MODES = Object.freeze({
   PIXEL: "pixel_grapheneos",
   LAPTOP: "laptop_web_terminal"
 });
+
+const WORKLOAD_CONTROL_APPS = Object.freeze([
+  { key: "whatsapp", name: "WhatsApp" },
+  { key: "signal", name: "Signal" },
+  { key: "telegram", name: "Telegram" },
+  { key: "threema", name: "Threema" },
+  { key: "zangi", name: "Zangi" },
+  { key: "matrix_client", name: "Matrix Client" },
+  { key: "matrix_server", name: "Matrix Server" },
+  { key: "duckduckgo_browser", name: "DuckDuckGo Browser" },
+  { key: "libreoffice", name: "LibreOffice" }
+]);
+
+const WORKLOAD_CONTROL_ACTIONS = new Set(["scale_to_counts", "rotate_app", "recreate_all"]);
+const UNLOCK_LAYERS = Object.freeze(["g1", "g2", "workload"]);
+const PANIC_LEVELS = Object.freeze(["data_wipe", "environment_destroy", "account_revoke"]);
+const JURISDICTION_MODES = Object.freeze(["disabled", "manual", "scheduled", "full_policy"]);
 
 function isoNow() {
   return new Date().toISOString();
@@ -28,6 +45,7 @@ function publicSession(session) {
     tenantId: session.tenantId,
     terminalMode: session.terminalMode,
     deviceId: session.deviceId,
+    sessionHours: session.sessionHours,
     expiresAt: session.expiresAt,
     productionExecutionAllowed: false,
     sideEffectAllowed: false,
@@ -47,6 +65,12 @@ export class OperatorPortalService {
     this.routerReadiness = routerReadiness;
     this.env = env;
     this.sessions = new PersistentMap({ store, collection: "operator_portal_sessions" });
+    this.workloadControlRequests = new PersistentMap({ store, collection: "operator_workload_control_requests" });
+    this.unlockPolicies = new PersistentMap({ store, collection: "operator_unlock_policies" });
+    this.safetyPolicies = new PersistentMap({ store, collection: "operator_safety_policies" });
+    this.jurisdictionPolicies = new PersistentMap({ store, collection: "operator_jurisdiction_policies" });
+    this.matrixRequests = new PersistentMap({ store, collection: "operator_matrix_server_requests" });
+    this.subscriptionRequests = new PersistentMap({ store, collection: "operator_subscription_change_requests" });
   }
 
   createLocalSession({ actor, operatorId, terminalMode, deviceId = null, correlationId }) {
@@ -60,6 +84,7 @@ export class OperatorPortalService {
     const mode = normalizeTerminalMode(terminalMode);
     const device = deviceId ? this.#requireAssignedTerminalDevice({ deviceId, operatorId, terminalMode: mode }) : null;
     const token = `op_${randomBytes(32).toString("hex")}`;
+    const sessionHours = this.#sessionHoursForOperator(operatorId, operator.tier);
     const session = {
       id: newId("op_session"),
       token,
@@ -69,7 +94,8 @@ export class OperatorPortalService {
       deviceId: device?.id || null,
       postureState: device?.posture?.state || "configuration_pending",
       createdAt: isoNow(),
-      expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+      sessionHours,
+      expiresAt: new Date(Date.now() + sessionHours * 60 * 60 * 1000).toISOString(),
       createdBy: actor.id,
       productionExecutionAllowed: false,
       sideEffectAllowed: false
@@ -161,6 +187,98 @@ export class OperatorPortalService {
       microVmId: slot.microVmId,
       isolation: slot.isolation
     }));
+  }
+
+  workloadControl({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const subscription = this.subscription({ operatorActor, correlationId });
+    const currentCounts = this.#currentWorkloadCounts(operatorActor.operatorId);
+    const latestRequest = [...this.workloadControlRequests.values()]
+      .filter((request) => request.operatorId === operatorActor.operatorId)
+      .at(-1) || null;
+    return {
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      catalog: WORKLOAD_CONTROL_APPS,
+      quota: {
+        maxWorkloadEnvironments: subscription.quota.maxWorkloadEnvironments,
+        maxAppsPerOperator: subscription.quota.maxAppsPerOperator,
+        tier: subscription.plan
+      },
+      currentCounts,
+      latestDesiredCounts: latestRequest?.desiredCounts || currentCounts,
+      latestRequest: latestRequest ? this.#publicWorkloadControlRequest(latestRequest) : null,
+      actions: [
+        { key: "scale_to_counts", label: "Set desired counts", destructive: false },
+        { key: "rotate_app", label: "Delete and recreate one app family", destructive: true },
+        { key: "recreate_all", label: "Delete and recreate all environments", destructive: true }
+      ],
+      guardrails: {
+        cdrRequired: true,
+        terminalDataStored: false,
+        quotaEnforced: true,
+        destructiveCleanupAllowed: false,
+        controlPlaneOnly: true,
+        productionExecutionAllowed: false
+      }
+    };
+  }
+
+  requestWorkloadControl({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const action = String(body.action || "scale_to_counts").trim();
+    if (!WORKLOAD_CONTROL_ACTIONS.has(action)) {
+      throw validationError("Unsupported workload control action", {
+        action,
+        supported: [...WORKLOAD_CONTROL_ACTIONS]
+      });
+    }
+    const desiredCounts = this.#normalizeDesiredCounts(body.desiredCounts || {});
+    const subscription = this.subscription({ operatorActor, correlationId: corr });
+    const totalRequested = Object.values(desiredCounts).reduce((sum, value) => sum + value, 0);
+    const quota = subscription.quota.maxWorkloadEnvironments;
+    if (totalRequested > quota) {
+      throw validationError("Requested workload environments exceed subscription quota", {
+        totalRequested,
+        maxWorkloadEnvironments: quota,
+        tier: subscription.plan
+      });
+    }
+    const rotateApp = action === "rotate_app" ? this.#normalizeWorkloadApp(body.rotateApp) : null;
+    const request = {
+      id: newId("workload_control"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      action,
+      rotateApp,
+      desiredCounts,
+      totalRequested,
+      quota: subscription.quota,
+      state: action === "scale_to_counts" ? "queued_control_plane_update" : "queued_destructive_recreate_control_plane",
+      deleteRecreateMode: action === "scale_to_counts" ? "not_requested" : "queued_control_plane",
+      cdrRequired: true,
+      terminalDataStored: false,
+      controlPlaneOnly: true,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      destructiveCleanupAllowed: false,
+      requestedBy: operatorActor.id,
+      requestedAt: isoNow()
+    };
+    this.workloadControlRequests.set(request.id, request);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.workload_control_requested",
+      resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+      resourceId: request.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: request.state,
+      newValue: this.#publicWorkloadControlRequest(request)
+    });
+    return this.#publicWorkloadControlRequest(request);
   }
 
   connectionPath({ operatorActor, correlationId }) {
@@ -356,8 +474,49 @@ export class OperatorPortalService {
       plan: subscription.tier,
       quota: subscription.effectiveLimits,
       billingStatus: subscription.billingStatus,
+      addons: subscription.addons || [],
       destructiveCleanupAllowed: false
     };
+  }
+
+  requestSubscriptionChange({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const targetTier = String(body.targetTier || "").trim().toUpperCase();
+    const action = String(body.action || "upgrade").trim();
+    if (!["renew", "upgrade", "downgrade"].includes(action)) {
+      throw validationError("Unsupported subscription action", { action });
+    }
+    if (action !== "renew" && !Object.values(TIERS).includes(targetTier)) {
+      throw validationError("Unknown subscription tier", { targetTier });
+    }
+    const current = this.subscription({ operatorActor, correlationId: corr });
+    const request = {
+      id: newId("sub_change"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      action,
+      currentTier: current.plan,
+      targetTier: action === "renew" ? current.plan : targetTier,
+      state: "queued_billing_review",
+      billingExecutionAllowed: false,
+      productionExecutionAllowed: false,
+      requestedAt: isoNow(),
+      requestedBy: operatorActor.id
+    };
+    this.subscriptionRequests.set(request.id, request);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.subscription_change_requested",
+      resourceType: RESOURCE_TYPES.TENANT_SUBSCRIPTION,
+      resourceId: request.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: request.state,
+      newValue: request
+    });
+    return request;
   }
 
   auditEvents({ operatorActor, correlationId }) {
@@ -414,6 +573,227 @@ export class OperatorPortalService {
       ...body,
       correlationId
     });
+  }
+
+  unlockPolicy({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const operator = this.#requireOperator(operatorActor.operatorId);
+    return this.#publicUnlockPolicy(this.#unlockPolicyForOperator(operatorActor.operatorId, operator.tier));
+  }
+
+  updateUnlockPolicy({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const operator = this.#requireOperator(operatorActor.operatorId);
+    const previous = this.#unlockPolicyForOperator(operatorActor.operatorId, operator.tier);
+    const maxHours = this.#tierSessionMax(operator.tier);
+    const sessionHours = this.#normalizeSessionHours(body.sessionHours, maxHours);
+    const now = isoNow();
+    const nextLayers = { ...previous.layers };
+    const passwordFields = {
+      g1: body.g1Password,
+      g2: body.g2Password,
+      workload: body.workloadPassword || body.vpsPassword
+    };
+    for (const layer of UNLOCK_LAYERS) {
+      if (passwordFields[layer] !== undefined && passwordFields[layer] !== "") {
+        this.#assertWriteOnlyPassphrase(passwordFields[layer], layer);
+        nextLayers[layer] = {
+          layer,
+          passwordSet: true,
+          passwordVerifierRef: `password-ref://${operatorActor.operatorId}/${layer}/${newId("verifier")}`,
+          rotatedAt: now,
+          passwordMaterialStored: false
+        };
+      }
+    }
+    const next = {
+      ...previous,
+      sessionHours,
+      sessionExpiresAfterHours: sessionHours,
+      layers: nextLayers,
+      fido2: {
+        requiredAtSessionEnd: body.fido2RequiredAtSessionEnd !== false,
+        deferred: true,
+        reauthWindowMinutes: 15
+      },
+      unlockDuringActiveSession: true,
+      updatedAt: now,
+      updatedBy: operatorActor.id,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+    this.unlockPolicies.set(operatorActor.operatorId, next);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.unlock_policy_updated",
+      resourceType: RESOURCE_TYPES.SECURITY_PROFILE,
+      resourceId: next.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: "write_only_policy_saved",
+      previousValue: this.#publicUnlockPolicy(previous),
+      newValue: this.#publicUnlockPolicy(next)
+    });
+    return this.#publicUnlockPolicy(next);
+  }
+
+  safetyPolicy({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    return this.#publicSafetyPolicy(this.#safetyPolicyForOperator(operatorActor.operatorId));
+  }
+
+  updateSafetyPolicy({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const previous = this.#safetyPolicyForOperator(operatorActor.operatorId);
+    const inactivityWipeDays = this.#normalizeInteger(body.inactivityWipeDays, "inactivityWipeDays", 1, 365, previous.inactivityWipeDays);
+    const backupEnabled = body.backupEnabled === true;
+    const backupCadenceHours = this.#normalizeInteger(body.backupCadenceHours, "backupCadenceHours", 1, 168, previous.backupCadenceHours);
+    const now = isoNow();
+    const nextPanic = { ...previous.panicCodes };
+    for (const level of PANIC_LEVELS) {
+      const field = `${level}Code`;
+      if (body[field] !== undefined && body[field] !== "") {
+        this.#assertWriteOnlyPassphrase(body[field], level);
+        nextPanic[level] = {
+          level,
+          codeSet: true,
+          verifierRef: `panic-ref://${operatorActor.operatorId}/${level}/${newId("verifier")}`,
+          rotatedAt: now,
+          codeMaterialStored: false
+        };
+      }
+    }
+    const next = {
+      ...previous,
+      backup: {
+        enabled: backupEnabled,
+        scope: "configuration_and_metadata_only",
+        cadenceHours: backupCadenceHours,
+        workloadDataIncluded: false,
+        cdrRequiredForRestore: true
+      },
+      inactivityWipe: {
+        enabled: body.inactivityWipeEnabled !== false,
+        afterDays: inactivityWipeDays,
+        lastSessionAt: this.#latestSessionForOperator(operatorActor.operatorId)?.createdAt || null,
+        state: "armed_control_plane"
+      },
+      panicCodes: nextPanic,
+      updatedAt: now,
+      updatedBy: operatorActor.id
+    };
+    this.safetyPolicies.set(operatorActor.operatorId, next);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.safety_policy_updated",
+      resourceType: RESOURCE_TYPES.SECURITY_PROFILE,
+      resourceId: next.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: "write_only_safety_policy_saved",
+      previousValue: this.#publicSafetyPolicy(previous),
+      newValue: this.#publicSafetyPolicy(next)
+    });
+    return this.#publicSafetyPolicy(next);
+  }
+
+  jurisdictionPolicy({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    return this.#publicJurisdictionPolicy(this.#jurisdictionPolicyForOperator({ operatorActor, correlationId }));
+  }
+
+  updateJurisdictionPolicy({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const subscription = this.subscription({ operatorActor, correlationId: corr });
+    const mode = String(body.mode || "disabled").trim();
+    if (!JURISDICTION_MODES.includes(mode)) {
+      throw validationError("Unsupported jurisdiction mode", { mode, supported: JURISDICTION_MODES });
+    }
+    this.#assertJurisdictionModeAllowed(mode, subscription.quota.jurisdictionRotationMode);
+    const regions = Array.isArray(body.regions) ? body.regions.map((item) => String(item).trim()).filter(Boolean) : [];
+    const next = {
+      id: `jurisdiction_${operatorActor.operatorId}`,
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      mode,
+      regions,
+      subscriptionMode: subscription.quota.jurisdictionRotationMode,
+      state: "queued_policy_update",
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      updatedAt: isoNow(),
+      updatedBy: operatorActor.id
+    };
+    this.jurisdictionPolicies.set(operatorActor.operatorId, next);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.jurisdiction_policy_updated",
+      resourceType: RESOURCE_TYPES.TENANT_SUBSCRIPTION,
+      resourceId: next.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: next.state,
+      newValue: this.#publicJurisdictionPolicy(next)
+    });
+    return this.#publicJurisdictionPolicy(next);
+  }
+
+  matrixServer({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const latestRequest = [...this.matrixRequests.values()]
+      .filter((request) => request.operatorId === operatorActor.operatorId)
+      .at(-1) || null;
+    return {
+      operatorId: operatorActor.operatorId,
+      latestRequest,
+      addonRequired: true,
+      cdrRequired: true,
+      terminalDataStored: false,
+      productionExecutionAllowed: false
+    };
+  }
+
+  requestMatrixServer({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const hostname = String(body.hostname || "").trim().toLowerCase();
+    if (!/^[a-z0-9.-]{3,253}$/.test(hostname)) {
+      throw validationError("Valid Matrix hostname is required", { hostname });
+    }
+    const request = {
+      id: newId("matrix_req"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      hostname,
+      federation: body.federation === true,
+      state: "queued_addon_and_dns_review",
+      addonRequired: true,
+      cdrRequired: true,
+      terminalDataStored: false,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      requestedAt: isoNow(),
+      requestedBy: operatorActor.id
+    };
+    this.matrixRequests.set(request.id, request);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.matrix_server_requested",
+      resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+      resourceId: request.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: request.state,
+      newValue: request
+    });
+    return request;
   }
 
   terminalProfiles({ operatorActor, correlationId }) {
@@ -616,6 +996,275 @@ export class OperatorPortalService {
       secretsReleaseAllowed: false,
       terminalDataStored: false,
       productionExecutionAllowed: false
+    };
+  }
+
+  #currentWorkloadCounts(operatorId) {
+    const counts = Object.fromEntries(WORKLOAD_CONTROL_APPS.map((app) => [app.key, 0]));
+    for (const slot of this.#latestMicroVmSlots(operatorId)) {
+      if (counts[slot.templateKey] === undefined) counts[slot.templateKey] = 0;
+      counts[slot.templateKey] += 1;
+    }
+    return counts;
+  }
+
+  #normalizeDesiredCounts(value) {
+    const desired = Object.fromEntries(WORKLOAD_CONTROL_APPS.map((app) => [app.key, 0]));
+    for (const app of WORKLOAD_CONTROL_APPS) {
+      const raw = value[app.key];
+      const count = raw === undefined || raw === "" ? 0 : Number(raw);
+      if (!Number.isInteger(count) || count < 0 || count > 30) {
+        throw validationError("Workload count must be an integer between 0 and 30", {
+          app: app.key,
+          value: raw
+        });
+      }
+      desired[app.key] = count;
+    }
+    return desired;
+  }
+
+  #normalizeWorkloadApp(value) {
+    const key = String(value || "").trim().toLowerCase();
+    if (!WORKLOAD_CONTROL_APPS.some((app) => app.key === key)) {
+      throw validationError("Unknown workload app", {
+        app: value,
+        supported: WORKLOAD_CONTROL_APPS.map((app) => app.key)
+      });
+    }
+    return key;
+  }
+
+  #publicWorkloadControlRequest(request) {
+    return {
+      id: request.id,
+      operatorId: request.operatorId,
+      tenantId: request.tenantId,
+      action: request.action,
+      rotateApp: request.rotateApp,
+      desiredCounts: request.desiredCounts,
+      totalRequested: request.totalRequested,
+      quota: {
+        maxWorkloadEnvironments: request.quota.maxWorkloadEnvironments,
+        maxAppsPerOperator: request.quota.maxAppsPerOperator,
+        tier: request.quota.tier
+      },
+      state: request.state,
+      deleteRecreateMode: request.deleteRecreateMode,
+      cdrRequired: true,
+      terminalDataStored: false,
+      controlPlaneOnly: true,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      destructiveCleanupAllowed: false,
+      requestedAt: request.requestedAt
+    };
+  }
+
+  #sessionHoursForOperator(operatorId, tier) {
+    const policy = this.unlockPolicies.get(operatorId);
+    if (policy?.sessionHours) return this.#normalizeSessionHours(policy.sessionHours, this.#tierSessionMax(tier));
+    return Math.min(12, this.#tierSessionMax(tier));
+  }
+
+  #tierSessionMax(tier) {
+    if (tier === TIERS.SOVEREIGN) return 24;
+    if (tier === TIERS.PRO) return 12;
+    return 8;
+  }
+
+  #normalizeSessionHours(value, maxHours) {
+    const hours = value === undefined || value === null || value === "" ? Math.min(12, maxHours) : Number(value);
+    if (!Number.isInteger(hours) || hours < 1 || hours > maxHours) {
+      throw validationError("Session duration exceeds tier policy", {
+        sessionHours: value,
+        min: 1,
+        max: maxHours
+      });
+    }
+    return hours;
+  }
+
+  #normalizeInteger(value, field, min, max, fallback) {
+    const number = value === undefined || value === null || value === "" ? fallback : Number(value);
+    if (!Number.isInteger(number) || number < min || number > max) {
+      throw validationError(`${field} must be between ${min} and ${max}`, { field, value, min, max });
+    }
+    return number;
+  }
+
+  #unlockPolicyForOperator(operatorId, tier) {
+    const existing = this.unlockPolicies.get(operatorId);
+    if (existing) return existing;
+    const now = isoNow();
+    return {
+      id: `unlock_${operatorId}`,
+      operatorId,
+      sessionHours: Math.min(12, this.#tierSessionMax(tier)),
+      sessionExpiresAfterHours: Math.min(12, this.#tierSessionMax(tier)),
+      layers: Object.fromEntries(UNLOCK_LAYERS.map((layer) => [layer, {
+        layer,
+        passwordSet: false,
+        passwordVerifierRef: null,
+        rotatedAt: null,
+        passwordMaterialStored: false
+      }])),
+      fido2: {
+        requiredAtSessionEnd: true,
+        deferred: true,
+        reauthWindowMinutes: 15
+      },
+      unlockDuringActiveSession: true,
+      createdAt: now,
+      updatedAt: now,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #assertWriteOnlyPassphrase(value, layer) {
+    const text = String(value || "");
+    if (text.length < 8) {
+      throw validationError("Layer passphrase must have at least 8 characters", { layer });
+    }
+    if (text.length > 256) {
+      throw validationError("Layer passphrase is too long", { layer, maxLength: 256 });
+    }
+  }
+
+  #publicUnlockPolicy(policy) {
+    return {
+      id: policy.id,
+      operatorId: policy.operatorId,
+      sessionHours: policy.sessionHours,
+      sessionExpiresAfterHours: policy.sessionExpiresAfterHours,
+      maxSessionHoursByTier: this.#tierSessionMax(this.#requireOperator(policy.operatorId).tier),
+      layers: Object.fromEntries(UNLOCK_LAYERS.map((layer) => {
+        const entry = policy.layers[layer];
+        return [layer, {
+          layer,
+          passwordSet: entry?.passwordSet === true,
+          passwordVerifierRef: entry?.passwordVerifierRef || null,
+          rotatedAt: entry?.rotatedAt || null,
+          passwordMaterialStored: false
+        }];
+      })),
+      fido2: policy.fido2,
+      unlockDuringActiveSession: true,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      updatedAt: policy.updatedAt
+    };
+  }
+
+  #safetyPolicyForOperator(operatorId) {
+    const existing = this.safetyPolicies.get(operatorId);
+    if (existing) return existing;
+    const now = isoNow();
+    return {
+      id: `safety_${operatorId}`,
+      operatorId,
+      backup: {
+        enabled: false,
+        scope: "configuration_and_metadata_only",
+        cadenceHours: 24,
+        workloadDataIncluded: false,
+        cdrRequiredForRestore: true
+      },
+      inactivityWipe: {
+        enabled: true,
+        afterDays: 14,
+        lastSessionAt: this.#latestSessionForOperator(operatorId)?.createdAt || null,
+        state: "armed_control_plane"
+      },
+      panicCodes: Object.fromEntries(PANIC_LEVELS.map((level) => [level, {
+        level,
+        codeSet: false,
+        verifierRef: null,
+        rotatedAt: null,
+        codeMaterialStored: false
+      }])),
+      createdAt: now,
+      updatedAt: now,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #publicSafetyPolicy(policy) {
+    return {
+      id: policy.id,
+      operatorId: policy.operatorId,
+      backup: policy.backup,
+      inactivityWipe: policy.inactivityWipe,
+      panicCodes: Object.fromEntries(PANIC_LEVELS.map((level) => {
+        const entry = policy.panicCodes[level];
+        return [level, {
+          level,
+          codeSet: entry?.codeSet === true,
+          verifierRef: entry?.verifierRef || null,
+          rotatedAt: entry?.rotatedAt || null,
+          codeMaterialStored: false
+        }];
+      })),
+      destructiveExecutionAllowed: false,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      updatedAt: policy.updatedAt
+    };
+  }
+
+  #latestSessionForOperator(operatorId) {
+    return [...this.sessions.values()]
+      .filter((session) => session.operatorId === operatorId)
+      .at(-1) || null;
+  }
+
+  #jurisdictionPolicyForOperator({ operatorActor, correlationId }) {
+    const existing = this.jurisdictionPolicies.get(operatorActor.operatorId);
+    if (existing) return existing;
+    const subscription = this.subscription({ operatorActor, correlationId });
+    return {
+      id: `jurisdiction_${operatorActor.operatorId}`,
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      mode: "disabled",
+      regions: [],
+      subscriptionMode: subscription.quota.jurisdictionRotationMode,
+      state: "not_configured",
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      updatedAt: isoNow()
+    };
+  }
+
+  #assertJurisdictionModeAllowed(mode, subscriptionMode) {
+    const allowed = subscriptionMode === "full_policy"
+      ? ["disabled", "manual", "scheduled", "full_policy"]
+      : subscriptionMode === "scheduled"
+        ? ["disabled", "manual", "scheduled"]
+        : ["disabled", "manual"];
+    if (!allowed.includes(mode)) {
+      throw validationError("Jurisdiction mode is not available in this subscription tier", {
+        mode,
+        subscriptionMode,
+        allowed
+      });
+    }
+  }
+
+  #publicJurisdictionPolicy(policy) {
+    return {
+      id: policy.id,
+      operatorId: policy.operatorId,
+      tenantId: policy.tenantId,
+      mode: policy.mode,
+      regions: policy.regions,
+      subscriptionMode: policy.subscriptionMode,
+      state: policy.state,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      updatedAt: policy.updatedAt
     };
   }
 

@@ -97,11 +97,49 @@ async function run() {
     await page.getByText(seeded.operatorName, { exact: false }).waitFor({ timeout: 10000 });
     actions.push("operator_session_loaded");
 
-    for (const label of ["Devices", "Connection Path", "Signal Preview", "VPN status", "FIDO2 policy", "HSM refs", "Subscription", "My audit"]) {
+    for (const label of ["Devices", "Workload Control", "Connection Path", "Signal Preview", "VPN status", "Security Unlock", "Backup & Panic", "Jurisdiction", "Matrix Server", "FIDO2 policy", "HSM refs", "Subscription", "My audit"]) {
       await page.getByRole("link", { name: label }).click();
       await page.waitForTimeout(250);
       actions.push(`view_${label.toLowerCase().replaceAll(" ", "_")}`);
     }
+
+    await page.getByRole("link", { name: "Workload Control" }).click();
+    await page.locator('input[name="whatsapp"]').fill("2");
+    await page.locator('input[name="signal"]').fill("1");
+    await page.locator('input[name="zangi"]').fill("1");
+    await page.getByRole("button", { name: "Queue workload change" }).click();
+    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Workload control queued"));
+    actions.push("operator_workload_control_queued");
+
+    await page.getByRole("link", { name: "Security Unlock" }).click();
+    await page.locator('input[name="sessionHours"]').fill("12");
+    await page.locator('input[name="g1Password"]').fill("Layer passphrase local only 12345");
+    await page.locator('input[name="g2Password"]').fill("Layer passphrase local only 23456");
+    await page.locator('input[name="workloadPassword"]').fill("Layer passphrase local only 34567");
+    await page.getByRole("button", { name: "Save unlock policy" }).click();
+    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Unlock policy saved"));
+    actions.push("operator_unlock_policy_saved");
+
+    await page.getByRole("link", { name: "Backup & Panic" }).click();
+    await page.locator('input[name="backupEnabled"]').check();
+    await page.locator('input[name="inactivityWipeDays"]').fill("10");
+    await page.locator('input[name="data_wipeCode"]').fill("Panic level one local 12345");
+    await page.getByRole("button", { name: "Save safety policy" }).click();
+    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Safety policy saved"));
+    actions.push("operator_safety_policy_saved");
+
+    await page.getByRole("link", { name: "Jurisdiction" }).click();
+    await page.locator('select[name="mode"]').selectOption("scheduled");
+    await page.getByPlaceholder("de,fi,nl").fill("de,fi,nl");
+    await page.getByRole("button", { name: "Save jurisdiction policy" }).click();
+    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Jurisdiction policy saved"));
+    actions.push("operator_jurisdiction_policy_saved");
+
+    await page.getByRole("link", { name: "Matrix Server" }).click();
+    await page.getByPlaceholder("matrix.operator.example").fill("matrix.step317.local");
+    await page.getByRole("button", { name: "Request Matrix server" }).click();
+    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Matrix request queued"));
+    actions.push("operator_matrix_request_queued");
 
     await page.getByRole("link", { name: "FIDO2 policy" }).click();
     await page.getByRole("button", { name: "Save FIDO2 policy" }).click();

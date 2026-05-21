@@ -166,11 +166,28 @@ form {
   gap: 12px;
 }
 
+.dense-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
 label {
   display: grid;
   gap: 6px;
   color: var(--text-dim);
   font-size: 12px;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+}
+
+.check-row input {
+  width: auto;
+  min-height: auto;
 }
 
 input,
@@ -276,6 +293,21 @@ dt {
 dd {
   margin: 4px 0 0 0;
   font-size: 14px;
+}
+
+.compact-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.compact-metrics dt {
+  margin-top: 0;
+}
+
+.compact-metrics dd {
+  overflow-wrap: anywhere;
 }
 
 .key-list {
@@ -623,6 +655,11 @@ button.primary:disabled {
   }
 
   form {
+    grid-template-columns: 1fr;
+  }
+
+  .dense-form,
+  .compact-metrics {
     grid-template-columns: 1fr;
   }
 

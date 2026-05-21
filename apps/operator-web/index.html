@@ -26,11 +26,16 @@
       <li><a href="#overview" data-view="overview" class="active">Overview</a></li>
       <li><a href="#devices" data-view="devices">Devices</a></li>
       <li><a href="#workloads" data-view="workloads">Workloads</a></li>
+      <li><a href="#workload-control" data-view="workload-control">Workload Control</a></li>
       <li><a href="#connection-path" data-view="connection-path">Connection Path</a></li>
       <li><a href="#signal-preview" data-view="signal-preview">Signal Preview</a></li>
       <li><a href="#vpn" data-view="vpn">VPN status</a></li>
       <li><a href="#streaming" data-view="streaming">Streaming</a></li>
       <li><a href="#audit" data-view="audit">My audit</a></li>
+      <li><a href="#settings-unlock" data-view="settings-unlock">Security Unlock</a></li>
+      <li><a href="#settings-safety" data-view="settings-safety">Backup & Panic</a></li>
+      <li><a href="#settings-jurisdiction" data-view="settings-jurisdiction">Jurisdiction</a></li>
+      <li><a href="#matrix-server" data-view="matrix-server">Matrix Server</a></li>
       <li><a href="#settings-fido2" data-view="settings-fido2">FIDO2 policy</a></li>
       <li><a href="#settings-hsm" data-view="settings-hsm">HSM refs</a></li>
       <li><a href="#subscription" data-view="subscription">Subscription</a></li>
@@ -71,6 +76,7 @@
         <article class="card">
           <h2>Operator session</h2>
           <p id="operator-session">Not connected</p>
+          <p id="session-countdown" class="hint">Session timer unavailable.</p>
           <p class="hint">Physical FIDO2 is deferred, but policy/configuration is active for admin and operator layers.</p>
         </article>
       </div>
@@ -89,6 +95,52 @@
       <h1>Workloads</h1>
       <p class="hint">Workload microVM allocation metadata for the active operator. Execution remains gated.</p>
       <ul id="workloads-list"><li class="placeholder">Loading...</li></ul>
+    </section>
+
+    <section id="workload-control" class="view">
+      <h1>Workload Control</h1>
+      <p class="hint">Operator controls desired communicator environments within subscription quota. Delete/recreate operations are queued in control-plane until the production runner is enabled.</p>
+      <article class="card">
+        <h2>Desired environments <span class="help-tip" tabindex="0" data-tip="The sum of all app environments cannot exceed your subscription quota. Each environment is isolated at WORKLOAD layer and files remain CDR-gated.">?</span></h2>
+        <dl class="compact-metrics">
+          <dt>Quota</dt><dd id="workload-control-quota">Loading...</dd>
+          <dt>Current</dt><dd id="workload-control-current">-</dd>
+          <dt>Last request</dt><dd id="workload-control-last">-</dd>
+        </dl>
+        <form id="workload-control-form" class="dense-form">
+          <label>WhatsApp <input name="whatsapp" type="number" min="0" max="30" value="0"></label>
+          <label>Signal <input name="signal" type="number" min="0" max="30" value="0"></label>
+          <label>Telegram <input name="telegram" type="number" min="0" max="30" value="0"></label>
+          <label>Threema <input name="threema" type="number" min="0" max="30" value="0"></label>
+          <label>Zangi <input name="zangi" type="number" min="0" max="30" value="0"></label>
+          <label>Matrix Client <input name="matrix_client" type="number" min="0" max="30" value="0"></label>
+          <label>Matrix Server <input name="matrix_server" type="number" min="0" max="30" value="0"></label>
+          <label>DuckDuckGo Browser <input name="duckduckgo_browser" type="number" min="0" max="30" value="0"></label>
+          <label>LibreOffice <input name="libreoffice" type="number" min="0" max="30" value="0"></label>
+          <label>Action
+            <select name="action">
+              <option value="scale_to_counts">Set desired counts</option>
+              <option value="rotate_app">Delete and recreate selected app</option>
+              <option value="recreate_all">Delete and recreate all</option>
+            </select>
+          </label>
+          <label>Rotate app
+            <select name="rotateApp">
+              <option value="whatsapp">WhatsApp</option>
+              <option value="signal">Signal</option>
+              <option value="telegram">Telegram</option>
+              <option value="threema">Threema</option>
+              <option value="zangi">Zangi</option>
+              <option value="matrix_client">Matrix Client</option>
+              <option value="matrix_server">Matrix Server</option>
+              <option value="duckduckgo_browser">DuckDuckGo Browser</option>
+              <option value="libreoffice">LibreOffice</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">Queue workload change</button>
+        </form>
+        <p class="hint">Production deletion remains disabled here: the panel records intent, quota decision and audit event, then the orchestrator/runner will execute once gated.</p>
+      </article>
     </section>
 
     <section id="connection-path" class="view">
@@ -224,6 +276,81 @@
       <ul id="audit-list"><li class="placeholder">Loading...</li></ul>
     </section>
 
+    <section id="settings-unlock" class="view">
+      <h1>Security Unlock</h1>
+      <div class="placeholder-banner">
+        <p><strong>Write-only unlock:</strong> G1/G2/WORKLOAD passwords are accepted for rotation metadata only. The panel never returns plaintext and active sessions do not require re-entry until expiration.</p>
+      </div>
+      <article class="card">
+        <h2>Session and layer unlock <span class="help-tip" tabindex="0" data-tip="Set how long a successful operator session remains valid. After expiry, FIDO2 re-auth will be required when physical keys are connected.">?</span></h2>
+        <form id="unlock-form">
+          <label>Session hours <input name="sessionHours" type="number" min="1" max="24" value="12"></label>
+          <label>G1 password <input name="g1Password" type="password" autocomplete="new-password" placeholder="write-only rotation"></label>
+          <label>G2 password <input name="g2Password" type="password" autocomplete="new-password" placeholder="write-only rotation"></label>
+          <label>Workload/VPS password <input name="workloadPassword" type="password" autocomplete="new-password" placeholder="write-only rotation"></label>
+          <label class="check-row"><input name="fido2RequiredAtSessionEnd" type="checkbox" checked> FIDO2 at session end</label>
+          <button type="submit" class="primary">Save unlock policy</button>
+        </form>
+        <ul id="unlock-list" class="key-list"><li class="placeholder">Loading...</li></ul>
+      </article>
+    </section>
+
+    <section id="settings-safety" class="view">
+      <h1>Backup & Panic</h1>
+      <div class="placeholder-banner">
+        <p><strong>Safety controls:</strong> backup covers configuration/metadata only. Panic codes are write-only and destructive execution remains blocked until production gates and human authorization are complete.</p>
+      </div>
+      <article class="card">
+        <h2>Backup, inactivity wipe and panic levels <span class="help-tip" tabindex="0" data-tip="Auto-wipe is armed by lack of operator sessions. Panic levels can wipe data, recreate environments, or revoke the account depending on configured policy and tier gates.">?</span></h2>
+        <form id="safety-form">
+          <label class="check-row"><input name="backupEnabled" type="checkbox"> Backup enabled</label>
+          <label>Backup cadence hours <input name="backupCadenceHours" type="number" min="1" max="168" value="24"></label>
+          <label class="check-row"><input name="inactivityWipeEnabled" type="checkbox" checked> Auto-wipe when inactive</label>
+          <label>Inactive days <input name="inactivityWipeDays" type="number" min="1" max="365" value="14"></label>
+          <label>Level 1 panic code <input name="data_wipeCode" type="password" autocomplete="new-password" placeholder="wipe data"></label>
+          <label>Level 2 panic code <input name="environment_destroyCode" type="password" autocomplete="new-password" placeholder="destroy environments"></label>
+          <label>Level 3 panic code <input name="account_revokeCode" type="password" autocomplete="new-password" placeholder="revoke account"></label>
+          <button type="submit" class="primary">Save safety policy</button>
+        </form>
+        <ul id="safety-list" class="key-list"><li class="placeholder">Loading...</li></ul>
+      </article>
+    </section>
+
+    <section id="settings-jurisdiction" class="view">
+      <h1>Jurisdiction</h1>
+      <p class="hint">Jurisdiction hopping depends on subscription tier. Standard allows manual-only control, Pro scheduled rotation, Sovereign full policy.</p>
+      <article class="card">
+        <h2>Rotation policy <span class="help-tip" tabindex="0" data-tip="Choose how operator workloads rotate across approved jurisdictions. Real migration stays gated by provider capacity, VPN policy and CDR audit.">?</span></h2>
+        <form id="jurisdiction-form">
+          <label>Mode
+            <select name="mode">
+              <option value="disabled">Disabled</option>
+              <option value="manual">Manual</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="full_policy">Full policy</option>
+            </select>
+          </label>
+          <label>Regions <input name="regions" placeholder="de,fi,nl"></label>
+          <button type="submit" class="primary">Save jurisdiction policy</button>
+        </form>
+        <ul id="jurisdiction-list" class="key-list"><li class="placeholder">Loading...</li></ul>
+      </article>
+    </section>
+
+    <section id="matrix-server" class="view">
+      <h1>Matrix Server</h1>
+      <p class="hint">Operator can request a paid custom Matrix server for private communication. DNS, federation, CDR and provider execution remain reviewed before launch.</p>
+      <article class="card">
+        <h2>Custom Matrix request <span class="help-tip" tabindex="0" data-tip="Creates a control-plane request for a dedicated Matrix homeserver. It does not launch production infrastructure by itself.">?</span></h2>
+        <form id="matrix-form">
+          <label>Hostname <input name="hostname" placeholder="matrix.operator.example"></label>
+          <label class="check-row"><input name="federation" type="checkbox"> Enable federation</label>
+          <button type="submit" class="primary">Request Matrix server</button>
+        </form>
+        <ul id="matrix-list" class="key-list"><li class="placeholder">Loading...</li></ul>
+      </article>
+    </section>
+
     <section id="settings-fido2" class="view">
       <h1>FIDO2 policy</h1>
       <div class="placeholder-banner">
@@ -259,6 +386,27 @@
       <article class="card">
         <h2>Quota</h2>
         <p id="subscription-quota" class="placeholder">Loading...</p>
+      </article>
+      <article class="card">
+        <h2>Renew or upgrade <span class="help-tip" tabindex="0" data-tip="Queues a billing request for admin review. It does not charge automatically in this local control-plane build.">?</span></h2>
+        <form id="subscription-form">
+          <label>Action
+            <select name="action">
+              <option value="renew">Renew current tier</option>
+              <option value="upgrade">Upgrade tier</option>
+              <option value="downgrade">Downgrade tier</option>
+            </select>
+          </label>
+          <label>Target tier
+            <select name="targetTier">
+              <option value="PRO">PRO</option>
+              <option value="SOVEREIGN">SOVEREIGN</option>
+              <option value="STANDARD">STANDARD</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">Queue billing request</button>
+        </form>
+        <p id="subscription-request-status" class="hint">No billing request queued in this session.</p>
       </article>
     </section>
   </main>

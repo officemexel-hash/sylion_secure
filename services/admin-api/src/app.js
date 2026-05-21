@@ -311,6 +311,15 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { workloads: operatorPortal.workloads({ operatorActor, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/workload-control") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { control: operatorPortal.workloadControl({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/workload-control/requests") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { request: operatorPortal.requestWorkloadControl({ operatorActor, body, correlationId }) });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/vpn-status") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { vpn: operatorPortal.vpnStatus({ operatorActor, correlationId }) });
@@ -365,9 +374,50 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         return send(res, 200, { profile: operatorPortal.updateHsmProfile({ operatorActor, body, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/settings/unlock") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { policy: operatorPortal.unlockPolicy({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/settings/unlock") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 200, { policy: operatorPortal.updateUnlockPolicy({ operatorActor, body, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/settings/safety") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { policy: operatorPortal.safetyPolicy({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/settings/safety") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 200, { policy: operatorPortal.updateSafetyPolicy({ operatorActor, body, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/settings/jurisdiction") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { policy: operatorPortal.jurisdictionPolicy({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/settings/jurisdiction") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 200, { policy: operatorPortal.updateJurisdictionPolicy({ operatorActor, body, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/matrix-server") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { matrix: operatorPortal.matrixServer({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/matrix-server/requests") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { request: operatorPortal.requestMatrixServer({ operatorActor, body, correlationId }) });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/subscription") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { subscription: operatorPortal.subscription({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/subscription/requests") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { request: operatorPortal.requestSubscriptionChange({ operatorActor, body, correlationId }) });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/terminal-profiles") {
         const operatorActor = operatorActorFromRequest(req);
