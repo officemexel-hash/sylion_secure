@@ -35,6 +35,7 @@ function safeArray(value = [], field) {
 const CPU_VENDORS = new Set(["intel", "amd", "unknown"]);
 const CONFIDENTIAL_MODES = new Set(["none", "intel_tdx", "amd_sev_snp"]);
 const PROVIDER_REHEARSAL_MODES = new Set(["gate_only", "adapter_sandbox", "live_provider"]);
+const FIRECRACKER_REHEARSAL_WORKLOADS = new Set(["signal", "telegram", "whatsapp", "threema", "zangi", "matrix"]);
 
 function normalizeLower(value, field, allowed) {
   const normalized = requireText(value, field).toLowerCase();
@@ -132,6 +133,7 @@ export class LiveExecutionService {
     }));
     this.requests = new PersistentMap({ store, collection: "live_execution_requests" });
     this.hostQualifications = new PersistentMap({ store, collection: "firecracker_host_qualifications" });
+    this.firecrackerRehearsals = new PersistentMap({ store, collection: "firecracker_launch_rehearsals" });
     this.cpuQualifications = new PersistentMap({ store, collection: "cpu_confidential_qualifications" });
     this.rollbackPlans = new PersistentMap({ store, collection: "live_rollback_plans" });
     this.providerRehearsals = new PersistentMap({ store, collection: "live_provider_rehearsals" });
@@ -154,11 +156,13 @@ export class LiveExecutionService {
       allowlistedOperators: splitEnvList(this.env.SYLION_LIVE_ALLOWLIST_OPERATORS),
       maxServers: Number(this.env.SYLION_LIVE_MAX_SERVERS || 0),
       firecrackerHostMode: this.env.SYLION_FIRECRACKER_HOST_MODE || "blocked",
+      firecrackerLaunchRehearsalAllowed: this.env.SYLION_FIRECRACKER_LAUNCH_REHEARSAL_ALLOWED === "true",
       phantomLabAllowed: this.env.SYLION_PHANTOM_LAB_ALLOWED === "true",
       baselineUnlockState: this.#baselineUnlockState(),
       liveRequests: this.requests.size,
       providerRehearsals: this.providerRehearsals.size,
       firecrackerQualifications: this.hostQualifications.size,
+      firecrackerLaunchRehearsals: this.firecrackerRehearsals.size,
       cpuQualifications: this.cpuQualifications.size,
       confidentialReadyHosts: [...this.cpuQualifications.values()].filter((item) => item.secretsReleaseAllowed).length,
       phantomExecutionRequests: this.phantomRequests.size,
@@ -619,6 +623,119 @@ export class LiveExecutionService {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.FIRECRACKER_HOST_QUALIFICATION });
     return [...this.hostQualifications.values()];
+  }
+
+  runFirecrackerLaunchRehearsal({
+    actor,
+    hostQualificationId,
+    operatorId,
+    workloadNames = ["signal"],
+    imageRef = "image://sylion/microvm/rehearsal",
+    kernelRef = "artifact://firecracker/kernel-pinned",
+    rootfsRef = "artifact://firecracker/rootfs-rehearsal",
+    networkMode = "tap_isolated_metadata_only",
+    rehearsalConfirmed = false,
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.manage", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.FIRECRACKER_LAUNCH_REHEARSAL
+    });
+    const operator = this.operators.get(operatorId);
+    if (!operator) throw notFound("operator", operatorId);
+    const host = this.hostQualifications.get(hostQualificationId);
+    if (!host) throw notFound("firecracker_host_qualification", hostQualificationId);
+    const workloads = safeArray(workloadNames, "workloadNames").map((name) => name.toLowerCase());
+    if (workloads.length === 0 || workloads.length > 10) {
+      throw validationError("Firecracker rehearsal requires 1-10 workloads", { workloadCount: workloads.length });
+    }
+    const unsupported = workloads.filter((name) => !FIRECRACKER_REHEARSAL_WORKLOADS.has(name));
+    if (unsupported.length) {
+      throw validationError("Unsupported Firecracker rehearsal workload", { unsupported });
+    }
+    for (const [field, value] of Object.entries({ imageRef, kernelRef, rootfsRef, networkMode })) {
+      if (/secret|token|password|private|terminal[_ -]?data|message|chat/i.test(String(value || ""))) {
+        throw validationError("Firecracker rehearsal metadata must not contain secrets, terminal data or communication content", {
+          field,
+          contentRejected: true
+        });
+      }
+    }
+    const blockers = [
+      ...(host.readyForFirecrackerLaunch ? [] : ["host_not_ready_for_firecracker_launch"]),
+      ...(rehearsalConfirmed ? [] : ["rehearsal_confirmation_required"]),
+      ...(this.env.SYLION_FIRECRACKER_LAUNCH_REHEARSAL_ALLOWED === "true" ? [] : ["firecracker_launch_rehearsal_env_flag_disabled"])
+    ];
+    const runtimes = workloads.map((name, index) => ({
+      id: newId("fc_runtime"),
+      workloadName: name,
+      operatorId,
+      jailerNamespace: `sylion-${operatorId}-${name}-${index}`,
+      cpuTemplate: "T2",
+      vcpu: 1,
+      memoryMiB: 512,
+      networkMode,
+      terminalDataStored: false,
+      secretsReleaseAllowed: false,
+      status: blockers.length ? "planned_blocked" : "rehearsed_stopped"
+    }));
+    const phases = blockers.length ? [
+      { name: "gate_evaluated", status: "blocked", details: { blockers } }
+    ] : [
+      { name: "gate_evaluated", status: "passed", details: { hostId: host.hostId } },
+      { name: "jailer_plan", status: "passed", details: { runtimeCount: runtimes.length } },
+      { name: "boot_rehearsal", status: "passed", details: { realKernelExecuted: false } },
+      { name: "health_probe", status: "passed", details: { contentInspection: false } },
+      { name: "stop_cleanup", status: "passed", details: { runtimesStopped: runtimes.length } }
+    ];
+    const record = {
+      id: newId("fc_rehearsal"),
+      hostQualificationId,
+      hostId: host.hostId,
+      operatorId,
+      tenantId: operator.tenantId,
+      imageRef: requireText(imageRef, "imageRef"),
+      kernelRef: requireText(kernelRef, "kernelRef"),
+      rootfsRef: requireText(rootfsRef, "rootfsRef"),
+      networkMode: requireText(networkMode, "networkMode"),
+      status: blockers.length ? "blocked_human_gate" : "rehearsal_passed",
+      blockers,
+      phases,
+      runtimes,
+      sideEffectAllowed: false,
+      realKernelExecuted: false,
+      terminalDataStored: false,
+      secretsReleaseAllowed: false,
+      productionExecutionAllowed: false,
+      humanGateRequired: true,
+      createdAt: isoNow(),
+      createdBy: actor.id
+    };
+    this.firecrackerRehearsals.set(record.id, record);
+    this.audit.record({
+      actorId: actor.id,
+      action: "firecracker.launch_rehearsal_completed",
+      resourceType: RESOURCE_TYPES.FIRECRACKER_LAUNCH_REHEARSAL,
+      resourceId: record.id,
+      tenantId: operator.tenantId,
+      operatorId,
+      correlationId: corr,
+      policyDecision: blockers.length ? "deny" : "allow",
+      result: record.status,
+      newValue: record
+    });
+    return record;
+  }
+
+  listFirecrackerLaunchRehearsals({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.FIRECRACKER_LAUNCH_REHEARSAL
+    });
+    return [...this.firecrackerRehearsals.values()];
   }
 
   qualifyCpuConfidentialHost({

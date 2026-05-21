@@ -538,6 +538,12 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { qualifications: liveExecution.listFirecrackerQualifications({ actor, correlationId }) });
       }
 
+      if (req.method === "GET" && url.pathname === "/live-execution/firecracker/launch-rehearsals") {
+        return send(res, 200, {
+          rehearsals: liveExecution.listFirecrackerLaunchRehearsals({ actor, correlationId })
+        });
+      }
+
       if (req.method === "POST" && url.pathname === "/live-execution/firecracker/host-qualification") {
         auth.requireFreshStepUp(actor, "firecracker.host_qualification", {
           correlationId,
@@ -546,6 +552,16 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         const qualification = liveExecution.qualifyFirecrackerHost({ actor, ...body, correlationId });
         return send(res, 201, { qualification });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/firecracker/launch-rehearsal") {
+        auth.requireFreshStepUp(actor, "firecracker.launch_rehearsal", {
+          correlationId,
+          resourceType: "firecracker_launch_rehearsal"
+        });
+        const body = await readJson(req);
+        const rehearsal = liveExecution.runFirecrackerLaunchRehearsal({ actor, ...body, correlationId });
+        return send(res, 201, { rehearsal });
       }
 
       if (req.method === "GET" && url.pathname === "/live-execution/cpu-confidential/qualifications") {

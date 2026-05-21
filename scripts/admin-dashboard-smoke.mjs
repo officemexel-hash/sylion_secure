@@ -179,12 +179,17 @@ async function run() {
     await page.locator("#toast").getByText("Provider rehearsal completed", { exact: false }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Qualify Host" }).click();
     await page.locator("#toast").getByText("Firecracker host qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await selectLastOption(page, "#firecracker-rehearsal-host-select");
+    await selectLastOption(page, "#firecracker-rehearsal-operator-select");
+    await page.getByRole("button", { name: "Run Launch Rehearsal" }).click();
+    await page.locator("#toast").getByText("Firecracker launch rehearsal recorded", { exact: false }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Qualify CPU Gate" }).click();
     await page.locator("#toast").getByText("CPU confidential-computing qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
     await captureScreenshot(page, "live-execution-desktop.png");
-    actions.push("live_cloud_rehearsal_firecracker_cpu_gates");
+    actions.push("live_cloud_rehearsal_firecracker_launch_rehearsal_cpu_gates");
     const providersText = await page.locator("main").innerText();
-    for (const expected of ["Provider Rehearsals", "smoke_passed", "Live Rollback Plans", "Rollback ready", "Secret Backend Status", "Plaintext retrieval", "Secret source", "hetzner", "blocked_human_gate"]) {
+    for (const expected of ["Provider Rehearsals", "smoke_passed", "Live Rollback Plans", "Rollback ready", "Secret Backend Status", "Plaintext retrieval", "Firecracker Launch Rehearsals", "Real kernel", "Secret source", "hetzner", "blocked_human_gate"]) {
       if (!providersText.includes(expected)) issues.push(`Missing live provider dashboard text: ${expected}`);
     }
 

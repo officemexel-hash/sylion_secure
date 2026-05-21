@@ -56,6 +56,7 @@ const state = {
   secretBackendStatus: null,
   secretBackends: [],
   firecrackerQualifications: [],
+  firecrackerLaunchRehearsals: [],
   cpuConfidentialQualifications: [],
   phantomExecutionRequests: [],
   lastPlanId: null,
@@ -238,6 +239,7 @@ async function refreshAll() {
     secretBackendStatus,
     secretBackends,
     firecrackerQualifications,
+    firecrackerLaunchRehearsals,
     cpuConfidentialQualifications,
     phantomExecutionRequests,
     subscriptionPlans,
@@ -292,6 +294,7 @@ async function refreshAll() {
     api("/secrets/backend-status").catch(() => ({ status: null })),
     api("/secrets/backends").catch(() => ({ backends: [] })),
     api("/live-execution/firecracker/host-qualifications").catch(() => ({ qualifications: [] })),
+    api("/live-execution/firecracker/launch-rehearsals").catch(() => ({ rehearsals: [] })),
     api("/live-execution/cpu-confidential/qualifications").catch(() => ({ qualifications: [] })),
     api("/live-execution/phantom/requests").catch(() => ({ requests: [] })),
     api("/subscription/plans").catch(() => ({ plans: [] })),
@@ -346,6 +349,7 @@ async function refreshAll() {
   state.secretBackendStatus = secretBackendStatus.status;
   state.secretBackends = secretBackends.backends;
   state.firecrackerQualifications = firecrackerQualifications.qualifications;
+  state.firecrackerLaunchRehearsals = firecrackerLaunchRehearsals.rehearsals;
   state.cpuConfidentialQualifications = cpuConfidentialQualifications.qualifications;
   state.phantomExecutionRequests = phantomExecutionRequests.requests;
   state.phantomCoverage = await Promise.all(
@@ -420,6 +424,8 @@ function render() {
   renderSelect("#provider-rehearsal-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#provider-rehearsal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#provider-rehearsal-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#firecracker-rehearsal-host-select", state.firecrackerQualifications, "No qualified hosts", "hostId");
+  renderSelect("#firecracker-rehearsal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#subscription-tenant-select", state.tenants, "No tenants");
   renderSelect("#subscription-plan-select", state.subscriptionPlans, "No plans", "name");
   renderSelect("#billing-tenant-select", state.tenants, "No tenants");
@@ -576,6 +582,16 @@ function render() {
     ["Exec", String(item.executionAllowed)],
     ["Checks", item.checks?.map((check) => `${check.key}:${check.status}`).join(", ")]
   ])).join("") || empty("No Firecracker host qualifications recorded.");
+
+  $("#firecracker-rehearsal-cards").innerHTML = state.firecrackerLaunchRehearsals.map((item) => card(item.id, [
+    ["Status", item.status],
+    ["Host", item.hostId],
+    ["Operator", item.operatorId],
+    ["Runtimes", String(item.runtimes?.length || 0)],
+    ["Real kernel", String(item.realKernelExecuted)],
+    ["Secrets", String(item.secretsReleaseAllowed)],
+    ["Blockers", item.blockers?.join(", ") || "-"]
+  ])).join("") || empty("No Firecracker launch rehearsals recorded.");
 
   $("#cpu-confidential-qualification-cards").innerHTML = state.cpuConfidentialQualifications.map((item) => card(item.hostId, [
     ["CPU", `${item.cpuVendor} ${item.cpuModel}`],
@@ -1415,6 +1431,26 @@ async function qualifyFirecrackerHost(event) {
     }
   }), "Firecracker Host Qualification");
   toast("Firecracker host qualification recorded");
+  await refreshAll();
+}
+
+async function runFirecrackerLaunchRehearsal(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await withStepUpRetry(() => api("/live-execution/firecracker/launch-rehearsal", {
+    method: "POST",
+    body: {
+      hostQualificationId: data.hostQualificationId,
+      operatorId: data.operatorId,
+      workloadNames: splitCsv(data.workloadNames),
+      imageRef: data.imageRef,
+      kernelRef: data.kernelRef,
+      rootfsRef: data.rootfsRef,
+      networkMode: data.networkMode,
+      rehearsalConfirmed: event.currentTarget.rehearsalConfirmed.checked
+    }
+  }), "Firecracker Launch Rehearsal");
+  toast("Firecracker launch rehearsal recorded");
   await refreshAll();
 }
 
@@ -2347,6 +2383,7 @@ function bind() {
   $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));
   $("#provider-rehearsal-form").addEventListener("submit", (event) => runProviderRehearsal(event).catch(showError));
   $("#firecracker-qualification-form").addEventListener("submit", (event) => qualifyFirecrackerHost(event).catch(showError));
+  $("#firecracker-rehearsal-form").addEventListener("submit", (event) => runFirecrackerLaunchRehearsal(event).catch(showError));
   $("#cpu-confidential-qualification-form").addEventListener("submit", (event) => qualifyCpuConfidentialHost(event).catch(showError));
   $("#approved-app-form").addEventListener("submit", (event) => createApprovedWorkloadApp(event).catch(showError));
   $("#subscription-form").addEventListener("submit", (event) => updateTenantSubscription(event).catch(showError));

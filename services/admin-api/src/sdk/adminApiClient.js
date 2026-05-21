@@ -207,6 +207,14 @@ export class AdminApiClient {
     return this.request("/live-execution/firecracker/host-qualification", { method: "POST", body });
   }
 
+  listFirecrackerLaunchRehearsals() {
+    return this.request("/live-execution/firecracker/launch-rehearsals");
+  }
+
+  runFirecrackerLaunchRehearsal(body) {
+    return this.request("/live-execution/firecracker/launch-rehearsal", { method: "POST", body });
+  }
+
   listCpuConfidentialQualifications() {
     return this.request("/live-execution/cpu-confidential/qualifications");
   }

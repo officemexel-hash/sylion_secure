@@ -431,6 +431,23 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
+              <h2>Launch Rehearsal <span class="help-tip" tabindex="0" data-tip="Exercises the Firecracker launch contract as an audited rehearsal. It does not execute a real kernel, expose terminal data or release workload secrets.">?</span></h2>
+              <span class="pill warn">No real kernel</span>
+            </div>
+            <form id="firecracker-rehearsal-form">
+              <label>Host <select name="hostQualificationId" id="firecracker-rehearsal-host-select"></select></label>
+              <label>Operator <select name="operatorId" id="firecracker-rehearsal-operator-select"></select></label>
+              <label>Workloads <input name="workloadNames" value="signal,telegram,matrix"></label>
+              <label>Image Ref <input name="imageRef" value="image://sylion/microvm/rehearsal"></label>
+              <label>Kernel Ref <input name="kernelRef" value="artifact://firecracker/kernel-pinned"></label>
+              <label>Rootfs Ref <input name="rootfsRef" value="artifact://firecracker/rootfs-rehearsal"></label>
+              <label>Network Mode <input name="networkMode" value="tap_isolated_metadata_only"></label>
+              <label class="check-row"><input type="checkbox" name="rehearsalConfirmed" checked> I confirm this is rehearsal-only</label>
+              <button type="submit">Run Launch Rehearsal</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
               <h2>CPU Confidential Gate <span class="help-tip" tabindex="0" data-tip="Qualifies Intel TDX or AMD SEV-SNP posture. Workload secrets stay blocked unless attestation and evidence pass.">?</span></h2>
               <span class="pill warn">Attestation</span>
             </div>
@@ -497,6 +514,10 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Firecracker Qualifications</h2><span class="pill warn">Host gate</span></div>
             <div class="cards" id="firecracker-qualification-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Firecracker Launch Rehearsals</h2><span class="pill warn">Rehearsal only</span></div>
+            <div class="cards" id="firecracker-rehearsal-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>CPU Confidential Qualifications</h2><span class="pill warn">Secrets gate</span></div>
