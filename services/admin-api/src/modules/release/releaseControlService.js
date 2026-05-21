@@ -9,6 +9,7 @@ const PROBLEM_STATUSES = new Set(["open", "triaged", "in_progress", "fixed_pendi
 const PROBLEM_CATEGORIES = new Set(["defect", "ux_issue", "test_gap", "compliance_gap", "architecture_gap", "security_gap"]);
 const SEVERITIES = new Set(["low", "medium", "high", "critical"]);
 const TEST_STATUSES = new Set(["not_run", "running", "passed", "failed", "blocked", "needs_human_review"]);
+const TEST_RUN_MODES = new Set(["playwright_dashboard", "operator_portal", "manual_human", "mixed_human_playwright"]);
 const ARTIFACT_TYPES = new Set(["screenshot", "test_log", "json_summary", "release_note", "coverage_report", "manual_note"]);
 const PROHIBITED_TERMS = ["imei", "imsi", "spoof", "evasion", "evade", "bypass lawful", "destroy evidence", "unauthorized access"];
 
@@ -217,6 +218,7 @@ export class ReleaseControlService {
     this.gates = new PersistentMap({ store, collection: "release_gates" });
     this.problems = new PersistentMap({ store, collection: "release_problems" });
     this.tests = new PersistentMap({ store, collection: "release_test_scenarios" });
+    this.testRuns = new PersistentMap({ store, collection: "release_test_runs" });
     this.artifacts = new PersistentMap({ store, collection: "evidence_artifacts" });
     this.#seedDefaults();
   }
@@ -240,6 +242,7 @@ export class ReleaseControlService {
     const gates = this.listGates({ actor, correlationId: corr });
     const problems = this.listProblems({ actor, correlationId: corr });
     const tests = this.listTests({ actor, correlationId: corr });
+    const runs = this.listTestRuns({ actor, correlationId: corr });
     const status = this.approvals.systemStatus({ actor, correlationId: corr });
     const openProblems = problems.filter((problem) => !["verified", "accepted_risk"].includes(problem.status));
     const blockedGates = gates.filter((gate) => gate.status === "blocked" || gate.status === "blocked_human_gate");
@@ -277,7 +280,54 @@ export class ReleaseControlService {
         passed: tests.filter((test) => test.status === "passed").length,
         failed: tests.filter((test) => test.status === "failed").length,
         blocked: tests.filter((test) => test.status === "blocked").length
+      },
+      testRuns: {
+        total: runs.length,
+        latestStatus: runs.at(-1)?.status || "not_run",
+        latestRunId: runs.at(-1)?.id || null
       }
+    };
+  }
+
+  buildAssessment({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.read", { correlationId: corr, resourceType: RESOURCE_TYPES.RELEASE_GATE });
+    const summary = this.summary({ actor, correlationId: corr });
+    const openProblems = this.listProblems({ actor, correlationId: corr })
+      .filter((problem) => !["verified", "accepted_risk"].includes(problem.status));
+    const latestRun = this.listTestRuns({ actor, correlationId: corr }).at(-1) || null;
+    const gates = this.listGates({ actor, correlationId: corr });
+    return {
+      status: summary.decision,
+      productionExecutionAllowed: false,
+      księga34: {
+        implemented: summary.księga34.implemented,
+        blocked: summary.księga34.blocked,
+        blockingControls: summary.księga34.controls.filter((item) => item.status === "blocked")
+      },
+      phantom: {
+        executionAllowed: false,
+        certificationClaim: false,
+        reviewRequired: summary.phantom.controls.filter((item) => item.status === "review_required" || item.executionAllowed === false)
+      },
+      testing: {
+        latestRun,
+        failedOrBlockedScenarios: latestRun?.results?.filter((item) => ["failed", "blocked", "needs_human_review"].includes(item.status)) || [],
+        openProblems: openProblems.map((problem) => ({
+          id: problem.id,
+          severity: problem.severity,
+          category: problem.category,
+          moduleKey: problem.moduleKey,
+          status: problem.status
+        }))
+      },
+      nextActions: [
+        ...(summary.księga34.blocked ? ["Resolve Księga 3.4 blocked controls before production claim"] : []),
+        ...(summary.phantom.executionSafe ? [] : ["Keep PHANTOM under legal/CISO/architect review"]),
+        ...(openProblems.length ? ["Close or accept risk for open release problems"] : []),
+        ...(gates.some((gate) => gate.humanGateRequired) ? ["Collect human-gate evidence for production blockers"] : [])
+      ],
+      generatedAt: isoNow()
     };
   }
 
@@ -422,6 +472,77 @@ export class ReleaseControlService {
     return next;
   }
 
+  listTestRuns({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.read", { correlationId: corr, resourceType: RESOURCE_TYPES.RELEASE_TEST_RUN });
+    return [...this.testRuns.values()];
+  }
+
+  recordHumanTestRun({
+    actor,
+    mode = "mixed_human_playwright",
+    title,
+    evidenceArtifactIds = [],
+    results = [],
+    environment = "local_admin_api",
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.manage", { correlationId: corr, resourceType: RESOURCE_TYPES.RELEASE_TEST_RUN });
+    const normalizedResults = this.#normalizeRunResults(results);
+    const evidence = safeArray(evidenceArtifactIds, "evidenceArtifactIds");
+    const failed = normalizedResults.filter((item) => ["failed", "blocked", "needs_human_review"].includes(item.status));
+    const run = {
+      id: newId("test_run"),
+      mode: requireEnum(mode, TEST_RUN_MODES, "mode"),
+      title: safeText(title, "title", { min: 3 }),
+      environment: safeText(environment, "environment"),
+      status: failed.length ? "needs_human_review" : "passed",
+      results: normalizedResults,
+      evidenceArtifactIds: evidence,
+      productionExecutionAllowed: false,
+      createdAt: isoNow(),
+      createdBy: actor.id
+    };
+    this.testRuns.set(run.id, run);
+    for (const result of normalizedResults) {
+      if (this.tests.has(result.scenarioId)) {
+        this.updateTestStatus({
+          actor,
+          scenarioId: result.scenarioId,
+          status: result.status,
+          evidenceArtifactIds: evidence,
+          note: result.note || `${run.title} result`,
+          correlationId: corr
+        });
+      }
+      if (["failed", "blocked"].includes(result.status)) {
+        this.createProblem({
+          actor,
+          title: `Test ${result.scenarioId} ${result.status}: ${result.note || "review required"}`,
+          severity: result.status === "failed" ? "high" : "medium",
+          category: "test_gap",
+          moduleKey: result.view || "release",
+          status: "open",
+          evidenceArtifactIds: evidence,
+          owner: "qa",
+          correlationId: corr
+        });
+      }
+    }
+    this.audit.record({
+      actorId: actor.id,
+      action: "release.human_test_run_recorded",
+      resourceType: RESOURCE_TYPES.RELEASE_TEST_RUN,
+      resourceId: run.id,
+      correlationId: corr,
+      policyDecision: run.status === "passed" ? "allow" : "deny",
+      result: run.status,
+      newValue: run
+    });
+    return run;
+  }
+
   listArtifacts({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "release.read", { correlationId: corr, resourceType: RESOURCE_TYPES.EVIDENCE_ARTIFACT });
@@ -451,5 +572,18 @@ export class ReleaseControlService {
       newValue: artifact
     });
     return artifact;
+  }
+
+  #normalizeRunResults(results) {
+    if (!Array.isArray(results) || results.length === 0) {
+      throw validationError("Human test run requires at least one scenario result", { field: "results" });
+    }
+    return results.map((item, index) => ({
+      scenarioId: safeText(item.scenarioId, `results.${index}.scenarioId`),
+      view: optionalText(item.view, `results.${index}.view`) || "unknown",
+      status: requireEnum(item.status, TEST_STATUSES, `results.${index}.status`),
+      note: optionalText(item.note, `results.${index}.note`),
+      evidenceArtifactIds: safeArray(item.evidenceArtifactIds || [], `results.${index}.evidenceArtifactIds`)
+    }));
   }
 }

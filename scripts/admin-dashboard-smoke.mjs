@@ -154,7 +154,9 @@ async function run() {
     await page.locator("#toast").getByText("Release problem recorded", { exact: false }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Update Test Status" }).click();
     await page.locator("#toast").getByText("Human test scenario status updated", { exact: false }).waitFor({ timeout: 10000 });
-    actions.push("release_artifact_problem_human_test");
+    await page.getByRole("button", { name: "Record Full Test Run" }).click();
+    await page.locator("#toast").getByText("Full human test run recorded", { exact: false }).waitFor({ timeout: 10000 });
+    actions.push("release_artifact_problem_human_test_run");
 
     await clickButton(page, "Providers");
     await page.getByText("Live Cloud Gate").waitFor({ timeout: 10000 });
@@ -213,7 +215,7 @@ async function run() {
 
     await clickButton(page, "Release");
     const releaseText = await page.locator("main").innerText();
-    for (const expected of ["Release Gate Control", "not_ready_for_production_execution", "PHANTOM execution=false", "Problem Registry", "Evidence Artifact Index", "Live Execution Proof", "CPU confidential gate", "Baseline locked"]) {
+    for (const expected of ["Release Gate Control", "not_ready_for_production_execution", "PHANTOM execution=false", "Problem Registry", "Evidence Artifact Index", "Full Test Run", "Build Assessment", "Live Execution Proof", "CPU confidential gate", "Baseline locked"]) {
       if (!releaseText.includes(expected)) issues.push(`Missing release dashboard text: ${expected}`);
     }
 

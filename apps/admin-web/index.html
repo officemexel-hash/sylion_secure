@@ -1369,6 +1369,36 @@
           </article>
           <article class="panel">
             <div class="panel-head">
+              <h2>Full Test Run <span class="help-tip" tabindex="0" data-tip="Records one complete human or Playwright dashboard pass, updates scenario statuses and creates problem records for failed or blocked scenarios.">?</span></h2>
+              <span class="pill">Step 3.21</span>
+            </div>
+            <form id="human-test-run-form">
+              <label>Title <input name="title" value="Step 3.21 dashboard full pass"></label>
+              <label>Mode
+                <select name="mode">
+                  <option value="mixed_human_playwright">Mixed human + Playwright</option>
+                  <option value="playwright_dashboard">Playwright dashboard</option>
+                  <option value="operator_portal">Operator portal</option>
+                  <option value="manual_human">Manual human</option>
+                </select>
+              </label>
+              <label>Status
+                <select name="status">
+                  <option value="passed">passed</option>
+                  <option value="failed">failed</option>
+                  <option value="blocked">blocked</option>
+                  <option value="needs_human_review">needs_human_review</option>
+                </select>
+              </label>
+              <label>Environment <input name="environment" value="local_admin_api_8099"></label>
+              <label>Evidence IDs <input name="evidenceArtifactIds" value=""></label>
+              <label>Note <input name="note" value="Clicked like a human through all core dashboard views"></label>
+              <button type="submit">Record Full Test Run</button>
+            </form>
+            <div class="cards" id="human-test-run-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
               <h2>Problem Registry <span class="help-tip" tabindex="0" data-tip="Records defects, UX issues, test gaps and compliance gaps found by humans or Playwright.">?</span></h2>
               <span class="pill warn">Blocker rollup</span>
             </div>
@@ -1442,6 +1472,13 @@
               <span class="pill warn">Baseline locked</span>
             </div>
             <div class="cards compact" id="release-live-execution-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Build Assessment <span class="help-tip" tabindex="0" data-tip="Summarizes current build state against Księga 3.4, PHANTOM v3.0, open problems and latest full test run.">?</span></h2>
+              <span class="pill warn">Production false</span>
+            </div>
+            <div class="cards compact" id="release-build-assessment-cards"></div>
           </article>
         </section>
 

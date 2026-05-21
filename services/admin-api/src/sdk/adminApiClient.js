@@ -119,6 +119,10 @@ export class AdminApiClient {
     return this.request("/release/summary");
   }
 
+  getReleaseBuildAssessment() {
+    return this.request("/release/build-assessment");
+  }
+
   listReleaseGates() {
     return this.request("/release/gates");
   }
@@ -141,6 +145,14 @@ export class AdminApiClient {
 
   listHumanTestScenarios() {
     return this.request("/release/human-tests");
+  }
+
+  listHumanTestRuns() {
+    return this.request("/release/human-test-runs");
+  }
+
+  recordHumanTestRun(body) {
+    return this.request("/release/human-test-runs", { method: "POST", body });
   }
 
   updateHumanTestScenarioStatus(scenarioId, body) {

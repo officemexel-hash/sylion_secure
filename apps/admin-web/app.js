@@ -45,9 +45,11 @@ const state = {
   phantomCoverage: [],
   phantomAuditCorrelation: null,
   releaseSummary: null,
+  releaseBuildAssessment: null,
   releaseGates: [],
   releaseProblems: [],
   humanTests: [],
+  humanTestRuns: [],
   evidenceArtifacts: [],
   liveExecutionSummary: null,
   liveCloudRequests: [],
@@ -228,9 +230,11 @@ async function refreshAll() {
     phantomExceptions,
     phantomAuditCorrelation,
     releaseSummary,
+    releaseBuildAssessment,
     releaseGates,
     releaseProblems,
     humanTests,
+    humanTestRuns,
     evidenceArtifacts,
     liveExecutionSummary,
     liveCloudRequests,
@@ -283,9 +287,11 @@ async function refreshAll() {
     api("/phantom/exceptions").catch(() => ({ exceptions: [] })),
     api("/phantom/audit-correlation").catch(() => ({ summary: null })),
     api("/release/summary").catch(() => ({ summary: null })),
+    api("/release/build-assessment").catch(() => ({ assessment: null })),
     api("/release/gates").catch(() => ({ gates: [] })),
     api("/release/problems").catch(() => ({ problems: [] })),
     api("/release/human-tests").catch(() => ({ scenarios: [] })),
+    api("/release/human-test-runs").catch(() => ({ runs: [] })),
     api("/release/evidence-artifacts").catch(() => ({ artifacts: [] })),
     api("/live-execution/summary").catch(() => ({ summary: null })),
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
@@ -338,9 +344,11 @@ async function refreshAll() {
   state.phantomExceptions = phantomExceptions.exceptions;
   state.phantomAuditCorrelation = phantomAuditCorrelation.summary;
   state.releaseSummary = releaseSummary.summary;
+  state.releaseBuildAssessment = releaseBuildAssessment.assessment;
   state.releaseGates = releaseGates.gates;
   state.releaseProblems = releaseProblems.problems;
   state.humanTests = humanTests.scenarios;
+  state.humanTestRuns = humanTestRuns.runs;
   state.evidenceArtifacts = evidenceArtifacts.artifacts;
   state.liveExecutionSummary = liveExecutionSummary.summary;
   state.liveCloudRequests = liveCloudRequests.requests;
@@ -917,6 +925,14 @@ function renderRelease() {
     ["Last run", scenario.lastRunAt || "-"]
   ])).join("") || empty("No human test scenarios recorded.");
 
+  $("#human-test-run-cards").innerHTML = state.humanTestRuns.map((run) => card(run.title, [
+    ["Status", run.status],
+    ["Mode", run.mode],
+    ["Results", String(run.results?.length || 0)],
+    ["Evidence", String(run.evidenceArtifactIds?.length || 0)],
+    ["Prod exec", String(run.productionExecutionAllowed)]
+  ])).join("") || empty("No full human test runs recorded.");
+
   $("#release-problem-cards").innerHTML = state.releaseProblems.map((problem) => card(problem.title, [
     ["Severity", problem.severity],
     ["Category", problem.category],
@@ -975,6 +991,20 @@ function renderRelease() {
       ["Baseline unlock", "false"]
     ])
   ].join("");
+
+  $("#release-build-assessment-cards").innerHTML = state.releaseBuildAssessment ? [
+    card("Build assessment", [
+      ["Status", state.releaseBuildAssessment.status],
+      ["Prod exec", String(state.releaseBuildAssessment.productionExecutionAllowed)],
+      ["Księga blocked", String(state.releaseBuildAssessment.księga34?.blocked || 0)],
+      ["Open problems", String(state.releaseBuildAssessment.testing?.openProblems?.length || 0)]
+    ]),
+    card("PHANTOM assessment", [
+      ["Execution", String(state.releaseBuildAssessment.phantom?.executionAllowed)],
+      ["Certification", String(state.releaseBuildAssessment.phantom?.certificationClaim)],
+      ["Review items", String(state.releaseBuildAssessment.phantom?.reviewRequired?.length || 0)]
+    ])
+  ].join("") : empty("Build assessment unavailable.");
 }
 
 function renderSelect(selector, rows, emptyLabel, labelKey = "name") {
@@ -2037,6 +2067,29 @@ async function updateHumanTestStatus(event) {
   await refreshAll();
 }
 
+async function recordHumanTestRun(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const results = state.humanTests.map((scenario) => ({
+    scenarioId: scenario.id,
+    view: scenario.view,
+    status: data.status,
+    note: data.note
+  }));
+  await api("/release/human-test-runs", {
+    method: "POST",
+    body: {
+      mode: data.mode,
+      title: data.title,
+      evidenceArtifactIds: splitCsv(data.evidenceArtifactIds),
+      environment: data.environment,
+      results
+    }
+  });
+  toast("Full human test run recorded");
+  await refreshAll();
+}
+
 async function handleCredentialAction(event) {
   const action = event.target.dataset.credentialAction;
   if (!action) return;
@@ -2420,6 +2473,7 @@ function bind() {
   $("#evidence-artifact-form").addEventListener("submit", (event) => createEvidenceArtifact(event).catch(showError));
   $("#release-problem-form").addEventListener("submit", (event) => createReleaseProblem(event).catch(showError));
   $("#human-test-status-form").addEventListener("submit", (event) => updateHumanTestStatus(event).catch(showError));
+  $("#human-test-run-form").addEventListener("submit", (event) => recordHumanTestRun(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));

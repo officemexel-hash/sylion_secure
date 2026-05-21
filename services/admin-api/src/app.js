@@ -376,6 +376,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { summary: release.summary({ actor, correlationId }) });
       }
 
+      if (req.method === "GET" && url.pathname === "/release/build-assessment") {
+        return send(res, 200, { assessment: release.buildAssessment({ actor, correlationId }) });
+      }
+
       if (req.method === "GET" && url.pathname === "/release/gates") {
         return send(res, 200, { gates: release.listGates({ actor, correlationId }) });
       }
@@ -416,6 +420,16 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       if (req.method === "GET" && url.pathname === "/release/human-tests") {
         return send(res, 200, { scenarios: release.listTests({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/release/human-test-runs") {
+        return send(res, 200, { runs: release.listTestRuns({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/release/human-test-runs") {
+        const body = await readJson(req);
+        const run = release.recordHumanTestRun({ actor, ...body, correlationId });
+        return send(res, 201, { run });
       }
 
       const releaseTestStatusMatch = url.pathname.match(/^\/release\/human-tests\/([^/]+)\/status$/);
