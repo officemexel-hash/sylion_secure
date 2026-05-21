@@ -58,7 +58,12 @@ export class HetznerLiveAdapter {
         role,
         providerResourceId: String(payload.server?.id || payload.server?.name || body.name),
         name: payload.server?.name || body.name,
-        location: payload.server?.datacenter?.location?.name || region
+        location: payload.server?.datacenter?.location?.name || region,
+        rollback: {
+          action: "delete_server",
+          providerResourceId: String(payload.server?.id || payload.server?.name || body.name),
+          idempotencyKey
+        }
       });
     }
     return created;

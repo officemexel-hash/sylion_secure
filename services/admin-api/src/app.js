@@ -319,6 +319,27 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { requests: liveExecution.listRequests({ actor, correlationId }) });
       }
 
+      if (req.method === "GET" && url.pathname === "/live-execution/cloud/rollback-plans") {
+        return send(res, 200, { plans: liveExecution.listRollbackPlans({ actor, correlationId }) });
+      }
+
+      const providerVpsSetMatch = url.pathname.match(/^\/live-execution\/cloud\/([^/]+)\/vps-set$/);
+      if (req.method === "POST" && providerVpsSetMatch) {
+        auth.requireFreshStepUp(actor, `live_cloud.${providerVpsSetMatch[1]}.vps_set`, {
+          correlationId,
+          resourceType: "live_execution_request"
+        });
+        const body = await readJson(req);
+        const request = await liveExecution.createProviderVpsSet({
+          actor,
+          providerKey: providerVpsSetMatch[1],
+          idempotencyKey: req.headers["idempotency-key"] || body.idempotencyKey,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { request });
+      }
+
       if (req.method === "POST" && url.pathname === "/live-execution/cloud/hetzner/vps-set") {
         auth.requireFreshStepUp(actor, "live_cloud.hetzner.vps_set", {
           correlationId,

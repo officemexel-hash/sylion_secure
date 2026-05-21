@@ -163,12 +163,20 @@ export class AdminApiClient {
     return this.request("/live-execution/cloud/requests");
   }
 
-  requestHetznerLiveVpsSet(body, idempotencyKey = body.idempotencyKey) {
-    return this.request("/live-execution/cloud/hetzner/vps-set", {
+  listLiveRollbackPlans() {
+    return this.request("/live-execution/cloud/rollback-plans");
+  }
+
+  requestProviderLiveVpsSet(providerKey, body, idempotencyKey = body.idempotencyKey) {
+    return this.request(`/live-execution/cloud/${providerKey}/vps-set`, {
       method: "POST",
       headers: { "idempotency-key": idempotencyKey },
       body
     });
+  }
+
+  requestHetznerLiveVpsSet(body, idempotencyKey = body.idempotencyKey) {
+    return this.requestProviderLiveVpsSet("hetzner", body, idempotencyKey);
   }
 
   listFirecrackerHostQualifications() {

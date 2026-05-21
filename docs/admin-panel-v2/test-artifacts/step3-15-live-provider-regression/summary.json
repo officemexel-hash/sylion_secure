@@ -1,0 +1,14 @@
+{
+  "baseUrl": "http://127.0.0.1:8099/admin",
+  "status": "passed",
+  "actions": [
+    "approvals_view_loaded",
+    "operator_pipeline_local_environment_failure_rollback",
+    "login_demo_phantom",
+    "release_artifact_problem_human_test",
+    "live_cloud_firecracker_cpu_gates",
+    "phantom_execution_request_gate"
+  ],
+  "issues": [],
+  "checkedAt": "2026-05-21T14:13:46.255Z"
+}

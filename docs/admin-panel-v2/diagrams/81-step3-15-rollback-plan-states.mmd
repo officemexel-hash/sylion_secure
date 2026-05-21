@@ -1,0 +1,8 @@
+stateDiagram-v2
+  [*] --> requested
+  requested --> blocked_plan: gate denied
+  requested --> ready_cleanup: mock/live adapter executed
+  blocked_plan --> no_op_actions
+  ready_cleanup --> delete_actions
+  no_op_actions --> [*]
+  delete_actions --> [*]

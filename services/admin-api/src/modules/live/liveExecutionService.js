@@ -4,6 +4,7 @@ import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 import { HetznerLiveAdapter } from "./hetznerLiveAdapter.js";
+import { OvhLiveAdapter } from "./ovhLiveAdapter.js";
 
 function isoNow() {
   return new Date().toISOString();
@@ -81,6 +82,21 @@ function publicRequest(record) {
   };
 }
 
+function sanitizeProviderResource(resource = {}) {
+  return {
+    role: resource.role,
+    providerResourceId: String(resource.providerResourceId || resource.id || resource.name || "unknown"),
+    name: resource.name || null,
+    location: resource.location || null,
+    status: resource.status || "created",
+    rollback: resource.rollback ? {
+      action: resource.rollback.action || "delete_server",
+      providerResourceId: String(resource.rollback.providerResourceId || resource.providerResourceId || "unknown"),
+      idempotencyKey: resource.rollback.idempotencyKey || null
+    } : null
+  };
+}
+
 export class LiveExecutionService {
   constructor({
     audit,
@@ -101,6 +117,7 @@ export class LiveExecutionService {
     this.env = env;
     this.adapterFactory = adapterFactory || ((providerKey) => {
       if (providerKey === "hetzner") return new HetznerLiveAdapter({ token: env.HETZNER_API_TOKEN });
+      if (providerKey === "ovh") return new OvhLiveAdapter();
       throw validationError("Live provider adapter is not implemented", { providerKey });
     });
     this.hostProbe = hostProbe || (() => ({
@@ -112,6 +129,7 @@ export class LiveExecutionService {
     this.requests = new PersistentMap({ store, collection: "live_execution_requests" });
     this.hostQualifications = new PersistentMap({ store, collection: "firecracker_host_qualifications" });
     this.cpuQualifications = new PersistentMap({ store, collection: "cpu_confidential_qualifications" });
+    this.rollbackPlans = new PersistentMap({ store, collection: "live_rollback_plans" });
     this.phantomRequests = new PersistentMap({ store, collection: "phantom_execution_requests" });
     this.idempotency = new Map();
     for (const request of this.requests.values()) {
@@ -137,6 +155,11 @@ export class LiveExecutionService {
       cpuQualifications: this.cpuQualifications.size,
       confidentialReadyHosts: [...this.cpuQualifications.values()].filter((item) => item.secretsReleaseAllowed).length,
       phantomExecutionRequests: this.phantomRequests.size,
+      rollbackPlans: this.rollbackPlans.size,
+      providerAdapters: [
+        { providerKey: "hetzner", status: "gated_live_adapter", rollbackRequired: true },
+        { providerKey: "ovh", status: "stub_blocked", rollbackRequired: true }
+      ],
       productionExecutionAllowed: false,
       generatedAt: isoNow()
     };
@@ -148,8 +171,15 @@ export class LiveExecutionService {
     return [...this.requests.values()].map(publicRequest);
   }
 
-  async createHetznerVpsSet({
+  listRollbackPlans({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.LIVE_ROLLBACK_PLAN });
+    return [...this.rollbackPlans.values()];
+  }
+
+  async createProviderVpsSet({
     actor,
+    providerKey,
     providerId,
     operatorId,
     region,
@@ -170,8 +200,9 @@ export class LiveExecutionService {
     if (!provider) throw notFound("provider", providerId);
     const operator = this.operators.get(operatorId);
     if (!operator) throw notFound("operator", operatorId);
-    if (provider.providerKey !== "hetzner") {
-      throw validationError("Only Hetzner live adapter is wired in this step", { providerKey: provider.providerKey });
+    const requestedProviderKey = requireText(providerKey, "providerKey").toLowerCase();
+    if (provider.providerKey !== requestedProviderKey) {
+      throw validationError("Provider route does not match provider record", { requestedProviderKey, providerKey: provider.providerKey });
     }
     if (operator.baseline?.vpsPerOperator !== 3) {
       throw validationError("Live cloud baseline requires exactly 3 VPS per operator", { operatorId });
@@ -180,7 +211,7 @@ export class LiveExecutionService {
     if (approval.operatorId !== operatorId) {
       throw validationError("Approval does not match requested operator", { approvalId, operatorId, approvalOperatorId: approval.operatorId });
     }
-    const gate = this.#evaluateCloudGate({ operatorId, region, liveConfirmed });
+    const gate = this.#evaluateCloudGate({ providerKey: provider.providerKey, operatorId, region, liveConfirmed });
     if (!gate.allowed) {
       const denied = this.#recordCloudRequest({
         actor,
@@ -197,14 +228,14 @@ export class LiveExecutionService {
       return publicRequest(denied);
     }
     const adapter = this.adapterFactory(provider.providerKey);
-    const resources = await adapter.createVpsSet({
+    const resources = (await adapter.createVpsSet({
       operatorId,
       region,
       serverType,
       image,
       labels: { sylion_tenant: operator.tenantId },
       idempotencyKey: key
-    });
+    })).map(sanitizeProviderResource);
     const request = this.#recordCloudRequest({
       actor,
       provider,
@@ -218,6 +249,10 @@ export class LiveExecutionService {
       correlationId: corr
     });
     return publicRequest(request);
+  }
+
+  async createHetznerVpsSet(input) {
+    return this.createProviderVpsSet({ ...input, providerKey: "hetzner" });
   }
 
   qualifyFirecrackerHost({ actor, hostId = "local-host", approvalId = null, correlationId }) {
@@ -399,13 +434,14 @@ export class LiveExecutionService {
     return [...this.phantomRequests.values()];
   }
 
-  #evaluateCloudGate({ operatorId, region, liveConfirmed }) {
+  #evaluateCloudGate({ providerKey, operatorId, region, liveConfirmed }) {
     const blockers = [];
     const allowedOperators = splitEnvList(this.env.SYLION_LIVE_ALLOWLIST_OPERATORS);
     const allowedRegions = splitEnvList(this.env.SYLION_LIVE_ALLOWED_REGIONS);
     if (this.env.SYLION_PROVIDER_MODE !== "live") blockers.push("provider_mode_not_live");
     if (this.env.SYLION_LIVE_ALLOWED !== "true") blockers.push("live_allowed_flag_false");
-    if (!this.env.HETZNER_API_TOKEN) blockers.push("hetzner_api_token_missing");
+    if (providerKey === "hetzner" && !this.env.HETZNER_API_TOKEN) blockers.push("hetzner_api_token_missing");
+    if (providerKey === "ovh") blockers.push("ovh_live_adapter_not_implemented");
     if (!liveConfirmed) blockers.push("live_confirmation_missing");
     if (!allowedOperators.includes("*") && !allowedOperators.includes(operatorId)) blockers.push("operator_not_allowlisted");
     if (!allowedRegions.includes(region)) blockers.push("region_not_allowlisted");
@@ -413,6 +449,9 @@ export class LiveExecutionService {
     return {
       allowed: blockers.length === 0,
       blockers,
+      providerKey,
+      rollbackRequired: true,
+      rollbackPlanRequiredBeforeMutation: true,
       mutationMode: blockers.length === 0 ? "live" : "blocked",
       baselineUnlockState: this.#baselineUnlockState()
     };
@@ -424,9 +463,48 @@ export class LiveExecutionService {
     return "approved_for_live_execution_env_gate";
   }
 
+  #rollbackPlanFor({ requestId, provider, operator, region, resources, idempotencyKey, status }) {
+    return {
+      id: newId("live_rb"),
+      requestId,
+      providerId: provider.id,
+      providerKey: provider.providerKey,
+      operatorId: operator.id,
+      tenantId: operator.tenantId,
+      region,
+      status: status === "executed_provider_mutation" ? "ready_for_provider_cleanup" : "planned_blocked_no_resources",
+      requiredBeforeMutation: true,
+      sideEffectAllowed: false,
+      productionExecutionAllowed: false,
+      actions: resources.length ? resources.map((resource) => ({
+        action: resource.rollback?.action || "delete_server",
+        role: resource.role,
+        providerResourceId: resource.providerResourceId,
+        idempotencyKey
+      })) : ["G1", "G2", "WORKLOAD"].map((role) => ({
+        action: "no_op_not_created",
+        role,
+        providerResourceId: null,
+        idempotencyKey
+      })),
+      createdAt: isoNow()
+    };
+  }
+
   #recordCloudRequest({ actor, provider, operator, region, approvalId, idempotencyKey, status, gate, resources, correlationId }) {
+    const requestId = newId("live_req");
+    const sanitizedResources = resources.map(sanitizeProviderResource);
+    const rollbackPlan = this.#rollbackPlanFor({
+      requestId,
+      provider,
+      operator,
+      region,
+      resources: sanitizedResources,
+      idempotencyKey,
+      status
+    });
     const request = {
-      id: newId("live_req"),
+      id: requestId,
       providerId: provider.id,
       providerKey: provider.providerKey,
       providerSecretReference: provider.apiSecretReference?.secretReference || null,
@@ -438,7 +516,9 @@ export class LiveExecutionService {
       requestedResources: ["G1", "G2", "WORKLOAD"],
       status,
       gate,
-      resources,
+      resources: sanitizedResources,
+      rollbackPlanId: rollbackPlan.id,
+      rollbackReady: rollbackPlan.status === "ready_for_provider_cleanup",
       sideEffectAllowed: status === "executed_provider_mutation",
       executionAllowed: status === "executed_provider_mutation",
       productionExecutionAllowed: false,
@@ -446,7 +526,22 @@ export class LiveExecutionService {
       createdBy: actor.id
     };
     this.requests.set(request.id, request);
+    this.rollbackPlans.set(rollbackPlan.id, rollbackPlan);
     this.idempotency.set(idempotencyKey, request.id);
+    this.audit.record({
+      actorId: actor.id,
+      action: "live_cloud.rollback_plan_created",
+      resourceType: RESOURCE_TYPES.LIVE_ROLLBACK_PLAN,
+      resourceId: rollbackPlan.id,
+      tenantId: operator.tenantId,
+      operatorId: operator.id,
+      approvalId,
+      idempotencyKey,
+      correlationId,
+      policyDecision: "allow",
+      result: rollbackPlan.status,
+      newValue: rollbackPlan
+    });
     this.audit.record({
       actorId: actor.id,
       action: status === "executed_provider_mutation" ? "live_cloud.vps_set_created" : "live_cloud.vps_set_blocked",

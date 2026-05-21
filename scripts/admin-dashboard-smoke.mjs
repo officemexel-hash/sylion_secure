@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-14-operator-environment-regression");
+const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-15-live-provider-regression");
 const baseUrl = process.env.SYLION_ADMIN_URL || "http://127.0.0.1:8099/admin";
 
 async function loadPlaywright() {
@@ -14,6 +14,15 @@ async function loadPlaywright() {
 
 async function clickButton(page, label) {
   await page.getByRole("button", { name: label, exact: true }).click();
+}
+
+async function selectLastOption(page, selector) {
+  await page.locator(selector).evaluate((select) => {
+    if (select.options.length > 0) {
+      select.selectedIndex = select.options.length - 1;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
 }
 
 async function run() {
@@ -42,20 +51,34 @@ async function run() {
     await page.getByRole("heading", { name: "Provisioning Pipeline ?" }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Create Pipeline Draft" }).click();
     await page.locator("#toast").getByText("Operator provisioning draft created", { exact: false }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await selectLastOption(page, "#local-lab-pipeline-select");
     await page.getByRole("button", { name: "Create Local VPS Set" }).click();
     await page.locator("#toast").getByText("Local virtual VPS set created", { exact: false }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await selectLastOption(page, "#secrets-check-pipeline-select");
     await page.getByRole("button", { name: "Check Secrets Release" }).click();
     await page.locator("#toast").getByText("Secrets release remains blocked for local lab", { exact: false }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await selectLastOption(page, "#local-environment-pipeline-select");
     await page.getByRole("button", { name: "Create Local Environment" }).click();
     await page.locator("#toast").getByText("Local operator environment created", { exact: false }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await selectLastOption(page, "#environment-start-select");
     await page.getByRole("button", { name: "Start Local Harness" }).click();
     await page.locator("#toast").getByText("Local harness started", { exact: false }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
     await page.screenshot({ path: join(outputDir, "operator-environment-ready-desktop.png"), fullPage: true });
+    await selectLastOption(page, "#environment-failure-select");
     await page.getByRole("button", { name: "Inject Failure" }).click();
     await page.locator("#toast").getByText("Local harness failure injected", { exact: false }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
     await page.screenshot({ path: join(outputDir, "operator-environment-failed-desktop.png"), fullPage: true });
+    await selectLastOption(page, "#environment-rollback-select");
     await page.getByRole("button", { name: "Rollback Environment" }).click();
     await page.locator("#toast").getByText("Local harness rolled back", { exact: false }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await selectLastOption(page, "#environment-secrets-select");
     await page.getByRole("button", { name: "Check Environment Secrets" }).click();
     await page.locator("#toast").getByText("Environment secrets remain blocked", { exact: false }).waitFor({ timeout: 10000 });
     await page.screenshot({ path: join(outputDir, "operator-pipeline-local-lab-desktop.png"), fullPage: true });
@@ -85,6 +108,10 @@ async function run() {
     await page.locator("#toast").getByText("CPU confidential-computing qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
     await page.screenshot({ path: join(outputDir, "live-execution-desktop.png"), fullPage: true });
     actions.push("live_cloud_firecracker_cpu_gates");
+    const providersText = await page.locator("main").innerText();
+    for (const expected of ["Live Rollback Plans", "Rollback ready", "hetzner", "blocked_human_gate"]) {
+      if (!providersText.includes(expected)) issues.push(`Missing live provider dashboard text: ${expected}`);
+    }
 
     await clickButton(page, "PHANTOM");
     await page.getByRole("heading", { name: "Execution Requests" }).waitFor({ timeout: 10000 });

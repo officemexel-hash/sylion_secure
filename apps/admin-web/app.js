@@ -48,6 +48,7 @@ const state = {
   evidenceArtifacts: [],
   liveExecutionSummary: null,
   liveCloudRequests: [],
+  liveRollbackPlans: [],
   firecrackerQualifications: [],
   cpuConfidentialQualifications: [],
   phantomExecutionRequests: [],
@@ -224,6 +225,7 @@ async function refreshAll() {
     evidenceArtifacts,
     liveExecutionSummary,
     liveCloudRequests,
+    liveRollbackPlans,
     firecrackerQualifications,
     cpuConfidentialQualifications,
     phantomExecutionRequests,
@@ -272,6 +274,7 @@ async function refreshAll() {
     api("/release/evidence-artifacts").catch(() => ({ artifacts: [] })),
     api("/live-execution/summary").catch(() => ({ summary: null })),
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
+    api("/live-execution/cloud/rollback-plans").catch(() => ({ plans: [] })),
     api("/live-execution/firecracker/host-qualifications").catch(() => ({ qualifications: [] })),
     api("/live-execution/cpu-confidential/qualifications").catch(() => ({ qualifications: [] })),
     api("/live-execution/phantom/requests").catch(() => ({ requests: [] })),
@@ -320,6 +323,7 @@ async function refreshAll() {
   state.evidenceArtifacts = evidenceArtifacts.artifacts;
   state.liveExecutionSummary = liveExecutionSummary.summary;
   state.liveCloudRequests = liveCloudRequests.requests;
+  state.liveRollbackPlans = liveRollbackPlans.plans;
   state.firecrackerQualifications = firecrackerQualifications.qualifications;
   state.cpuConfidentialQualifications = cpuConfidentialQualifications.qualifications;
   state.phantomExecutionRequests = phantomExecutionRequests.requests;
@@ -475,17 +479,31 @@ function render() {
     ["Live allowed", String(state.liveExecutionSummary.liveAllowed)],
     ["Token configured", String(state.liveExecutionSummary.tokenConfigured)],
     ["Unlock", state.liveExecutionSummary.baselineUnlockState],
+    ["Adapters", state.liveExecutionSummary.providerAdapters?.map((adapter) => `${adapter.providerKey}:${adapter.status}`).join(", ") || "-"],
+    ["Rollback plans", String(state.liveExecutionSummary.rollbackPlans || 0)],
     ["Prod exec", String(state.liveExecutionSummary.productionExecutionAllowed)]
   ]) : empty("Live execution gate unavailable.");
 
   $("#live-cloud-request-cards").innerHTML = state.liveCloudRequests.map((request) => card(request.id, [
     ["Status", request.status],
+    ["Provider", request.providerKey],
     ["Operator", request.operatorId],
     ["Region", request.region],
     ["Gate", request.gate?.baselineUnlockState],
+    ["Rollback", request.rollbackPlanId || "-"],
+    ["Rollback ready", String(request.rollbackReady)],
     ["Side effect", String(request.sideEffectAllowed)],
     ["Blockers", request.gate?.blockers?.join(", ") || "-"]
   ])).join("") || empty("No live cloud requests recorded.");
+
+  $("#live-rollback-plan-cards").innerHTML = state.liveRollbackPlans.map((plan) => card(plan.id, [
+    ["Provider", plan.providerKey],
+    ["Request", plan.requestId],
+    ["Operator", plan.operatorId],
+    ["Status", plan.status],
+    ["Actions", String(plan.actions?.length || 0)],
+    ["Side effect", String(plan.sideEffectAllowed)]
+  ])).join("") || empty("No live rollback plans recorded.");
 
   $("#firecracker-qualification-cards").innerHTML = state.firecrackerQualifications.map((item) => card(item.hostId, [
     ["Mode", item.mode],

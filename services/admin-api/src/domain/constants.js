@@ -70,6 +70,7 @@ export const RESOURCE_TYPES = Object.freeze({
   LIVE_EXECUTION_REQUEST: "live_execution_request",
   FIRECRACKER_HOST_QUALIFICATION: "firecracker_host_qualification",
   CPU_CONFIDENTIAL_QUALIFICATION: "cpu_confidential_qualification",
+  LIVE_ROLLBACK_PLAN: "live_rollback_plan",
   PHANTOM_EXECUTION_REQUEST: "phantom_execution_request",
   RELEASE_GATE: "release_gate",
   RELEASE_PROBLEM: "release_problem",
