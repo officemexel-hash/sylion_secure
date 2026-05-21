@@ -5,6 +5,7 @@ const state = {
   operators: [],
   operatorProvisioningTemplates: [],
   operatorProvisioningPipelines: [],
+  operatorEnvironments: [],
   providers: [],
   devices: [],
   authorizedApps: [],
@@ -191,6 +192,7 @@ async function refreshAll() {
     operators,
     operatorProvisioningTemplates,
     operatorProvisioningPipelines,
+    operatorEnvironments,
     providers,
     devices,
     authorizedApps,
@@ -238,6 +240,7 @@ async function refreshAll() {
     api("/operators"),
     api("/operator-provisioning/templates").catch(() => ({ templates: [] })),
     api("/operator-provisioning/pipelines").catch(() => ({ pipelines: [] })),
+    api("/operator-environments").catch(() => ({ environments: [] })),
     api("/providers"),
     api("/devices"),
     api("/apps"),
@@ -285,6 +288,7 @@ async function refreshAll() {
   state.operators = operators.operators;
   state.operatorProvisioningTemplates = operatorProvisioningTemplates.templates;
   state.operatorProvisioningPipelines = operatorProvisioningPipelines.pipelines;
+  state.operatorEnvironments = operatorEnvironments.environments;
   state.providers = providers.providers;
   state.devices = devices.devices;
   state.authorizedApps = authorizedApps.apps;
@@ -360,6 +364,11 @@ function render() {
   renderSelect("#operator-tenant-select", state.tenants, "No tenants");
   renderSelect("#pipeline-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#local-lab-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
+  renderSelect("#local-environment-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
+  renderSelect("#environment-start-select", state.operatorEnvironments, "No environments", "status");
+  renderSelect("#environment-failure-select", state.operatorEnvironments, "No environments", "status");
+  renderSelect("#environment-rollback-select", state.operatorEnvironments, "No environments", "status");
+  renderSelect("#environment-secrets-select", state.operatorEnvironments, "No environments", "status");
   renderSelect("#secrets-check-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#plan-operator-select", state.operators, "No operators", "displayName");
@@ -436,6 +445,16 @@ function render() {
     ["Firecracker", String(pipeline.firecrackerPlan?.workloads?.length || 0)],
     ["Secrets", String(pipeline.secretsRelease?.allowed)]
   ])).join("") || empty("No operator provisioning pipelines yet.");
+
+  $("#operator-environment-cards").innerHTML = state.operatorEnvironments.map((environment) => card(environment.id, [
+    ["Operator", environment.operatorId],
+    ["Status", environment.status],
+    ["Mode", environment.mode],
+    ["VPS", String(environment.localProvider?.resources?.length || 0)],
+    ["Runtimes", String(environment.mockFirecracker?.runtimes?.length || 0)],
+    ["Failure", environment.failure?.type || "-"],
+    ["Secrets", String(environment.secretsReleaseAllowed)]
+  ])).join("") || empty("No operator environments yet.");
 
   $("#provider-cards").innerHTML = state.providers.map((provider) => card(provider.displayName, [
     ["Provider", provider.providerKey],
@@ -1108,6 +1127,75 @@ async function checkSecretsRelease(event) {
   }
   await api(`/operator-provisioning/pipelines/${data.pipelineId}/secrets-release-check`, { method: "POST" });
   toast("Secrets release remains blocked for local lab");
+  await refreshAll();
+}
+
+async function createLocalEnvironment(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.pipelineId) {
+    toast("Create a local-lab pipeline before environment", "warn");
+    return;
+  }
+  await api(`/operator-provisioning/pipelines/${data.pipelineId}/local-environment`, { method: "POST" });
+  toast("Local operator environment created");
+  await refreshAll();
+}
+
+async function startLocalEnvironment(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.environmentId) {
+    toast("Create an environment before start", "warn");
+    return;
+  }
+  await api(`/operator-environments/${data.environmentId}/start-local`, { method: "POST" });
+  toast("Local harness started");
+  await refreshAll();
+}
+
+async function injectEnvironmentFailure(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.environmentId) {
+    toast("Create an environment before failure injection", "warn");
+    return;
+  }
+  await api(`/operator-environments/${data.environmentId}/failures`, {
+    method: "POST",
+    body: {
+      failureType: data.failureType,
+      reason: data.reason
+    }
+  });
+  toast("Local harness failure injected");
+  await refreshAll();
+}
+
+async function rollbackEnvironment(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.environmentId) {
+    toast("Create an environment before rollback", "warn");
+    return;
+  }
+  await api(`/operator-environments/${data.environmentId}/rollback`, {
+    method: "POST",
+    body: { reason: data.reason }
+  });
+  toast("Local harness rolled back");
+  await refreshAll();
+}
+
+async function checkEnvironmentSecrets(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.environmentId) {
+    toast("Create an environment before secrets check", "warn");
+    return;
+  }
+  await api(`/operator-environments/${data.environmentId}/secrets-release-check`, { method: "POST" });
+  toast("Environment secrets remain blocked");
   await refreshAll();
 }
 
@@ -2037,6 +2125,11 @@ function bind() {
   $("#pipeline-draft-form").addEventListener("submit", (event) => createPipelineDraft(event).catch(showError));
   $("#local-lab-vps-form").addEventListener("submit", (event) => createLocalLabVpsSet(event).catch(showError));
   $("#secrets-release-check-form").addEventListener("submit", (event) => checkSecretsRelease(event).catch(showError));
+  $("#local-environment-form").addEventListener("submit", (event) => createLocalEnvironment(event).catch(showError));
+  $("#environment-start-form").addEventListener("submit", (event) => startLocalEnvironment(event).catch(showError));
+  $("#environment-failure-form").addEventListener("submit", (event) => injectEnvironmentFailure(event).catch(showError));
+  $("#environment-rollback-form").addEventListener("submit", (event) => rollbackEnvironment(event).catch(showError));
+  $("#environment-secrets-form").addEventListener("submit", (event) => checkEnvironmentSecrets(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
   $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
   $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));

@@ -9,6 +9,8 @@ const ROLE_PERMISSIONS = Object.freeze({
     "operator.revoke",
     "operator.provisioning_pipeline.read",
     "operator.provisioning_pipeline.manage",
+    "operator.environment.read",
+    "operator.environment.manage",
     "provider.read",
     "provider.dry_run.plan",
     "provider.secret.rotate",
@@ -63,6 +65,8 @@ const ROLE_PERMISSIONS = Object.freeze({
     "operator.create",
     "operator.provisioning_pipeline.read",
     "operator.provisioning_pipeline.manage",
+    "operator.environment.read",
+    "operator.environment.manage",
     "subscription.read",
     "workload.allocation.read",
     "workload.allocation.manage",
@@ -84,15 +88,16 @@ const ROLE_PERMISSIONS = Object.freeze({
     "orchestrator.plan.execute",
     "provisioning.plan.read",
     "release.read",
+    "audit.read",
     "live_execution.read",
     "live_execution.manage",
     "provisioning.plan.generate"
   ],
-  [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create", "operator.provisioning_pipeline.read", "operator.provisioning_pipeline.manage", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read"],
+  [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create", "operator.provisioning_pipeline.read", "operator.provisioning_pipeline.manage", "operator.environment.read", "operator.environment.manage", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "audit.read"],
   [ROLES.BILLING_ADMIN]: ["tenant.read", "subscription.read", "subscription.manage"],
-  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "operator.provisioning_pipeline.read", "provider.read", "release.read", "live_execution.read"],
+  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "release.read", "live_execution.read"],
   [ROLES.INCIDENT_COMMANDER]: ["incident.manage", "operator.suspend"],
-  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "operator.provisioning_pipeline.read", "provider.read", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "release.read", "live_execution.read"]
+  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "release.read", "live_execution.read"]
 });
 
 export class RbacService {

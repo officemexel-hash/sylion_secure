@@ -1,0 +1,12 @@
+flowchart TD
+  Dashboard["Admin Dashboard"] --> EnvAPI["Operator Environment API"]
+  EnvAPI --> Pipeline["Operator Provisioning Pipeline"]
+  Pipeline --> LocalProvider["Local Provider Adapter"]
+  Pipeline --> MockFirecracker["Mock Firecracker Runner"]
+  EnvAPI --> FailureInjection["Failure Injection"]
+  EnvAPI --> Rollback["Rollback Harness"]
+  EnvAPI --> SecretsGate["Environment Secrets Gate"]
+  EnvAPI --> Monitoring["Monitoring Service"]
+  EnvAPI --> Audit["Audit Hash Chain"]
+  Release["Release Gate"] --> SecretsGate
+  Phantom["PHANTOM v3.0"] -. "separate; no baseline unlock" .-> Release

@@ -246,6 +246,66 @@
               <button type="submit">Check Secrets Release</button>
             </form>
           </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Environment Harness <span class="help-tip" tabindex="0" data-tip="Creates a local execution harness from a local-lab pipeline. It simulates provider and Firecracker lifecycle without cloud mutations.">?</span></h2>
+              <span class="pill">Step 3.14</span>
+            </div>
+            <form id="local-environment-form">
+              <label>Pipeline <select name="pipelineId" id="local-environment-pipeline-select"></select></label>
+              <button type="submit">Create Local Environment</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Start Harness <span class="help-tip" tabindex="0" data-tip="Starts mock local provider resources and mock Firecracker workload runtimes. It never launches a real kernel or releases secrets.">?</span></h2>
+              <span class="pill">Mock runtime</span>
+            </div>
+            <form id="environment-start-form">
+              <label>Environment <select name="environmentId" id="environment-start-select"></select></label>
+              <button type="submit">Start Local Harness</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Failure Injection <span class="help-tip" tabindex="0" data-tip="Forces a controlled local failure so rollback, monitoring and audit can be tested before live cloud unlock.">?</span></h2>
+              <span class="pill warn">Test only</span>
+            </div>
+            <form id="environment-failure-form">
+              <label>Environment <select name="environmentId" id="environment-failure-select"></select></label>
+              <label>Failure
+                <select name="failureType">
+                  <option value="firecracker_start_failed">firecracker_start_failed</option>
+                  <option value="microvm_crash_loop">microvm_crash_loop</option>
+                  <option value="provider_error">provider_error</option>
+                  <option value="secrets_denied">secrets_denied</option>
+                </select>
+              </label>
+              <label>Reason <input name="reason" value="dashboard_local_lab_test"></label>
+              <button type="submit">Inject Failure</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Rollback Harness <span class="help-tip" tabindex="0" data-tip="Stops mock runtimes and releases local-lab resources. This is the rollback drill before production provider cleanup exists.">?</span></h2>
+              <span class="pill warn">Cleanup</span>
+            </div>
+            <form id="environment-rollback-form">
+              <label>Environment <select name="environmentId" id="environment-rollback-select"></select></label>
+              <label>Reason <input name="reason" value="dashboard_local_lab_cleanup"></label>
+              <button type="submit">Rollback Environment</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Environment Secrets <span class="help-tip" tabindex="0" data-tip="Confirms the environment remains default-deny for workload secrets until production gates, TDX or SEV-SNP evidence and human approval are satisfied.">?</span></h2>
+              <span class="pill warn">Locked</span>
+            </div>
+            <form id="environment-secrets-form">
+              <label>Environment <select name="environmentId" id="environment-secrets-select"></select></label>
+              <button type="submit">Check Environment Secrets</button>
+            </form>
+          </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Operators</h2></div>
             <div class="cards" id="operator-cards"></div>
@@ -257,6 +317,10 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Operator Provisioning Pipelines</h2><span class="pill warn">Secrets locked</span></div>
             <div class="cards" id="operator-pipeline-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Operator Environments</h2><span class="pill">Local harness</span></div>
+            <div class="cards" id="operator-environment-cards"></div>
           </article>
         </section>
 

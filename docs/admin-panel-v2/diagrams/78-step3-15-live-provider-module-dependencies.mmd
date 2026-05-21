@@ -1,0 +1,18 @@
+flowchart TD
+  Dashboard["Admin Dashboard Live Review"] --> LiveAPI["Live Execution API"]
+  LiveAPI --> UnlockGate["Live Baseline Unlock Gate"]
+  UnlockGate --> Approval["Provisioning Approval"]
+  UnlockGate --> StepUp["Fresh FIDO2 Step-Up"]
+  UnlockGate --> EnvFlags["Live Env Flags"]
+  UnlockGate --> OperatorAllowlist["Operator Allowlist"]
+  UnlockGate --> RegionAllowlist["Region Allowlist"]
+  UnlockGate --> ServerCap["3 VPS Server Cap"]
+  LiveAPI --> ProviderInterface["Provider Adapter Interface"]
+  ProviderInterface --> Hetzner["Hetzner Adapter V2"]
+  ProviderInterface --> Ovh["OVH Adapter Stub"]
+  ProviderInterface --> Rollback["Live Rollback Plan"]
+  LiveAPI --> HostGate["Firecracker Host Gate"]
+  HostGate --> CpuGate["Intel TDX or AMD SEV-SNP Gate"]
+  LiveAPI --> Audit["Audit Hash Chain"]
+  LiveAPI --> Monitoring["Monitoring"]
+  Phantom["PHANTOM v3.0"] -. "cannot unlock baseline" .-> UnlockGate

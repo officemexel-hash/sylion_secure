@@ -1,0 +1,21 @@
+sequenceDiagram
+  actor Admin
+  participant UI as Dashboard
+  participant API as Admin API
+  participant Gate as Live Unlock Gate
+  participant Provider as Provider Adapter
+  participant Audit as Audit
+
+  Admin->>UI: Request live 3 VPS baseline
+  UI->>API: POST /live-execution/cloud/:provider/vps-set
+  API->>Gate: evaluate approval, step-up, env, allowlists, cap
+  Gate-->>API: denied with blockers by default
+  API->>Audit: live_cloud.vps_set_blocked
+  API-->>UI: blocked_human_gate
+
+  alt all gates explicitly passed
+    API->>Provider: createVpsSet idempotently
+    Provider-->>API: sanitized provider resources
+    API->>Audit: live_cloud.vps_set_created
+    API-->>UI: executed_provider_mutation
+  end

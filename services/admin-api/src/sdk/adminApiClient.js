@@ -83,6 +83,38 @@ export class AdminApiClient {
     return this.request(`/operator-provisioning/pipelines/${pipelineId}/secrets-release-check`, { method: "POST" });
   }
 
+  listOperatorEnvironments(operatorId = null) {
+    return this.request(`/operator-environments${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  getOperatorEnvironment(environmentId) {
+    return this.request(`/operator-environments/${environmentId}`);
+  }
+
+  listOperatorEnvironmentEvents(environmentId) {
+    return this.request(`/operator-environments/${environmentId}/events`);
+  }
+
+  createLocalOperatorEnvironment(pipelineId) {
+    return this.request(`/operator-provisioning/pipelines/${pipelineId}/local-environment`, { method: "POST" });
+  }
+
+  startLocalOperatorEnvironment(environmentId) {
+    return this.request(`/operator-environments/${environmentId}/start-local`, { method: "POST" });
+  }
+
+  injectOperatorEnvironmentFailure(environmentId, body) {
+    return this.request(`/operator-environments/${environmentId}/failures`, { method: "POST", body });
+  }
+
+  rollbackOperatorEnvironment(environmentId, body = {}) {
+    return this.request(`/operator-environments/${environmentId}/rollback`, { method: "POST", body });
+  }
+
+  checkOperatorEnvironmentSecretsRelease(environmentId) {
+    return this.request(`/operator-environments/${environmentId}/secrets-release-check`, { method: "POST" });
+  }
+
   getReleaseSummary() {
     return this.request("/release/summary");
   }

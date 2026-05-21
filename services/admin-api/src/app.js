@@ -11,6 +11,7 @@ import { TenantService } from "./modules/tenants/tenantService.js";
 import { OperatorService } from "./modules/operators/operatorService.js";
 import { ProvisioningPlanService } from "./modules/provisioning/provisioningPlanService.js";
 import { OperatorProvisioningPipelineService } from "./modules/provisioning/operatorProvisioningPipelineService.js";
+import { OperatorEnvironmentService } from "./modules/provisioning/operatorEnvironmentService.js";
 import { AppCatalogService } from "./modules/apps/appCatalogService.js";
 import { CdrService } from "./modules/cdr/cdrService.js";
 import { MonitoringService } from "./modules/monitoring/monitoringService.js";
@@ -147,6 +148,13 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     subscriptions,
     store
   });
+  const operatorEnvironments = new OperatorEnvironmentService({
+    audit,
+    rbac,
+    operatorProvisioning,
+    monitoring,
+    store
+  });
 
   const services = {
     audit,
@@ -174,7 +182,8 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     orchestrator,
     release,
     liveExecution,
-    operatorProvisioning
+    operatorProvisioning,
+    operatorEnvironments
   };
 
   async function handle(req, res) {
@@ -414,6 +423,90 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const check = operatorProvisioning.checkSecretsRelease({
           actor,
           pipelineId: secretsCheckMatch[1],
+          correlationId
+        });
+        return send(res, 201, { check });
+      }
+
+      if (req.method === "GET" && url.pathname === "/operator-environments") {
+        return send(res, 200, {
+          environments: operatorEnvironments.list({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const environmentMatch = url.pathname.match(/^\/operator-environments\/([^/]+)$/);
+      if (req.method === "GET" && environmentMatch) {
+        const environment = operatorEnvironments.get({
+          actor,
+          environmentId: environmentMatch[1],
+          correlationId
+        });
+        return send(res, 200, { environment });
+      }
+
+      const environmentEventsMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/events$/);
+      if (req.method === "GET" && environmentEventsMatch) {
+        const events = operatorEnvironments.listEvents({
+          actor,
+          environmentId: environmentEventsMatch[1],
+          correlationId
+        });
+        return send(res, 200, { events });
+      }
+
+      const localEnvironmentMatch = url.pathname.match(/^\/operator-provisioning\/pipelines\/([^/]+)\/local-environment$/);
+      if (req.method === "POST" && localEnvironmentMatch) {
+        const environment = operatorEnvironments.createFromPipeline({
+          actor,
+          pipelineId: localEnvironmentMatch[1],
+          correlationId
+        });
+        return send(res, 201, { environment });
+      }
+
+      const startEnvironmentMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/start-local$/);
+      if (req.method === "POST" && startEnvironmentMatch) {
+        const environment = operatorEnvironments.startLocal({
+          actor,
+          environmentId: startEnvironmentMatch[1],
+          correlationId
+        });
+        return send(res, 200, { environment });
+      }
+
+      const environmentFailureMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/failures$/);
+      if (req.method === "POST" && environmentFailureMatch) {
+        const body = await readJson(req);
+        const environment = operatorEnvironments.injectFailure({
+          actor,
+          environmentId: environmentFailureMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { environment });
+      }
+
+      const rollbackEnvironmentMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/rollback$/);
+      if (req.method === "POST" && rollbackEnvironmentMatch) {
+        const body = await readJson(req);
+        const environment = operatorEnvironments.rollback({
+          actor,
+          environmentId: rollbackEnvironmentMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { environment });
+      }
+
+      const environmentSecretsMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/secrets-release-check$/);
+      if (req.method === "POST" && environmentSecretsMatch) {
+        const check = operatorEnvironments.checkSecretsRelease({
+          actor,
+          environmentId: environmentSecretsMatch[1],
           correlationId
         });
         return send(res, 201, { check });

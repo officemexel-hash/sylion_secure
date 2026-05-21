@@ -1,0 +1,10 @@
+stateDiagram-v2
+  [*] --> draft_ready
+  draft_ready --> local_lab_ready: create local VPS set
+  local_lab_ready --> planned: create local environment
+  planned --> environment_ready: start local harness
+  environment_ready --> environment_failed: inject failure
+  environment_failed --> rolled_back: rollback
+  environment_ready --> secrets_blocked: check secrets
+  secrets_blocked --> environment_ready
+  rolled_back --> [*]

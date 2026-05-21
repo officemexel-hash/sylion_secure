@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-13-operator-pipeline-regression");
+const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-14-operator-environment-regression");
 const baseUrl = process.env.SYLION_ADMIN_URL || "http://127.0.0.1:8099/admin";
 
 async function loadPlaywright() {
@@ -36,6 +36,7 @@ async function run() {
 
     await clickButton(page, "Overview");
     await clickButton(page, "Run Demo Flow");
+    await page.locator("#toast").getByText("Demo flow completed", { exact: false }).waitFor({ timeout: 30000 });
 
     await clickButton(page, "Operators");
     await page.getByRole("heading", { name: "Provisioning Pipeline ?" }).waitFor({ timeout: 10000 });
@@ -45,8 +46,20 @@ async function run() {
     await page.locator("#toast").getByText("Local virtual VPS set created", { exact: false }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Check Secrets Release" }).click();
     await page.locator("#toast").getByText("Secrets release remains blocked for local lab", { exact: false }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Create Local Environment" }).click();
+    await page.locator("#toast").getByText("Local operator environment created", { exact: false }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Start Local Harness" }).click();
+    await page.locator("#toast").getByText("Local harness started", { exact: false }).waitFor({ timeout: 10000 });
+    await page.screenshot({ path: join(outputDir, "operator-environment-ready-desktop.png"), fullPage: true });
+    await page.getByRole("button", { name: "Inject Failure" }).click();
+    await page.locator("#toast").getByText("Local harness failure injected", { exact: false }).waitFor({ timeout: 10000 });
+    await page.screenshot({ path: join(outputDir, "operator-environment-failed-desktop.png"), fullPage: true });
+    await page.getByRole("button", { name: "Rollback Environment" }).click();
+    await page.locator("#toast").getByText("Local harness rolled back", { exact: false }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Check Environment Secrets" }).click();
+    await page.locator("#toast").getByText("Environment secrets remain blocked", { exact: false }).waitFor({ timeout: 10000 });
     await page.screenshot({ path: join(outputDir, "operator-pipeline-local-lab-desktop.png"), fullPage: true });
-    actions.push("operator_pipeline_local_lab_vps_secrets_gate");
+    actions.push("operator_pipeline_local_environment_failure_rollback");
 
     await clickButton(page, "PHANTOM");
     await page.getByText("Package Review Matrix").waitFor({ timeout: 10000 });
@@ -99,7 +112,7 @@ async function run() {
 
     await clickButton(page, "Operators");
     const operatorText = await page.locator("main").innerText();
-    for (const expected of ["Provisioning Pipeline", "Local Virtual VPS", "Secrets Gate", "Operator Provisioning Pipelines", "Secrets locked", "local_lab_ready"]) {
+    for (const expected of ["Provisioning Pipeline", "Local Virtual VPS", "Secrets Gate", "Environment Harness", "Failure Injection", "Operator Environments", "rolled_back", "firecracker_start_failed", "local_lab_ready"]) {
       if (!operatorText.includes(expected)) issues.push(`Missing operator provisioning dashboard text: ${expected}`);
     }
 

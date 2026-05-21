@@ -158,6 +158,19 @@ export class OperatorProvisioningPipelineService {
       .map(publicPipeline);
   }
 
+  getPipeline({ actor, pipelineId, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const pipeline = this.pipelines.get(pipelineId);
+    if (!pipeline) throw notFound("operator_provisioning_pipeline", pipelineId);
+    this.rbac.assert(actor, "operator.provisioning_pipeline.read", {
+      operatorId: pipeline.operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.OPERATOR_PROVISIONING_PIPELINE,
+      resourceId: pipelineId
+    });
+    return publicPipeline(pipeline);
+  }
+
   createLocalLabVpsSet({ actor, pipelineId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const previous = this.pipelines.get(pipelineId);
