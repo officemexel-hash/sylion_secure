@@ -1,0 +1,115 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-and-e2e:
+    name: Unit + E2E tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20.x", "22.x"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci || npm install
+        # Project currently has no production dependencies, only dev (Playwright).
+        # npm ci is preferred but falls back to npm install if lock is partial.
+
+      - name: Show environment
+        run: |
+          node --version
+          npm --version
+
+      - name: Run test suite
+        run: npm test
+        env:
+          NODE_ENV: test
+          # Ensure no provider tokens are present in CI.
+          HETZNER_API_TOKEN: ""
+          SYLION_PROVIDER_MODE: ""
+          SYLION_LIVE_ALLOWED: "false"
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failure-logs-node${{ matrix.node-version }}
+          path: |
+            npm-debug.log*
+            .data/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Fail on any leak; treat as required check.
+          # Configuration can be tuned via .gitleaks.toml if added later.
+          config-path: ""
+
+  prohibited-terms-check:
+    name: Prohibited terms in production code
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure no operational PHANTOM terms outside boundary list
+        shell: bash
+        run: |
+          # Per legal-safety-boundaries.md and PROHIBITED_TERMS in phantomGovernanceService.js,
+          # production source code must not contain operational PHANTOM language.
+          # The runtime PROHIBITED_TERMS list is the authoritative source;
+          # documentation may reference these terms only to describe the boundary.
+          set -e
+          # These patterns must NOT appear in production src/ outside the PROHIBITED_TERMS
+          # constant itself or boundary-describing comments.
+          PROBLEMATIC=$(git grep -InE \
+            "(imei[_ -]?(rotation|override|spoof)|imsi[_ -]?(spoof|rotation)|stealth\s+transport\s+(impl|run|exec)|evade\s+(law|surveillance))" \
+            -- 'services/admin-api/src/' ':!*/phantomGovernanceService.js' ':!*test*' || true)
+          if [ -n "$PROBLEMATIC" ]; then
+            echo "Operational PHANTOM terms found in production code outside boundary file:"
+            echo "$PROBLEMATIC"
+            exit 1
+          fi
+          echo "OK: no operational PHANTOM terms in production code."
