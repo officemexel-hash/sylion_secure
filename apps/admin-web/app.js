@@ -43,6 +43,10 @@ const state = {
   releaseProblems: [],
   humanTests: [],
   evidenceArtifacts: [],
+  liveExecutionSummary: null,
+  liveCloudRequests: [],
+  firecrackerQualifications: [],
+  phantomExecutionRequests: [],
   lastPlanId: null,
   lastPlanOperatorId: null,
   credentialId: localStorage.getItem("sylion.admin.credentialId") || null,
@@ -211,6 +215,10 @@ async function refreshAll() {
     releaseProblems,
     humanTests,
     evidenceArtifacts,
+    liveExecutionSummary,
+    liveCloudRequests,
+    firecrackerQualifications,
+    phantomExecutionRequests,
     subscriptionPlans,
     quotaDecisions,
     provisioningApprovals,
@@ -251,6 +259,10 @@ async function refreshAll() {
     api("/release/problems").catch(() => ({ problems: [] })),
     api("/release/human-tests").catch(() => ({ scenarios: [] })),
     api("/release/evidence-artifacts").catch(() => ({ artifacts: [] })),
+    api("/live-execution/summary").catch(() => ({ summary: null })),
+    api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
+    api("/live-execution/firecracker/host-qualifications").catch(() => ({ qualifications: [] })),
+    api("/live-execution/phantom/requests").catch(() => ({ requests: [] })),
     api("/subscription/plans").catch(() => ({ plans: [] })),
     api("/subscription/quota-decisions").catch(() => ({ decisions: [] })),
     api("/provisioning/approvals").catch(() => ({ approvals: [] })),
@@ -291,6 +303,10 @@ async function refreshAll() {
   state.releaseProblems = releaseProblems.problems;
   state.humanTests = humanTests.scenarios;
   state.evidenceArtifacts = evidenceArtifacts.artifacts;
+  state.liveExecutionSummary = liveExecutionSummary.summary;
+  state.liveCloudRequests = liveCloudRequests.requests;
+  state.firecrackerQualifications = firecrackerQualifications.qualifications;
+  state.phantomExecutionRequests = phantomExecutionRequests.requests;
   state.phantomCoverage = await Promise.all(
     state.phantomPackages.map((pkg) => api(`/phantom/packages/${pkg.id}/evidence-coverage`)
       .then((result) => result.coverage)
@@ -340,6 +356,9 @@ function render() {
   renderSelect("#workload-lifecycle-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
   renderSelect("#provider-dry-run-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#provider-dry-run-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#live-cloud-provider-select", state.providers, "No providers", "displayName");
+  renderSelect("#live-cloud-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#live-cloud-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
   renderSelect("#subscription-tenant-select", state.tenants, "No tenants");
   renderSelect("#subscription-plan-select", state.subscriptionPlans, "No plans", "name");
   renderSelect("#billing-tenant-select", state.tenants, "No tenants");
@@ -367,6 +386,7 @@ function render() {
   renderSelect("#phantom-exception-evidence-select", state.phantomEvidenceBundles, "No evidence bundles", "summary");
   renderSelect("#phantom-review-ack-select", state.phantomReviewBoardItems, "No review items", "title");
   renderSelect("#phantom-coverage-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect("#phantom-execution-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#human-test-select", state.humanTests, "No test scenarios", "title");
 
   $("#ksiega-status-cards").innerHTML = (state.systemStatus?.ksiega34 || []).map((item) => card(item.label, [
@@ -398,6 +418,38 @@ function render() {
     ["Actions", String(plan.plannedActions?.length || 0)],
     ["Side effect", String(plan.sideEffectAllowed)]
   ])).join("") || empty("No dry-run plans yet.");
+
+  $("#live-cloud-status-cards").innerHTML = state.liveExecutionSummary ? card("Live execution gate", [
+    ["Provider mode", state.liveExecutionSummary.providerMode],
+    ["Live allowed", String(state.liveExecutionSummary.liveAllowed)],
+    ["Token configured", String(state.liveExecutionSummary.tokenConfigured)],
+    ["Unlock", state.liveExecutionSummary.baselineUnlockState],
+    ["Prod exec", String(state.liveExecutionSummary.productionExecutionAllowed)]
+  ]) : empty("Live execution gate unavailable.");
+
+  $("#live-cloud-request-cards").innerHTML = state.liveCloudRequests.map((request) => card(request.id, [
+    ["Status", request.status],
+    ["Operator", request.operatorId],
+    ["Region", request.region],
+    ["Gate", request.gate?.baselineUnlockState],
+    ["Side effect", String(request.sideEffectAllowed)],
+    ["Blockers", request.gate?.blockers?.join(", ") || "-"]
+  ])).join("") || empty("No live cloud requests recorded.");
+
+  $("#firecracker-qualification-cards").innerHTML = state.firecrackerQualifications.map((item) => card(item.hostId, [
+    ["Mode", item.mode],
+    ["Ready", String(item.readyForFirecrackerLaunch)],
+    ["Exec", String(item.executionAllowed)],
+    ["Checks", item.checks?.map((check) => `${check.key}:${check.status}`).join(", ")]
+  ])).join("") || empty("No Firecracker host qualifications recorded.");
+
+  $("#phantom-execution-request-cards").innerHTML = state.phantomExecutionRequests.map((item) => card(item.packageId, [
+    ["Status", item.status],
+    ["Lab exec", String(item.labExecutionAllowed)],
+    ["Prod exec", String(item.productionExecutionAllowed)],
+    ["Baseline unlock", String(item.baselineUnlockAllowed)],
+    ["Blockers", item.blockers?.join(", ") || "-"]
+  ])).join("") || empty("No PHANTOM execution requests recorded.");
 
   $("#device-cards").innerHTML = state.devices.map((device) => card(`${device.model}`, [
     ["Type", device.type],
@@ -715,6 +767,25 @@ function renderRelease() {
       ["Execution", String(item.executionAllowed)]
     ]))
   ].join("");
+
+  $("#release-live-execution-cards").innerHTML = [
+    state.liveExecutionSummary ? card("Live cloud unlock", [
+      ["Mode", state.liveExecutionSummary.providerMode],
+      ["Live flag", String(state.liveExecutionSummary.liveAllowed)],
+      ["Token", String(state.liveExecutionSummary.tokenConfigured)],
+      ["State", state.liveExecutionSummary.baselineUnlockState]
+    ]) : empty("Live execution summary unavailable."),
+    card("Firecracker qualifications", [
+      ["Records", String(state.firecrackerQualifications.length)],
+      ["Ready", String(state.firecrackerQualifications.filter((item) => item.readyForFirecrackerLaunch).length)],
+      ["Execution", "false"]
+    ]),
+    card("PHANTOM execution requests", [
+      ["Records", String(state.phantomExecutionRequests.length)],
+      ["Production", "false"],
+      ["Baseline unlock", "false"]
+    ])
+  ].join("");
 }
 
 function renderSelect(selector, rows, emptyLabel, labelKey = "name") {
@@ -982,6 +1053,39 @@ async function createProviderDryRunPlan(event) {
     }
   });
   toast("Provider dry-run plan recorded; no cloud mutation performed");
+  await refreshAll();
+}
+
+async function requestLiveCloudVpsSet(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await withStepUpRetry(() => api("/live-execution/cloud/hetzner/vps-set", {
+    method: "POST",
+    extraHeaders: { "idempotency-key": data.idempotencyKey },
+    body: {
+      providerId: data.providerId,
+      operatorId: data.operatorId,
+      approvalId: data.approvalId,
+      region: data.region,
+      idempotencyKey: data.idempotencyKey,
+      liveConfirmed: event.currentTarget.liveConfirmed.checked
+    }
+  }), "Live Cloud VPS Set");
+  toast("Live cloud request recorded with gate decision");
+  await refreshAll();
+}
+
+async function qualifyFirecrackerHost(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await withStepUpRetry(() => api("/live-execution/firecracker/host-qualification", {
+    method: "POST",
+    body: {
+      hostId: data.hostId,
+      approvalId: data.approvalId || null
+    }
+  }), "Firecracker Host Qualification");
+  toast("Firecracker host qualification recorded");
   await refreshAll();
 }
 
@@ -1409,6 +1513,24 @@ async function evaluatePhantomCoverage(event) {
   render();
 }
 
+async function createPhantomExecutionRequest(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await withStepUpRetry(() => api("/live-execution/phantom/request", {
+    method: "POST",
+    body: {
+      packageId: data.packageId,
+      purpose: data.purpose,
+      owners: splitCsv(data.owners),
+      evidenceRefs: splitCsv(data.evidenceRefs),
+      expiresAt: data.expiresAt,
+      labConfirmed: event.currentTarget.labConfirmed.checked
+    }
+  }), "PHANTOM Execution Request");
+  toast("PHANTOM execution request gated; baseline remains locked");
+  await refreshAll();
+}
+
 async function createEvidenceArtifact(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -1792,6 +1914,8 @@ function bind() {
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
   $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
+  $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));
+  $("#firecracker-qualification-form").addEventListener("submit", (event) => qualifyFirecrackerHost(event).catch(showError));
   $("#approved-app-form").addEventListener("submit", (event) => createApprovedWorkloadApp(event).catch(showError));
   $("#subscription-form").addEventListener("submit", (event) => updateTenantSubscription(event).catch(showError));
   $("#billing-form").addEventListener("submit", (event) => updateBillingState(event).catch(showError));
@@ -1819,6 +1943,7 @@ function bind() {
   $("#phantom-exception-form").addEventListener("submit", (event) => createPhantomException(event).catch(showError));
   $("#phantom-review-ack-form").addEventListener("submit", (event) => acknowledgePhantomReviewOwner(event).catch(showError));
   $("#phantom-coverage-form").addEventListener("submit", (event) => evaluatePhantomCoverage(event).catch(showError));
+  $("#phantom-execution-request-form").addEventListener("submit", (event) => createPhantomExecutionRequest(event).catch(showError));
   $("#evidence-artifact-form").addEventListener("submit", (event) => createEvidenceArtifact(event).catch(showError));
   $("#release-problem-form").addEventListener("submit", (event) => createReleaseProblem(event).catch(showError));
   $("#human-test-status-form").addEventListener("submit", (event) => updateHumanTestStatus(event).catch(showError));

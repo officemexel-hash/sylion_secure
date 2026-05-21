@@ -1,0 +1,16 @@
+flowchart TD
+    Admin["Admin Dashboard"] --> API["Admin API"]
+    API --> Auth["FIDO2 Step-up"]
+    API --> Approval["Provisioning Approval"]
+    API --> Live["LiveExecutionService"]
+    Live --> Cloud["Hetzner Live Cloud Gate"]
+    Live --> Firecracker["Firecracker Host Qualification"]
+    Live --> Phantom["PHANTOM Execution Request"]
+    Cloud --> Provider["Provider Registry"]
+    Provider --> SecretRef["Secret references only"]
+    Cloud -. "runtime env token" .-> RuntimeSecret["Runtime Secret Storage"]
+    Cloud --> Audit["Audit Hash Chain"]
+    Firecracker --> Audit
+    Phantom --> Audit
+    Phantom -. "baselineUnlockAllowed=false" .-> Release["Release Gate"]
+    Release --> Decision["productionExecutionAllowed=false"]

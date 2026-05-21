@@ -103,6 +103,38 @@ export class AdminApiClient {
     return this.request("/release/evidence-artifacts", { method: "POST", body });
   }
 
+  getLiveExecutionSummary() {
+    return this.request("/live-execution/summary");
+  }
+
+  listLiveCloudRequests() {
+    return this.request("/live-execution/cloud/requests");
+  }
+
+  requestHetznerLiveVpsSet(body, idempotencyKey = body.idempotencyKey) {
+    return this.request("/live-execution/cloud/hetzner/vps-set", {
+      method: "POST",
+      headers: { "idempotency-key": idempotencyKey },
+      body
+    });
+  }
+
+  listFirecrackerHostQualifications() {
+    return this.request("/live-execution/firecracker/host-qualifications");
+  }
+
+  qualifyFirecrackerHost(body) {
+    return this.request("/live-execution/firecracker/host-qualification", { method: "POST", body });
+  }
+
+  listPhantomExecutionRequests() {
+    return this.request("/live-execution/phantom/requests");
+  }
+
+  createPhantomExecutionRequest(body) {
+    return this.request("/live-execution/phantom/request", { method: "POST", body });
+  }
+
   logout() {
     return this.request("/auth/logout", { method: "POST" });
   }

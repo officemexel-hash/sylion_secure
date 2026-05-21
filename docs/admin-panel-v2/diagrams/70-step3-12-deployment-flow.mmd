@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant Admin
+    participant UI
+    participant API
+    participant Approval
+    participant LiveGate
+    participant Hetzner
+    participant Audit
+    Admin->>UI: Request baseline live VPS set
+    UI->>API: POST live Hetzner request
+    API->>API: require FIDO2 step-up
+    API->>Approval: assert approved_for_execution
+    API->>LiveGate: evaluate env, allowlist, idempotency
+    alt denied
+      LiveGate->>Audit: live_cloud.vps_set_blocked
+      API-->>UI: blocked_human_gate
+    else allowed
+      LiveGate->>Hetzner: create G1, G2, WORKLOAD
+      LiveGate->>Audit: live_cloud.vps_set_created
+      API-->>UI: executed_provider_mutation
+    end

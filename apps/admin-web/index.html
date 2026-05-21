@@ -248,6 +248,32 @@
               <button type="submit">Plan Dry-Run VPS</button>
             </form>
           </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Live Cloud Gate <span class="help-tip" tabindex="0" data-tip="Requests one baseline 3-VPS Hetzner set only after FIDO2 step-up, approval binding, env allowlist and explicit live confirmation. Secrets are never displayed.">?</span></h2>
+              <span class="pill warn">Human gate</span>
+            </div>
+            <form id="live-cloud-form">
+              <label>Provider <select name="providerId" id="live-cloud-provider-select"></select></label>
+              <label>Operator <select name="operatorId" id="live-cloud-operator-select"></select></label>
+              <label>Approval <select name="approvalId" id="live-cloud-approval-select"></select></label>
+              <label>Region <input name="region" value="fsn1"></label>
+              <label>Idempotency <input name="idempotencyKey" value="live-smoke-001"></label>
+              <label class="check-row"><input type="checkbox" name="liveConfirmed"> I confirm this may create live cloud resources</label>
+              <button type="submit">Request Live VPS Set</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Firecracker Host <span class="help-tip" tabindex="0" data-tip="Qualifies a host for future Firecracker execution. It does not launch microVMs from the dashboard.">?</span></h2>
+              <span class="pill warn">No launch</span>
+            </div>
+            <form id="firecracker-qualification-form">
+              <label>Host ID <input name="hostId" value="local-host"></label>
+              <label>Approval ID <input name="approvalId" value=""></label>
+              <button type="submit">Qualify Host</button>
+            </form>
+          </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Providers</h2></div>
             <div class="cards" id="provider-cards"></div>
@@ -255,6 +281,18 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Dry-Run Plans</h2><span class="pill">No cloud mutation</span></div>
             <div class="cards" id="provider-dry-run-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Live Execution Status</h2><span class="pill warn">Default deny</span></div>
+            <div class="cards" id="live-cloud-status-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Live Cloud Requests</h2><span class="pill warn">Audited</span></div>
+            <div class="cards" id="live-cloud-request-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Firecracker Qualifications</h2><span class="pill warn">Host gate</span></div>
+            <div class="cards" id="firecracker-qualification-cards"></div>
           </article>
         </section>
 
@@ -844,6 +882,21 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
+              <h2>Execution Request <span class="help-tip" tabindex="0" data-tip="Creates a PHANTOM lab execution request with legal, CISO, architect and compliance gates. It never unlocks baseline production execution.">?</span></h2>
+              <span class="pill phantom">Lab gate</span>
+            </div>
+            <form id="phantom-execution-request-form">
+              <label>Package <select name="packageId" id="phantom-execution-package-select"></select></label>
+              <label>Purpose <input name="purpose" value="legal_lab_review"></label>
+              <label>Owners <input name="owners" value="legal,ciso,architect,compliance"></label>
+              <label>Evidence refs <input name="evidenceRefs" value=""></label>
+              <label>Expires at <input name="expiresAt" value="2026-06-30T00:00:00.000Z"></label>
+              <label class="check-row"><input type="checkbox" name="labConfirmed"> Lab-only confirmation</label>
+              <button type="submit">Create Execution Request</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
               <h2>Review Owner Ack <span class="help-tip" tabindex="0" data-tip="Records owner acknowledgement. All owners are required before approved_placeholder.">?</span></h2>
               <span class="pill warn">HUMAN GATE</span>
             </div>
@@ -983,6 +1036,13 @@
             </div>
             <div class="cards" id="phantom-audit-correlation-cards"></div>
           </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Execution Requests</h2>
+              <span class="pill warn">Production false</span>
+            </div>
+            <div class="cards" id="phantom-execution-request-cards"></div>
+          </article>
         </section>
 
         <section class="grid view" data-view-panel="release" hidden>
@@ -1093,6 +1153,13 @@
               <span class="pill phantom">Separate track</span>
             </div>
             <div class="cards compact" id="release-phantom-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Live Execution Proof <span class="help-tip" tabindex="0" data-tip="Shows live cloud, Firecracker and PHANTOM execution gates. Production execution remains false until external release approval.">?</span></h2>
+              <span class="pill warn">Baseline locked</span>
+            </div>
+            <div class="cards compact" id="release-live-execution-cards"></div>
           </article>
         </section>
 

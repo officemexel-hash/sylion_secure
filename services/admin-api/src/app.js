@@ -27,6 +27,7 @@ import { OrchestratorService } from "./modules/orchestrator/orchestratorService.
 import { PhantomGovernanceService } from "./modules/phantom/phantomGovernanceService.js";
 import { ProvisioningApprovalService } from "./modules/approvals/provisioningApprovalService.js";
 import { ReleaseControlService } from "./modules/release/releaseControlService.js";
+import { LiveExecutionService } from "./modules/live/liveExecutionService.js";
 import { AppError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -83,7 +84,7 @@ async function serveAdminWeb(url, res) {
   }
 }
 
-export function createApp({ store = null, authOptions = {} } = {}) {
+export function createApp({ store = null, authOptions = {}, liveExecutionOptions = {} } = {}) {
   const audit = new AuditService({ store });
   const auth = new AuthService({ audit, store, ...authOptions });
   const rbac = new RbacService({ audit });
@@ -129,6 +130,15 @@ export function createApp({ store = null, authOptions = {} } = {}) {
     store
   });
   const release = new ReleaseControlService({ audit, rbac, approvals, phantom, store });
+  const liveExecution = new LiveExecutionService({
+    audit,
+    rbac,
+    providers,
+    operators,
+    approvals,
+    store,
+    ...liveExecutionOptions
+  });
 
   const services = {
     audit,
@@ -154,7 +164,8 @@ export function createApp({ store = null, authOptions = {} } = {}) {
     phantom,
     approvals,
     orchestrator,
-    release
+    release,
+    liveExecution
   };
 
   async function handle(req, res) {
@@ -280,6 +291,57 @@ export function createApp({ store = null, authOptions = {} } = {}) {
         const body = await readJson(req);
         const artifact = release.createArtifact({ actor, ...body, correlationId });
         return send(res, 201, { artifact });
+      }
+
+      if (req.method === "GET" && url.pathname === "/live-execution/summary") {
+        return send(res, 200, { summary: liveExecution.summary({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/live-execution/cloud/requests") {
+        return send(res, 200, { requests: liveExecution.listRequests({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/cloud/hetzner/vps-set") {
+        auth.requireFreshStepUp(actor, "live_cloud.hetzner.vps_set", {
+          correlationId,
+          resourceType: "live_execution_request"
+        });
+        const body = await readJson(req);
+        const request = await liveExecution.createHetznerVpsSet({
+          actor,
+          idempotencyKey: req.headers["idempotency-key"] || body.idempotencyKey,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { request });
+      }
+
+      if (req.method === "GET" && url.pathname === "/live-execution/firecracker/host-qualifications") {
+        return send(res, 200, { qualifications: liveExecution.listFirecrackerQualifications({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/firecracker/host-qualification") {
+        auth.requireFreshStepUp(actor, "firecracker.host_qualification", {
+          correlationId,
+          resourceType: "firecracker_host_qualification"
+        });
+        const body = await readJson(req);
+        const qualification = liveExecution.qualifyFirecrackerHost({ actor, ...body, correlationId });
+        return send(res, 201, { qualification });
+      }
+
+      if (req.method === "GET" && url.pathname === "/live-execution/phantom/requests") {
+        return send(res, 200, { requests: liveExecution.listPhantomExecutionRequests({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/phantom/request") {
+        auth.requireFreshStepUp(actor, "phantom.execution_request", {
+          correlationId,
+          resourceType: "phantom_execution_request"
+        });
+        const body = await readJson(req);
+        const request = liveExecution.createPhantomExecutionRequest({ actor, ...body, correlationId });
+        return send(res, 201, { request });
       }
 
       if (req.method === "POST" && url.pathname === "/auth/logout") {

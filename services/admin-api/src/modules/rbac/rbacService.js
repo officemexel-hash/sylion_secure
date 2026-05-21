@@ -51,6 +51,8 @@ const ROLE_PERMISSIONS = Object.freeze({
     "phantom.lifecycle.manage_placeholder",
     "release.read",
     "release.manage",
+    "live_execution.read",
+    "live_execution.manage",
     "provisioning.plan.generate"
   ],
   [ROLES.PROVISIONING_ADMIN]: [
@@ -78,13 +80,15 @@ const ROLE_PERMISSIONS = Object.freeze({
     "orchestrator.plan.execute",
     "provisioning.plan.read",
     "release.read",
+    "live_execution.read",
+    "live_execution.manage",
     "provisioning.plan.generate"
   ],
   [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read"],
   [ROLES.BILLING_ADMIN]: ["tenant.read", "subscription.read", "subscription.manage"],
-  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "provider.read", "release.read"],
+  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "provider.read", "release.read", "live_execution.read"],
   [ROLES.INCIDENT_COMMANDER]: ["incident.manage", "operator.suspend"],
-  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "provider.read", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "release.read"]
+  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "provider.read", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "release.read", "live_execution.read"]
 });
 
 export class RbacService {

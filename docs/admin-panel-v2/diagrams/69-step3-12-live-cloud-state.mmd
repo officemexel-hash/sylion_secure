@@ -1,0 +1,11 @@
+stateDiagram-v2
+    [*] --> Requested
+    Requested --> StepUpRequired: no fresh FIDO2
+    Requested --> ApprovalRequired: approval missing
+    Requested --> EnvGateRequired: mode/token/live flag missing
+    Requested --> AllowlistRequired: operator or region denied
+    Requested --> BlockedHumanGate: any blocker
+    Requested --> ExecutedProviderMutation: all gates pass
+    BlockedHumanGate --> AuditRecorded
+    ExecutedProviderMutation --> AuditRecorded
+    AuditRecorded --> [*]

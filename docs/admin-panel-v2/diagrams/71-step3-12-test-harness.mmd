@@ -1,0 +1,13 @@
+flowchart LR
+    Start["Playwright Login"] --> Demo["Run Demo Flow"]
+    Demo --> Providers["Click Providers"]
+    Providers --> LiveCloud["Request Live Cloud Gate"]
+    Providers --> Firecracker["Qualify Firecracker Host"]
+    Demo --> Phantom["Click PHANTOM"]
+    Phantom --> PhantomReq["Create PHANTOM Execution Request"]
+    Demo --> Release["Click Release"]
+    Release --> Evidence["Index Evidence"]
+    Release --> Problem["Create Problem"]
+    Release --> HumanTest["Update Human Test"]
+    HumanTest --> Screenshots["Desktop and Mobile Screenshots"]
+    Screenshots --> Summary["summary.json"]

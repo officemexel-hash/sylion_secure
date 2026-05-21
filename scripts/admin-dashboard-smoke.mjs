@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-11-dashboard-regression");
+const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-12-live-execution-regression");
 const baseUrl = process.env.SYLION_ADMIN_URL || "http://127.0.0.1:8099/admin";
 
 async function loadPlaywright() {
@@ -50,6 +50,21 @@ async function run() {
     await page.locator("#toast").getByText("Human test scenario status updated", { exact: false }).waitFor({ timeout: 10000 });
     actions.push("release_artifact_problem_human_test");
 
+    await clickButton(page, "Providers");
+    await page.getByText("Live Cloud Gate").waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Request Live VPS Set" }).click();
+    await page.locator("#toast").getByText("Live cloud request recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Qualify Host" }).click();
+    await page.locator("#toast").getByText("Firecracker host qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await page.screenshot({ path: join(outputDir, "live-execution-desktop.png"), fullPage: true });
+    actions.push("live_cloud_firecracker_gates");
+
+    await clickButton(page, "PHANTOM");
+    await page.getByRole("heading", { name: "Execution Requests" }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Create Execution Request" }).click();
+    await page.locator("#toast").getByText("PHANTOM execution request gated", { exact: false }).waitFor({ timeout: 10000 });
+    actions.push("phantom_execution_request_gate");
+
     const views = ["Overview", "Operators", "Provisioning", "Approvals", "Subscriptions", "Devices", "Providers", "Security", "PHANTOM", "Release", "Audit"];
     for (const view of views) {
       await clickButton(page, view);
@@ -58,13 +73,13 @@ async function run() {
 
     await clickButton(page, "PHANTOM");
     const phantomText = await page.locator("main").innerText();
-    for (const expected of ["Package Review Matrix", "Owner ack", "Evidence Coverage", "Execution", "false"]) {
+    for (const expected of ["Package Review Matrix", "Owner ack", "Evidence Coverage", "Execution Requests", "Production false"]) {
       if (!phantomText.includes(expected)) issues.push(`Missing PHANTOM dashboard text: ${expected}`);
     }
 
     await clickButton(page, "Release");
     const releaseText = await page.locator("main").innerText();
-    for (const expected of ["Release Gate Control", "not_ready_for_production_execution", "PHANTOM execution=false", "Problem Registry", "Evidence Artifact Index"]) {
+    for (const expected of ["Release Gate Control", "not_ready_for_production_execution", "PHANTOM execution=false", "Problem Registry", "Evidence Artifact Index", "Live Execution Proof", "Baseline locked"]) {
       if (!releaseText.includes(expected)) issues.push(`Missing release dashboard text: ${expected}`);
     }
 
