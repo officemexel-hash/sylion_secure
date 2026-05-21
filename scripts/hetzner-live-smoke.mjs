@@ -114,9 +114,9 @@ async function hetznerPreflight({ token, region, serverType, image }) {
   const headers = { authorization: `Bearer ${token}` };
   const checks = [];
   for (const [name, path] of [
-    ["locations", "/locations"],
-    ["server_types", "/server_types"],
-    ["images", "/images?type=system"]
+    ["locations", "/locations?per_page=100"],
+    ["server_types", "/server_types?per_page=100"],
+    ["images", "/images?type=system&per_page=100"]
   ]) {
     const response = await fetch(`${HETZNER_API}${path}`, { headers });
     checks.push({ name, status: response.status, ok: response.ok });
@@ -155,7 +155,7 @@ async function run() {
   }
   await mkdir(outputDir, { recursive: true });
   const region = process.env.SYLION_LIVE_REGION || "fsn1";
-  const serverType = process.env.SYLION_HETZNER_SERVER_TYPE || "cx22";
+  const serverType = process.env.SYLION_HETZNER_SERVER_TYPE || "cpx11";
   const image = process.env.SYLION_HETZNER_IMAGE || "ubuntu-24.04";
   const preflight = await hetznerPreflight({
     token: process.env.HETZNER_API_TOKEN,
@@ -191,18 +191,36 @@ async function run() {
     const { client, credentialId } = await loginClient(baseUrl);
     await stepUp(client, credentialId);
     const { operator, provider, approval } = await createApprovedBaseline(client);
-    const rehearsal = await client.runProviderLiveRehearsal("hetzner", {
-      providerId: provider.id,
-      operatorId: operator.id,
-      approvalId: approval.id,
-      region,
-      idempotencyKey: `hetzner-live-${Date.now()}`,
-      rehearsalMode: "live_provider",
-      liveConfirmed: true,
-      cleanupConfirmed: true,
-      serverType,
-      image
-    });
+    let rehearsal;
+    try {
+      rehearsal = await client.runProviderLiveRehearsal("hetzner", {
+        providerId: provider.id,
+        operatorId: operator.id,
+        approvalId: approval.id,
+        region,
+        idempotencyKey: `hetzner-live-${Date.now()}`,
+        rehearsalMode: "live_provider",
+        liveConfirmed: true,
+        cleanupConfirmed: true,
+        serverType,
+        image
+      });
+    } catch (error) {
+      const details = error.payload?.error?.details || {};
+      await writeFile(join(outputDir, "mutation-failed.json"), JSON.stringify({
+        provider: "hetzner",
+        status: "mutation_failed_before_baseline",
+        reason: error.payload?.error?.message || error.message,
+        providerStatus: details.providerStatus || null,
+        providerErrorCode: details.providerErrorCode || null,
+        providerErrorMessage: details.providerErrorMessage || null,
+        partialResourceCount: details.partialResourceCount || 0,
+        cleanupResults: details.cleanupResults || [],
+        tokenLogged: false,
+        checkedAt: new Date().toISOString()
+      }, null, 2));
+      throw error;
+    }
     if (rehearsal.rehearsal.status !== "smoke_passed") {
       throw new Error(`Hetzner live smoke did not pass: ${rehearsal.rehearsal.status}`);
     }

@@ -1,14 +1,27 @@
 {
   "provider": "hetzner",
   "status": "preflight_failed",
-  "reason": "hetzner_token_rejected",
+  "reason": "hetzner_requested_catalog_item_missing",
   "checks": [
     {
       "name": "locations",
-      "status": 401,
-      "ok": false
+      "status": 200,
+      "ok": true,
+      "containsRequested": true
+    },
+    {
+      "name": "server_types",
+      "status": 200,
+      "ok": true,
+      "containsRequested": false
+    },
+    {
+      "name": "images",
+      "status": 200,
+      "ok": true,
+      "containsRequested": true
     }
   ],
   "tokenLogged": false,
-  "checkedAt": "2026-05-21T17:12:55.496Z"
+  "checkedAt": "2026-05-21T18:32:05.761Z"
 }

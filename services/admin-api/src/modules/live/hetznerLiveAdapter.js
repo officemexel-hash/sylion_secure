@@ -16,6 +16,21 @@ function serverName({ operatorId, role, idempotencyKey }) {
   return `sylion-${operatorId}-${role.toLowerCase()}-${String(idempotencyKey).slice(0, 10)}`;
 }
 
+async function sanitizedProviderError(response) {
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
+  }
+  return {
+    status: response.status,
+    providerErrorCode: payload.error?.code || null,
+    providerErrorMessage: payload.error?.message || null,
+    tokenLogged: false
+  };
+}
+
 export class HetznerLiveAdapter {
   constructor({ token = process.env.HETZNER_API_TOKEN, transport = fetch } = {}) {
     this.token = token;
@@ -48,10 +63,10 @@ export class HetznerLiveAdapter {
           body: JSON.stringify(body)
         });
         if (!response.ok) {
+          const providerError = await sanitizedProviderError(response);
           throw validationError("Hetzner live server creation failed", {
-            status: response.status,
             role,
-            tokenLogged: false
+            ...providerError
           });
         }
         const payload = await response.json();
@@ -81,7 +96,10 @@ export class HetznerLiveAdapter {
         partialResourceCount: created.length,
         cleanupResults,
         tokenLogged: false,
-        cause: error.code || error.message
+        cause: error.code || error.message,
+        providerStatus: error.details?.status || null,
+        providerErrorCode: error.details?.providerErrorCode || null,
+        providerErrorMessage: error.details?.providerErrorMessage || null
       });
     }
   }
@@ -94,9 +112,9 @@ export class HetznerLiveAdapter {
       headers: { authorization: `Bearer ${token}` }
     });
     if (!response.ok) {
+      const providerError = await sanitizedProviderError(response);
       throw validationError("Hetzner live server list failed", {
-        status: response.status,
-        tokenLogged: false
+        ...providerError
       });
     }
     const payload = await response.json();
@@ -122,10 +140,10 @@ export class HetznerLiveAdapter {
         headers: { authorization: `Bearer ${token}` }
       });
       if (!response.ok && response.status !== 404) {
+        const providerError = await sanitizedProviderError(response);
         throw validationError("Hetzner live server deletion failed", {
-          status: response.status,
           role: action.role,
-          tokenLogged: false
+          ...providerError
         });
       }
       results.push({ ...action, status: response.status === 404 ? "already_absent" : "delete_requested" });

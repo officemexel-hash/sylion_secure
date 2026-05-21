@@ -1,0 +1,12 @@
+{
+  "provider": "hetzner",
+  "status": "mutation_failed_before_baseline",
+  "reason": "Hetzner live server creation failed and partial cleanup was attempted",
+  "providerStatus": 403,
+  "providerErrorCode": "forbidden",
+  "providerErrorMessage": "permission denied",
+  "partialResourceCount": 0,
+  "cleanupResults": [],
+  "tokenLogged": false,
+  "checkedAt": "2026-05-21T18:33:56.885Z"
+}

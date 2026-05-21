@@ -17,7 +17,7 @@ npm run test:hetzner-live-smoke
 Optional runtime selectors:
 
 - `SYLION_LIVE_REGION`, default `fsn1`
-- `SYLION_HETZNER_SERVER_TYPE`, default `cx22`
+- `SYLION_HETZNER_SERVER_TYPE`, default `cpx11`
 - `SYLION_HETZNER_IMAGE`, default `ubuntu-24.04`
 
 ## Implemented Controls
