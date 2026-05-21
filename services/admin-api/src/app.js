@@ -57,6 +57,7 @@ function bearerToken(req) {
 }
 
 const WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/admin-web/", import.meta.url)));
+const OPERATOR_WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/operator-web/", import.meta.url)));
 const STATIC_TYPES = Object.freeze({
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -70,6 +71,30 @@ async function serveAdminWeb(url, res) {
     : url.pathname.replace(/^\/admin/, "");
   const filePath = resolve(WEB_ROOT, `.${decodeURIComponent(pathname)}`);
   const relativePath = relative(WEB_ROOT, filePath);
+  if (relativePath.startsWith("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+    return false;
+  }
+  const ext = extname(filePath);
+  if (!STATIC_TYPES[ext]) {
+    return false;
+  }
+  try {
+    const file = await readFile(filePath);
+    sendRaw(res, 200, STATIC_TYPES[ext], file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Per ADR-terminal-modes-001: operator portal served under /operator/*.
+// Separate static root from admin-web. API stubs live under /operator-api/*.
+async function serveOperatorWeb(url, res) {
+  const pathname = url.pathname === "/operator"
+    ? "/index.html"
+    : url.pathname.replace(/^\/operator/, "");
+  const filePath = resolve(OPERATOR_WEB_ROOT, `.${decodeURIComponent(pathname)}`);
+  const relativePath = relative(OPERATOR_WEB_ROOT, filePath);
   if (relativePath.startsWith("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
     return false;
   }
@@ -195,6 +220,89 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         if (await serveAdminWeb(url, res)) {
           return;
         }
+      }
+
+      // Per ADR-terminal-modes-001: operator portal static + stub API.
+      if (req.method === "GET" && (url.pathname === "/operator" || url.pathname.startsWith("/operator/"))) {
+        if (await serveOperatorWeb(url, res)) {
+          return;
+        }
+      }
+
+      // Operator portal stub API. Placeholder responses; real RBAC scoping
+      // and FIDO2 auth will be wired in later phase per ADR-terminal-modes-001
+      // implementation plan Phase B.
+      if (req.method === "GET" && url.pathname === "/operator-api/me") {
+        return send(res, 200, {
+          operatorId: null,
+          placeholder: true,
+          terminalModes: ["pixel_grapheneos", "laptop_web_terminal"],
+          note: "Skeleton: real operator session pending Phase B (FIDO2 enrollment)"
+        });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/devices") {
+        return send(res, 200, {
+          devices: [],
+          placeholder: true,
+          note: "Skeleton: device list scoped per-operator pending RBAC scoping in Phase B"
+        });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/workloads") {
+        return send(res, 200, {
+          workloads: [],
+          placeholder: true,
+          note: "Skeleton: G1 microVM list pending Phase B"
+        });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/vpn-status") {
+        return send(res, 200, {
+          state: "disconnected",
+          router: null,
+          g1Endpoint: null,
+          lastHandshake: null,
+          placeholder: true,
+          note: "Skeleton: IPsec attach pending router firmware (ADR-router-baseline-002)"
+        });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/audit") {
+        return send(res, 200, {
+          events: [],
+          placeholder: true,
+          note: "Skeleton: scoped audit view pending Phase B"
+        });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/settings/fido2") {
+        return send(res, 200, {
+          keys: [],
+          placeholder: true,
+          phaseDeferred: true,
+          note: "FIDO2 management UI placeholder per user request; functionality deferred to end of Phase B"
+        });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/settings/hsm") {
+        return send(res, 200, {
+          references: [],
+          placeholder: true,
+          phaseDeferred: true,
+          note: "HSM reference UI placeholder; depends on ADR-vault-adapter-001 Phase B"
+        });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/subscription") {
+        return send(res, 200, {
+          plan: null,
+          quota: null,
+          placeholder: true,
+          note: "Skeleton: scoped subscription view pending operator session"
+        });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/about") {
+        return send(res, 200, {
+          portal: "SYLION Operator Portal",
+          status: "skeleton",
+          adr: "ADR-terminal-modes-001",
+          modes: ["pixel_grapheneos", "laptop_web_terminal"],
+          productionExecutionAllowed: false
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/health") {
