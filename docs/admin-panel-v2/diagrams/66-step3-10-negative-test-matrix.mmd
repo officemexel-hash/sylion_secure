@@ -1,0 +1,30 @@
+flowchart TD
+    Start["Negative Test Suite"]
+    MissingApproval["Missing approvalId"]
+    PendingApproval["Pending/rejected approval"]
+    PhantomApproval["PHANTOM approval used for baseline job"]
+    ProviderApply["Provider mutation mode"]
+    EmptyLifecycle["Empty lifecycle allocation"]
+    PhantomExec["PHANTOM executionRequested=true"]
+    ExpiredException["Expired PHANTOM exception"]
+    Deny["Deny without side effects"]
+    Audit["Audit deny/block decision"]
+    UI["Dashboard shows safe message"]
+
+    Start --> MissingApproval
+    Start --> PendingApproval
+    Start --> PhantomApproval
+    Start --> ProviderApply
+    Start --> EmptyLifecycle
+    Start --> PhantomExec
+    Start --> ExpiredException
+    MissingApproval --> Deny
+    PendingApproval --> Deny
+    PhantomApproval --> Deny
+    ProviderApply --> Deny
+    EmptyLifecycle --> UI
+    PhantomExec --> Deny
+    ExpiredException --> UI
+    Deny --> Audit
+    Deny --> UI
+

@@ -1,15 +1,16 @@
 # SYLION Admin Panel V2 - Step 3.9 Freeze And Step 3.10 Scope
 
-Status: freeze candidate
-Date: 2026-05-20
+Status: frozen
+Date: 2026-05-21
 
 ## Frozen Step 3.9 State
 
 ```text
+Commit: 2600eeb Implement Step 3.9 approval and test hardening.
 Mandatory approvalId for orchestrator execution.
 Approval-bound workload lifecycle activation path.
 Persistent operator readiness snapshots with evidenceHash.
-Dashboard Księga 3.4 and PHANTOM status cards.
+Dashboard Ksiega 3.4 and PHANTOM status cards.
 Provider dry-run VPS planner with no cloud mutation.
 PHANTOM review owner acknowledgements.
 PHANTOM evidence coverage map.
@@ -36,7 +37,7 @@ PHANTOM remains separate [A] governance track.
 ## Step 3.10 Name
 
 ```text
-V2 Step 3.10 - Repeatable Test Harness, Contract Coverage, Visual QA And Release Gate
+V2 Step 3.10 - Repeatable Test Harness, Contract Coverage, PHANTOM Sprint And Release Gate
 ```
 
 ## Step 3.10 Scope
@@ -47,7 +48,9 @@ Add structured dashboard smoke result JSON.
 Add contract tests for new SDK/openapi-lite endpoints.
 Add responsive visual regression evidence for core views.
 Add negative dashboard tests for missing approval, dry-run mutation, PHANTOM execution request and expired exception.
-Add release gate document that compares system state to Księga 3.4 and PHANTOM every sprint.
+Develop PHANTOM v3.0 as a governance/admin module while preserving non-executable separation.
+Add PHANTOM-specific negative tests, release evidence and dashboard UX checks.
+Add release gate document that compares system state to Ksiega 3.4 and PHANTOM every sprint.
 ```
 
 ## Stop Conditions

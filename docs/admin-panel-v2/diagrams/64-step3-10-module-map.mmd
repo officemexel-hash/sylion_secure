@@ -1,0 +1,41 @@
+flowchart LR
+    subgraph UI["Admin Web"]
+        Dash["Dashboard Runner Targets"]
+        Providers["Provider Dry-Run UX"]
+        Approvals["Approvals UX"]
+        PhantomUI["PHANTOM Review UX"]
+        AuditUI["Audit UX"]
+    end
+
+    subgraph API["Admin API"]
+        Auth["WebAuthn / Step-Up"]
+        Approval["Mandatory Approval Gate"]
+        Ready["Readiness Evidence"]
+        DryRun["Provider Dry-Run"]
+        Phantom["PHANTOM Governance"]
+        Audit["Audit Hash Chain"]
+    end
+
+    subgraph Evidence["Test Evidence"]
+        JSON["Smoke JSON"]
+        Screens["Screenshots"]
+        Contract["SDK / openapi-lite checks"]
+        Gate["Release Gate Matrix"]
+    end
+
+    Dash --> Auth
+    Providers --> DryRun
+    Approvals --> Approval
+    Approvals --> Ready
+    PhantomUI --> Phantom
+    AuditUI --> Audit
+    Auth --> Audit
+    Approval --> Audit
+    DryRun --> Audit
+    Phantom --> Audit
+    Dash --> JSON
+    Dash --> Screens
+    Contract --> Gate
+    JSON --> Gate
+    Screens --> Gate
+

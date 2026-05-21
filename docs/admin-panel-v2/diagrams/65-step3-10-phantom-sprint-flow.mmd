@@ -1,0 +1,22 @@
+stateDiagram-v2
+    [*] --> PackageDraft
+    PackageDraft --> EvidenceSealed
+    EvidenceSealed --> ApprovalPackBuilt
+    ApprovalPackBuilt --> ReviewBoard
+    ReviewBoard --> OwnerAck
+    OwnerAck --> PolicySimulation
+    PolicySimulation --> Coverage
+    Coverage --> ReadyForHumanGate
+    Coverage --> Blocked
+    ReadyForHumanGate --> ApprovedPlaceholder
+    ApprovedPlaceholder --> NonExecutable
+    Blocked --> ReviewRequired
+    ReviewRequired --> ReviewBoard
+
+    note right of NonExecutable
+      PHANTOM v3.0 remains separate [A]
+      executionAllowed=false
+      executionEnabled=false
+      certificationClaim=false
+    end note
+

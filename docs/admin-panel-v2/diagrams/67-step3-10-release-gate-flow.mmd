@@ -1,0 +1,21 @@
+flowchart TD
+    Tests["API + SDK + Dashboard Tests"]
+    Visual["Desktop/Mobile Visual QA"]
+    K34["Ksiega 3.4 Matrix"]
+    Phantom["PHANTOM v3.0 Matrix"]
+    Risks["Residual Risks"]
+    HumanGate["HUMAN GATE List"]
+    ReleaseDoc["Release Gate Document"]
+    Decision{"Release Step 3.10?"}
+    Freeze["Freeze Step 3.10"]
+    Backlog["Create Step 3.11 Backlog"]
+
+    Tests --> ReleaseDoc
+    Visual --> ReleaseDoc
+    K34 --> ReleaseDoc
+    Phantom --> ReleaseDoc
+    Risks --> ReleaseDoc
+    HumanGate --> ReleaseDoc
+    ReleaseDoc --> Decision
+    Decision --> Freeze
+    Decision --> Backlog
