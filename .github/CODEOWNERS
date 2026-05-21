@@ -1,0 +1,66 @@
+# SYLION Secure CODEOWNERS (DRAFT — placeholders)
+#
+# Każda zmiana w ścieżkach wymienionych poniżej wymaga review od owner role.
+# Placeholder usernames (@sylion-*-placeholder) zastąpić rzeczywistymi GitHub usernames
+# kiedy zostaną przypisane.
+#
+# Patterns are evaluated top-to-bottom; the LAST matching entry wins.
+
+# === Default fallback: project lead ===
+*                                                       @sylion-lead-placeholder
+
+# === Documentation root ===
+/README.md                                              @sylion-lead-placeholder @sylion-legal-placeholder
+/LICENSE                                                @sylion-legal-placeholder
+/SECURITY.md                                            @sylion-ciso-placeholder
+/CLAUDE.md                                              @sylion-lead-placeholder
+/.github/                                               @sylion-devops-placeholder
+
+# === Normative references — Architect approval ===
+/shared/references/                                     @sylion-architect-placeholder @sylion-ciso-placeholder
+/adr/                                                   @sylion-architect-placeholder
+
+# === Source documents (binary, treat as evidence) ===
+/SYLION\ Ksiega\ v3\ 4\ FIXED.docx                      @sylion-architect-placeholder @sylion-legal-placeholder
+/SYLION-Analiza-Zagrozen-COMPLETE.pdf                   @sylion-ciso-placeholder @sylion-architect-placeholder
+/SYLION_PHANTOM_v3.0.docx                               @sylion-legal-placeholder @sylion-ciso-placeholder
+
+# === Skills ===
+/skills/                                                @sylion-architect-placeholder
+/.claude/skills/                                        @sylion-architect-placeholder
+
+# === Admin API: high-sensitivity modules ===
+/services/admin-api/src/modules/phantom/                @sylion-ciso-placeholder @sylion-legal-placeholder @sylion-architect-placeholder
+/services/admin-api/src/modules/live/                   @sylion-platform-placeholder @sylion-security-placeholder
+/services/admin-api/src/modules/audit/                  @sylion-security-placeholder @sylion-compliance-placeholder
+/services/admin-api/src/modules/release/                @sylion-architect-placeholder @sylion-ciso-placeholder
+/services/admin-api/src/modules/pki/                    @sylion-security-placeholder
+/services/admin-api/src/modules/secrets/                @sylion-security-placeholder @sylion-platform-placeholder
+/services/admin-api/src/modules/rbac/                   @sylion-security-placeholder
+/services/admin-api/src/modules/auth/                   @sylion-security-placeholder
+
+# === Admin API: provisioning + execution ===
+/services/admin-api/src/modules/orchestrator/           @sylion-platform-placeholder @sylion-sre-placeholder
+/services/admin-api/src/modules/providers/              @sylion-platform-placeholder @sylion-sre-placeholder
+/services/admin-api/src/modules/provisioning/           @sylion-platform-placeholder
+/services/admin-api/src/modules/approvals/              @sylion-architect-placeholder
+/services/admin-api/src/modules/jurisdiction/           @sylion-legal-placeholder @sylion-architect-placeholder
+
+# === Admin API: domain ===
+/services/admin-api/src/modules/                        @sylion-platform-placeholder
+/services/admin-api/src/                                @sylion-platform-placeholder
+
+# === Tests ===
+/services/admin-api/test/                               @sylion-qa-placeholder @sylion-platform-placeholder
+
+# === Admin Web ===
+/apps/admin-web/                                        @sylion-frontend-placeholder @sylion-ux-placeholder
+
+# === Docs ===
+/docs/                                                  @sylion-doc-owner-placeholder
+
+# === Configuration ===
+/package.json                                           @sylion-platform-placeholder @sylion-security-placeholder
+/package-lock.json                                      @sylion-platform-placeholder
+/.gitignore                                             @sylion-devops-placeholder
+/.gitattributes                                         @sylion-devops-placeholder
