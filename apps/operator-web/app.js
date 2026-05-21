@@ -215,6 +215,8 @@
     setText("#path-state", path.state);
     setText("#path-terminal", path.nodes?.find((node) => node.role === "TERMINAL")?.label || path.terminalMode);
     setText("#path-router", `${path.router?.model || "Puli AX"} - ${path.router?.packageStatus || "pending"}`);
+    setText("#path-router-posture", path.router?.postureStatus || "not_validated");
+    setText("#path-router-smoke", path.router?.readyForPhysicalSmoke ? "ready_for_physical_smoke" : "blocked");
     setText("#path-transport", path.baseline?.transport || "ipsec_ikev2");
     setText("#path-blockers", (path.blockers || []).join(", ") || "-");
     const segments = $("#path-segments");

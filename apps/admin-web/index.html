@@ -322,6 +322,42 @@
               <button type="submit">Load Connection Path</button>
             </form>
           </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Puli AX Package <span class="help-tip" tabindex="0" data-tip="Generates a reference-only router package manifest for Puli AX: OpenWrt baseline, strongSwan IKEv2, nftables kill switch and DNS tunnel policy. It never stores private keys or API secrets.">?</span></h2>
+              <span class="pill">Step 3.30</span>
+            </div>
+            <form id="router-package-form">
+              <label>Operator <select name="operatorId" id="router-package-operator-select"></select></label>
+              <label>Router <select name="routerDeviceId" id="router-package-device-select"></select></label>
+              <label>Firmware Target <input name="firmwareTarget" value="openwrt-23.05+"></label>
+              <label>Evidence <input name="evidenceRefs" value="evidence://router/package-draft"></label>
+              <button type="submit">Generate Router Package</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Router Posture <span class="help-tip" tabindex="0" data-tip="Records router validation evidence for physical smoke readiness: strongSwan, nftables kill switch, DNS tunnel-only, WAN admin disabled, SSH key auth and signed firmware. Production remains blocked.">?</span></h2>
+              <span class="pill warn">No prod VPN</span>
+            </div>
+            <form id="router-posture-form">
+              <label>Operator <select name="operatorId" id="router-posture-operator-select"></select></label>
+              <label>Package <select name="packageId" id="router-posture-package-select"></select></label>
+              <label>Router <select name="routerDeviceId" id="router-posture-device-select"></select></label>
+              <label>Model <input name="model" value="GL.iNet GL-XE3000 Puli AX"></label>
+              <label>Firmware <input name="firmwareVersion" value="OpenWrt 23.05.5"></label>
+              <label class="check-row"><input type="checkbox" name="strongSwanInstalled" checked> strongSwan installed</label>
+              <label class="check-row"><input type="checkbox" name="nftablesKillSwitch"> nftables kill switch verified</label>
+              <label class="check-row"><input type="checkbox" name="dnsTunnelOnly"> DNS tunnel-only verified</label>
+              <label class="check-row"><input type="checkbox" name="wanAdminDisabled" checked> WAN admin disabled</label>
+              <label class="check-row"><input type="checkbox" name="sshKeyAuthOnly" checked> SSH key auth only</label>
+              <label class="check-row"><input type="checkbox" name="lanWanBypassBlocked"> LAN-to-WAN bypass blocked</label>
+              <label class="check-row"><input type="checkbox" name="signedFirmwareVerified"> Signed firmware verified</label>
+              <label class="check-row"><input type="checkbox" name="packageInstalled"> Package installed</label>
+              <label>Evidence <input name="evidenceRefs" value="evidence://router/posture-benchtop"></label>
+              <button type="submit">Validate Router Posture</button>
+            </form>
+          </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Operators</h2></div>
             <div class="cards" id="operator-cards"></div>
@@ -329,6 +365,14 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Operator Connection Path</h2><span class="pill warn">No prod VPN</span></div>
             <div class="cards" id="operator-connection-path-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Puli AX Router Packages</h2><span class="pill">IPsec refs</span></div>
+            <div class="cards" id="router-package-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Router Posture Evidence</h2><span class="pill warn">Physical gate</span></div>
+            <div class="cards" id="router-posture-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Communicator Templates</h2><span class="pill">Firecracker plan</span></div>

@@ -32,6 +32,7 @@ import { ReleaseControlService } from "./modules/release/releaseControlService.j
 import { LiveExecutionService } from "./modules/live/liveExecutionService.js";
 import { SecurityProfileService } from "./modules/security/securityProfileService.js";
 import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
+import { RouterReadinessService } from "./modules/router/routerReadinessService.js";
 import { AppError, validationError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -203,6 +204,13 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     operators,
     store
   });
+  const routerReadiness = new RouterReadinessService({
+    audit,
+    rbac,
+    operators,
+    devices,
+    store
+  });
   const operatorPortal = new OperatorPortalService({
     audit,
     rbac,
@@ -211,6 +219,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     subscriptions,
     operatorEnvironments,
     securityProfiles,
+    routerReadiness,
     store
   });
 
@@ -243,6 +252,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     operatorProvisioning,
     operatorEnvironments,
     securityProfiles,
+    routerReadiness,
     operatorPortal
   };
 
@@ -1387,6 +1397,50 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             correlationId
           })
         });
+      }
+
+      if (req.method === "GET" && url.pathname === "/router/packages") {
+        return send(res, 200, {
+          packages: routerReadiness.listPackages({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const routerPackageMatch = url.pathname.match(/^\/operators\/([^/]+)\/router-package$/);
+      if (req.method === "POST" && routerPackageMatch) {
+        const body = await readJson(req);
+        const routerPackage = routerReadiness.generatePackage({
+          actor,
+          operatorId: routerPackageMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { package: routerPackage });
+      }
+
+      if (req.method === "GET" && url.pathname === "/router/postures") {
+        return send(res, 200, {
+          postures: routerReadiness.listPostures({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const routerPostureMatch = url.pathname.match(/^\/operators\/([^/]+)\/router-posture$/);
+      if (req.method === "POST" && routerPostureMatch) {
+        const body = await readJson(req);
+        const posture = routerReadiness.validatePosture({
+          actor,
+          operatorId: routerPostureMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { posture });
       }
 
       if (req.method === "POST" && url.pathname === "/devices") {

@@ -36,7 +36,7 @@ function publicSession(session) {
 }
 
 export class OperatorPortalService {
-  constructor({ audit, rbac, operators, devices, subscriptions, operatorEnvironments, securityProfiles, store = null }) {
+  constructor({ audit, rbac, operators, devices, subscriptions, operatorEnvironments, securityProfiles, routerReadiness = null, store = null }) {
     this.audit = audit;
     this.rbac = rbac;
     this.operators = operators;
@@ -44,6 +44,7 @@ export class OperatorPortalService {
     this.subscriptions = subscriptions;
     this.operatorEnvironments = operatorEnvironments;
     this.securityProfiles = securityProfiles;
+    this.routerReadiness = routerReadiness;
     this.sessions = new PersistentMap({ store, collection: "operator_portal_sessions" });
   }
 
@@ -398,13 +399,20 @@ export class OperatorPortalService {
     const ready = this.#latestReadyEnvironment(operatorId);
     const latestEnvironment = ready || this.#latestEnvironment(operatorId);
     const routeState = ready ? "local_lab_connected" : "configuration_pending";
+    const routerReadiness = this.routerReadiness?.readinessForOperator(operatorId) || {
+      packageStatus: "not_generated",
+      postureStatus: "not_validated",
+      blockers: ["router_package_required", "router_posture_validation_required"],
+      readyForPhysicalSmoke: false
+    };
     const blockers = [
       "real_ipsec_profile_not_deployed",
       "hsm_or_secure_element_client_certificate_required",
-      "puli_ax_physical_package_validation_pending",
       "dns_leak_and_kill_switch_tests_required",
       "firecracker_host_qualification_required_for_real_launch",
-      "fido2_operator_unlock_required"
+      "fido2_operator_unlock_required",
+      ...(routerReadiness.readyForPhysicalSmoke ? [] : ["puli_ax_physical_package_validation_pending"]),
+      ...routerReadiness.blockers
     ];
     const terminalLabel = mode === TERMINAL_MODES.PIXEL ? "Pixel GrapheneOS terminal" : "Laptop web terminal";
     const nodes = [
@@ -484,7 +492,11 @@ export class OperatorPortalService {
       state: routeState,
       router: {
         model: "GL.iNet GL-XE3000 Puli AX",
-        packageStatus: "physical_validation_pending",
+        packageStatus: routerReadiness.packageStatus,
+        postureStatus: routerReadiness.postureStatus,
+        packageId: routerReadiness.packageId,
+        routerDeviceId: routerReadiness.routerDeviceId,
+        readyForPhysicalSmoke: routerReadiness.readyForPhysicalSmoke,
         baselineRole: "access_router",
         openWrtHardeningRequired: true
       },

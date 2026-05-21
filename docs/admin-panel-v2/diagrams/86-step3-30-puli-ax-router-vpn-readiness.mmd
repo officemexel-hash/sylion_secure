@@ -1,0 +1,21 @@
+flowchart TD
+    Operator["Operator baseline"]
+    RouterDevice["Puli AX device record"]
+    Package["Router package manifest"]
+    IPsec["T0/T1/T2 IPsec profile refs"]
+    Posture["Router posture evidence"]
+    Path["Connection Path v2"]
+    AdminUI["Admin router package UI"]
+    OperatorUI["Operator connection path UI"]
+    Tests["API, Playwright, Pixel ADB tests"]
+
+    Operator --> RouterDevice
+    RouterDevice --> Package
+    Package --> IPsec
+    Package --> Posture
+    Posture --> Path
+    IPsec --> Path
+    Path --> AdminUI
+    Path --> OperatorUI
+    AdminUI --> Tests
+    OperatorUI --> Tests

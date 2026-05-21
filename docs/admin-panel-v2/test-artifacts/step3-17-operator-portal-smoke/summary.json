@@ -1,6 +1,6 @@
 {
   "baseUrl": "http://127.0.0.1:8099",
-  "operatorId": "op_6492c4bb-1b0b-44dd-b788-ab108db212fd",
+  "operatorId": "op_5453a8f2-db1d-4453-b3ed-1d48f9af1804",
   "status": "passed",
   "actions": [
     "operator_session_loaded",
@@ -15,5 +15,5 @@
     "operator_hsm_refs_saved"
   ],
   "issues": [],
-  "checkedAt": "2026-05-21T20:10:13.684Z"
+  "checkedAt": "2026-05-21T20:26:09.186Z"
 }

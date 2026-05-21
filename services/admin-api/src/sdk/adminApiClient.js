@@ -103,6 +103,22 @@ export class AdminApiClient {
     return this.request(`/operators/${operatorId}/connection-path?terminalMode=${encodeURIComponent(terminalMode)}`);
   }
 
+  listRouterPackages(operatorId = null) {
+    return this.request(`/router/packages${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  generateRouterPackage(operatorId, body = {}) {
+    return this.request(`/operators/${operatorId}/router-package`, { method: "POST", body });
+  }
+
+  listRouterPostures(operatorId = null) {
+    return this.request(`/router/postures${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  validateRouterPosture(operatorId, body = {}) {
+    return this.request(`/operators/${operatorId}/router-posture`, { method: "POST", body });
+  }
+
   startLocalOperatorEnvironment(environmentId) {
     return this.request(`/operator-environments/${environmentId}/start-local`, { method: "POST" });
   }

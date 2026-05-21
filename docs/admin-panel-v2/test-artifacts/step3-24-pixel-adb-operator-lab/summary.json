@@ -1,14 +1,14 @@
 {
   "baseUrl": "http://127.0.0.1:18099",
   "adbSerial": "46141FDAP009CZ",
-  "operatorId": "op_b8797447-a8dc-46f5-a34e-1f2ffb42f7d5",
-  "tenantId": "tenant_b1d9992c-d007-450c-89aa-967982e28c11",
+  "operatorId": "op_142153fc-d50e-4890-9b7c-8d90a40a67f6",
+  "tenantId": "tenant_967ebedd-d716-4ccb-bb81-ee78200d6a41",
   "pixelDeviceId": "device_022d1926-e430-4ee7-91be-8d61f58b1a22",
-  "artifactId": "artifact_2f707e7a-c94a-48f9-b808-0e1229fb12a8",
-  "pipelineId": "op_pipe_6b9f1549-ed57-49ed-9c3a-497d07e730cf",
-  "localLabId": "local_lab_vps_223ae6e1-4f60-4ed9-b481-27033604535e",
-  "environmentId": "op_env_9fd23023-e9a7-40b8-bc6f-20daf007912e",
-  "operatorSessionId": "op_session_7e965396-6877-472f-9f1f-ecf8bf22ca35",
+  "artifactId": "artifact_4e9fc318-f9cb-4f38-9434-0a2b1b279774",
+  "pipelineId": "op_pipe_81e68384-59b0-4134-a170-dd38a434a735",
+  "localLabId": "local_lab_vps_96fb971d-1498-4ea1-8b42-7290f4125d74",
+  "environmentId": "op_env_1c7f32e5-5d72-41b5-bf98-5c9965c57229",
+  "operatorSessionId": "op_session_574e58aa-1a1e-4613-83b5-3a5b65326dd2",
   "vpnState": "local_lab_connected",
   "vpnTransport": "ipsec_ikev2_planned",
   "connectionPathState": "local_lab_connected",
@@ -31,5 +31,5 @@
   "productionExecutionAllowed": false,
   "operationalDataOnTerminal": false,
   "openedOperatorPortalOnPixel": true,
-  "checkedAt": "2026-05-21T20:09:49.999Z"
+  "checkedAt": "2026-05-21T20:26:42.635Z"
 }

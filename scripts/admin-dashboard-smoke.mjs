@@ -105,6 +105,38 @@ async function chooseLiveProviderTuple(page) {
   return { provider, operator, approval };
 }
 
+async function chooseLatestRouterTuple(page) {
+  const [operatorsPayload, devicesPayload] = await Promise.all([
+    apiInPage(page, "/operators"),
+    apiInPage(page, "/devices")
+  ]);
+  const operators = operatorsPayload.operators || [];
+  const router = [...(devicesPayload.devices || [])].reverse()
+    .find((item) => item.type === "puli_ax_router" && item.assignedOperatorId);
+  const operator = router ? operators.find((item) => item.id === router.assignedOperatorId) : null;
+  if (!router || !operator) {
+    throw new Error("Dashboard smoke could not find a coherent operator/Puli AX router tuple");
+  }
+  return { operator, router };
+}
+
+async function chooseLatestRouterPackageTuple(page) {
+  const [operatorsPayload, devicesPayload, packagesPayload] = await Promise.all([
+    apiInPage(page, "/operators"),
+    apiInPage(page, "/devices"),
+    apiInPage(page, "/router/packages")
+  ]);
+  const operators = operatorsPayload.operators || [];
+  const devices = devicesPayload.devices || [];
+  const pkg = [...(packagesPayload.packages || [])].reverse().find((item) => item.routerDeviceId);
+  const router = pkg ? devices.find((item) => item.id === pkg.routerDeviceId) : null;
+  const operator = pkg ? operators.find((item) => item.id === pkg.operatorId) : null;
+  if (!pkg || !router || !operator) {
+    throw new Error("Dashboard smoke could not find a coherent router package tuple");
+  }
+  return { operator, router, package: pkg };
+}
+
 async function run() {
   const { chromium } = await loadPlaywright();
   await mkdir(outputDir, { recursive: true });
@@ -163,8 +195,25 @@ async function run() {
     await selectLastOption(page, "#environment-secrets-select");
     await page.getByRole("button", { name: "Check Environment Secrets" }).click();
     await waitForToast(page, "Environment secrets remain blocked");
+    await waitForDashboardIdle(page);
+    const routerTuple = await chooseLatestRouterTuple(page);
+    await selectOptionValue(page, "#router-package-operator-select", routerTuple.operator.id);
+    await selectOptionValue(page, "#router-package-device-select", routerTuple.router.id);
+    await page.getByRole("button", { name: "Generate Router Package" }).click();
+    await waitForToast(page, "Puli AX router package generated");
+    await waitForDashboardIdle(page);
+    const packageTuple = await chooseLatestRouterPackageTuple(page);
+    await selectOptionValue(page, "#router-posture-operator-select", packageTuple.operator.id);
+    await selectOptionValue(page, "#router-posture-package-select", packageTuple.package.id);
+    await selectOptionValue(page, "#router-posture-device-select", packageTuple.router.id);
+    for (const name of ["nftablesKillSwitch", "dnsTunnelOnly", "lanWanBypassBlocked", "signedFirmwareVerified", "packageInstalled"]) {
+      await page.locator(`#router-posture-form input[name='${name}']`).setChecked(true);
+    }
+    await page.getByRole("button", { name: "Validate Router Posture" }).click();
+    await waitForToast(page, "Puli AX router posture validation recorded");
+    await waitForDashboardIdle(page);
     await captureScreenshot(page, "operator-pipeline-local-lab-desktop.png");
-    actions.push("operator_pipeline_local_environment_failure_rollback");
+    actions.push("operator_pipeline_local_environment_failure_rollback_router_package_posture");
 
     await clickButton(page, "PHANTOM");
     await page.getByText("Package Review Matrix").waitFor({ timeout: 10000 });

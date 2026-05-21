@@ -117,6 +117,9 @@ async function run() {
 
     await page.getByRole("link", { name: "Connection Path" }).click();
     await page.getByText("Communicator microVMs", { exact: true }).waitFor({ timeout: 10000 });
+    await page.locator("#path-router-posture").waitFor({ state: "visible", timeout: 10000 });
+    const postureText = await page.locator("#path-router-posture").innerText();
+    if (!postureText.trim()) issues.push("Missing operator portal router posture value");
     const mainText = await page.locator("main").innerText();
     for (const expected of ["Connection Path", "VPN segments", "Communicator microVMs", "ipsec_ikev2"]) {
       if (!mainText.includes(expected)) issues.push(`Missing operator portal text: ${expected}`);

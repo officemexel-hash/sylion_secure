@@ -7,6 +7,8 @@ const state = {
   operatorProvisioningPipelines: [],
   operatorEnvironments: [],
   operatorConnectionPath: null,
+  routerPackages: [],
+  routerPostures: [],
   providers: [],
   devices: [],
   authorizedApps: [],
@@ -252,7 +254,9 @@ async function refreshAll() {
     provisioningApprovals,
     workloadLifecycle,
     systemStatus,
-    providerDryRunPlans
+    providerDryRunPlans,
+    routerPackages,
+    routerPostures
   ] = await Promise.all([
     api("/health"),
     api("/auth/session"),
@@ -309,7 +313,9 @@ async function refreshAll() {
     api("/provisioning/approvals").catch(() => ({ approvals: [] })),
     api("/workload/lifecycle").catch(() => ({ lifecycle: [] })),
     api("/system/status").catch(() => ({ status: null })),
-    api("/providers/dry-run/vps-plans").catch(() => ({ plans: [] }))
+    api("/providers/dry-run/vps-plans").catch(() => ({ plans: [] })),
+    api("/router/packages").catch(() => ({ packages: [] })),
+    api("/router/postures").catch(() => ({ postures: [] }))
   ]);
   $("#api-status").textContent = health.status === "ok" ? "API Healthy" : "API Degraded";
   state.session = session.session;
@@ -372,6 +378,8 @@ async function refreshAll() {
   state.workloadLifecycle = workloadLifecycle.lifecycle;
   state.systemStatus = systemStatus.status;
   state.providerDryRunPlans = providerDryRunPlans.plans;
+  state.routerPackages = routerPackages.packages;
+  state.routerPostures = routerPostures.postures;
   state.tenantSubscriptions = await Promise.all(
     state.tenants.map((tenant) => api(`/tenants/${tenant.id}/subscription`)
       .then((result) => result.subscription)
@@ -417,6 +425,11 @@ function render() {
   renderSelect("#environment-rollback-select", state.operatorEnvironments, "No environments", "status");
   renderSelect("#environment-secrets-select", state.operatorEnvironments, "No environments", "status");
   renderSelect("#operator-connection-path-select", state.operators, "No operators", "displayName");
+  renderSelect("#router-package-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#router-package-device-select", state.devices.filter((device) => device.type === "puli_ax_router"), "No Puli AX routers", "serial");
+  renderSelect("#router-posture-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#router-posture-package-select", state.routerPackages, "No router packages", "status");
+  renderSelect("#router-posture-device-select", state.devices.filter((device) => device.type === "puli_ax_router"), "No Puli AX routers", "serial");
   renderSelect("#secrets-check-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#plan-operator-select", state.operators, "No operators", "displayName");
@@ -512,6 +525,26 @@ function render() {
       ["Secrets", String(slot.secretsReleaseAllowed)]
     ]))
   ].join("") : empty("Load an operator connection path to inspect Pixel/Laptop -> G1 -> G2 -> WORKLOAD -> microVM chain.");
+
+  $("#router-package-cards").innerHTML = state.routerPackages.map((item) => card(item.model, [
+    ["Operator", item.operatorId],
+    ["Device", item.routerDeviceId || "-"],
+    ["Status", item.status],
+    ["Install", item.installState],
+    ["IPsec", item.manifest?.ipsecProfiles?.map((profile) => profile.id).join(", ")],
+    ["Kill switch", item.manifest?.controls?.killSwitch],
+    ["DNS", item.manifest?.controls?.dnsPolicy],
+    ["Secrets", String(item.manifest?.secretsIncluded)]
+  ])).join("") || empty("No Puli AX router package generated yet.");
+
+  $("#router-posture-cards").innerHTML = state.routerPostures.map((item) => card(item.status, [
+    ["Operator", item.operatorId],
+    ["Package", item.packageId || "-"],
+    ["Router", item.routerDeviceId || "-"],
+    ["Passed", `${item.checks?.filter((check) => check.status === "passed").length || 0}/${item.checks?.length || 0}`],
+    ["Blockers", item.blockers?.join(", ") || "none"],
+    ["Prod exec", String(item.productionExecutionAllowed)]
+  ])).join("") || empty("No router posture validation recorded yet.");
 
   $("#pipeline-template-cards").innerHTML = state.operatorProvisioningTemplates.map((template) => card(template.name, [
     ["Key", template.key],
@@ -1396,6 +1429,57 @@ async function loadOperatorConnectionPath(event) {
   state.operatorConnectionPath = result.path;
   toast("Operator connection path loaded");
   render();
+}
+
+async function generateRouterPackage(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.operatorId) {
+    toast("Create an operator before router package generation", "warn");
+    return;
+  }
+  await api(`/operators/${data.operatorId}/router-package`, {
+    method: "POST",
+    body: {
+      routerDeviceId: data.routerDeviceId || null,
+      firmwareTarget: data.firmwareTarget,
+      evidenceRefs: splitCsv(data.evidenceRefs)
+    }
+  });
+  toast("Puli AX router package generated");
+  await refreshAll();
+}
+
+async function validateRouterPosture(event) {
+  event.preventDefault();
+  const form = event.currentTarget.elements;
+  const data = formData(event.currentTarget);
+  if (!data.operatorId) {
+    toast("Create an operator before router posture validation", "warn");
+    return;
+  }
+  await api(`/operators/${data.operatorId}/router-posture`, {
+    method: "POST",
+    body: {
+      packageId: data.packageId || null,
+      routerDeviceId: data.routerDeviceId || null,
+      evidence: {
+        model: data.model,
+        firmwareVersion: data.firmwareVersion,
+        strongSwanInstalled: form.namedItem("strongSwanInstalled").checked,
+        nftablesKillSwitch: form.namedItem("nftablesKillSwitch").checked,
+        dnsTunnelOnly: form.namedItem("dnsTunnelOnly").checked,
+        wanAdminDisabled: form.namedItem("wanAdminDisabled").checked,
+        sshKeyAuthOnly: form.namedItem("sshKeyAuthOnly").checked,
+        lanWanBypassBlocked: form.namedItem("lanWanBypassBlocked").checked,
+        signedFirmwareVerified: form.namedItem("signedFirmwareVerified").checked,
+        packageInstalled: form.namedItem("packageInstalled").checked
+      },
+      evidenceRefs: splitCsv(data.evidenceRefs)
+    }
+  });
+  toast("Puli AX router posture validation recorded");
+  await refreshAll();
 }
 
 async function createProvider(event) {
@@ -2499,6 +2583,8 @@ function bind() {
   $("#environment-rollback-form").addEventListener("submit", (event) => rollbackEnvironment(event).catch(showError));
   $("#environment-secrets-form").addEventListener("submit", (event) => checkEnvironmentSecrets(event).catch(showError));
   $("#operator-connection-path-form").addEventListener("submit", (event) => loadOperatorConnectionPath(event).catch(showError));
+  $("#router-package-form").addEventListener("submit", (event) => generateRouterPackage(event).catch(showError));
+  $("#router-posture-form").addEventListener("submit", (event) => validateRouterPosture(event).catch(showError));
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
   $("#secret-backend-form").addEventListener("submit", (event) => configureSecretBackend(event).catch(showError));
   $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
