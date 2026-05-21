@@ -127,6 +127,14 @@ export class AdminApiClient {
     return this.request("/live-execution/firecracker/host-qualification", { method: "POST", body });
   }
 
+  listCpuConfidentialQualifications() {
+    return this.request("/live-execution/cpu-confidential/qualifications");
+  }
+
+  qualifyCpuConfidentialHost(body) {
+    return this.request("/live-execution/cpu-confidential/qualification", { method: "POST", body });
+  }
+
   listPhantomExecutionRequests() {
     return this.request("/live-execution/phantom/requests");
   }

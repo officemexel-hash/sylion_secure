@@ -30,6 +30,49 @@ function safeArray(value = [], field) {
   return value.map((item, index) => requireText(item, `${field}.${index}`));
 }
 
+const CPU_VENDORS = new Set(["intel", "amd", "unknown"]);
+const CONFIDENTIAL_MODES = new Set(["none", "intel_tdx", "amd_sev_snp"]);
+
+function normalizeLower(value, field, allowed) {
+  const normalized = requireText(value, field).toLowerCase();
+  if (!allowed.has(normalized)) {
+    throw validationError(`${field} is not supported`, { field, value, allowed: [...allowed] });
+  }
+  return normalized;
+}
+
+function featureFlags(value = {}) {
+  return {
+    virtualization: value.virtualization === true,
+    iommu: value.iommu === true,
+    tpm2: value.tpm2 === true,
+    secureBoot: value.secureBoot === true,
+    kernelLockdown: value.kernelLockdown === true,
+    microcodeCurrent: value.microcodeCurrent === true
+  };
+}
+
+function confidentialChecks({ cpuVendor, confidentialMode, features, attestation }) {
+  const checks = [
+    { key: "virtualization", status: features.virtualization ? "passed" : "blocked", detail: "VMX/SVM virtualization is required" },
+    { key: "iommu", status: features.iommu ? "passed" : "blocked", detail: "IOMMU is required for host isolation" },
+    { key: "tpm2", status: features.tpm2 ? "passed" : "blocked", detail: "TPM 2.0 is required for measured host posture" },
+    { key: "secure_boot", status: features.secureBoot ? "passed" : "blocked", detail: "Secure Boot must be enabled" },
+    { key: "kernel_lockdown", status: features.kernelLockdown ? "passed" : "blocked", detail: "Kernel lockdown must be active" },
+    { key: "microcode_current", status: features.microcodeCurrent ? "passed" : "blocked", detail: "CPU microcode must be current" }
+  ];
+  if (confidentialMode === "intel_tdx") {
+    checks.push({ key: "tdx_vendor_match", status: cpuVendor === "intel" ? "passed" : "blocked", detail: "Intel TDX requires Intel CPU" });
+  }
+  if (confidentialMode === "amd_sev_snp") {
+    checks.push({ key: "sev_snp_vendor_match", status: cpuVendor === "amd" ? "passed" : "blocked", detail: "AMD SEV-SNP requires AMD CPU" });
+  }
+  if (confidentialMode !== "none") {
+    checks.push({ key: "remote_attestation", status: attestation?.verified === true ? "passed" : "blocked", detail: "Remote attestation must verify trusted measurements before secrets release" });
+  }
+  return checks;
+}
+
 function publicRequest(record) {
   return {
     ...record,
@@ -68,6 +111,7 @@ export class LiveExecutionService {
     }));
     this.requests = new PersistentMap({ store, collection: "live_execution_requests" });
     this.hostQualifications = new PersistentMap({ store, collection: "firecracker_host_qualifications" });
+    this.cpuQualifications = new PersistentMap({ store, collection: "cpu_confidential_qualifications" });
     this.phantomRequests = new PersistentMap({ store, collection: "phantom_execution_requests" });
     this.idempotency = new Map();
     for (const request of this.requests.values()) {
@@ -90,6 +134,8 @@ export class LiveExecutionService {
       baselineUnlockState: this.#baselineUnlockState(),
       liveRequests: this.requests.size,
       firecrackerQualifications: this.hostQualifications.size,
+      cpuQualifications: this.cpuQualifications.size,
+      confidentialReadyHosts: [...this.cpuQualifications.values()].filter((item) => item.secretsReleaseAllowed).length,
       phantomExecutionRequests: this.phantomRequests.size,
       productionExecutionAllowed: false,
       generatedAt: isoNow()
@@ -216,6 +262,83 @@ export class LiveExecutionService {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.FIRECRACKER_HOST_QUALIFICATION });
     return [...this.hostQualifications.values()];
+  }
+
+  qualifyCpuConfidentialHost({
+    actor,
+    hostId = "local-host",
+    cpuVendor = "unknown",
+    cpuModel = "unknown",
+    confidentialMode = "none",
+    featureFlags: inputFeatures = {},
+    attestation = {},
+    tierTarget = "PRO",
+    evidenceRefs = [],
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.CPU_CONFIDENTIAL_QUALIFICATION
+    });
+    const normalizedVendor = normalizeLower(cpuVendor, "cpuVendor", CPU_VENDORS);
+    const normalizedMode = normalizeLower(confidentialMode, "confidentialMode", CONFIDENTIAL_MODES);
+    const features = featureFlags(inputFeatures);
+    const checks = confidentialChecks({
+      cpuVendor: normalizedVendor,
+      confidentialMode: normalizedMode,
+      features,
+      attestation
+    });
+    const baseHostReady = checks
+      .filter((check) => !["remote_attestation"].includes(check.key))
+      .every((check) => check.status === "passed");
+    const confidentialReady = normalizedMode !== "none" && checks.every((check) => check.status === "passed");
+    const secretsReleaseAllowed = confidentialReady && safeArray(evidenceRefs, "evidenceRefs").length > 0;
+    const record = {
+      id: newId("cpu_conf"),
+      hostId: requireText(hostId, "hostId"),
+      cpuVendor: normalizedVendor,
+      cpuModel: requireText(cpuModel, "cpuModel"),
+      confidentialMode: normalizedMode,
+      tierTarget: requireText(tierTarget, "tierTarget"),
+      featureFlags: features,
+      attestation: {
+        verified: attestation?.verified === true,
+        measurementRef: attestation?.measurementRef || null,
+        verifier: attestation?.verifier || null
+      },
+      checks,
+      firecrackerHostApproved: baseHostReady,
+      confidentialComputingApproved: confidentialReady,
+      secretsReleaseAllowed,
+      productionExecutionAllowed: false,
+      humanGateRequired: true,
+      evidenceRefs: safeArray(evidenceRefs, "evidenceRefs"),
+      createdAt: isoNow(),
+      createdBy: actor.id
+    };
+    this.cpuQualifications.set(record.id, record);
+    this.audit.record({
+      actorId: actor.id,
+      action: "cpu_confidential.host_qualified",
+      resourceType: RESOURCE_TYPES.CPU_CONFIDENTIAL_QUALIFICATION,
+      resourceId: record.id,
+      correlationId: corr,
+      policyDecision: record.secretsReleaseAllowed ? "allow" : "deny",
+      result: record.secretsReleaseAllowed ? "qualified_for_secret_release_review" : "blocked",
+      newValue: record
+    });
+    return record;
+  }
+
+  listCpuConfidentialQualifications({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.CPU_CONFIDENTIAL_QUALIFICATION
+    });
+    return [...this.cpuQualifications.values()];
   }
 
   createPhantomExecutionRequest({

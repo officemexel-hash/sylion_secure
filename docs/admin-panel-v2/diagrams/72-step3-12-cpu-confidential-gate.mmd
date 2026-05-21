@@ -1,0 +1,14 @@
+flowchart TD
+    Host["Candidate Firecracker Host"] --> CPU["CPU Vendor Gate"]
+    CPU --> Intel["Intel TDX"]
+    CPU --> AMD["AMD SEV-SNP"]
+    CPU --> None["No Confidential Mode"]
+    Intel --> Features["VMX, IOMMU, TPM 2.0, Secure Boot, Lockdown, Microcode"]
+    AMD --> Features
+    None --> FirecrackerOnly["Firecracker host review only"]
+    Features --> Attestation["Remote Attestation"]
+    Attestation --> Evidence["Evidence refs indexed"]
+    Evidence --> Secrets["secretsReleaseAllowed=true"]
+    FirecrackerOnly --> BlockSecrets["secretsReleaseAllowed=false"]
+    Secrets --> Audit["Audit hash chain"]
+    BlockSecrets --> Audit

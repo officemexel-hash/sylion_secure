@@ -217,3 +217,60 @@ test("Step 3.12 Firecracker and PHANTOM execution gates remain auditable and sep
     await close();
   }
 });
+
+test("Step 3.12 CPU confidential gate requires TDX or SEV-SNP attestation before secrets release", async () => {
+  const { app, baseUrl, close } = await startTestServer();
+  try {
+    const client = await loginClient(baseUrl);
+
+    const blockedTdx = await client.qualifyCpuConfidentialHost({
+      hostId: "intel-tdx-host-01",
+      cpuVendor: "intel",
+      cpuModel: "Xeon TDX-capable",
+      confidentialMode: "intel_tdx",
+      tierTarget: "SOVEREIGN",
+      featureFlags: {
+        virtualization: true,
+        iommu: true,
+        tpm2: true,
+        secureBoot: true,
+        kernelLockdown: true,
+        microcodeCurrent: true
+      },
+      attestation: { verified: false, measurementRef: null, verifier: "sylion-attestation-service" },
+      evidenceRefs: ["artifact://cpu/tdx-host-review"]
+    });
+    assert.equal(blockedTdx.qualification.firecrackerHostApproved, true);
+    assert.equal(blockedTdx.qualification.confidentialComputingApproved, false);
+    assert.equal(blockedTdx.qualification.secretsReleaseAllowed, false);
+    assert.ok(blockedTdx.qualification.checks.some((check) => check.key === "remote_attestation" && check.status === "blocked"));
+
+    const readySnp = await client.qualifyCpuConfidentialHost({
+      hostId: "amd-snp-host-01",
+      cpuVendor: "amd",
+      cpuModel: "EPYC SEV-SNP-capable",
+      confidentialMode: "amd_sev_snp",
+      tierTarget: "SOVEREIGN",
+      featureFlags: {
+        virtualization: true,
+        iommu: true,
+        tpm2: true,
+        secureBoot: true,
+        kernelLockdown: true,
+        microcodeCurrent: true
+      },
+      attestation: {
+        verified: true,
+        measurementRef: "attestation://snp/measurement-001",
+        verifier: "sylion-attestation-service"
+      },
+      evidenceRefs: ["artifact://cpu/snp-host-review"]
+    });
+    assert.equal(readySnp.qualification.confidentialComputingApproved, true);
+    assert.equal(readySnp.qualification.secretsReleaseAllowed, true);
+    assert.equal(readySnp.qualification.productionExecutionAllowed, false);
+    assert.ok(app.services.audit.list().some((event) => event.action === "cpu_confidential.host_qualified"));
+  } finally {
+    await close();
+  }
+});

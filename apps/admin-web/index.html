@@ -274,6 +274,42 @@
               <button type="submit">Qualify Host</button>
             </form>
           </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>CPU Confidential Gate <span class="help-tip" tabindex="0" data-tip="Qualifies Intel TDX or AMD SEV-SNP posture. Workload secrets stay blocked unless attestation and evidence pass.">?</span></h2>
+              <span class="pill warn">Attestation</span>
+            </div>
+            <form id="cpu-confidential-qualification-form">
+              <label>Host ID <input name="hostId" value="bare-metal-fc-01"></label>
+              <label>CPU Vendor
+                <select name="cpuVendor">
+                  <option value="intel">Intel</option>
+                  <option value="amd">AMD</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </label>
+              <label>CPU Model <input name="cpuModel" value="Xeon TDX-capable"></label>
+              <label>Mode
+                <select name="confidentialMode">
+                  <option value="intel_tdx">Intel TDX</option>
+                  <option value="amd_sev_snp">AMD SEV-SNP</option>
+                  <option value="none">None</option>
+                </select>
+              </label>
+              <label>Tier <input name="tierTarget" value="SOVEREIGN"></label>
+              <label class="check-row"><input type="checkbox" name="virtualization" checked> VMX/SVM</label>
+              <label class="check-row"><input type="checkbox" name="iommu" checked> IOMMU</label>
+              <label class="check-row"><input type="checkbox" name="tpm2" checked> TPM 2.0</label>
+              <label class="check-row"><input type="checkbox" name="secureBoot" checked> Secure Boot</label>
+              <label class="check-row"><input type="checkbox" name="kernelLockdown" checked> Kernel lockdown</label>
+              <label class="check-row"><input type="checkbox" name="microcodeCurrent" checked> Current microcode</label>
+              <label class="check-row"><input type="checkbox" name="attestationVerified"> Remote attestation verified</label>
+              <label>Measurement ref <input name="measurementRef" value=""></label>
+              <label>Verifier <input name="verifier" value="sylion-attestation-service"></label>
+              <label>Evidence refs <input name="evidenceRefs" value=""></label>
+              <button type="submit">Qualify CPU Gate</button>
+            </form>
+          </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Providers</h2></div>
             <div class="cards" id="provider-cards"></div>
@@ -293,6 +329,10 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Firecracker Qualifications</h2><span class="pill warn">Host gate</span></div>
             <div class="cards" id="firecracker-qualification-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>CPU Confidential Qualifications</h2><span class="pill warn">Secrets gate</span></div>
+            <div class="cards" id="cpu-confidential-qualification-cards"></div>
           </article>
         </section>
 

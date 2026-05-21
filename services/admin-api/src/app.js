@@ -330,6 +330,22 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { qualification });
       }
 
+      if (req.method === "GET" && url.pathname === "/live-execution/cpu-confidential/qualifications") {
+        return send(res, 200, {
+          qualifications: liveExecution.listCpuConfidentialQualifications({ actor, correlationId })
+        });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/cpu-confidential/qualification") {
+        auth.requireFreshStepUp(actor, "cpu_confidential.host_qualification", {
+          correlationId,
+          resourceType: "cpu_confidential_qualification"
+        });
+        const body = await readJson(req);
+        const qualification = liveExecution.qualifyCpuConfidentialHost({ actor, ...body, correlationId });
+        return send(res, 201, { qualification });
+      }
+
       if (req.method === "GET" && url.pathname === "/live-execution/phantom/requests") {
         return send(res, 200, { requests: liveExecution.listPhantomExecutionRequests({ actor, correlationId }) });
       }

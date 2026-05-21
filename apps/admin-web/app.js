@@ -46,6 +46,7 @@ const state = {
   liveExecutionSummary: null,
   liveCloudRequests: [],
   firecrackerQualifications: [],
+  cpuConfidentialQualifications: [],
   phantomExecutionRequests: [],
   lastPlanId: null,
   lastPlanOperatorId: null,
@@ -218,6 +219,7 @@ async function refreshAll() {
     liveExecutionSummary,
     liveCloudRequests,
     firecrackerQualifications,
+    cpuConfidentialQualifications,
     phantomExecutionRequests,
     subscriptionPlans,
     quotaDecisions,
@@ -262,6 +264,7 @@ async function refreshAll() {
     api("/live-execution/summary").catch(() => ({ summary: null })),
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
     api("/live-execution/firecracker/host-qualifications").catch(() => ({ qualifications: [] })),
+    api("/live-execution/cpu-confidential/qualifications").catch(() => ({ qualifications: [] })),
     api("/live-execution/phantom/requests").catch(() => ({ requests: [] })),
     api("/subscription/plans").catch(() => ({ plans: [] })),
     api("/subscription/quota-decisions").catch(() => ({ decisions: [] })),
@@ -306,6 +309,7 @@ async function refreshAll() {
   state.liveExecutionSummary = liveExecutionSummary.summary;
   state.liveCloudRequests = liveCloudRequests.requests;
   state.firecrackerQualifications = firecrackerQualifications.qualifications;
+  state.cpuConfidentialQualifications = cpuConfidentialQualifications.qualifications;
   state.phantomExecutionRequests = phantomExecutionRequests.requests;
   state.phantomCoverage = await Promise.all(
     state.phantomPackages.map((pkg) => api(`/phantom/packages/${pkg.id}/evidence-coverage`)
@@ -442,6 +446,14 @@ function render() {
     ["Exec", String(item.executionAllowed)],
     ["Checks", item.checks?.map((check) => `${check.key}:${check.status}`).join(", ")]
   ])).join("") || empty("No Firecracker host qualifications recorded.");
+
+  $("#cpu-confidential-qualification-cards").innerHTML = state.cpuConfidentialQualifications.map((item) => card(item.hostId, [
+    ["CPU", `${item.cpuVendor} ${item.cpuModel}`],
+    ["Mode", item.confidentialMode],
+    ["Firecracker host", String(item.firecrackerHostApproved)],
+    ["Attestation", String(item.attestation?.verified)],
+    ["Secrets", String(item.secretsReleaseAllowed)]
+  ])).join("") || empty("No CPU confidential-computing qualifications recorded.");
 
   $("#phantom-execution-request-cards").innerHTML = state.phantomExecutionRequests.map((item) => card(item.packageId, [
     ["Status", item.status],
@@ -780,6 +792,11 @@ function renderRelease() {
       ["Ready", String(state.firecrackerQualifications.filter((item) => item.readyForFirecrackerLaunch).length)],
       ["Execution", "false"]
     ]),
+    card("CPU confidential gate", [
+      ["Records", String(state.cpuConfidentialQualifications.length)],
+      ["TDX/SNP", String(state.cpuConfidentialQualifications.filter((item) => item.confidentialComputingApproved).length)],
+      ["Secrets", String(state.cpuConfidentialQualifications.filter((item) => item.secretsReleaseAllowed).length)]
+    ]),
     card("PHANTOM execution requests", [
       ["Records", String(state.phantomExecutionRequests.length)],
       ["Production", "false"],
@@ -1086,6 +1103,38 @@ async function qualifyFirecrackerHost(event) {
     }
   }), "Firecracker Host Qualification");
   toast("Firecracker host qualification recorded");
+  await refreshAll();
+}
+
+async function qualifyCpuConfidentialHost(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const form = event.currentTarget.elements;
+  await withStepUpRetry(() => api("/live-execution/cpu-confidential/qualification", {
+    method: "POST",
+    body: {
+      hostId: data.hostId,
+      cpuVendor: data.cpuVendor,
+      cpuModel: data.cpuModel,
+      confidentialMode: data.confidentialMode,
+      tierTarget: data.tierTarget,
+      featureFlags: {
+        virtualization: form.namedItem("virtualization").checked,
+        iommu: form.namedItem("iommu").checked,
+        tpm2: form.namedItem("tpm2").checked,
+        secureBoot: form.namedItem("secureBoot").checked,
+        kernelLockdown: form.namedItem("kernelLockdown").checked,
+        microcodeCurrent: form.namedItem("microcodeCurrent").checked
+      },
+      attestation: {
+        verified: form.namedItem("attestationVerified").checked,
+        measurementRef: data.measurementRef,
+        verifier: data.verifier
+      },
+      evidenceRefs: splitCsv(data.evidenceRefs)
+    }
+  }), "CPU Confidential Qualification");
+  toast("CPU confidential-computing qualification recorded");
   await refreshAll();
 }
 
@@ -1916,6 +1965,7 @@ function bind() {
   $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
   $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));
   $("#firecracker-qualification-form").addEventListener("submit", (event) => qualifyFirecrackerHost(event).catch(showError));
+  $("#cpu-confidential-qualification-form").addEventListener("submit", (event) => qualifyCpuConfidentialHost(event).catch(showError));
   $("#approved-app-form").addEventListener("submit", (event) => createApprovedWorkloadApp(event).catch(showError));
   $("#subscription-form").addEventListener("submit", (event) => updateTenantSubscription(event).catch(showError));
   $("#billing-form").addEventListener("submit", (event) => updateBillingState(event).catch(showError));

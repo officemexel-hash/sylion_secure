@@ -56,8 +56,10 @@ async function run() {
     await page.locator("#toast").getByText("Live cloud request recorded", { exact: false }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Qualify Host" }).click();
     await page.locator("#toast").getByText("Firecracker host qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await page.getByRole("button", { name: "Qualify CPU Gate" }).click();
+    await page.locator("#toast").getByText("CPU confidential-computing qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
     await page.screenshot({ path: join(outputDir, "live-execution-desktop.png"), fullPage: true });
-    actions.push("live_cloud_firecracker_gates");
+    actions.push("live_cloud_firecracker_cpu_gates");
 
     await clickButton(page, "PHANTOM");
     await page.getByRole("heading", { name: "Execution Requests" }).waitFor({ timeout: 10000 });
@@ -79,7 +81,7 @@ async function run() {
 
     await clickButton(page, "Release");
     const releaseText = await page.locator("main").innerText();
-    for (const expected of ["Release Gate Control", "not_ready_for_production_execution", "PHANTOM execution=false", "Problem Registry", "Evidence Artifact Index", "Live Execution Proof", "Baseline locked"]) {
+    for (const expected of ["Release Gate Control", "not_ready_for_production_execution", "PHANTOM execution=false", "Problem Registry", "Evidence Artifact Index", "Live Execution Proof", "CPU confidential gate", "Baseline locked"]) {
       if (!releaseText.includes(expected)) issues.push(`Missing release dashboard text: ${expected}`);
     }
 

@@ -8,6 +8,7 @@ Step 3.12 adds controlled live-execution gates for:
 
 - Hetzner live cloud VPS-set request for the baseline `G1`, `G2`, `WORKLOAD` layout.
 - Firecracker host qualification before any microVM launch is considered.
+- CPU confidential-computing qualification for Intel TDX / AMD SEV-SNP host posture.
 - PHANTOM execution request workflow as a separate lab-governance path.
 
 The sprint does not turn the SYLION baseline into an automatically mutating production system. Every live path is default-deny, audited, and bound to human approval plus runtime environment gates.
@@ -21,6 +22,8 @@ The sprint does not turn the SYLION baseline into an automatically mutating prod
 - A live VPS-set request always preserves `3 VPS per operator`.
 - Live requests require FIDO2 step-up, `approved_for_execution` provisioning approval, idempotency key, explicit live confirmation, operator allowlist, region allowlist, token presence, and server cap.
 - Firecracker dashboard action qualifies a host only. It does not launch a microVM.
+- Intel TDX and AMD SEV-SNP are modeled as host/secrets gates, not as a replacement for Firecracker.
+- Workload secrets/config release requires CPU feature evidence, current microcode, Secure Boot, TPM 2.0, kernel lockdown, remote attestation and evidence refs.
 - PHANTOM execution requests can become `approved_for_lab_review` only when legal, CISO, architect, compliance, evidence, expiry, lab confirmation, and lab env flag are present.
 - PHANTOM never unlocks baseline production execution.
 - `productionExecutionAllowed` remains `false` in the release surface.
@@ -59,6 +62,8 @@ Secrets must not be pasted into chat, committed to repo, written into docs, or l
 - `POST /live-execution/cloud/hetzner/vps-set`
 - `GET /live-execution/firecracker/host-qualifications`
 - `POST /live-execution/firecracker/host-qualification`
+- `GET /live-execution/cpu-confidential/qualifications`
+- `POST /live-execution/cpu-confidential/qualification`
 - `GET /live-execution/phantom/requests`
 - `POST /live-execution/phantom/request`
 
@@ -68,9 +73,11 @@ Provider view now includes:
 
 - Live Cloud Gate form.
 - Firecracker Host qualification form.
+- CPU Confidential Gate form.
 - Live Execution Status cards.
 - Live Cloud Requests cards.
 - Firecracker Qualifications cards.
+- CPU Confidential Qualifications cards.
 
 PHANTOM view now includes:
 
@@ -80,6 +87,7 @@ PHANTOM view now includes:
 Release view now includes:
 
 - Live Execution Proof cards covering live cloud, Firecracker and PHANTOM request state.
+- Release proof now includes CPU confidential-computing records and secrets-release state.
 
 ## Mermaid - Module Dependencies
 
@@ -92,6 +100,7 @@ flowchart TD
     Live --> Provider["Provider Registry"]
     Live --> Hetzner["HetznerLiveAdapter"]
     Live --> Firecracker["Firecracker Host Qualification"]
+    Live --> CPU["CPU Confidential Gate"]
     Live --> PhantomReq["PHANTOM Execution Request"]
     Provider --> SecretRef["Secret Reference Only"]
     Hetzner -. "env token only" .-> RuntimeSecret["Runtime Secret Storage"]
@@ -99,6 +108,8 @@ flowchart TD
     Auth --> Live
     Live --> Audit["Hash-chain Audit"]
     Firecracker --> Audit
+    CPU --> Audit
+    CPU -. "secretsReleaseAllowed only after attestation" .-> RuntimeSecret
     PhantomReq --> Audit
     PhantomReq -. "no baseline unlock" .-> Release["Release Gate"]
     Release --> ProdDecision["productionExecutionAllowed=false"]
@@ -150,7 +161,7 @@ sequenceDiagram
 
 Automated:
 
-- `npm.cmd test` passes 66/66.
+- `npm.cmd test` passes 67/67.
 - `npm.cmd run test:dashboard` passes Playwright human-style click flow.
 
 Dashboard artifacts:
@@ -165,6 +176,7 @@ Dashboard artifacts:
 - Real Hetzner mutation has not been run in this environment.
 - Firecracker launch is not implemented; only host qualification exists.
 - Hetzner Cloud may not expose nested KVM for Firecracker; production Firecracker should use qualified bare metal or a verified KVM-capable host.
+- Intel TDX / AMD SEV-SNP support must be verified per provider, host generation, firmware, kernel and attestation verifier.
+- TDX/SNP reduces cloud-host risk but does not remove endpoint, guest workload, supply-chain or traffic-metadata risk.
 - HSM-backed production PKI is still a human-gated blocker.
 - PHANTOM remains outside certifiable baseline and needs legal/CISO approval for any lab execution.
-

@@ -74,6 +74,18 @@ const DEFAULT_RELEASE_GATES = Object.freeze([
     productionClaim: false
   },
   {
+    id: "gate_cpu_confidential",
+    moduleKey: "cpu_confidential_computing",
+    title: "CPU and confidential computing",
+    status: "partial",
+    owner: "platform_security",
+    bookControlRefs: ["kvm_iommu_tpm_secure_boot", "intel_tdx_or_amd_sev_snp_attestation"],
+    phantomRefs: [],
+    blockers: ["remote_attestation_required_before_secret_release"],
+    humanGateRequired: true,
+    productionClaim: false
+  },
+  {
     id: "gate_router_puli_ax",
     moduleKey: "router",
     title: "Puli AX router qualification",

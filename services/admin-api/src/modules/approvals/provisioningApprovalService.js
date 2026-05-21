@@ -342,6 +342,7 @@ export class ProvisioningApprovalService {
         { key: "cdr_mandatory", label: "CDR mandatory", status: "implemented", nextAction: "Keep CDR in all app/workload policies" },
         { key: "provider_dry_run", label: "Provider adapter dry-run boundary", status: "implemented", nextAction: "Human gate before real cloud mutation" },
         { key: "live_cloud_unlock", label: "Live cloud unlock gate", status: "partial", nextAction: "Env allowlist, approval binding and one-VPS-set smoke before production" },
+        { key: "cpu_confidential_qualification", label: "CPU confidential-computing host gate", status: "partial", nextAction: "Qualify Intel TDX / AMD SEV-SNP before releasing workload secrets" },
         { key: "real_firecracker", label: "Real Firecracker execution", status: "blocked", nextAction: "HUMAN GATE before production execution" }
       ],
       phantom: [
