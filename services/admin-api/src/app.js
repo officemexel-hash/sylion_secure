@@ -1765,10 +1765,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
   return {
     services,
     handle,
-    listen(port = 0) {
+    listen(port = 0, host) {
       const server = createServer(handle);
       return new Promise((resolve) => {
-        server.listen(port, () => resolve(server));
+        server.listen(port, host, () => resolve(server));
       });
     },
     close() {

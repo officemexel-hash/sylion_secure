@@ -33,6 +33,10 @@ async function setInputValue(page, selector, value) {
   await page.locator(selector).fill(value);
 }
 
+async function waitForToast(page, text, timeout = 30000) {
+  await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent?.includes(expected), text, { timeout });
+}
+
 async function apiInPage(page, path) {
   return page.evaluate(async (requestPath) => {
     const token = sessionStorage.getItem("sylion.admin.token");
@@ -94,6 +98,7 @@ async function run() {
     await page.goto(`${baseUrl}?smoke=${Date.now()}`, { waitUntil: "networkidle" });
     await page.getByLabel("Password").fill("ChangeMe-LocalOnly-1!");
     await clickButton(page, "Enroll FIDO2");
+    await waitForToast(page, "FIDO2 credential enrolled locally");
     await clickButton(page, "Sign In");
     await page.getByText("Dashboard", { exact: true }).waitFor({ timeout: 10000 });
 
@@ -103,42 +108,43 @@ async function run() {
 
     await clickButton(page, "Overview");
     await clickButton(page, "Run Demo Flow");
-    await page.locator("#toast").getByText("Demo flow completed", { exact: false }).waitFor({ timeout: 30000 });
+    await waitForToast(page, "Demo flow completed", 30000);
 
     await clickButton(page, "Operators");
     await page.getByRole("heading", { name: "Provisioning Pipeline ?" }).waitFor({ timeout: 10000 });
+    await page.waitForFunction(() => document.querySelector("#pipeline-operator-select")?.options?.length > 0, null, { timeout: 10000 });
     await page.getByRole("button", { name: "Create Pipeline Draft" }).click();
-    await page.locator("#toast").getByText("Operator provisioning draft created", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Operator provisioning draft created");
     await page.waitForTimeout(500);
     await selectLastOption(page, "#local-lab-pipeline-select");
     await page.getByRole("button", { name: "Create Local VPS Set" }).click();
-    await page.locator("#toast").getByText("Local virtual VPS set created", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Local virtual VPS set created");
     await page.waitForTimeout(500);
     await selectLastOption(page, "#secrets-check-pipeline-select");
     await page.getByRole("button", { name: "Check Secrets Release" }).click();
-    await page.locator("#toast").getByText("Secrets release remains blocked for local lab", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Secrets release remains blocked for local lab");
     await page.waitForTimeout(500);
     await selectLastOption(page, "#local-environment-pipeline-select");
     await page.getByRole("button", { name: "Create Local Environment" }).click();
-    await page.locator("#toast").getByText("Local operator environment created", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Local operator environment created");
     await page.waitForTimeout(500);
     await selectLastOption(page, "#environment-start-select");
     await page.getByRole("button", { name: "Start Local Harness" }).click();
-    await page.locator("#toast").getByText("Local harness started", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Local harness started");
     await page.waitForTimeout(500);
     await captureScreenshot(page, "operator-environment-ready-desktop.png");
     await selectLastOption(page, "#environment-failure-select");
     await page.getByRole("button", { name: "Inject Failure" }).click();
-    await page.locator("#toast").getByText("Local harness failure injected", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Local harness failure injected");
     await page.waitForTimeout(500);
     await captureScreenshot(page, "operator-environment-failed-desktop.png");
     await selectLastOption(page, "#environment-rollback-select");
     await page.getByRole("button", { name: "Rollback Environment" }).click();
-    await page.locator("#toast").getByText("Local harness rolled back", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Local harness rolled back");
     await page.waitForTimeout(500);
     await selectLastOption(page, "#environment-secrets-select");
     await page.getByRole("button", { name: "Check Environment Secrets" }).click();
-    await page.locator("#toast").getByText("Environment secrets remain blocked", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Environment secrets remain blocked");
     await captureScreenshot(page, "operator-pipeline-local-lab-desktop.png");
     actions.push("operator_pipeline_local_environment_failure_rollback");
 
@@ -149,13 +155,13 @@ async function run() {
     await clickButton(page, "Release");
     await page.getByText("Release Gate Control").waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Index Artifact" }).click();
-    await page.locator("#toast").getByText("Evidence artifact indexed", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Evidence artifact indexed");
     await page.getByRole("button", { name: "Create Problem" }).click();
-    await page.locator("#toast").getByText("Release problem recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Release problem recorded");
     await page.getByRole("button", { name: "Update Test Status" }).click();
-    await page.locator("#toast").getByText("Human test scenario status updated", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Human test scenario status updated");
     await page.getByRole("button", { name: "Record Full Test Run" }).click();
-    await page.locator("#toast").getByText("Full human test run recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Full human test run recorded");
     actions.push("release_artifact_problem_human_test_run");
 
     await clickButton(page, "Providers");
@@ -163,14 +169,14 @@ async function run() {
     await page.locator("#secret-backend-form input[name='displayName']").fill(`Vault Transit Smoke ${Date.now()}`);
     await page.locator("#secret-backend-form input[name='endpointReference']").fill("vault://sylion/smoke/transit");
     await page.getByRole("button", { name: "Register Backend" }).click();
-    await page.locator("#toast").getByText("Secret backend contract recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Secret backend contract recorded");
     const liveTuple = await chooseLiveProviderTuple(page);
     await selectOptionValue(page, "#live-cloud-provider-select", liveTuple.provider.id);
     await selectOptionValue(page, "#live-cloud-operator-select", liveTuple.operator.id);
     await selectOptionValue(page, "#live-cloud-approval-select", liveTuple.approval.id);
     await setInputValue(page, "#live-cloud-form input[name='idempotencyKey']", `live-smoke-${Date.now()}`);
     await page.getByRole("button", { name: "Request Live VPS Set" }).click();
-    await page.locator("#toast").getByText("Live cloud request recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Live cloud request recorded");
     await page.waitForTimeout(750);
     const rehearsalTuple = await chooseLiveProviderTuple(page);
     await selectOptionValue(page, "#provider-rehearsal-provider-select", rehearsalTuple.provider.id);
@@ -178,16 +184,16 @@ async function run() {
     await selectOptionValue(page, "#provider-rehearsal-approval-select", rehearsalTuple.approval.id);
     await setInputValue(page, "#provider-rehearsal-form input[name='idempotencyKey']", `step3-18-rehearsal-${Date.now()}`);
     await page.getByRole("button", { name: "Run Rehearsal" }).click();
-    await page.locator("#toast").getByText("Provider rehearsal completed", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Provider rehearsal completed");
     await page.getByRole("button", { name: "Qualify Host" }).click();
-    await page.locator("#toast").getByText("Firecracker host qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Firecracker host qualification recorded");
     await page.waitForTimeout(500);
     await selectLastOption(page, "#firecracker-rehearsal-host-select");
     await selectLastOption(page, "#firecracker-rehearsal-operator-select");
     await page.getByRole("button", { name: "Run Launch Rehearsal" }).click();
-    await page.locator("#toast").getByText("Firecracker launch rehearsal recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "Firecracker launch rehearsal recorded");
     await page.getByRole("button", { name: "Qualify CPU Gate" }).click();
-    await page.locator("#toast").getByText("CPU confidential-computing qualification recorded", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "CPU confidential-computing qualification recorded");
     await captureScreenshot(page, "live-execution-desktop.png");
     actions.push("live_cloud_rehearsal_firecracker_launch_rehearsal_cpu_gates");
     const providersText = await page.locator("main").innerText();
@@ -198,7 +204,7 @@ async function run() {
     await clickButton(page, "PHANTOM");
     await page.getByRole("heading", { name: "Execution Requests" }).waitFor({ timeout: 10000 });
     await page.getByRole("button", { name: "Create Execution Request" }).click();
-    await page.locator("#toast").getByText("PHANTOM execution request gated", { exact: false }).waitFor({ timeout: 10000 });
+    await waitForToast(page, "PHANTOM execution request gated");
     actions.push("phantom_execution_request_gate");
 
     const views = ["Overview", "Operators", "Provisioning", "Approvals", "Subscriptions", "Devices", "Providers", "Security", "PHANTOM", "Release", "Audit"];
