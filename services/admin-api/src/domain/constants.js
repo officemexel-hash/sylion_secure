@@ -81,7 +81,13 @@ export const RESOURCE_TYPES = Object.freeze({
 export const DEVICE_TYPES = Object.freeze({
   PIXEL: "pixel_grapheneos",
   ROUTER: "puli_ax_router",
-  FIDO2: "fido2_key"
+  FIDO2: "fido2_key",
+  // Per ADR-terminal-modes-001: laptop web terminal as second operator-facing
+  // terminal type alongside Pixel. Skeleton metadata only; rendering protocol,
+  // posture validation and IPsec attach deferred to later phases. Not included
+  // in baseline readiness loop (provisioningApprovalService) by default —
+  // optional/secondary per tier policy.
+  LAPTOP_TERMINAL: "laptop_web_terminal"
 });
 
 export const DEVICE_STATUSES = Object.freeze({
