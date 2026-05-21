@@ -397,6 +397,23 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
+              <h2>Promote Baseline <span class="help-tip" tabindex="0" data-tip="Promotes the operator's automatic local G1/G2/WORKLOAD baseline into a gated live provider request. It requires an approved approval record, fresh FIDO2 step-up, explicit confirmation and a rollback plan before cloud mutation.">?</span></h2>
+              <span class="pill warn">Step 3.27</span>
+            </div>
+            <form id="baseline-promotion-form">
+              <label>Provider <select name="providerId" id="baseline-promotion-provider-select"></select></label>
+              <label>Operator <select name="operatorId" id="baseline-promotion-operator-select"></select></label>
+              <label>Approval <select name="approvalId" id="baseline-promotion-approval-select"></select></label>
+              <label>Region <input name="region" value="fsn1"></label>
+              <label>Server Type <input name="serverType" value="cx22"></label>
+              <label>Image <input name="image" value="ubuntu-24.04"></label>
+              <label>Idempotency <input name="idempotencyKey" value="step3-27-promote-001"></label>
+              <label class="check-row"><input type="checkbox" name="liveConfirmed"> I confirm this may create live cloud resources</label>
+              <button type="submit">Promote Operator Baseline</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
               <h2>Provider Rehearsal <span class="help-tip" tabindex="0" data-tip="Runs the Step 3.18 provider smoke contract. Adapter sandbox has no cloud side effects; live provider mode requires explicit env gate and cleanup confirmation.">?</span></h2>
               <span class="pill">Step 3.18</span>
             </div>

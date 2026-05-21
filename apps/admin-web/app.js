@@ -429,6 +429,9 @@ function render() {
   renderSelect("#live-cloud-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#live-cloud-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#live-cloud-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#baseline-promotion-provider-select", state.providers, "No providers", "displayName");
+  renderSelect("#baseline-promotion-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#baseline-promotion-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
   renderSelect("#provider-rehearsal-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#provider-rehearsal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#provider-rehearsal-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
@@ -1424,6 +1427,29 @@ async function requestLiveCloudVpsSet(event) {
     }
   }), "Live Cloud VPS Set");
   toast("Live cloud request recorded with gate decision");
+  await refreshAll();
+}
+
+async function promoteOperatorBaselineToLive(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const provider = state.providers.find((item) => item.id === data.providerId);
+  if (!provider) throw new Error("Select a provider before baseline promotion");
+  if (!data.operatorId) throw new Error("Select an operator before baseline promotion");
+  await withStepUpRetry(() => api(`/operators/${data.operatorId}/live-promotions/${provider.providerKey}`, {
+    method: "POST",
+    extraHeaders: { "idempotency-key": data.idempotencyKey },
+    body: {
+      providerId: data.providerId,
+      approvalId: data.approvalId,
+      region: data.region,
+      idempotencyKey: data.idempotencyKey,
+      liveConfirmed: event.currentTarget.liveConfirmed.checked,
+      serverType: data.serverType,
+      image: data.image
+    }
+  }), "Promote Operator Baseline");
+  toast("Operator baseline promotion recorded with gate decision");
   await refreshAll();
 }
 
@@ -2434,6 +2460,7 @@ function bind() {
   $("#secret-backend-form").addEventListener("submit", (event) => configureSecretBackend(event).catch(showError));
   $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
   $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));
+  $("#baseline-promotion-form").addEventListener("submit", (event) => promoteOperatorBaselineToLive(event).catch(showError));
   $("#provider-rehearsal-form").addEventListener("submit", (event) => runProviderRehearsal(event).catch(showError));
   $("#firecracker-qualification-form").addEventListener("submit", (event) => qualifyFirecrackerHost(event).catch(showError));
   $("#firecracker-rehearsal-form").addEventListener("submit", (event) => runFirecrackerLaunchRehearsal(event).catch(showError));

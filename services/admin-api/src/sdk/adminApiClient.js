@@ -199,6 +199,14 @@ export class AdminApiClient {
     });
   }
 
+  promoteOperatorBaselineToLive(operatorId, providerKey, body, idempotencyKey = body.idempotencyKey) {
+    return this.request(`/operators/${operatorId}/live-promotions/${providerKey}`, {
+      method: "POST",
+      headers: { "idempotency-key": idempotencyKey },
+      body
+    });
+  }
+
   runProviderLiveRehearsal(providerKey, body, idempotencyKey = body.idempotencyKey) {
     return this.request(`/live-execution/cloud/${providerKey}/rehearsal`, {
       method: "POST",

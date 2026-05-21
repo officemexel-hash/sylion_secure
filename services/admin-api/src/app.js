@@ -32,7 +32,7 @@ import { ReleaseControlService } from "./modules/release/releaseControlService.j
 import { LiveExecutionService } from "./modules/live/liveExecutionService.js";
 import { SecurityProfileService } from "./modules/security/securityProfileService.js";
 import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
-import { AppError } from "./lib/errors.js";
+import { AppError, validationError } from "./lib/errors.js";
 
 async function readJson(req) {
   const chunks = [];
@@ -61,6 +61,15 @@ function bearerToken(req) {
 function operatorBearerToken(req) {
   const header = req.headers.authorization || "";
   return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
+}
+
+function latestPromotableLocalBaseline(pipelines = []) {
+  return pipelines.find((pipeline) => (
+    pipeline.status === "local_lab_ready"
+    && pipeline.localLab?.vps?.length === 3
+    && pipeline.firecrackerPlan?.workloads?.length > 0
+    && pipeline.productionExecutionAllowed === false
+  ));
 }
 
 const WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/admin-web/", import.meta.url)));
@@ -562,6 +571,50 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           correlationId
         });
         return send(res, 201, { request });
+      }
+
+      const operatorLivePromotionMatch = url.pathname.match(/^\/operators\/([^/]+)\/live-promotions\/([^/]+)$/);
+      if (req.method === "POST" && operatorLivePromotionMatch) {
+        const operatorId = operatorLivePromotionMatch[1];
+        const providerKey = operatorLivePromotionMatch[2];
+        auth.requireFreshStepUp(actor, `operator.${operatorId}.live_promote.${providerKey}`, {
+          correlationId,
+          resourceType: "live_execution_request",
+          resourceId: operatorId
+        });
+        const pipelines = operatorProvisioning.listPipelines({ actor, operatorId, correlationId });
+        const localBaseline = latestPromotableLocalBaseline(pipelines);
+        if (!localBaseline) {
+          throw validationError("Operator must have an automatic local G1/G2/WORKLOAD baseline before live promotion", {
+            operatorId,
+            requiredStatus: "local_lab_ready",
+            requiredRoles: ["G1", "G2", "WORKLOAD"]
+          });
+        }
+        const body = await readJson(req);
+        const request = await liveExecution.createProviderVpsSet({
+          actor,
+          ...body,
+          providerKey,
+          operatorId,
+          idempotencyKey: req.headers["idempotency-key"] || body.idempotencyKey,
+          correlationId
+        });
+        return send(res, 201, {
+          promotion: {
+            mode: "operator_baseline_to_live",
+            operatorId,
+            providerKey,
+            localBaselineId: localBaseline.id,
+            localLabId: localBaseline.localLab.id,
+            firecrackerPlanId: localBaseline.firecrackerPlan.id,
+            requestedRoles: localBaseline.localLab.vps.map((vps) => vps.role),
+            requestedWorkloads: localBaseline.firecrackerPlan.workloads.map((workload) => workload.templateKey),
+            humanGateRequired: true,
+            productionExecutionAllowed: false
+          },
+          request
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/live-execution/firecracker/host-qualifications") {

@@ -1,0 +1,24 @@
+flowchart TD
+    AdminUI["Admin UI: Promote Baseline Form"]
+    SDK["Admin API SDK"]
+    Route["POST /operators/:operatorId/live-promotions/:providerKey"]
+    StepUp["Fresh FIDO2 Step-Up Gate"]
+    LocalBaseline["Operator Provisioning Pipeline: local_lab_ready"]
+    Approval["Provisioning Approval: approved_for_execution"]
+    LiveGate["LiveExecutionService Cloud Gate"]
+    Adapter["Provider Adapter: Hetzner/OVH"]
+    Rollback["Rollback Plan Registry"]
+    Audit["Hash-Chained Audit"]
+
+    AdminUI --> Route
+    SDK --> Route
+    Route --> StepUp
+    Route --> LocalBaseline
+    Route --> Approval
+    Route --> LiveGate
+    LiveGate --> Adapter
+    LiveGate --> Rollback
+    LocalBaseline --> Audit
+    Approval --> Audit
+    LiveGate --> Audit
+    Rollback --> Audit
