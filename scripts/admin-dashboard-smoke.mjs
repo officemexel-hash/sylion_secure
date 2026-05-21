@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-15-live-provider-regression");
+const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-16-secrets-hetzner-regression");
 const baseUrl = process.env.SYLION_ADMIN_URL || "http://127.0.0.1:8099/admin";
 
 async function loadPlaywright() {
@@ -109,7 +109,7 @@ async function run() {
     await page.screenshot({ path: join(outputDir, "live-execution-desktop.png"), fullPage: true });
     actions.push("live_cloud_firecracker_cpu_gates");
     const providersText = await page.locator("main").innerText();
-    for (const expected of ["Live Rollback Plans", "Rollback ready", "hetzner", "blocked_human_gate"]) {
+    for (const expected of ["Live Rollback Plans", "Rollback ready", "Secret source", "hetzner", "blocked_human_gate"]) {
       if (!providersText.includes(expected)) issues.push(`Missing live provider dashboard text: ${expected}`);
     }
 

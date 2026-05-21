@@ -167,6 +167,14 @@ export class AdminApiClient {
     return this.request("/live-execution/cloud/rollback-plans");
   }
 
+  reconcileProviderLiveVpsSet(providerKey, body) {
+    return this.request(`/live-execution/cloud/${providerKey}/reconcile`, { method: "POST", body });
+  }
+
+  executeLiveRollbackPlan(planId, body = {}) {
+    return this.request(`/live-execution/cloud/rollback-plans/${planId}/execute`, { method: "POST", body });
+  }
+
   requestProviderLiveVpsSet(providerKey, body, idempotencyKey = body.idempotencyKey) {
     return this.request(`/live-execution/cloud/${providerKey}/vps-set`, {
       method: "POST",

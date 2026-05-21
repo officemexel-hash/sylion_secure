@@ -5,6 +5,7 @@ import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 import { HetznerLiveAdapter } from "./hetznerLiveAdapter.js";
 import { OvhLiveAdapter } from "./ovhLiveAdapter.js";
+import { EnvSecretProvider } from "../secrets/envSecretProvider.js";
 
 function isoNow() {
   return new Date().toISOString();
@@ -106,6 +107,7 @@ export class LiveExecutionService {
     approvals,
     adapterFactory = null,
     env = process.env,
+    secretProvider = null,
     hostProbe = null,
     store = null
   }) {
@@ -115,8 +117,9 @@ export class LiveExecutionService {
     this.operators = operators;
     this.approvals = approvals;
     this.env = env;
+    this.secretProvider = secretProvider || new EnvSecretProvider({ env });
     this.adapterFactory = adapterFactory || ((providerKey) => {
-      if (providerKey === "hetzner") return new HetznerLiveAdapter({ token: env.HETZNER_API_TOKEN });
+      if (providerKey === "hetzner") return new HetznerLiveAdapter({ token: this.secretProvider.getProviderToken("hetzner") });
       if (providerKey === "ovh") return new OvhLiveAdapter();
       throw validationError("Live provider adapter is not implemented", { providerKey });
     });
@@ -143,7 +146,8 @@ export class LiveExecutionService {
     return {
       providerMode: this.env.SYLION_PROVIDER_MODE || "dry_run",
       liveAllowed: this.env.SYLION_LIVE_ALLOWED === "true",
-      tokenConfigured: Boolean(this.env.HETZNER_API_TOKEN),
+      tokenConfigured: this.secretProvider.hasProviderSecret("hetzner"),
+      secretProvider: this.secretProvider.status(),
       allowedRegions: splitEnvList(this.env.SYLION_LIVE_ALLOWED_REGIONS),
       allowlistedOperators: splitEnvList(this.env.SYLION_LIVE_ALLOWLIST_OPERATORS),
       maxServers: Number(this.env.SYLION_LIVE_MAX_SERVERS || 0),
@@ -175,6 +179,153 @@ export class LiveExecutionService {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.LIVE_ROLLBACK_PLAN });
     return [...this.rollbackPlans.values()];
+  }
+
+  async reconcileProviderVpsSet({ actor, providerKey, providerId, operatorId, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.read", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST });
+    const provider = this.providers.get(providerId);
+    if (!provider) throw notFound("provider", providerId);
+    const operator = this.operators.get(operatorId);
+    if (!operator) throw notFound("operator", operatorId);
+    const requestedProviderKey = requireText(providerKey, "providerKey").toLowerCase();
+    if (provider.providerKey !== requestedProviderKey) {
+      throw validationError("Provider route does not match provider record", { requestedProviderKey, providerKey: provider.providerKey });
+    }
+    const gate = this.#evaluateCloudGate({ providerKey: provider.providerKey, operatorId, region: provider.regions?.[0] || "unknown", liveConfirmed: true });
+    if (!gate.allowed) {
+      const result = {
+        id: newId("live_rec"),
+        providerId,
+        providerKey: provider.providerKey,
+        operatorId,
+        tenantId: operator.tenantId,
+        status: "blocked_human_gate",
+        gate,
+        resources: [],
+        drift: ["reconcile_blocked_by_live_gate"],
+        productionExecutionAllowed: false,
+        checkedAt: isoNow()
+      };
+      this.audit.record({
+        actorId: actor.id,
+        action: "live_cloud.reconcile_blocked",
+        resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST,
+        resourceId: result.id,
+        tenantId: operator.tenantId,
+        operatorId,
+        correlationId: corr,
+        policyDecision: "deny",
+        result: result.status,
+        newValue: result
+      });
+      return result;
+    }
+    const adapter = this.adapterFactory(provider.providerKey);
+    if (typeof adapter.listVpsSet !== "function") {
+      throw validationError("Live provider adapter does not support reconciliation", { providerKey: provider.providerKey });
+    }
+    const resources = (await adapter.listVpsSet({ operatorId })).map(sanitizeProviderResource);
+    const roles = new Set(resources.map((resource) => resource.role));
+    const drift = ["G1", "G2", "WORKLOAD"].filter((role) => !roles.has(role)).map((role) => `missing_${role.toLowerCase()}`);
+    const result = {
+      id: newId("live_rec"),
+      providerId,
+      providerKey: provider.providerKey,
+      operatorId,
+      tenantId: operator.tenantId,
+      status: drift.length ? "drift_detected" : "in_sync",
+      gate,
+      resources,
+      drift,
+      productionExecutionAllowed: false,
+      checkedAt: isoNow()
+    };
+    this.audit.record({
+      actorId: actor.id,
+      action: "live_cloud.reconciled",
+      resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST,
+      resourceId: result.id,
+      tenantId: operator.tenantId,
+      operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: result.status,
+      newValue: result
+    });
+    return result;
+  }
+
+  async executeRollbackPlan({ actor, planId, liveConfirmed = false, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const plan = this.rollbackPlans.get(planId);
+    if (!plan) throw notFound("live_rollback_plan", planId);
+    this.rbac.assert(actor, "live_execution.manage", {
+      operatorId: plan.operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.LIVE_ROLLBACK_PLAN,
+      resourceId: planId
+    });
+    const gate = this.#evaluateCloudGate({
+      providerKey: plan.providerKey,
+      operatorId: plan.operatorId,
+      region: plan.region,
+      liveConfirmed
+    });
+    if (!gate.allowed) {
+      const blocked = {
+        ...plan,
+        status: "rollback_blocked_human_gate",
+        gate,
+        checkedAt: isoNow(),
+        checkedBy: actor.id
+      };
+      this.rollbackPlans.set(plan.id, blocked);
+      this.audit.record({
+        actorId: actor.id,
+        action: "live_cloud.rollback_blocked",
+        resourceType: RESOURCE_TYPES.LIVE_ROLLBACK_PLAN,
+        resourceId: plan.id,
+        tenantId: plan.tenantId,
+        operatorId: plan.operatorId,
+        correlationId: corr,
+        policyDecision: "deny",
+        result: blocked.status,
+        previousValue: plan,
+        newValue: blocked
+      });
+      return blocked;
+    }
+    const adapter = this.adapterFactory(plan.providerKey);
+    if (typeof adapter.deleteVpsSet !== "function") {
+      throw validationError("Live provider adapter does not support rollback execution", { providerKey: plan.providerKey });
+    }
+    const results = await adapter.deleteVpsSet({ actions: plan.actions });
+    const executed = {
+      ...plan,
+      status: "rollback_executed",
+      gate,
+      results,
+      sideEffectAllowed: true,
+      productionExecutionAllowed: false,
+      executedAt: isoNow(),
+      executedBy: actor.id
+    };
+    this.rollbackPlans.set(plan.id, executed);
+    this.audit.record({
+      actorId: actor.id,
+      action: "live_cloud.rollback_executed",
+      resourceType: RESOURCE_TYPES.LIVE_ROLLBACK_PLAN,
+      resourceId: plan.id,
+      tenantId: plan.tenantId,
+      operatorId: plan.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: executed.status,
+      previousValue: plan,
+      newValue: executed
+    });
+    return executed;
   }
 
   async createProviderVpsSet({
@@ -440,7 +591,7 @@ export class LiveExecutionService {
     const allowedRegions = splitEnvList(this.env.SYLION_LIVE_ALLOWED_REGIONS);
     if (this.env.SYLION_PROVIDER_MODE !== "live") blockers.push("provider_mode_not_live");
     if (this.env.SYLION_LIVE_ALLOWED !== "true") blockers.push("live_allowed_flag_false");
-    if (providerKey === "hetzner" && !this.env.HETZNER_API_TOKEN) blockers.push("hetzner_api_token_missing");
+    if (providerKey === "hetzner" && !this.secretProvider.hasProviderSecret("hetzner")) blockers.push("hetzner_api_token_missing");
     if (providerKey === "ovh") blockers.push("ovh_live_adapter_not_implemented");
     if (!liveConfirmed) blockers.push("live_confirmation_missing");
     if (!allowedOperators.includes("*") && !allowedOperators.includes(operatorId)) blockers.push("operator_not_allowlisted");

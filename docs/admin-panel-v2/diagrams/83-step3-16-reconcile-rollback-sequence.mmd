@@ -1,0 +1,20 @@
+sequenceDiagram
+  actor Admin
+  participant API as Admin API
+  participant Gate as Live Gate
+  participant Hetzner as Hetzner Adapter
+  participant Audit as Audit
+
+  Admin->>API: POST /cloud/hetzner/reconcile
+  API->>Gate: verify live env, token, allowlist
+  Gate-->>API: allowed or blocked
+  API->>Hetzner: listVpsSet
+  Hetzner-->>API: sanitized resources
+  API->>Audit: live_cloud.reconciled
+
+  Admin->>API: POST /rollback-plans/:id/execute
+  API->>Gate: verify step-up, live env, token, confirmation
+  Gate-->>API: allowed or blocked
+  API->>Hetzner: deleteVpsSet
+  Hetzner-->>API: sanitized delete results
+  API->>Audit: live_cloud.rollback_executed

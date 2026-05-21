@@ -68,4 +68,51 @@ export class HetznerLiveAdapter {
     }
     return created;
   }
+
+  async listVpsSet({ operatorId }) {
+    const token = requireToken(this.token);
+    const selector = encodeURIComponent(`sylion_operator=${operatorId},sylion_baseline=three_vps_per_operator`);
+    const response = await this.transport(`${HETZNER_API}/servers?label_selector=${selector}`, {
+      method: "GET",
+      headers: { authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      throw validationError("Hetzner live server list failed", {
+        status: response.status,
+        tokenLogged: false
+      });
+    }
+    const payload = await response.json();
+    return (payload.servers || []).map((server) => ({
+      role: String(server.labels?.sylion_role || "unknown").toUpperCase(),
+      providerResourceId: String(server.id || server.name),
+      name: server.name || null,
+      location: server.datacenter?.location?.name || null,
+      status: server.status || "unknown"
+    }));
+  }
+
+  async deleteVpsSet({ actions = [] }) {
+    const token = requireToken(this.token);
+    const results = [];
+    for (const action of actions) {
+      if (!action.providerResourceId || action.action === "no_op_not_created") {
+        results.push({ ...action, status: "skipped" });
+        continue;
+      }
+      const response = await this.transport(`${HETZNER_API}/servers/${encodeURIComponent(action.providerResourceId)}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token}` }
+      });
+      if (!response.ok && response.status !== 404) {
+        throw validationError("Hetzner live server deletion failed", {
+          status: response.status,
+          role: action.role,
+          tokenLogged: false
+        });
+      }
+      results.push({ ...action, status: response.status === 404 ? "already_absent" : "delete_requested" });
+    }
+    return results;
+  }
 }

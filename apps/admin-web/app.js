@@ -478,6 +478,7 @@ function render() {
     ["Provider mode", state.liveExecutionSummary.providerMode],
     ["Live allowed", String(state.liveExecutionSummary.liveAllowed)],
     ["Token configured", String(state.liveExecutionSummary.tokenConfigured)],
+    ["Secret source", state.liveExecutionSummary.secretProvider?.source || "-"],
     ["Unlock", state.liveExecutionSummary.baselineUnlockState],
     ["Adapters", state.liveExecutionSummary.providerAdapters?.map((adapter) => `${adapter.providerKey}:${adapter.status}`).join(", ") || "-"],
     ["Rollback plans", String(state.liveExecutionSummary.rollbackPlans || 0)],

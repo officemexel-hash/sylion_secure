@@ -323,6 +323,35 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { plans: liveExecution.listRollbackPlans({ actor, correlationId }) });
       }
 
+      const providerReconcileMatch = url.pathname.match(/^\/live-execution\/cloud\/([^/]+)\/reconcile$/);
+      if (req.method === "POST" && providerReconcileMatch) {
+        const body = await readJson(req);
+        const reconciliation = await liveExecution.reconcileProviderVpsSet({
+          actor,
+          providerKey: providerReconcileMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { reconciliation });
+      }
+
+      const rollbackExecuteMatch = url.pathname.match(/^\/live-execution\/cloud\/rollback-plans\/([^/]+)\/execute$/);
+      if (req.method === "POST" && rollbackExecuteMatch) {
+        auth.requireFreshStepUp(actor, "live_cloud.rollback_execute", {
+          correlationId,
+          resourceType: "live_rollback_plan",
+          resourceId: rollbackExecuteMatch[1]
+        });
+        const body = await readJson(req);
+        const plan = await liveExecution.executeRollbackPlan({
+          actor,
+          planId: rollbackExecuteMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { plan });
+      }
+
       const providerVpsSetMatch = url.pathname.match(/^\/live-execution\/cloud\/([^/]+)\/vps-set$/);
       if (req.method === "POST" && providerVpsSetMatch) {
         auth.requireFreshStepUp(actor, `live_cloud.${providerVpsSetMatch[1]}.vps_set`, {
