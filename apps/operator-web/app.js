@@ -109,6 +109,7 @@
     setText("#operator-session", `${me.me.displayName} (${me.me.tier})`);
     const vpn = await fetchJson("/operator-api/vpn-status");
     if (!vpn.error) setText("#vpn-overview", vpn.vpn.state);
+    await loadStreaming();
   }
 
   async function loadDevices() {
@@ -196,6 +197,34 @@
     setText("#vpn-g2", data.vpn.endpoints.g2 || "-");
     setText("#vpn-workload", data.vpn.endpoints.workload || "-");
     setText("#vpn-handshake", data.vpn.lastHandshake || "-");
+    const install = await fetchJson("/operator-api/vpn-install-package");
+    if (!install.error) {
+      setText("#vpn-install-state", install.package.installState);
+      setText("#vpn-install-type", install.package.packageType);
+      setText("#vpn-install-blockers", (install.package.requires || []).join(", "));
+    }
+  }
+
+  async function loadStreaming() {
+    const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
+    const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
+    const dpr = Number(window.devicePixelRatio || 1).toFixed(2);
+    const data = await fetchJson(`/operator-api/streaming-profile?width=${width}&height=${height}&dpr=${dpr}`);
+    if (data.error) {
+      setText("#stream-status", data.error);
+      return;
+    }
+    const stream = data.profile.stream;
+    setText("#stream-status", data.profile.viewport.orientation);
+    setText("#stream-resolution", `${stream.targetWidth} x ${stream.targetHeight}`);
+    setText("#stream-codec", stream.codec);
+    setText("#stream-fps", `${stream.maxFps}`);
+    setText("#stream-bitrate", `${stream.maxBitrateKbps} kbps`);
+    setText("#stream-pointer-scale", `${stream.pointerScale}`);
+    const frame = $(".stream-frame");
+    if (frame) {
+      frame.style.aspectRatio = `${stream.targetWidth} / ${stream.targetHeight}`;
+    }
   }
 
   async function loadAudit() {
@@ -255,6 +284,7 @@
     if (viewId === "devices") loadDevices();
     if (viewId === "workloads") loadWorkloads();
     if (viewId === "vpn") loadVpn();
+    if (viewId === "streaming") loadStreaming();
     if (viewId === "audit") loadAudit();
     if (viewId === "settings-fido2") loadFido2();
     if (viewId === "settings-hsm") loadHsm();
@@ -272,5 +302,8 @@
     const initialView = (location.hash || "#overview").replace("#", "");
     setActiveView(initialView);
     loadViewData(initialView);
+    window.addEventListener("resize", () => {
+      if ($("#streaming")?.classList.contains("active")) loadStreaming();
+    });
   });
 })();

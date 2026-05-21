@@ -16,7 +16,7 @@
   --accent-warn: #f0b429;
   --accent-error: #e6533c;
   --accent-ok: #4ade80;
-  --radius: 10px;
+  --radius: 8px;
 }
 
 body {
@@ -292,6 +292,105 @@ dd {
   margin-bottom: 8px;
 }
 
+.stream-shell {
+  background: #10151d;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: min(78vh, 760px);
+  display: grid;
+  grid-template-rows: auto minmax(260px, 1fr) auto auto;
+  overflow: hidden;
+}
+
+.stream-toolbar {
+  min-height: 52px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.stream-toolbar div {
+  display: grid;
+  gap: 3px;
+}
+
+.stream-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.stream-stage {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: #080b10;
+}
+
+.stream-frame {
+  width: min(100%, 980px);
+  max-height: 100%;
+  aspect-ratio: 9 / 16;
+  border: 1px solid #344159;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  background: #121925;
+  box-shadow: 0 16px 50px rgb(0 0 0 / 35%);
+}
+
+.stream-grid {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgb(255 255 255 / 5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 5%) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.stream-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--text);
+}
+
+.stream-center strong {
+  font-size: 24px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.stream-center span {
+  color: var(--text-dim);
+}
+
+.stream-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.stream-metrics dt {
+  margin: 0;
+}
+
+.stream-metrics dd {
+  overflow-wrap: anywhere;
+}
+
 button.primary {
   background: var(--accent);
   color: white;
@@ -351,5 +450,59 @@ button.primary:disabled {
 
   form {
     grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    padding: 0 12px;
+  }
+
+  .status-text,
+  .portal-tag {
+    display: none;
+  }
+
+  .content {
+    padding: 14px;
+  }
+
+  .footer {
+    min-height: 54px;
+    padding: 8px 12px;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .stream-shell {
+    min-height: calc(100svh - 170px);
+  }
+
+  .stream-toolbar {
+    align-items: flex-start;
+  }
+
+  .stream-stage {
+    padding: 8px;
+  }
+
+  .stream-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (orientation: landscape) and (max-width: 940px) {
+  .stream-shell {
+    min-height: calc(100svh - 150px);
+    grid-template-rows: auto 1fr;
+  }
+
+  .stream-metrics,
+  .stream-shell > .hint {
+    display: none;
   }
 }

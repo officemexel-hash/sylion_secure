@@ -295,6 +295,22 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { vpn: operatorPortal.vpnStatus({ operatorActor, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/vpn-install-package") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { package: operatorPortal.vpnInstallPackage({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/streaming-profile") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, {
+          profile: operatorPortal.streamingProfile({
+            operatorActor,
+            width: url.searchParams.get("width"),
+            height: url.searchParams.get("height"),
+            dpr: url.searchParams.get("dpr"),
+            correlationId
+          })
+        });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/audit") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { events: operatorPortal.auditEvents({ operatorActor, correlationId }) });

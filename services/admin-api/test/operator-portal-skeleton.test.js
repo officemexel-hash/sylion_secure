@@ -69,6 +69,7 @@ test("Operator portal serves styles.css and app.js", async () => {
     assert.equal(js.status, 200);
     assert.match(js.contentType, /text\/javascript|application\/javascript/);
     assert.match(js.body, /detectTerminalMode/);
+    assert.match(js.body, /streaming-profile/);
   } finally {
     await close();
   }
@@ -98,6 +99,26 @@ test("/operator-api/vpn-status requires an operator portal session", async () =>
   const { baseUrl, close } = await startTestServer();
   try {
     const res = await getJson(baseUrl, "/operator-api/vpn-status");
+    assert.equal(res.status, 401);
+  } finally {
+    await close();
+  }
+});
+
+test("/operator-api/vpn-install-package requires an operator portal session", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const res = await getJson(baseUrl, "/operator-api/vpn-install-package");
+    assert.equal(res.status, 401);
+  } finally {
+    await close();
+  }
+});
+
+test("/operator-api/streaming-profile requires an operator portal session", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const res = await getJson(baseUrl, "/operator-api/streaming-profile?width=390&height=844&dpr=3");
     assert.equal(res.status, 401);
   } finally {
     await close();

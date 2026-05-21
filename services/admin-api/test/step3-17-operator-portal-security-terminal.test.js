@@ -189,6 +189,19 @@ test("Step 3.17 scopes operator portal sessions to Pixel or laptop terminal VPN 
     ]);
     assert.equal(vpn.vpn.productionExecutionAllowed, false);
 
+    const vpnInstall = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/vpn-install-package");
+    assert.equal(vpnInstall.package.transport, "ipsec_ikev2_certificate_auth");
+    assert.equal(vpnInstall.package.readyForRealInstall, false);
+    assert.equal(vpnInstall.package.productionExecutionAllowed, false);
+    assert.ok(vpnInstall.package.requires.includes("real_g1_public_ipsec_endpoint"));
+
+    const stream = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/streaming-profile?width=390&height=844&dpr=3");
+    assert.equal(stream.profile.terminalMode, "pixel_grapheneos");
+    assert.equal(stream.profile.stream.operationalDataOnTerminal, false);
+    assert.equal(stream.profile.stream.resizePolicy, "server_side_dynamic_resolution");
+    assert.equal(stream.profile.stream.targetHeight, 1280);
+    assert.ok(stream.profile.stream.targetWidth >= 590);
+
     const profiles = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/terminal-profiles");
     assert.equal(profiles.profiles.length, 2);
     assert.ok(profiles.profiles.some((profile) => profile.mode === "laptop_web_terminal" && profile.browserThinClientSupported));

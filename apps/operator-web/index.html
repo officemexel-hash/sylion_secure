@@ -27,6 +27,7 @@
       <li><a href="#devices" data-view="devices">Devices</a></li>
       <li><a href="#workloads" data-view="workloads">Workloads</a></li>
       <li><a href="#vpn" data-view="vpn">VPN status</a></li>
+      <li><a href="#streaming" data-view="streaming">Streaming</a></li>
       <li><a href="#audit" data-view="audit">My audit</a></li>
       <li><a href="#settings-fido2" data-view="settings-fido2">FIDO2 policy</a></li>
       <li><a href="#settings-hsm" data-view="settings-hsm">HSM refs</a></li>
@@ -101,6 +102,43 @@
           <dt>Last handshake</dt><dd id="vpn-handshake" class="placeholder">-</dd>
         </dl>
         <p class="hint">Baseline path: terminal -> Puli AX -> G1 -> G2 -> WORKLOAD. No terminal-side operational data.</p>
+      </article>
+      <article class="card">
+        <h2>VPN install package</h2>
+        <dl>
+          <dt>Install state</dt><dd id="vpn-install-state" class="placeholder">blocked_human_gate</dd>
+          <dt>Profile type</dt><dd id="vpn-install-type" class="placeholder">android_ipsec_ikev2_profile</dd>
+          <dt>Blockers</dt><dd id="vpn-install-blockers" class="placeholder">Loading...</dd>
+        </dl>
+      </article>
+    </section>
+
+    <section id="streaming" class="view">
+      <h1>Streaming</h1>
+      <article class="stream-shell" aria-label="Pixel stream adaptive preview">
+        <div class="stream-toolbar">
+          <div>
+            <strong>G2 pixel stream</strong>
+            <span id="stream-status" class="placeholder">planning profile...</span>
+          </div>
+          <span id="stream-resolution" class="stream-pill">-</span>
+        </div>
+        <div class="stream-stage">
+          <div class="stream-frame">
+            <div class="stream-grid"></div>
+            <div class="stream-center">
+              <strong>SYLION</strong>
+              <span>thin client stream placeholder</span>
+            </div>
+          </div>
+        </div>
+        <dl class="stream-metrics">
+          <dt>Codec</dt><dd id="stream-codec">-</dd>
+          <dt>FPS</dt><dd id="stream-fps">-</dd>
+          <dt>Bitrate</dt><dd id="stream-bitrate">-</dd>
+          <dt>Touch scale</dt><dd id="stream-pointer-scale">-</dd>
+        </dl>
+        <p class="hint">The VPS/G2 side must change stream resolution dynamically to match Pixel viewport, orientation, DPR, and network budget. Terminal remains display/input only.</p>
       </article>
     </section>
 

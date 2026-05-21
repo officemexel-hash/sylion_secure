@@ -211,9 +211,12 @@ async function run() {
       deviceId: pixelDevice.device.id
     }
   });
-  const [me, vpn, devices, profiles] = await Promise.all([
+  const viewport = { width: 390, height: 844, dpr: 3 };
+  const [me, vpn, vpnInstall, stream, devices, profiles] = await Promise.all([
     operatorRequest(sessionPayload.session.token, "/operator-api/me"),
     operatorRequest(sessionPayload.session.token, "/operator-api/vpn-status"),
+    operatorRequest(sessionPayload.session.token, "/operator-api/vpn-install-package"),
+    operatorRequest(sessionPayload.session.token, `/operator-api/streaming-profile?width=${viewport.width}&height=${viewport.height}&dpr=${viewport.dpr}`),
     operatorRequest(sessionPayload.session.token, "/operator-api/devices"),
     operatorRequest(sessionPayload.session.token, "/operator-api/terminal-profiles")
   ]);
@@ -244,6 +247,9 @@ async function run() {
     operatorSessionId: sessionPayload.session.id,
     vpnState: vpn.vpn.state,
     vpnTransport: vpn.vpn.transport,
+    vpnInstallState: vpnInstall.package.installState,
+    streamTarget: `${stream.profile.stream.targetWidth}x${stream.profile.stream.targetHeight}`,
+    streamResizePolicy: stream.profile.stream.resizePolicy,
     terminalMode: me.me.terminalMode,
     terminalEligibleDevices: devices.devices.filter((device) => device.terminalEligible).length,
     pixelProfileAvailable: profiles.profiles.some((profile) => profile.mode === "pixel_grapheneos" && profile.adbSupportedForLab),

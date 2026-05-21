@@ -178,6 +178,79 @@ export class OperatorPortalService {
     };
   }
 
+  vpnInstallPackage({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const vpn = this.vpnStatus({ operatorActor, correlationId });
+    const readyForRealInstall = false;
+    return {
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      packageType: "android_ipsec_ikev2_profile",
+      transport: "ipsec_ikev2_certificate_auth",
+      installState: readyForRealInstall ? "ready" : "blocked_human_gate",
+      readyForRealInstall,
+      profileDelivery: "adb_lab_preview_only",
+      androidPackageInstallAllowed: false,
+      requires: [
+        "real_g1_public_ipsec_endpoint",
+        "hsm_or_secure_element_client_certificate",
+        "router_puli_ax_package_validation",
+        "dns_leak_and_kill_switch_tests",
+        "fido2_operator_unlock"
+      ],
+      plannedProfile: {
+        server: vpn.endpoints.g1,
+        authentication: "mutual_certificate",
+        ike: "aes256gcm16-prfsha384-ecp384",
+        esp: "aes256gcm16-ecp384",
+        alwaysOn: true,
+        blockConnectionsWithoutVpn: true,
+        dnsThroughTunnelOnly: true
+      },
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  streamingProfile({ operatorActor, width = 390, height = 844, dpr = 3, correlationId }) {
+    requireCorrelationId(correlationId);
+    const w = Math.max(320, Math.min(Number(width) || 390, 2560));
+    const h = Math.max(320, Math.min(Number(height) || 844, 2560));
+    const ratio = Math.max(1, Math.min(Number(dpr) || 1, 4));
+    const portrait = h >= w;
+    const shortEdge = Math.min(w, h);
+    const longEdge = Math.max(w, h);
+    const targetLongEdge = shortEdge < 430 ? 1280 : shortEdge < 720 ? 1600 : 1920;
+    const targetShortEdge = Math.round(targetLongEdge * (shortEdge / longEdge));
+    const targetWidth = portrait ? targetShortEdge : targetLongEdge;
+    const targetHeight = portrait ? targetLongEdge : targetShortEdge;
+    const maxBitrateKbps = shortEdge < 430 ? 2800 : shortEdge < 720 ? 4200 : 6500;
+    const pointerScale = Number((targetWidth / w).toFixed(3));
+    return {
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      viewport: { width: w, height: h, dpr: ratio, orientation: portrait ? "portrait" : "landscape" },
+      stream: {
+        protocol: "webrtc_planned",
+        source: "G2 pixel stream gateway",
+        targetWidth,
+        targetHeight,
+        codec: "h264_baseline_or_av1_when_available",
+        maxFps: 30,
+        maxBitrateKbps,
+        resizePolicy: "server_side_dynamic_resolution",
+        pointerScale,
+        touchInput: true,
+        keyboardInput: "secure_overlay",
+        clipboard: "disabled_by_default",
+        fileTransfer: "cdr_required",
+        operationalDataOnTerminal: false
+      },
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
   subscription({ operatorActor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const operator = this.#requireOperator(operatorActor.operatorId);
