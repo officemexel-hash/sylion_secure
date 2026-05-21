@@ -198,6 +198,10 @@ export class DeviceInventoryService {
     return this.devices.get(id);
   }
 
+  listForOperatorScoped(operatorId) {
+    return [...this.devices.values()].filter((device) => device.assignedOperatorId === operatorId);
+  }
+
   #requireDevice(deviceId) {
     const device = this.devices.get(deviceId);
     if (!device) {

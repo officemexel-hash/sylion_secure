@@ -355,6 +355,12 @@ export class SubscriptionService {
       .map((allocation) => this.#publicAllocation(allocation));
   }
 
+  listAllocationsForOperatorScoped(operatorId) {
+    return [...this.allocations.values()]
+      .filter((allocation) => allocation.operatorId === operatorId)
+      .map((allocation) => this.#publicAllocation(allocation));
+  }
+
   planPlacement({ actor, operatorId, allocationId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "workload.placement.plan", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.MICROVM_PLACEMENT_PLAN });

@@ -66,6 +66,12 @@ export class OperatorEnvironmentService {
       .map(publicEnvironment);
   }
 
+  listForOperatorScoped(operatorId) {
+    return [...this.environments.values()]
+      .filter((environment) => environment.operatorId === operatorId)
+      .map(publicEnvironment);
+  }
+
   get({ actor, environmentId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const environment = this.#requireEnvironment(environmentId);

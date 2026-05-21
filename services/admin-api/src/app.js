@@ -30,6 +30,8 @@ import { PhantomGovernanceService } from "./modules/phantom/phantomGovernanceSer
 import { ProvisioningApprovalService } from "./modules/approvals/provisioningApprovalService.js";
 import { ReleaseControlService } from "./modules/release/releaseControlService.js";
 import { LiveExecutionService } from "./modules/live/liveExecutionService.js";
+import { SecurityProfileService } from "./modules/security/securityProfileService.js";
+import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
 import { AppError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -52,6 +54,11 @@ function sendRaw(res, status, contentType, payload) {
 }
 
 function bearerToken(req) {
+  const header = req.headers.authorization || "";
+  return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
+}
+
+function operatorBearerToken(req) {
   const header = req.headers.authorization || "";
   return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
 }
@@ -180,6 +187,22 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     monitoring,
     store
   });
+  const securityProfiles = new SecurityProfileService({
+    audit,
+    rbac,
+    operators,
+    store
+  });
+  const operatorPortal = new OperatorPortalService({
+    audit,
+    rbac,
+    operators,
+    devices,
+    subscriptions,
+    operatorEnvironments,
+    securityProfiles,
+    store
+  });
 
   const services = {
     audit,
@@ -208,8 +231,14 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     release,
     liveExecution,
     operatorProvisioning,
-    operatorEnvironments
+    operatorEnvironments,
+    securityProfiles,
+    operatorPortal
   };
+
+  function operatorActorFromRequest(req) {
+    return operatorPortal.actorFromToken(operatorBearerToken(req));
+  }
 
   async function handle(req, res) {
     try {
@@ -229,80 +258,71 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         }
       }
 
-      // Operator portal stub API. Placeholder responses; real RBAC scoping
-      // and FIDO2 auth will be wired in later phase per ADR-terminal-modes-001
-      // implementation plan Phase B.
-      if (req.method === "GET" && url.pathname === "/operator-api/me") {
-        return send(res, 200, {
-          operatorId: null,
-          placeholder: true,
-          terminalModes: ["pixel_grapheneos", "laptop_web_terminal"],
-          note: "Skeleton: real operator session pending Phase B (FIDO2 enrollment)"
-        });
-      }
-      if (req.method === "GET" && url.pathname === "/operator-api/devices") {
-        return send(res, 200, {
-          devices: [],
-          placeholder: true,
-          note: "Skeleton: device list scoped per-operator pending RBAC scoping in Phase B"
-        });
-      }
-      if (req.method === "GET" && url.pathname === "/operator-api/workloads") {
-        return send(res, 200, {
-          workloads: [],
-          placeholder: true,
-          note: "Skeleton: G1 microVM list pending Phase B"
-        });
-      }
-      if (req.method === "GET" && url.pathname === "/operator-api/vpn-status") {
-        return send(res, 200, {
-          state: "disconnected",
-          router: null,
-          g1Endpoint: null,
-          lastHandshake: null,
-          placeholder: true,
-          note: "Skeleton: IPsec attach pending router firmware (ADR-router-baseline-002)"
-        });
-      }
-      if (req.method === "GET" && url.pathname === "/operator-api/audit") {
-        return send(res, 200, {
-          events: [],
-          placeholder: true,
-          note: "Skeleton: scoped audit view pending Phase B"
-        });
-      }
-      if (req.method === "GET" && url.pathname === "/operator-api/settings/fido2") {
-        return send(res, 200, {
-          keys: [],
-          placeholder: true,
-          phaseDeferred: true,
-          note: "FIDO2 management UI placeholder per user request; functionality deferred to end of Phase B"
-        });
-      }
-      if (req.method === "GET" && url.pathname === "/operator-api/settings/hsm") {
-        return send(res, 200, {
-          references: [],
-          placeholder: true,
-          phaseDeferred: true,
-          note: "HSM reference UI placeholder; depends on ADR-vault-adapter-001 Phase B"
-        });
-      }
-      if (req.method === "GET" && url.pathname === "/operator-api/subscription") {
-        return send(res, 200, {
-          plan: null,
-          quota: null,
-          placeholder: true,
-          note: "Skeleton: scoped subscription view pending operator session"
-        });
-      }
       if (req.method === "GET" && url.pathname === "/operator-api/about") {
         return send(res, 200, {
           portal: "SYLION Operator Portal",
-          status: "skeleton",
+          status: "scoped_contract_ready",
           adr: "ADR-terminal-modes-001",
           modes: ["pixel_grapheneos", "laptop_web_terminal"],
-          productionExecutionAllowed: false
+          transport: "ipsec_ikev2_planned",
+          productionExecutionAllowed: false,
+          physicalFido2Deferred: true,
+          physicalHsmDeferred: true
         });
+      }
+
+      if (req.method === "POST" && url.pathname === "/operator-api/sessions/local-simulator") {
+        const actor = auth.actorFromToken(bearerToken(req));
+        const body = await readJson(req);
+        const session = operatorPortal.createLocalSession({ actor, ...body, correlationId });
+        return send(res, 201, { session });
+      }
+
+      if (req.method === "GET" && url.pathname === "/operator-api/me") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { me: operatorPortal.me({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/devices") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { devices: operatorPortal.devicesForOperator({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/workloads") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { workloads: operatorPortal.workloads({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/vpn-status") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { vpn: operatorPortal.vpnStatus({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/audit") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { events: operatorPortal.auditEvents({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/settings/fido2") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { policy: operatorPortal.fido2Policy({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/settings/fido2") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 200, { policy: operatorPortal.updateFido2Policy({ operatorActor, body, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/settings/hsm") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { profile: operatorPortal.hsmProfile({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/settings/hsm") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 200, { profile: operatorPortal.updateHsmProfile({ operatorActor, body, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/subscription") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { subscription: operatorPortal.subscription({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/terminal-profiles") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { profiles: operatorPortal.terminalProfiles({ operatorActor, correlationId }) });
       }
 
       if (req.method === "GET" && url.pathname === "/health") {
@@ -688,6 +708,82 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "GET" && url.pathname === "/auth/credentials") {
         rbac.assert(actor, "auth.credential.read", { correlationId });
         return send(res, 200, { credentials: auth.listCredentials({ actor }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/security/admin/fido2-policy") {
+        return send(res, 200, {
+          policy: securityProfiles.getFido2Policy({ actor, scope: "admin", correlationId })
+        });
+      }
+
+      if (req.method === "POST" && url.pathname === "/security/admin/fido2-policy") {
+        const body = await readJson(req);
+        return send(res, 200, {
+          policy: securityProfiles.updateFido2Policy({ actor, scope: "admin", ...body, correlationId })
+        });
+      }
+
+      if (req.method === "GET" && url.pathname === "/security/admin/hsm-profile") {
+        return send(res, 200, {
+          profile: securityProfiles.getHsmProfile({ actor, scope: "admin", correlationId })
+        });
+      }
+
+      if (req.method === "POST" && url.pathname === "/security/admin/hsm-profile") {
+        const body = await readJson(req);
+        return send(res, 200, {
+          profile: securityProfiles.updateHsmProfile({ actor, scope: "admin", ...body, correlationId })
+        });
+      }
+
+      const operatorFido2ProfileMatch = url.pathname.match(/^\/operators\/([^/]+)\/security\/fido2-policy$/);
+      if (req.method === "GET" && operatorFido2ProfileMatch) {
+        return send(res, 200, {
+          policy: securityProfiles.getFido2Policy({
+            actor,
+            scope: "operator",
+            operatorId: operatorFido2ProfileMatch[1],
+            correlationId
+          })
+        });
+      }
+
+      if (req.method === "POST" && operatorFido2ProfileMatch) {
+        const body = await readJson(req);
+        return send(res, 200, {
+          policy: securityProfiles.updateFido2Policy({
+            actor,
+            scope: "operator",
+            operatorId: operatorFido2ProfileMatch[1],
+            ...body,
+            correlationId
+          })
+        });
+      }
+
+      const operatorHsmProfileMatch = url.pathname.match(/^\/operators\/([^/]+)\/security\/hsm-profile$/);
+      if (req.method === "GET" && operatorHsmProfileMatch) {
+        return send(res, 200, {
+          profile: securityProfiles.getHsmProfile({
+            actor,
+            scope: "operator",
+            operatorId: operatorHsmProfileMatch[1],
+            correlationId
+          })
+        });
+      }
+
+      if (req.method === "POST" && operatorHsmProfileMatch) {
+        const body = await readJson(req);
+        return send(res, 200, {
+          profile: securityProfiles.updateHsmProfile({
+            actor,
+            scope: "operator",
+            operatorId: operatorHsmProfileMatch[1],
+            ...body,
+            correlationId
+          })
+        });
       }
 
       const credentialSuspendMatch = url.pathname.match(/^\/auth\/credentials\/([^/]+)\/suspend$/);

@@ -17,7 +17,7 @@
     </div>
     <div class="status" id="status-strip">
       <span class="dot dot-warn"></span>
-      <span class="status-text">Skeleton — not yet operational</span>
+      <span class="status-text">Scoped local session required</span>
     </div>
   </header>
 
@@ -28,52 +28,64 @@
       <li><a href="#workloads" data-view="workloads">Workloads</a></li>
       <li><a href="#vpn" data-view="vpn">VPN status</a></li>
       <li><a href="#audit" data-view="audit">My audit</a></li>
-      <li><a href="#settings-fido2" data-view="settings-fido2">FIDO2 keys</a></li>
-      <li><a href="#settings-hsm" data-view="settings-hsm">HSM keys</a></li>
+      <li><a href="#settings-fido2" data-view="settings-fido2">FIDO2 policy</a></li>
+      <li><a href="#settings-hsm" data-view="settings-hsm">HSM refs</a></li>
       <li><a href="#subscription" data-view="subscription">Subscription</a></li>
     </ul>
   </nav>
 
   <main class="content">
-
     <section id="overview" class="view active">
       <h1>Overview</h1>
+      <article class="card session-card">
+        <h2>Local operator session <span class="help-tip" tabindex="0" data-tip="Admin creates a scoped local operator token for Pixel or laptop lab testing. It is not production authentication and does not bypass FIDO2/HSM gates.">?</span></h2>
+        <form id="session-form">
+          <label>Admin bearer token <input name="adminToken" type="password" placeholder="Paste local admin session token"></label>
+          <label>Operator ID <input name="operatorId" placeholder="op_..."></label>
+          <label>Terminal mode
+            <select name="terminalMode">
+              <option value="pixel_grapheneos">Pixel GrapheneOS</option>
+              <option value="laptop_web_terminal">Laptop web terminal</option>
+            </select>
+          </label>
+          <label>Device ID <input name="deviceId" placeholder="optional assigned Pixel/laptop device"></label>
+          <button type="submit" class="primary">Start local session</button>
+        </form>
+        <p id="session-status" class="hint">No operator session active.</p>
+      </article>
+
       <div class="card-grid">
         <article class="card">
           <h2>Status terminala</h2>
-          <p id="terminal-mode">Wykrywanie...</p>
-          <p class="hint">Skeleton: detekcja Pixel vs laptop web jest przewidziana per ADR-terminal-modes-001 §4.</p>
+          <p id="terminal-mode">Detecting...</p>
+          <p class="hint">Terminal mode can be Pixel GrapheneOS or laptop web terminal. Both attach through Puli AX and IPsec path to G1/G2/WORKLOAD.</p>
         </article>
         <article class="card">
-          <h2>VPN do G1</h2>
-          <p class="placeholder">Disconnected (placeholder)</p>
-          <p class="hint">Router IPsec attach będzie zaimplementowany po dostarczeniu Puli AX (ADR-router-phantom-001).</p>
+          <h2>VPN do G1/G2</h2>
+          <p id="vpn-overview" class="placeholder">Configuration pending</p>
+          <p class="hint">Router package is physically gated until Puli AX arrives. This view shows the contract now.</p>
         </article>
         <article class="card">
           <h2>Operator session</h2>
-          <p id="operator-session">Loading...</p>
-          <p class="hint">FIDO2 login dostępny po Phase B (po enrollment workflow).</p>
+          <p id="operator-session">Not connected</p>
+          <p class="hint">Physical FIDO2 is deferred, but policy/configuration is active for admin and operator layers.</p>
         </article>
       </div>
     </section>
 
     <section id="devices" class="view">
-      <h1>Moje urządzenia</h1>
-      <p class="hint">Lista urządzeń przypisanych do operatora. Skeleton — placeholder data z /operator-api/devices.</p>
+      <h1>Moje urzadzenia</h1>
+      <p class="hint">Devices are scoped to the active operator portal session.</p>
       <table id="devices-table">
         <thead><tr><th>Typ</th><th>Model</th><th>Status</th><th>Posture</th></tr></thead>
-        <tbody id="devices-tbody">
-          <tr><td colspan="4" class="placeholder">Loading...</td></tr>
-        </tbody>
+        <tbody id="devices-tbody"><tr><td colspan="4" class="placeholder">Loading...</td></tr></tbody>
       </table>
     </section>
 
     <section id="workloads" class="view">
       <h1>Workloads</h1>
-      <p class="hint">Mikro-VMy w G1 przypisane do operatora. Skeleton.</p>
-      <ul id="workloads-list">
-        <li class="placeholder">Loading...</li>
-      </ul>
+      <p class="hint">Workload microVM allocation metadata for the active operator. Execution remains gated.</p>
+      <ul id="workloads-list"><li class="placeholder">Loading...</li></ul>
     </section>
 
     <section id="vpn" class="view">
@@ -81,45 +93,47 @@
       <article class="card">
         <h2>IPsec tunnel</h2>
         <dl>
-          <dt>State</dt><dd id="vpn-state" class="placeholder">disconnected</dd>
-          <dt>Router</dt><dd id="vpn-router" class="placeholder">no router enrolled</dd>
-          <dt>G1 endpoint</dt><dd id="vpn-g1" class="placeholder">—</dd>
-          <dt>Last handshake</dt><dd id="vpn-handshake" class="placeholder">—</dd>
+          <dt>State</dt><dd id="vpn-state" class="placeholder">configuration_pending</dd>
+          <dt>Router</dt><dd id="vpn-router" class="placeholder">Puli AX pending</dd>
+          <dt>G1 endpoint</dt><dd id="vpn-g1" class="placeholder">-</dd>
+          <dt>G2 endpoint</dt><dd id="vpn-g2" class="placeholder">-</dd>
+          <dt>Workload endpoint</dt><dd id="vpn-workload" class="placeholder">-</dd>
+          <dt>Last handshake</dt><dd id="vpn-handshake" class="placeholder">-</dd>
         </dl>
-        <p class="hint">Implementacja po dostarczeniu Puli AX router (jutro) + Phase B operator enrollment.</p>
+        <p class="hint">Baseline path: terminal -> Puli AX -> G1 -> G2 -> WORKLOAD. No terminal-side operational data.</p>
       </article>
     </section>
 
     <section id="audit" class="view">
       <h1>Moje akcje (audit)</h1>
-      <p class="hint">Scope: tylko Twoje własne akcje, ostatnie 30 dni.</p>
-      <ul id="audit-list">
-        <li class="placeholder">Loading...</li>
-      </ul>
+      <p class="hint">Scope: only events for the active operator.</p>
+      <ul id="audit-list"><li class="placeholder">Loading...</li></ul>
     </section>
 
     <section id="settings-fido2" class="view">
-      <h1>FIDO2 keys</h1>
+      <h1>FIDO2 policy</h1>
       <div class="placeholder-banner">
-        <p><strong>Phase deferred:</strong> konfiguracja FIDO2 z poziomu operator portal zostanie aktywowana w późniejszej fazie.</p>
-        <p>UI placeholder zachowuje miejsce na: enrollment new key, list active keys, suspend/revoke z fresh step-up.</p>
+        <p><strong>Configuration active:</strong> physical FIDO2 enrollment remains deferred, but the operator policy can be set now.</p>
       </div>
-      <button class="primary" disabled>Enroll new FIDO2 key (disabled)</button>
-      <ul id="fido2-list" class="key-list">
-        <li class="placeholder">Loading (placeholder)...</li>
-      </ul>
+      <form id="fido2-form">
+        <label>Session hours <input name="defaultSessionHours" type="number" min="1" max="24" value="12"></label>
+        <label>Transports <input name="allowedTransports" value="usb,nfc"></label>
+        <button type="submit" class="primary">Save FIDO2 policy</button>
+      </form>
+      <ul id="fido2-list" class="key-list"><li class="placeholder">Loading...</li></ul>
     </section>
 
     <section id="settings-hsm" class="view">
-      <h1>HSM keys</h1>
+      <h1>HSM references</h1>
       <div class="placeholder-banner">
-        <p><strong>Phase deferred:</strong> HSM key reference management w późniejszej fazie (po ADR-vault-adapter-001 Phase B).</p>
-        <p>UI placeholder dla: BYO-HSM connection, key alias rotation, attestation evidence.</p>
+        <p><strong>Reference-only:</strong> HSM/BYO-HSM physical integration is deferred. Store references and evidence only.</p>
       </div>
-      <button class="primary" disabled>Add HSM reference (disabled)</button>
-      <ul id="hsm-list" class="key-list">
-        <li class="placeholder">Loading (placeholder)...</li>
-      </ul>
+      <form id="hsm-form">
+        <label>References <input name="references" placeholder="hsm-ref://operator/key"></label>
+        <label>Attestation refs <input name="attestationRefs" placeholder="evidence://operator/hsm"></label>
+        <button type="submit" class="primary">Save HSM references</button>
+      </form>
+      <ul id="hsm-list" class="key-list"><li class="placeholder">Loading...</li></ul>
     </section>
 
     <section id="subscription" class="view">
@@ -133,11 +147,10 @@
         <p id="subscription-quota" class="placeholder">Loading...</p>
       </article>
     </section>
-
   </main>
 
   <footer class="footer">
-    <p>SYLION Operator Portal — skeleton (per <a href="/operator-api/about" target="_blank" rel="noopener">ADR-terminal-modes-001</a>) — <strong>not yet operational</strong></p>
+    <p>SYLION Operator Portal - scoped local contract (per <a href="/operator-api/about" target="_blank" rel="noopener">ADR-terminal-modes-001</a>) - <strong>production execution disabled</strong></p>
     <p>For admin operations: <a href="/admin">/admin</a></p>
   </footer>
 

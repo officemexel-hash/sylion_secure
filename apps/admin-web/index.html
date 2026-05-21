@@ -764,6 +764,59 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
+              <h2>Admin FIDO2 Policy <span class="help-tip" tabindex="0" data-tip="Configures administrator-layer FIDO2 policy. Physical key enrollment remains gated until the final hardware phase.">?</span></h2>
+              <span class="pill warn">Physical deferred</span>
+            </div>
+            <form id="admin-fido2-policy-form">
+              <label>Session hours <input name="defaultSessionHours" type="number" min="1" max="24" value="12"></label>
+              <label>Transports <input name="allowedTransports" value="usb,nfc"></label>
+              <button type="submit">Save Admin FIDO2</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Admin HSM Profile <span class="help-tip" tabindex="0" data-tip="Stores admin-layer HSM references and attestation references only. Never paste keys, tokens, PEM blocks or secrets.">?</span></h2>
+              <span class="pill warn">Reference only</span>
+            </div>
+            <form id="admin-hsm-profile-form">
+              <label>References <input name="references" value="hsm-ref://admin/root-ca"></label>
+              <label>Attestation refs <input name="attestationRefs" value="evidence://admin/hsm"></label>
+              <button type="submit">Save Admin HSM</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Operator FIDO2 Policy <span class="help-tip" tabindex="0" data-tip="Configures the operator-layer FIDO2 policy per operator. This prepares the panel before physical FIDO2 enrollment is enabled.">?</span></h2>
+              <span class="pill">Operator layer</span>
+            </div>
+            <form id="operator-fido2-policy-form">
+              <label>Operator <select name="operatorId" id="operator-security-fido2-select"></select></label>
+              <label>Session hours <input name="defaultSessionHours" type="number" min="1" max="24" value="12"></label>
+              <label>Transports <input name="allowedTransports" value="usb,nfc"></label>
+              <button type="submit">Save Operator FIDO2</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Operator HSM Profile <span class="help-tip" tabindex="0" data-tip="Configures per-operator HSM references for future Vault/HSM integration. Stores references only, never key material.">?</span></h2>
+              <span class="pill">Operator layer</span>
+            </div>
+            <form id="operator-hsm-profile-form">
+              <label>Operator <select name="operatorId" id="operator-security-hsm-select"></select></label>
+              <label>References <input name="references" value="hsm-ref://operator/deferred-key"></label>
+              <label>Attestation refs <input name="attestationRefs" value="evidence://operator/hsm"></label>
+              <button type="submit">Save Operator HSM</button>
+            </form>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>FIDO2/HSM Profiles</h2>
+              <span class="pill">Admin + operator</span>
+            </div>
+            <div class="cards" id="security-profile-cards"></div>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
               <h2>Recovery <span class="help-tip" tabindex="0" data-tip="Creates an auditable request only. It never unlocks an account automatically.">?</span></h2>
               <span class="pill warn">No auto unlock</span>
             </div>

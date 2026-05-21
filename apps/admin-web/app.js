@@ -23,6 +23,9 @@ const state = {
   lastAllocationId: null,
   credentials: [],
   authPolicy: null,
+  adminFido2Policy: null,
+  adminHsmProfile: null,
+  operatorSecurityProfiles: [],
   recoveryRequests: [],
   breakGlassRequests: [],
   phantomBoundary: null,
@@ -201,6 +204,8 @@ async function refreshAll() {
     audit,
     credentials,
     policy,
+    adminFido2Policy,
+    adminHsmProfile,
     recovery,
     breakGlass,
     phantomBoundary,
@@ -250,6 +255,8 @@ async function refreshAll() {
     api("/audit/events"),
     api("/auth/credentials").catch(() => ({ credentials: [] })),
     api("/auth/policy-matrix").catch(() => ({ policy: null })),
+    api("/security/admin/fido2-policy").catch(() => ({ policy: null })),
+    api("/security/admin/hsm-profile").catch(() => ({ profile: null })),
     api("/auth/recovery/requests").catch(() => ({ requests: [] })),
     api("/auth/break-glass/requests").catch(() => ({ requests: [] })),
     api("/phantom/boundary").catch(() => ({ boundary: null })),
@@ -299,6 +306,8 @@ async function refreshAll() {
   state.audit = audit.events;
   state.credentials = credentials.credentials;
   state.authPolicy = policy.policy;
+  state.adminFido2Policy = adminFido2Policy.policy;
+  state.adminHsmProfile = adminHsmProfile.profile;
   state.recoveryRequests = recovery.requests;
   state.breakGlassRequests = breakGlass.requests;
   state.phantomBoundary = phantomBoundary.boundary;
@@ -349,6 +358,15 @@ async function refreshAll() {
       .catch(() => []))
   );
   state.workloadAllocations = allocationGroups.flat();
+  state.operatorSecurityProfiles = await Promise.all(
+    state.operators.map(async (operator) => {
+      const [fido2, hsm] = await Promise.all([
+        api(`/operators/${operator.id}/security/fido2-policy`).then((result) => result.policy).catch(() => null),
+        api(`/operators/${operator.id}/security/hsm-profile`).then((result) => result.profile).catch(() => null)
+      ]);
+      return { operator, fido2, hsm };
+    })
+  );
   render();
 }
 
@@ -396,6 +414,8 @@ function render() {
   renderSelect("#workload-allocation-app-select", approvedApps(), "No approved apps", "name");
   renderSelect("#placement-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#placement-allocation-select", state.workloadAllocations, "No allocations", "appName");
+  renderSelect("#operator-security-fido2-select", state.operators, "No operators", "displayName");
+  renderSelect("#operator-security-hsm-select", state.operators, "No operators", "displayName");
   renderSelect("#phantom-package-template-select", state.phantomPolicyTemplates, "No templates", "name");
   renderSelect("#phantom-package-capability-select", state.phantomCapabilities, "No capabilities", "displayName");
   renderSelect("#phantom-evidence-package-select", state.phantomPackages, "No packages", "name");
@@ -615,6 +635,32 @@ function render() {
     ["Recovery auto unlock", String(state.authPolicy.invariants?.recoveryAutoUnlock)],
     ["Break-glass side effect", String(state.authPolicy.invariants?.breakGlassSideEffectAllowed)]
   ]) : empty("Policy matrix not loaded.");
+
+  const profileCards = [];
+  if (state.adminFido2Policy) {
+    profileCards.push(card("Admin FIDO2", [
+      ["Mode", state.adminFido2Policy.mode],
+      ["Session", `${state.adminFido2Policy.defaultSessionHours}h`],
+      ["Enrollment", String(state.adminFido2Policy.actualEnrollmentAllowed)]
+    ]));
+  }
+  if (state.adminHsmProfile) {
+    profileCards.push(card("Admin HSM", [
+      ["Mode", state.adminHsmProfile.mode],
+      ["Provider", state.adminHsmProfile.provider],
+      ["Refs", String(state.adminHsmProfile.references?.length || 0)],
+      ["Material", String(state.adminHsmProfile.materialStored)]
+    ]));
+  }
+  state.operatorSecurityProfiles.forEach(({ operator, fido2, hsm }) => {
+    profileCards.push(card(operator.displayName, [
+      ["Operator", operator.id],
+      ["FIDO2", fido2 ? `${fido2.mode} / ${fido2.defaultSessionHours}h` : "-"],
+      ["HSM", hsm ? `${hsm.mode} / refs ${hsm.references?.length || 0}` : "-"],
+      ["Material", String(hsm?.materialStored === true)]
+    ]));
+  });
+  $("#security-profile-cards").innerHTML = profileCards.join("") || empty("No security profiles loaded.");
 
   $("#recovery-cards").innerHTML = state.recoveryRequests.map((request) => card(request.affectedEmail, [
     ["Status", request.status],
@@ -1489,6 +1535,66 @@ async function registerDevice(event) {
   await refreshAll();
 }
 
+async function updateAdminFido2Policy(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/security/admin/fido2-policy", {
+    method: "POST",
+    body: {
+      mode: "enrollment_deferred",
+      defaultSessionHours: Number(data.defaultSessionHours),
+      allowedTransports: splitCsv(data.allowedTransports)
+    }
+  });
+  toast("Admin FIDO2 policy saved; physical enrollment remains gated");
+  await refreshAll();
+}
+
+async function updateAdminHsmProfile(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api("/security/admin/hsm-profile", {
+    method: "POST",
+    body: {
+      mode: "reference_only",
+      references: splitCsv(data.references),
+      attestationRefs: splitCsv(data.attestationRefs)
+    }
+  });
+  toast("Admin HSM references saved");
+  await refreshAll();
+}
+
+async function updateOperatorFido2Policy(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/operators/${data.operatorId}/security/fido2-policy`, {
+    method: "POST",
+    body: {
+      mode: "enrollment_deferred",
+      defaultSessionHours: Number(data.defaultSessionHours),
+      allowedTransports: splitCsv(data.allowedTransports)
+    }
+  });
+  toast("Operator FIDO2 policy saved");
+  await refreshAll();
+}
+
+async function updateOperatorHsmProfile(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/operators/${data.operatorId}/security/hsm-profile`, {
+    method: "POST",
+    body: {
+      mode: "byo_hsm_deferred",
+      references: splitCsv(data.references),
+      attestationRefs: splitCsv(data.attestationRefs)
+    }
+  });
+  toast("Operator HSM references saved");
+  await refreshAll();
+}
+
 async function createRecoveryRequest(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -2165,6 +2271,10 @@ function bind() {
   $("#approval-status-form").addEventListener("submit", (event) => updateProvisioningApprovalStatus(event).catch(showError));
   $("#workload-lifecycle-form").addEventListener("submit", (event) => transitionWorkloadLifecycle(event).catch(showError));
   $("#device-form").addEventListener("submit", (event) => registerDevice(event).catch(showError));
+  $("#admin-fido2-policy-form").addEventListener("submit", (event) => updateAdminFido2Policy(event).catch(showError));
+  $("#admin-hsm-profile-form").addEventListener("submit", (event) => updateAdminHsmProfile(event).catch(showError));
+  $("#operator-fido2-policy-form").addEventListener("submit", (event) => updateOperatorFido2Policy(event).catch(showError));
+  $("#operator-hsm-profile-form").addEventListener("submit", (event) => updateOperatorHsmProfile(event).catch(showError));
   $("#recovery-form").addEventListener("submit", (event) => createRecoveryRequest(event).catch(showError));
   $("#break-glass-form").addEventListener("submit", (event) => createBreakGlassRequest(event).catch(showError));
   $("#phantom-capability-form").addEventListener("submit", (event) => createPhantomCapability(event).catch(showError));

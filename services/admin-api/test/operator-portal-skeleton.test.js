@@ -1,8 +1,8 @@
-// Per ADR-terminal-modes-001: skeleton tests for /operator/* static serving
-// and /operator-api/* stub endpoints. Verifies that:
+// Per ADR-terminal-modes-001: portal shell tests for /operator/* static serving
+// and /operator-api/* scoped endpoint gates. Verifies that:
 //   - /operator serves index.html
 //   - /operator/styles.css and /operator/app.js serve their content
-//   - /operator-api/* stubs return placeholder payloads
+//   - /operator-api/* sensitive routes require an operator portal session
 //   - PHANTOM separation: stub does not leak production exec readiness
 //   - admin-web routing remains intact
 
@@ -51,7 +51,7 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.equal(html.status, 200);
     assert.match(html.contentType, /text\/html/);
     assert.match(html.body, /SYLION Operator Portal/);
-    assert.match(html.body, /not yet operational/);
+    assert.match(html.body, /Scoped local session required/);
   } finally {
     await close();
   }
@@ -74,76 +74,62 @@ test("Operator portal serves styles.css and app.js", async () => {
   }
 });
 
-test("/operator-api/me returns placeholder operator session with terminal modes", async () => {
+test("/operator-api/me requires an operator portal session", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
     const res = await getJson(baseUrl, "/operator-api/me");
-    assert.equal(res.status, 200);
-    assert.equal(res.body.placeholder, true);
-    assert.deepEqual(res.body.terminalModes, ["pixel_grapheneos", "laptop_web_terminal"]);
-    assert.equal(res.body.operatorId, null);
+    assert.equal(res.status, 401);
   } finally {
     await close();
   }
 });
 
-test("/operator-api/devices returns placeholder empty list", async () => {
+test("/operator-api/devices requires an operator portal session", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
     const res = await getJson(baseUrl, "/operator-api/devices");
-    assert.equal(res.status, 200);
-    assert.equal(res.body.placeholder, true);
-    assert.ok(Array.isArray(res.body.devices));
+    assert.equal(res.status, 401);
   } finally {
     await close();
   }
 });
 
-test("/operator-api/vpn-status returns disconnected placeholder", async () => {
+test("/operator-api/vpn-status requires an operator portal session", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
     const res = await getJson(baseUrl, "/operator-api/vpn-status");
-    assert.equal(res.status, 200);
-    assert.equal(res.body.state, "disconnected");
-    assert.equal(res.body.router, null);
-    assert.equal(res.body.placeholder, true);
+    assert.equal(res.status, 401);
   } finally {
     await close();
   }
 });
 
-test("/operator-api/settings/fido2 explicitly marks phaseDeferred=true", async () => {
+test("/operator-api/settings/fido2 requires an operator portal session", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
     const res = await getJson(baseUrl, "/operator-api/settings/fido2");
-    assert.equal(res.status, 200);
-    assert.equal(res.body.phaseDeferred, true);
-    assert.ok(Array.isArray(res.body.keys));
-    assert.equal(res.body.keys.length, 0);
+    assert.equal(res.status, 401);
   } finally {
     await close();
   }
 });
 
-test("/operator-api/settings/hsm explicitly marks phaseDeferred=true", async () => {
+test("/operator-api/settings/hsm requires an operator portal session", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
     const res = await getJson(baseUrl, "/operator-api/settings/hsm");
-    assert.equal(res.status, 200);
-    assert.equal(res.body.phaseDeferred, true);
-    assert.ok(Array.isArray(res.body.references));
-    assert.equal(res.body.references.length, 0);
+    assert.equal(res.status, 401);
   } finally {
     await close();
   }
 });
 
-test("/operator-api/about declares skeleton status, ADR ref, productionExecutionAllowed=false", async () => {
+test("/operator-api/about declares scoped status, ADR ref, productionExecutionAllowed=false", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
     const res = await getJson(baseUrl, "/operator-api/about");
     assert.equal(res.status, 200);
-    assert.equal(res.body.status, "skeleton");
+    assert.equal(res.body.status, "scoped_contract_ready");
     assert.equal(res.body.adr, "ADR-terminal-modes-001");
     assert.equal(res.body.productionExecutionAllowed, false);
     assert.ok(res.body.modes.includes("pixel_grapheneos"));

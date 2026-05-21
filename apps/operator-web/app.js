@@ -1,7 +1,6 @@
-// SYLION Operator Portal — skeleton client
-// Per ADR-terminal-modes-001. Skeleton: minimal interactions, no real auth,
-// no real device posture, no real VPN attach. Placeholder data from
-// /operator-api/* stub endpoints.
+// SYLION Operator Portal - scoped local contract.
+// Physical FIDO2/HSM and router package remain gated; this UI exercises the
+// operator/admin configuration surface without production execution.
 
 (function () {
   "use strict";
@@ -9,7 +8,37 @@
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  // ---------- routing (hash-based, skeleton) ----------
+  const state = {
+    operatorToken: sessionStorage.getItem("sylion.operator.token") || null,
+    session: JSON.parse(sessionStorage.getItem("sylion.operator.session") || "null")
+  };
+
+  function headers(extra = {}) {
+    return {
+      "content-type": "application/json",
+      "x-correlation-id": `corr_operator_web_${crypto.randomUUID()}`,
+      ...(state.operatorToken ? { authorization: `Bearer ${state.operatorToken}` } : {}),
+      ...extra
+    };
+  }
+
+  async function fetchJson(url, options = {}) {
+    try {
+      const res = await fetch(url, {
+        method: options.method || "GET",
+        credentials: "same-origin",
+        headers: headers(options.headers || {}),
+        body: options.body ? JSON.stringify(options.body) : undefined
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        return { error: payload?.error?.message || `HTTP ${res.status}`, status: res.status };
+      }
+      return payload;
+    } catch (err) {
+      return { error: String(err) };
+    }
+  }
 
   function setActiveView(viewId) {
     $$(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
@@ -28,57 +57,58 @@
     loadViewData(viewId);
   }
 
-  // ---------- API stubs ----------
-
-  async function fetchJson(url) {
-    try {
-      const res = await fetch(url, { credentials: "same-origin" });
-      if (!res.ok) {
-        return { error: `HTTP ${res.status}`, status: res.status };
-      }
-      return await res.json();
-    } catch (err) {
-      return { error: String(err) };
-    }
-  }
-
-  // ---------- terminal mode detection ----------
-
   function detectTerminalMode() {
-    // Skeleton heuristic — real detection happens server-side (posture API).
-    // Pixel + GrapheneOS → user-agent contains "Android" + Vanadium; this is
-    // not reliable but good enough for skeleton UI hint.
     const ua = navigator.userAgent;
-    if (/Android/.test(ua) && /GrapheneOS|Vanadium/.test(ua)) {
-      return "Pixel (GrapheneOS) — Mode M1";
-    }
-    if (/Android/.test(ua)) {
-      return "Android (non-GrapheneOS) — posture validation needed";
-    }
-    if (/Macintosh|Windows|Linux/.test(ua)) {
-      return "Laptop web — Mode M2";
-    }
+    if (/Android/.test(ua) && /GrapheneOS|Vanadium/.test(ua)) return "Pixel GrapheneOS - Mode M1";
+    if (/Android/.test(ua)) return "Android terminal - GrapheneOS posture required";
+    if (/Macintosh|Windows|Linux/.test(ua)) return "Laptop web terminal - Mode M2";
     return "Unknown terminal";
   }
 
-  // ---------- view loaders ----------
+  async function createLocalSession(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const res = await fetch("/operator-api/sessions/local-simulator", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_operator_web_session_${crypto.randomUUID()}`,
+        authorization: `Bearer ${data.adminToken}`
+      },
+      body: JSON.stringify({
+        operatorId: data.operatorId,
+        terminalMode: data.terminalMode,
+        deviceId: data.deviceId || null
+      })
+    });
+    const payload = await res.json();
+    if (!res.ok) {
+      setText("#session-status", payload?.error?.message || `HTTP ${res.status}`);
+      return;
+    }
+    state.session = payload.session;
+    state.operatorToken = payload.session.token;
+    sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
+    sessionStorage.setItem("sylion.operator.token", payload.session.token);
+    setText("#session-status", `Session active for ${payload.session.operatorId} (${payload.session.terminalMode})`);
+    await loadOverview();
+  }
 
   async function loadOverview() {
-    const modeText = detectTerminalMode();
-    const modeEl = $("#terminal-mode");
-    if (modeEl) modeEl.textContent = modeText;
-
-    const sessionEl = $("#operator-session");
-    if (sessionEl) {
-      const me = await fetchJson("/operator-api/me");
-      if (me.error) {
-        sessionEl.textContent = "Not authenticated (skeleton, FIDO2 login deferred)";
-      } else {
-        sessionEl.textContent = me.operatorId
-          ? `Operator: ${me.operatorId} (${me.placeholder ? "placeholder" : "active"})`
-          : "Loading...";
-      }
+    setText("#terminal-mode", detectTerminalMode());
+    if (!state.operatorToken) {
+      setText("#operator-session", "Not connected");
+      setText("#vpn-overview", "Configuration pending");
+      return;
     }
+    const me = await fetchJson("/operator-api/me");
+    if (me.error) {
+      setText("#operator-session", me.error);
+      return;
+    }
+    setText("#operator-session", `${me.me.displayName} (${me.me.tier})`);
+    const vpn = await fetchJson("/operator-api/vpn-status");
+    if (!vpn.error) setText("#vpn-overview", vpn.vpn.state);
   }
 
   async function loadDevices() {
@@ -86,18 +116,18 @@
     if (!tbody) return;
     const data = await fetchJson("/operator-api/devices");
     if (data.error) {
-      tbody.innerHTML = `<tr><td colspan="4" class="placeholder">Failed to load: ${data.error}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="placeholder">${escapeHtml(data.error)}</td></tr>`;
       return;
     }
     const rows = (data.devices || []).map((d) => `
       <tr>
         <td>${escapeHtml(d.type)}</td>
-        <td>${escapeHtml(d.model || "—")}</td>
-        <td>${escapeHtml(d.status || "—")}</td>
-        <td>${escapeHtml(d.posture || "skeleton")}</td>
+        <td>${escapeHtml(d.model || "-")}</td>
+        <td>${escapeHtml(d.status || "-")}</td>
+        <td>${escapeHtml(d.posture?.state || "unknown")}</td>
       </tr>
     `).join("");
-    tbody.innerHTML = rows || `<tr><td colspan="4" class="placeholder">No devices yet — enroll Pixel or laptop terminal.</td></tr>`;
+    tbody.innerHTML = rows || `<tr><td colspan="4" class="placeholder">No scoped devices yet.</td></tr>`;
   }
 
   async function loadFido2() {
@@ -105,11 +135,26 @@
     if (!list) return;
     const data = await fetchJson("/operator-api/settings/fido2");
     if (data.error) {
-      list.innerHTML = `<li class="placeholder">Failed to load: ${data.error}</li>`;
+      list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
       return;
     }
-    const items = (data.keys || []).map((k) => `<li>${escapeHtml(k.alias)} (placeholder)</li>`).join("");
-    list.innerHTML = items || `<li class="placeholder">No FIDO2 keys yet (placeholder).</li>`;
+    const p = data.policy;
+    list.innerHTML = `<li>Mode: ${escapeHtml(p.mode)} | session: ${escapeHtml(p.defaultSessionHours)}h | enrollment allowed: ${escapeHtml(p.actualEnrollmentAllowed)}</li>`;
+  }
+
+  async function saveFido2(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/settings/fido2", {
+      method: "POST",
+      body: {
+        mode: "enrollment_deferred",
+        defaultSessionHours: Number(data.defaultSessionHours),
+        allowedTransports: splitCsv(data.allowedTransports)
+      }
+    });
+    setText("#session-status", result.error || "FIDO2 policy saved");
+    await loadFido2();
   }
 
   async function loadHsm() {
@@ -117,20 +162,40 @@
     if (!list) return;
     const data = await fetchJson("/operator-api/settings/hsm");
     if (data.error) {
-      list.innerHTML = `<li class="placeholder">Failed to load: ${data.error}</li>`;
+      list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
       return;
     }
-    const items = (data.references || []).map((r) => `<li>${escapeHtml(r.alias)} (placeholder)</li>`).join("");
-    list.innerHTML = items || `<li class="placeholder">No HSM references yet (placeholder).</li>`;
+    const p = data.profile;
+    list.innerHTML = `<li>Mode: ${escapeHtml(p.mode)} | refs: ${escapeHtml((p.references || []).join(", ") || "none")} | material stored: ${escapeHtml(p.materialStored)}</li>`;
+  }
+
+  async function saveHsm(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/settings/hsm", {
+      method: "POST",
+      body: {
+        mode: "byo_hsm_deferred",
+        references: splitCsv(data.references),
+        attestationRefs: splitCsv(data.attestationRefs)
+      }
+    });
+    setText("#session-status", result.error || "HSM references saved");
+    await loadHsm();
   }
 
   async function loadVpn() {
     const data = await fetchJson("/operator-api/vpn-status");
-    if (data.error) return;
-    setText("#vpn-state", data.state || "disconnected");
-    setText("#vpn-router", data.router || "no router enrolled");
-    setText("#vpn-g1", data.g1Endpoint || "—");
-    setText("#vpn-handshake", data.lastHandshake || "—");
+    if (data.error) {
+      setText("#vpn-state", data.error);
+      return;
+    }
+    setText("#vpn-state", data.vpn.state);
+    setText("#vpn-router", data.vpn.router);
+    setText("#vpn-g1", data.vpn.endpoints.g1 || "-");
+    setText("#vpn-g2", data.vpn.endpoints.g2 || "-");
+    setText("#vpn-workload", data.vpn.endpoints.workload || "-");
+    setText("#vpn-handshake", data.vpn.lastHandshake || "-");
   }
 
   async function loadAudit() {
@@ -138,18 +203,19 @@
     if (!list) return;
     const data = await fetchJson("/operator-api/audit");
     if (data.error) {
-      list.innerHTML = `<li class="placeholder">Failed to load: ${data.error}</li>`;
+      list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
       return;
     }
-    const items = (data.events || []).map((e) => `<li>${escapeHtml(e.timestamp)} — ${escapeHtml(e.action)}</li>`).join("");
-    list.innerHTML = items || `<li class="placeholder">No audit events yet.</li>`;
+    list.innerHTML = (data.events || [])
+      .map((e) => `<li>${escapeHtml(e.timestamp)} - ${escapeHtml(e.action)} - ${escapeHtml(e.result)}</li>`)
+      .join("") || `<li class="placeholder">No scoped audit events yet.</li>`;
   }
 
   async function loadSubscription() {
     const data = await fetchJson("/operator-api/subscription");
     if (data.error) return;
-    setText("#subscription-plan", data.plan || "—");
-    setText("#subscription-quota", data.quota || "—");
+    setText("#subscription-plan", data.subscription.plan || "-");
+    setText("#subscription-quota", `max environments: ${data.subscription.quota?.maxWorkloadEnvironments ?? "-"}`);
   }
 
   async function loadWorkloads() {
@@ -157,18 +223,21 @@
     if (!list) return;
     const data = await fetchJson("/operator-api/workloads");
     if (data.error) {
-      list.innerHTML = `<li class="placeholder">Failed to load: ${data.error}</li>`;
+      list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
       return;
     }
-    const items = (data.workloads || []).map((w) => `<li>${escapeHtml(w.name)} — ${escapeHtml(w.state)}</li>`).join("");
-    list.innerHTML = items || `<li class="placeholder">No workloads yet.</li>`;
+    list.innerHTML = (data.workloads || [])
+      .map((w) => `<li>${escapeHtml(w.name)} - ${escapeHtml(w.state)} x${escapeHtml(w.count)}</li>`)
+      .join("") || `<li class="placeholder">No workload allocations yet.</li>`;
   }
-
-  // ---------- utilities ----------
 
   function setText(sel, value) {
     const el = $(sel);
     if (el) el.textContent = value;
+  }
+
+  function splitCsv(value) {
+    return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
   }
 
   function escapeHtml(value) {
@@ -192,13 +261,16 @@
     if (viewId === "subscription") loadSubscription();
   }
 
-  // ---------- init ----------
-
   document.addEventListener("DOMContentLoaded", function () {
-    document.querySelector(".sidebar").addEventListener("click", handleNav);
+    $(".sidebar").addEventListener("click", handleNav);
+    $("#session-form").addEventListener("submit", createLocalSession);
+    $("#fido2-form").addEventListener("submit", saveFido2);
+    $("#hsm-form").addEventListener("submit", saveHsm);
+    if (state.session) {
+      setText("#session-status", `Session active for ${state.session.operatorId} (${state.session.terminalMode})`);
+    }
     const initialView = (location.hash || "#overview").replace("#", "");
     setActiveView(initialView);
     loadViewData(initialView);
   });
-
 })();

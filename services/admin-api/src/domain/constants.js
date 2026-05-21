@@ -75,7 +75,10 @@ export const RESOURCE_TYPES = Object.freeze({
   RELEASE_GATE: "release_gate",
   RELEASE_PROBLEM: "release_problem",
   RELEASE_TEST_SCENARIO: "release_test_scenario",
-  EVIDENCE_ARTIFACT: "evidence_artifact"
+  EVIDENCE_ARTIFACT: "evidence_artifact",
+  SECURITY_PROFILE: "security_profile",
+  OPERATOR_PORTAL_SESSION: "operator_portal_session",
+  TERMINAL_CONNECTION_PROFILE: "terminal_connection_profile"
 });
 
 export const DEVICE_TYPES = Object.freeze({
