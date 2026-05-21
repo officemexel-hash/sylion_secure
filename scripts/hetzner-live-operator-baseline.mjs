@@ -233,7 +233,7 @@ write_files:
           volumes:
             - threema_config:/config
         signal:
-          image: kasmweb/signal:1.18.0
+          image: sylion/signal-workload:prod-candidate
           container_name: sylion-signal-desktop
           restart: unless-stopped
           shm_size: "1gb"
@@ -251,23 +251,65 @@ write_files:
         telegram_config:
         threema_config:
         signal_profile:
+  - path: /opt/sylion-workloads/signal-workload.Dockerfile
+    permissions: "0644"
+    content: |
+      FROM kasmweb/signal:1.18.0
+
+      USER root
+      RUN apt-get update \
+        && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+        && install -d -m 0755 /etc/apt/keyrings \
+        && curl -fsSL https://updates.signal.org/desktop/apt/keys.asc \
+          | gpg --dearmor -o /etc/apt/keyrings/signal-desktop-keyring.gpg \
+        && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main" \
+          > /etc/apt/sources.list.d/signal-xenial.list \
+        && apt-get update \
+        && apt-get install -y --no-install-recommends signal-desktop \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+      USER kasm-user
+  - path: /usr/local/sbin/sylion-start-workloads.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      private_ip="$(ip -4 -o addr show | awk '$4 ~ /^10\\.42\\./ { split($4, a, "/"); print a[1]; exit }')"
+      if [ -z "$private_ip" ]; then
+        private_ip="127.0.0.1"
+      fi
+
+      docker build -t sylion/signal-workload:prod-candidate -f /opt/sylion-workloads/signal-workload.Dockerfile /opt/sylion-workloads
+
+      docker rm -f sylion-duckduckgo sylion-libreoffice sylion-whatsapp-web sylion-telegram-web sylion-threema-web sylion-signal-desktop 2>/dev/null || true
+      docker volume create sylion_duckduckgo_config >/dev/null
+      docker volume create sylion_libreoffice_config >/dev/null
+      docker volume create sylion_whatsapp_config >/dev/null
+      docker volume create sylion_telegram_config >/dev/null
+      docker volume create sylion_threema_config >/dev/null
+      docker volume create sylion_signal_profile >/dev/null
+
+      docker run -d --name sylion-duckduckgo --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION DuckDuckGo' -p "$private_ip:3001:3000" -v sylion_duckduckgo_config:/config lscr.io/linuxserver/firefox:latest
+      docker run -d --name sylion-libreoffice --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -p "$private_ip:3002:3000" -v sylion_libreoffice_config:/config lscr.io/linuxserver/libreoffice:latest
+      docker run -d --name sylion-whatsapp-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION WhatsApp Web' -p "$private_ip:3010:3000" -v sylion_whatsapp_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-telegram-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Telegram Web' -p "$private_ip:3011:3000" -v sylion_telegram_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-threema-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Threema Web' -p "$private_ip:3012:3000" -v sylion_threema_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-signal-desktop --restart unless-stopped --shm-size 1g -e VNC_PW=sylion-signal-local -e KASM_RESOLUTION=1080x2400 -p "$private_ip:3013:6901" -v sylion_signal_profile:/home/kasm-user/.config/Signal sylion/signal-workload:prod-candidate
+
+      docker exec sylion-signal-desktop dpkg-query -W signal-desktop > /opt/sylion-workloads/signal-version.txt
+      docker ps --format '{{.Names}} {{.Status}} {{.Ports}}' > /opt/sylion-workloads/container-status.txt
   - path: /opt/sylion-workloads/README.txt
     permissions: "0644"
     content: |
       SYLION WORKLOAD host.
-      Local noVNC services bind to 127.0.0.1 only:
+      noVNC services bind to the operator private network address only:
       duckduckgo 3001, libreoffice 3002, whatsapp web 3010, telegram web 3011, threema web 3012, signal desktop 3013.
-      Reach them through G2/thin-client or SSH tunnel for diagnostics.
+      Reach them through G2/thin-client or an explicitly authorized diagnostic SSH tunnel.
 runcmd:
   - [ bash, -lc, "systemctl enable --now docker" ]
-  - [ bash, -lc, "docker rm -f sylion-duckduckgo sylion-libreoffice sylion-whatsapp-web sylion-telegram-web sylion-threema-web 2>/dev/null || true" ]
-  - [ bash, -lc, "docker volume create sylion_duckduckgo_config >/dev/null && docker run -d --name sylion-duckduckgo --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION DuckDuckGo' -p 127.0.0.1:3001:3000 -v sylion_duckduckgo_config:/config lscr.io/linuxserver/firefox:latest" ]
-  - [ bash, -lc, "docker volume create sylion_libreoffice_config >/dev/null && docker run -d --name sylion-libreoffice --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -p 127.0.0.1:3002:3000 -v sylion_libreoffice_config:/config lscr.io/linuxserver/libreoffice:latest" ]
-  - [ bash, -lc, "docker volume create sylion_whatsapp_config >/dev/null && docker run -d --name sylion-whatsapp-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION WhatsApp Web' -p 127.0.0.1:3010:3000 -v sylion_whatsapp_config:/config lscr.io/linuxserver/chromium:latest" ]
-  - [ bash, -lc, "docker volume create sylion_telegram_config >/dev/null && docker run -d --name sylion-telegram-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Telegram Web' -p 127.0.0.1:3011:3000 -v sylion_telegram_config:/config lscr.io/linuxserver/chromium:latest" ]
-  - [ bash, -lc, "docker volume create sylion_threema_config >/dev/null && docker run -d --name sylion-threema-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Threema Web' -p 127.0.0.1:3012:3000 -v sylion_threema_config:/config lscr.io/linuxserver/chromium:latest" ]
-  - [ bash, -lc, "docker volume create sylion_signal_profile >/dev/null && docker run -d --name sylion-signal-desktop --restart unless-stopped --shm-size 1g -e VNC_PW=sylion-signal-local -e KASM_RESOLUTION=1080x2400 -p 127.0.0.1:3013:6901 -v sylion_signal_profile:/home/kasm-user/.config/Signal kasmweb/signal:1.18.0" ]
-  - [ bash, -lc, "docker ps --format '{{.Names}} {{.Status}}' > /opt/sylion-workloads/container-status.txt" ]
+  - [ bash, -lc, "/usr/local/sbin/sylion-start-workloads.sh" ]
   - [ bash, -lc, "echo 'WORKLOAD ready at $(date -Is)' > /var/log/sylion-bootstrap.log" ]
 `;
 }
