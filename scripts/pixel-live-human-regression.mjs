@@ -24,6 +24,52 @@ const workloadHosts = [
   "exodus"
 ];
 
+const workloadVisualExpectations = {
+  signal: {
+    pass: [/Signal/i],
+    blocker: [
+      /wymaga nazwy użytkownika i hasła|requires a username and password|401/i,
+      /Nazwa użytkownika|Hasło|Username|Password/i
+    ],
+    blockerMessage: "Signal reaches only the workload auth gate; it does not yet open the Signal Desktop session on Pixel."
+  },
+  whatsapp: {
+    pass: [/WhatsApp/i],
+    blocker: [/SYLION WhatsApp Web|New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
+    blockerMessage: "WhatsApp reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual WhatsApp UI is not verified on Pixel."
+  },
+  telegram: {
+    pass: [/Telegram/i],
+    blocker: [/SYLION Telegram Web|New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
+    blockerMessage: "Telegram reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Telegram UI is not verified on Pixel."
+  },
+  threema: {
+    pass: [/Threema/i],
+    blocker: [/SYLION Threema Web|New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
+    blockerMessage: "Threema reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Threema UI is not verified on Pixel."
+  },
+  zangi: {
+    pass: [/Zangi/i],
+    blocker: [/SYLION Zangi|zangi\.com\/download|Download Zangi|Cookie Policy|Stack Exchange can store cookies/i],
+    blockerMessage: "Zangi reaches only the generic stream shell or public download page; production Zangi still needs an isolated Android-native workload runner."
+  },
+  duckduckgo: {
+    pass: [/DuckDuckGo/i],
+    blocker: [/SYLION DuckDuckGo|Firefox|Search with Google|Google or enter|Amazon|Temu|Sponsored|Ubuntu|XtraDeb/i],
+    blockerMessage: "DuckDuckGo is misconfigured as a generic Firefox/Google new-tab workload."
+  },
+  libreoffice: {
+    pass: [/LibreOffice/i],
+    blocker: [/New Tab|Google|Firefox|Chromium didn't shut down/i],
+    blockerMessage: "LibreOffice did not render the LibreOffice workload UI."
+  },
+  exodus: {
+    pass: [/Exodus/i],
+    blocker: [/SYLION Exodus|New Tab|Google|Search Google|Web Store|Add shortcut/i],
+    blockerMessage: "Exodus reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Exodus wallet UI is not verified on Pixel."
+  }
+};
+
 async function runCommand(command, args, options = {}) {
   const result = await execFileAsync(command, args, {
     timeout: options.timeout ?? 30_000,
@@ -335,8 +381,18 @@ function analyze(seed, network, probes, pageResults) {
     issues.push("Pixel CA package does not explicitly require user-present GrapheneOS install.");
   }
   for (const [name, result] of Object.entries(pageResults)) {
-    if (/NET::ERR_CERT_AUTHORITY_INVALID|Your connection is not private|Privacy error/i.test(result.uiText || "")) {
+    if (/NET::ERR_CERT_AUTHORITY_INVALID|Your connection is not private|Privacy error|Połączenie nie jest prywatne|Błąd dotyczący prywatności/i.test(result.uiText || "")) {
       issues.push(`${name} still shows a certificate trust warning on Pixel.`);
+    }
+  }
+  for (const app of workloadHosts) {
+    const expectation = workloadVisualExpectations[app];
+    if (!expectation) continue;
+    const uiText = pageResults[app]?.uiText || "";
+    const hasExpectedText = expectation.pass.some((pattern) => pattern.test(uiText));
+    const hasBlockerText = expectation.blocker.some((pattern) => pattern.test(uiText));
+    if (!hasExpectedText || hasBlockerText) {
+      issues.push(expectation.blockerMessage);
     }
   }
   return issues;

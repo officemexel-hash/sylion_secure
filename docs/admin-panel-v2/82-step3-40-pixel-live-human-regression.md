@@ -60,6 +60,7 @@ Confirmed working:
 - VPN interface `tun1` exists with `10.43.0.1/32`.
 - Android connectivity reports a validated VPN network.
 - DNS through tunnel is visible as `10.42.0.11`.
+- After user-present CA installation, `admin.sylion.internal` and the operator panel load on the Pixel without the previous `NET::ERR_CERT_AUTHORITY_INVALID` blocker.
 - Pixel can reach:
   - `admin.sylion.internal`
   - `operator.sylion.internal`
@@ -74,13 +75,13 @@ Confirmed working:
   - Signal: `401` KasmVNC auth gate
   - Other workload hostnames: `200`
 - Internal certificate SAN contains all current SYLION internal names.
+- Operator panel is reachable on the Pixel and exposes the app switcher plus operator controls.
+- LibreOffice renders a real LibreOffice remote desktop surface on the Pixel.
 
 Findings:
 
-1. GrapheneOS/Vanadium does not trust the SYLION internal CA yet.
-2. Every Pixel workload/admin/operator page currently shows `NET::ERR_CERT_AUTHORITY_INVALID`.
-3. Android/GrapheneOS does not resolve the legacy `android.credentials.INSTALL` intent for direct CA installation.
-4. CA install must use a user-present GrapheneOS path:
+1. Android/GrapheneOS does not resolve the legacy `android.credentials.INSTALL` intent for direct CA installation.
+2. CA install must use a user-present GrapheneOS path:
    - Settings
    - Security and privacy
    - More security settings
@@ -88,8 +89,13 @@ Findings:
    - Install a certificate
    - CA certificate
    - `Downloads/sylion-internal-ca.crt`
-5. `/operator-api/vpn-install-package` still reports `blocked_human_gate` even though a live strongSwan VPN exists on the Pixel. The operator control plane must be updated to reconcile live VPN evidence.
-6. The test cannot yet prove DuckDuckGo browsing, LibreOffice use or communicator usability because TLS trust blocks the visual path before the application UI loads.
+3. `/operator-api/vpn-install-package` still reports `blocked_human_gate` even though a live strongSwan VPN exists on the Pixel. The operator control plane must be updated to reconcile live VPN evidence.
+4. Signal reaches the private workload host but stops at a browser basic-auth gate. Pixel does not yet see the Signal Desktop session.
+5. WhatsApp, Telegram and Threema expose only a generic SYLION/Selkies stream shell or browser new-tab state in the human visual evidence. The actual communicator UI is not verified.
+6. Zangi is not production-ready: current evidence is either the generic stream shell or a public Zangi download page. Production Zangi still requires an isolated Android-native workload runner.
+7. DuckDuckGo is misconfigured as a generic Firefox/Google new-tab workload, not a DuckDuckGo browsing workload.
+8. Exodus exposes only the generic stream shell or browser state; the actual Exodus wallet UI is not verified. Exodus remains operator-risk-accepted and must never store wallet secrets in SYLION control-plane metadata.
+9. The current test now treats HTTP `200` plus stream-shell visibility as insufficient for production. Each workload must prove app-specific UI on Pixel.
 
 ## Mermaid Flow
 
@@ -102,23 +108,25 @@ flowchart LR
     DNS --> Workloads["*.sylion.internal workloads"]
     Workloads --> Gateway["G2 / workload gateway 10.42.0.12"]
     Gateway --> Signal["Signal KasmVNC auth gate"]
-    Gateway --> Apps["WhatsApp / Telegram / Threema / Zangi / DuckDuckGo / LibreOffice / Exodus"]
-    CA["SYLION internal CA"] -. "not trusted yet" .-> Pixel
+    Gateway --> Shell["Selkies / noVNC stream shell"]
+    Shell --> Libre["LibreOffice real UI visible"]
+    Shell --> Blocked["Communicator/browser/wallet UI not yet verified"]
+    CA["SYLION internal CA"] -. "user-present installed" .-> Pixel
 ```
 
 ## Next Required Work
 
-1. Complete CA installation on the Pixel with user presence, then rerun the harness.
-2. Update operator API VPN package state so live strongSwan evidence can mark the VPN path as installed/active.
-3. After CA trust passes, rerun Pixel visual tests and verify actual application UI for:
-   - DuckDuckGo browsing
-   - LibreOffice
-   - Signal
-   - Zangi
-   - WhatsApp
-   - Telegram
-   - Threema
-   - Exodus
-4. Replace any placeholder workload endpoint with a real app container or mark it blocked with an explicit finding.
-5. Add a router package handoff test for Puli AX when the device arrives.
-
+1. Update operator API VPN package state so live strongSwan evidence can mark the VPN path as installed/active.
+2. Wire workload session broker credentials into the Pixel launch path so Signal opens the Signal Desktop stream instead of a browser auth prompt.
+3. Replace generic stream-shell placeholders with real workload images for WhatsApp, Telegram, Threema, DuckDuckGo and Exodus, or keep them explicitly blocked in the catalog.
+4. Implement the Android-native runtime path for Zangi before calling it production.
+5. Add app-specific Pixel assertions:
+   - Signal Desktop visible after auth handoff.
+   - WhatsApp Web QR/session screen visible.
+   - Telegram Web/Desktop visible.
+   - Threema Web/Desktop visible.
+   - Zangi native runtime visible.
+   - DuckDuckGo search page visible and can browse.
+   - LibreOffice can open Writer/Calc.
+   - Exodus wallet app visible only behind operator-risk acceptance.
+6. Add a router package handoff test for Puli AX when the device arrives.
