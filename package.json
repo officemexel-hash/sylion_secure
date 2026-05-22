@@ -21,7 +21,8 @@
     "live:android-native-probe": "node scripts/android-native-workload-probe.mjs",
     "live:android-binderfs-gate": "node scripts/install-android-binderfs-host-gate.mjs",
     "live:android-native-runner-install": "node scripts/install-android-native-runner.mjs",
-    "live:android-apk-install": "node scripts/install-android-apk-workload.mjs"
+    "live:android-apk-install": "node scripts/install-android-apk-workload.mjs",
+    "live:android-native-launch": "node scripts/launch-android-native-workload.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0"
