@@ -215,6 +215,14 @@ export class AdminApiClient {
     return this.request("/live-execution/workload-native/hosts", { method: "POST", body });
   }
 
+  listWorkloadImageManifests() {
+    return this.request("/live-execution/workload-images/manifests");
+  }
+
+  createWorkloadImageManifest(body) {
+    return this.request("/live-execution/workload-images/manifests", { method: "POST", body });
+  }
+
   createHetznerRobotDedicatedWorkloadOrder(body) {
     return this.request("/live-execution/dedicated-workload/hetzner-robot/order", { method: "POST", body });
   }

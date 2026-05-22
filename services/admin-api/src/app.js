@@ -634,6 +634,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { hosts: liveExecution.listWorkloadNativeHosts({ actor, correlationId }) });
       }
 
+      if (req.method === "GET" && url.pathname === "/live-execution/workload-images/manifests") {
+        return send(res, 200, { manifests: liveExecution.listWorkloadImageManifests({ actor, correlationId }) });
+      }
+
       if (req.method === "POST" && url.pathname === "/live-execution/workload-native/hosts") {
         auth.requireFreshStepUp(actor, "workload_native.host.register", {
           correlationId,
@@ -646,6 +650,20 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           correlationId
         });
         return send(res, 201, { host });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/workload-images/manifests") {
+        auth.requireFreshStepUp(actor, "workload_image_manifest.create", {
+          correlationId,
+          resourceType: "workload_image_manifest"
+        });
+        const body = await readJson(req);
+        const manifest = liveExecution.createWorkloadImageManifest({
+          actor,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { manifest });
       }
 
       if (req.method === "POST" && url.pathname === "/live-execution/dedicated-workload/hetzner-robot/order") {

@@ -566,6 +566,52 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
+              <h2>Workload Image <span class="help-tip" tabindex="0" data-tip="Registers a workload application manifest for the dedicated host: image, kernel/rootfs, CDR policy and private G2 stream. It does not expose public ports or release secrets.">?</span></h2>
+              <span class="pill warn">CDR required</span>
+            </div>
+            <form id="workload-image-manifest-form">
+              <label>Host <select name="hostId" id="workload-image-host-select"></select></label>
+              <label>App
+                <select name="appKey">
+                  <option value="signal">Signal</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="threema">Threema</option>
+                  <option value="zangi">Zangi</option>
+                  <option value="duckduckgo_browser">DuckDuckGo Browser</option>
+                  <option value="libreoffice">LibreOffice</option>
+                  <option value="exodus">Exodus</option>
+                </select>
+              </label>
+              <label>Display name <input name="appName" value="Signal"></label>
+              <label>Runtime
+                <select name="runtimeKind">
+                  <option value="firecracker_microvm" selected>Firecracker microVM</option>
+                  <option value="android_native_workload">Android native workload</option>
+                  <option value="container_lab_helper">Container lab helper</option>
+                </select>
+              </label>
+              <label>Image ref <input name="imageRef" value="image://sylion/signal-firecracker-lab-v0"></label>
+              <label>Kernel ref <input name="kernelRef" value="artifact://workload-native-lab-01/firecracker/vmlinux.bin"></label>
+              <label>Rootfs ref <input name="rootfsRef" value="artifact://workload-native-lab-01/apps/signal/rootfs.ext4"></label>
+              <label>Package ref <input name="packageRef" value="package://signal-desktop/pending-approved-download"></label>
+              <label>CDR policy <input name="cdrPolicyRef" value="cdr://mandatory-workload-file-transfer"></label>
+              <label>Stream bind <input name="bindAddress" value="127.0.0.1"></label>
+              <label>Stream port <input name="sourcePort" type="number" min="1" max="65535" value="7901"></label>
+              <label>Network mode <input name="networkMode" value="tap_isolated_g2_private_only"></label>
+              <label>Storage mode <input name="storageMode" value="ephemeral_cdr_only"></label>
+              <label>Production blockers <input name="productionBlockers" value="g1_g2_private_path_not_bound,g2_stream_broker_not_bound,pixel_human_regression_pending,hsm_pki_not_integrated,app_image_build_not_reproducible_yet"></label>
+              <label class="check-row"><input type="checkbox" name="throughG2" checked> G2 stream broker only</label>
+              <label class="check-row"><input type="checkbox" name="pixelOptimized" checked> Pixel viewport declared</label>
+              <label class="check-row"><input type="checkbox" name="reproducibleBuild"> Reproducible build evidence collected</label>
+              <label class="check-row"><input type="checkbox" name="cdrHookDeclared" checked> CDR hook declared</label>
+              <label class="check-row"><input type="checkbox" name="binderfs"> binderfs evidence for Android native</label>
+              <label class="check-row"><input type="checkbox" name="androidRuntime"> Android runtime evidence</label>
+              <button type="submit">Create Image Manifest</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
               <h2>Firecracker Host <span class="help-tip" tabindex="0" data-tip="Qualifies a host for future Firecracker execution. It does not launch microVMs from the dashboard.">?</span></h2>
               <span class="pill warn">No launch</span>
             </div>
@@ -663,6 +709,13 @@
               <span class="pill">Dedicated lab</span>
             </div>
             <div class="cards" id="workload-native-host-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Workload Image Manifests <span class="help-tip" tabindex="0" data-tip="Shows application image manifests for Signal, Telegram, WhatsApp, Threema, Zangi, DuckDuckGo, LibreOffice and Exodus before G2 stream launch.">?</span></h2>
+              <span class="pill warn">Lab launch gate</span>
+            </div>
+            <div class="cards" id="workload-image-manifest-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Live Rollback Plans <span class="help-tip" tabindex="0" data-tip="Every live provider request must have rollback metadata before mutation. Blocked requests keep no-op cleanup actions; executed requests store sanitized delete actions.">?</span></h2><span class="pill warn">Required</span></div>

@@ -60,6 +60,7 @@ const state = {
   liveProviderRehearsals: [],
   dedicatedWorkloadOrders: [],
   workloadNativeHosts: [],
+  workloadImageManifests: [],
   blueTeamDashboard: null,
   monitoringEvents: [],
   incidents: [],
@@ -266,6 +267,7 @@ async function refreshAll() {
     liveProviderRehearsals,
     dedicatedWorkloadOrders,
     workloadNativeHosts,
+    workloadImageManifests,
     blueTeamDashboard,
     monitoringEvents,
     incidents,
@@ -330,6 +332,7 @@ async function refreshAll() {
     api("/live-execution/cloud/rehearsals").catch(() => ({ rehearsals: [] })),
     api("/live-execution/dedicated-workload/orders").catch(() => ({ orders: [] })),
     api("/live-execution/workload-native/hosts").catch(() => ({ hosts: [] })),
+    api("/live-execution/workload-images/manifests").catch(() => ({ manifests: [] })),
     api("/monitoring/blue-team-dashboard").catch(() => ({ dashboard: null })),
     api("/monitoring/events").catch(() => ({ events: [] })),
     api("/incidents").catch(() => ({ incidents: [] })),
@@ -394,6 +397,7 @@ async function refreshAll() {
   state.liveProviderRehearsals = liveProviderRehearsals.rehearsals;
   state.dedicatedWorkloadOrders = dedicatedWorkloadOrders.orders;
   state.workloadNativeHosts = workloadNativeHosts.hosts;
+  state.workloadImageManifests = workloadImageManifests.manifests;
   state.blueTeamDashboard = blueTeamDashboard.dashboard;
   state.monitoringEvents = monitoringEvents.events;
   state.incidents = incidents.incidents;
@@ -490,6 +494,7 @@ function render() {
   renderSelect("#dedicated-order-provider-select", state.providers.filter((provider) => provider.providerKey === "hetzner_robot"), "No Hetzner Robot provider", "displayName");
   renderSelect("#dedicated-order-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#dedicated-order-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#workload-image-host-select", state.workloadNativeHosts, "No native hosts", "hostId");
   renderSelect("#blue-team-signal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#firecracker-rehearsal-host-select", state.firecrackerQualifications, "No qualified hosts", "hostId");
   renderSelect("#firecracker-rehearsal-operator-select", state.operators, "No operators", "displayName");
@@ -713,6 +718,18 @@ function render() {
     ["Blockers", host.productionBlockers?.join(", ") || "-"],
     ["Next", host.nextActions?.join(", ") || "-"]
   ])).join("") || empty("No workload-native hosts registered.");
+
+  $("#workload-image-manifest-cards").innerHTML = state.workloadImageManifests.map((manifest) => card(`${manifest.appName} / ${manifest.runtimeKind}`, [
+    ["Host", manifest.hostId],
+    ["Ready", String(manifest.readyForLabLaunch)],
+    ["Production", String(manifest.productionExecutionAllowed)],
+    ["Image", manifest.imageRef],
+    ["Stream", `${manifest.streamGateway?.bindAddress || "-"}:${manifest.streamGateway?.sourcePort || "-"}`],
+    ["CDR", manifest.cdrPolicyRef],
+    ["Checks", manifest.checks?.map((check) => `${check.key}:${check.status}`).join(", ") || "-"],
+    ["Blockers", manifest.productionBlockers?.join(", ") || "-"],
+    ["Next", manifest.nextActions?.join(", ") || "-"]
+  ])).join("") || empty("No workload image manifests registered.");
 
   $("#live-rollback-plan-cards").innerHTML = state.liveRollbackPlans.map((plan) => card(plan.id, [
     ["Provider", plan.providerKey],
@@ -1786,6 +1803,46 @@ async function qualifyFirecrackerHost(event) {
   await refreshAll();
 }
 
+async function createWorkloadImageManifest(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const form = event.currentTarget.elements;
+  await withStepUpRetry(() => api("/live-execution/workload-images/manifests", {
+    method: "POST",
+    body: {
+      hostId: data.hostId,
+      appKey: data.appKey,
+      appName: data.appName,
+      runtimeKind: data.runtimeKind,
+      imageRef: data.imageRef,
+      kernelRef: data.kernelRef || null,
+      rootfsRef: data.rootfsRef || null,
+      packageRef: data.packageRef || null,
+      cdrPolicyRef: data.cdrPolicyRef,
+      streamGateway: {
+        bindAddress: data.bindAddress,
+        sourcePort: Number(data.sourcePort),
+        throughG2: form.namedItem("throughG2").checked,
+        pixelOptimized: form.namedItem("pixelOptimized").checked,
+        publicExposureAllowed: false
+      },
+      launchManifest: {
+        networkMode: data.networkMode,
+        storageMode: data.storageMode
+      },
+      buildEvidence: {
+        reproducibleBuild: form.namedItem("reproducibleBuild").checked,
+        cdrHookDeclared: form.namedItem("cdrHookDeclared").checked,
+        binderfs: form.namedItem("binderfs").checked,
+        androidRuntime: form.namedItem("androidRuntime").checked
+      },
+      productionBlockers: splitCsv(data.productionBlockers)
+    }
+  }), "Workload Image Manifest");
+  toast("Workload image manifest recorded");
+  await refreshAll();
+}
+
 async function runFirecrackerLaunchRehearsal(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -2787,6 +2844,7 @@ function bind() {
   $("#baseline-promotion-form").addEventListener("submit", (event) => promoteOperatorBaselineToLive(event).catch(showError));
   $("#provider-rehearsal-form").addEventListener("submit", (event) => runProviderRehearsal(event).catch(showError));
   $("#dedicated-order-form").addEventListener("submit", (event) => createDedicatedWorkloadOrder(event).catch(showError));
+  $("#workload-image-manifest-form").addEventListener("submit", (event) => createWorkloadImageManifest(event).catch(showError));
   $("#firecracker-qualification-form").addEventListener("submit", (event) => qualifyFirecrackerHost(event).catch(showError));
   $("#firecracker-rehearsal-form").addEventListener("submit", (event) => runFirecrackerLaunchRehearsal(event).catch(showError));
   $("#cpu-confidential-qualification-form").addEventListener("submit", (event) => qualifyCpuConfidentialHost(event).catch(showError));

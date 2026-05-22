@@ -40,6 +40,17 @@ const FIRECRACKER_REHEARSAL_WORKLOADS = new Set(["signal", "telegram", "whatsapp
 const DEDICATED_ORDER_MODES = new Set(["plan_only", "robot_test", "live_order"]);
 const WORKLOAD_TENANCY_MODES = new Set(["shared_pool", "dedicated_operator"]);
 const WORKLOAD_NATIVE_LIFECYCLE = new Set(["ordered", "delivered", "bootstrapped", "lab_qualified", "degraded", "retired"]);
+const WORKLOAD_IMAGE_APPS = new Set([
+  "signal",
+  "telegram",
+  "whatsapp",
+  "threema",
+  "zangi",
+  "duckduckgo_browser",
+  "libreoffice",
+  "exodus"
+]);
+const WORKLOAD_RUNTIME_KINDS = new Set(["firecracker_microvm", "container_lab_helper", "android_native_workload"]);
 
 function normalizeLower(value, field, allowed) {
   const normalized = requireText(value, field).toLowerCase();
@@ -165,6 +176,7 @@ export class LiveExecutionService {
     this.firecrackerRehearsals = new PersistentMap({ store, collection: "firecracker_launch_rehearsals" });
     this.dedicatedOrders = new PersistentMap({ store, collection: "dedicated_workload_orders" });
     this.workloadNativeHosts = new PersistentMap({ store, collection: "workload_native_hosts" });
+    this.workloadImageManifests = new PersistentMap({ store, collection: "workload_image_manifests" });
     this.cpuQualifications = new PersistentMap({ store, collection: "cpu_confidential_qualifications" });
     this.rollbackPlans = new PersistentMap({ store, collection: "live_rollback_plans" });
     this.providerRehearsals = new PersistentMap({ store, collection: "live_provider_rehearsals" });
@@ -196,6 +208,7 @@ export class LiveExecutionService {
       firecrackerLaunchRehearsals: this.firecrackerRehearsals.size,
       dedicatedWorkloadOrders: this.dedicatedOrders.size,
       workloadNativeHosts: this.workloadNativeHosts.size,
+      workloadImageManifests: this.workloadImageManifests.size,
       cpuQualifications: this.cpuQualifications.size,
       confidentialReadyHosts: [...this.cpuQualifications.values()].filter((item) => item.secretsReleaseAllowed).length,
       phantomExecutionRequests: this.phantomRequests.size,
@@ -247,6 +260,15 @@ export class LiveExecutionService {
       resourceType: RESOURCE_TYPES.WORKLOAD_NATIVE_HOST
     });
     return [...this.workloadNativeHosts.values()];
+  }
+
+  listWorkloadImageManifests({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_IMAGE_MANIFEST
+    });
+    return [...this.workloadImageManifests.values()];
   }
 
   registerWorkloadNativeHost({
@@ -319,6 +341,107 @@ export class LiveExecutionService {
       correlationId: corr,
       policyDecision: readyForLabWorkloads ? "allow" : "deny",
       result: readyForLabWorkloads ? "lab_ready" : "blocked",
+      newValue: record
+    });
+    return record;
+  }
+
+  createWorkloadImageManifest({
+    actor,
+    hostId,
+    appKey,
+    appName = null,
+    runtimeKind = "firecracker_microvm",
+    imageRef,
+    kernelRef = null,
+    rootfsRef = null,
+    packageRef = null,
+    cdrPolicyRef = "cdr://mandatory-workload-file-transfer",
+    streamGateway = {},
+    launchManifest = {},
+    buildEvidence = {},
+    productionBlockers = [],
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_IMAGE_MANIFEST
+    });
+    assertNoSensitiveRuntimeData(buildEvidence, "buildEvidence");
+    assertNoSensitiveRuntimeData(launchManifest, "launchManifest");
+    assertNoSensitiveRuntimeData(streamGateway, "streamGateway");
+    const normalizedAppKey = normalizeLower(appKey, "appKey", WORKLOAD_IMAGE_APPS);
+    const normalizedRuntime = normalizeLower(runtimeKind, "runtimeKind", WORKLOAD_RUNTIME_KINDS);
+    const host = [...this.workloadNativeHosts.values()].find((item) => item.hostId === hostId || item.id === hostId);
+    if (!host) throw notFound("workload_native_host", hostId);
+    const blockers = safeArray(productionBlockers, "productionBlockers");
+    const normalized = {
+      imageRef: requireText(imageRef, "imageRef"),
+      kernelRef: kernelRef ? requireText(kernelRef, "kernelRef") : null,
+      rootfsRef: rootfsRef ? requireText(rootfsRef, "rootfsRef") : null,
+      packageRef: packageRef ? requireText(packageRef, "packageRef") : null,
+      cdrPolicyRef: requireText(cdrPolicyRef, "cdrPolicyRef"),
+      streamGateway: {
+        bindAddress: streamGateway.bindAddress || "127.0.0.1",
+        sourcePort: streamGateway.sourcePort ? Number(streamGateway.sourcePort) : null,
+        throughG2: streamGateway.throughG2 === true,
+        pixelOptimized: streamGateway.pixelOptimized === true,
+        publicExposureAllowed: streamGateway.publicExposureAllowed === true
+      }
+    };
+    const checks = this.#workloadImageManifestChecks({
+      host,
+      appKey: normalizedAppKey,
+      runtimeKind: normalizedRuntime,
+      ...normalized,
+      buildEvidence,
+      productionBlockers: blockers
+    });
+    const readyForLabLaunch = checks.filter((check) => check.requiredForLab !== false).every((check) => check.status === "passed");
+    const record = {
+      id: newId("workload_image_manifest"),
+      hostId: host.hostId,
+      hostRecordId: host.id,
+      providerKey: host.providerKey,
+      appKey: normalizedAppKey,
+      appName: appName ? requireText(appName, "appName") : normalizedAppKey,
+      runtimeKind: normalizedRuntime,
+      imageRef: normalized.imageRef,
+      kernelRef: normalized.kernelRef,
+      rootfsRef: normalized.rootfsRef,
+      packageRef: normalized.packageRef,
+      cdrPolicyRef: normalized.cdrPolicyRef,
+      streamGateway: normalized.streamGateway,
+      launchManifest,
+      buildEvidence,
+      checks,
+      readyForLabLaunch,
+      readyForProduction: false,
+      productionExecutionAllowed: false,
+      terminalDataStored: false,
+      secretsReleaseAllowed: false,
+      productionBlockers: blockers,
+      nextActions: [
+        ...(readyForLabLaunch ? ["launch_lab_workload_private_stream"] : ["resolve_workload_image_blockers"]),
+        "bind_g1_g2_private_path",
+        "bind_g2_session_broker",
+        "run_pixel_human_regression",
+        "collect_cdr_runtime_evidence",
+        "collect_hsm_pki_evidence_before_production"
+      ],
+      createdAt: isoNow(),
+      createdBy: actor.id
+    };
+    this.workloadImageManifests.set(record.id, record);
+    this.audit.record({
+      actorId: actor.id,
+      action: "workload_image_manifest.created",
+      resourceType: RESOURCE_TYPES.WORKLOAD_IMAGE_MANIFEST,
+      resourceId: record.id,
+      correlationId: corr,
+      policyDecision: readyForLabLaunch ? "allow" : "deny",
+      result: readyForLabLaunch ? "lab_launch_ready" : "blocked",
       newValue: record
     });
     return record;
@@ -1308,6 +1431,105 @@ export class LiveExecutionService {
         key: "container_helper_runtime",
         status: boolFromEvidence(container.dockerActive) && boolFromEvidence(container.containerdActive) ? "passed" : "blocked",
         detail: "Container runtime is helper-only for build/lab workflows",
+        requiredForLab: false
+      },
+      {
+        key: "production_blockers_declared",
+        status: productionBlockers.length > 0 ? "passed" : "blocked",
+        detail: "Production blockers must remain explicit until all gates pass",
+        requiredForLab: false
+      }
+    ];
+  }
+
+  #workloadImageManifestChecks({
+    host,
+    appKey,
+    runtimeKind,
+    imageRef,
+    kernelRef,
+    rootfsRef,
+    packageRef,
+    cdrPolicyRef,
+    streamGateway,
+    buildEvidence = {},
+    productionBlockers = []
+  }) {
+    const bindAddress = String(streamGateway.bindAddress || "");
+    const privateBind = bindAddress === "127.0.0.1" || bindAddress === "::1" || bindAddress.startsWith("10.") || bindAddress.startsWith("172.16.") || bindAddress.startsWith("192.168.");
+    const isFirecracker = runtimeKind === "firecracker_microvm";
+    const isAndroid = runtimeKind === "android_native_workload";
+    const isContainerHelper = runtimeKind === "container_lab_helper";
+    return [
+      {
+        key: "host_lab_ready",
+        status: host?.readyForLabWorkloads === true ? "passed" : "blocked",
+        detail: "WORKLOAD_NATIVE host must pass KVM/Firecracker lab qualification"
+      },
+      {
+        key: "supported_app",
+        status: WORKLOAD_IMAGE_APPS.has(appKey) ? "passed" : "blocked",
+        detail: "Application must be authorized in the workload image manifest catalog"
+      },
+      {
+        key: "supported_runtime",
+        status: WORKLOAD_RUNTIME_KINDS.has(runtimeKind) ? "passed" : "blocked",
+        detail: "Runtime must be Firecracker, Android native workload, or container lab helper"
+      },
+      {
+        key: "image_ref",
+        status: imageRef ? "passed" : "blocked",
+        detail: "Manifest must point at a reproducible image artifact"
+      },
+      {
+        key: "firecracker_kernel_ref",
+        status: !isFirecracker || kernelRef ? "passed" : "blocked",
+        detail: "Firecracker microVM workloads require a pinned kernel artifact"
+      },
+      {
+        key: "firecracker_rootfs_ref",
+        status: !isFirecracker || rootfsRef ? "passed" : "blocked",
+        detail: "Firecracker microVM workloads require a pinned rootfs artifact"
+      },
+      {
+        key: "android_package_ref",
+        status: !isAndroid || packageRef ? "passed" : "blocked",
+        detail: "Android native workloads require a package reference"
+      },
+      {
+        key: "android_binderfs_evidence",
+        status: !isAndroid || buildEvidence.binderfs === true || buildEvidence.androidRuntime === true ? "passed" : "blocked",
+        detail: "Android native workloads require binderfs/runtime evidence"
+      },
+      {
+        key: "zangi_android_runtime",
+        status: appKey !== "zangi" || isAndroid ? "passed" : "blocked",
+        detail: "Zangi is tracked as Android-native until a supported desktop/microVM package is approved"
+      },
+      {
+        key: "cdr_policy",
+        status: String(cdrPolicyRef || "").startsWith("cdr://") ? "passed" : "blocked",
+        detail: "All file ingress/egress must route through CDR"
+      },
+      {
+        key: "private_stream_binding",
+        status: privateBind && streamGateway.publicExposureAllowed !== true ? "passed" : "blocked",
+        detail: "Workload stream must bind privately and reach Pixel through G2, not the public Internet"
+      },
+      {
+        key: "g2_broker_declared",
+        status: streamGateway.throughG2 === true ? "passed" : "blocked",
+        detail: "Thin-client stream must be brokered by G2"
+      },
+      {
+        key: "pixel_profile",
+        status: streamGateway.pixelOptimized === true ? "passed" : "blocked",
+        detail: "Pixel viewport and touch profile must be declared for human regression"
+      },
+      {
+        key: "container_helper_lab_only",
+        status: !isContainerHelper || productionBlockers.includes("container_helper_not_production_runtime") ? "passed" : "blocked",
+        detail: "Containers are allowed only as lab helpers unless a tier-specific ADR approves them",
         requiredForLab: false
       },
       {
