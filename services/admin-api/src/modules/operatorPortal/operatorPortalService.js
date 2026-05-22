@@ -1,8 +1,12 @@
+import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { promisify } from "node:util";
 import { DEVICE_TYPES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { AppError, notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
+
+const execFileAsync = promisify(execFile);
 
 const TERMINAL_MODES = Object.freeze({
   PIXEL: "pixel_grapheneos",
@@ -38,6 +42,16 @@ const WORKLOAD_CONTROL_ACTIONS = new Set(["scale_to_counts", "rotate_app", "recr
 const UNLOCK_LAYERS = Object.freeze(["g1", "g2", "workload"]);
 const PANIC_LEVELS = Object.freeze(["data_wipe", "environment_destroy", "account_revoke"]);
 const JURISDICTION_MODES = Object.freeze(["disabled", "manual", "scheduled", "full_policy"]);
+const LIVE_RECREATE_APP_MAP = Object.freeze({
+  whatsapp: "whatsapp",
+  signal: "signal",
+  telegram: "telegram",
+  threema: "threema",
+  zangi: "zangi",
+  duckduckgo_browser: "duckduckgo",
+  libreoffice: "libreoffice",
+  exodus: "exodus"
+});
 
 function isoNow() {
   return new Date().toISOString();
@@ -66,8 +80,22 @@ function publicSession(session) {
   };
 }
 
+async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
+  const args = ["run", "live:workload-recreate", "--", `--app=${app}`];
+  if (wipeVolume) args.push("--wipe-volume");
+  const result = await execFileAsync(process.platform === "win32" ? "npm.cmd" : "npm", args, {
+    timeout: 240_000,
+    windowsHide: true,
+    cwd: process.cwd(),
+    env: process.env
+  });
+  const stdout = result.stdout.trim();
+  const json = stdout.slice(stdout.indexOf("{"), stdout.lastIndexOf("}") + 1);
+  return JSON.parse(json);
+}
+
 export class OperatorPortalService {
-  constructor({ audit, rbac, operators, devices, subscriptions, operatorEnvironments, securityProfiles, routerReadiness = null, env = process.env, store = null }) {
+  constructor({ audit, rbac, operators, devices, subscriptions, operatorEnvironments, securityProfiles, routerReadiness = null, env = process.env, store = null, liveWorkloadRunner = defaultLiveWorkloadRunner }) {
     this.audit = audit;
     this.rbac = rbac;
     this.operators = operators;
@@ -88,6 +116,8 @@ export class OperatorPortalService {
     this.streamingSessions = new PersistentMap({ store, collection: "operator_streaming_sessions" });
     this.streamingReadinessEvidence = new PersistentMap({ store, collection: "operator_streaming_readiness_evidence" });
     this.streamingRuntimeManifests = new PersistentMap({ store, collection: "operator_streaming_runtime_manifests" });
+    this.workloadControlJobs = new PersistentMap({ store, collection: "operator_workload_control_jobs" });
+    this.liveWorkloadRunner = liveWorkloadRunner;
   }
 
   createLocalSession({ actor, operatorId, terminalMode, deviceId = null, correlationId }) {
@@ -229,6 +259,7 @@ export class OperatorPortalService {
       currentCounts,
       latestDesiredCounts: latestRequest?.desiredCounts || currentCounts,
       latestRequest: latestRequest ? this.#publicWorkloadControlRequest(latestRequest) : null,
+      latestJob: this.#latestWorkloadControlJob(operatorActor.operatorId),
       actions: [
         { key: "scale_to_counts", label: "Set desired counts", destructive: false },
         { key: "rotate_app", label: "Delete and recreate one app family", destructive: true },
@@ -240,7 +271,7 @@ export class OperatorPortalService {
         quotaEnforced: true,
         destructiveCleanupAllowed: false,
         controlPlaneOnly: true,
-        productionExecutionAllowed: false,
+        productionExecutionAllowed: this.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED === "true",
         androidNativeWorkloadGate: androidRuntime
       }
     };
@@ -307,6 +338,150 @@ export class OperatorPortalService {
       newValue: this.#publicWorkloadControlRequest(request)
     });
     return this.#publicWorkloadControlRequest(request);
+  }
+
+  async executeWorkloadControlRequest({ operatorActor, requestId, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const request = this.workloadControlRequests.get(requestId);
+    if (!request || request.operatorId !== operatorActor.operatorId) {
+      throw notFound("workload_control_request", requestId);
+    }
+    if (request.action === "scale_to_counts") {
+      throw validationError("Only destructive recreate requests can use the live workload runner", {
+        requestId,
+        action: request.action
+      });
+    }
+    const runnerApp = this.#runnerAppForRequest(request);
+    if (!runnerApp) {
+      throw validationError("This workload request is not supported by the live recreate runner yet", {
+        requestId,
+        rotateApp: request.rotateApp,
+        supported: Object.keys(LIVE_RECREATE_APP_MAP)
+      });
+    }
+    const liveRunnerEnabled = this.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED === "true";
+    const confirmation = String(body.confirmation || "").trim();
+    if (!liveRunnerEnabled || confirmation !== "RUN_LIVE_WORKLOAD_RECREATE") {
+      const blocked = this.#workloadJob({
+        request,
+        operatorActor,
+        runnerApp,
+        state: "blocked_before_live_runner",
+        wipeVolume: false,
+        result: null,
+        blockers: [
+          ...(liveRunnerEnabled ? [] : ["SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED_not_true"]),
+          ...(confirmation === "RUN_LIVE_WORKLOAD_RECREATE" ? [] : ["confirmation_phrase_missing"])
+        ]
+      });
+      this.workloadControlJobs.set(blocked.id, blocked);
+      this.audit.record({
+        actorId: operatorActor.id,
+        action: "operator_portal.workload_live_runner_blocked",
+        resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+        resourceId: blocked.id,
+        tenantId: operatorActor.tenantId,
+        operatorId: operatorActor.operatorId,
+        correlationId: corr,
+        policyDecision: "deny",
+        result: blocked.state,
+        newValue: this.#publicWorkloadControlJob(blocked)
+      });
+      return this.#publicWorkloadControlJob(blocked);
+    }
+    const wipeVolume = body.wipeVolume === true;
+    if (wipeVolume && (this.env.SYLION_ALLOW_WORKLOAD_WIPE !== "true" || !body.fourEyesApprovalRef)) {
+      throw validationError("Volume wipe requires four-eyes approval and explicit server-side unlock", {
+        requestId,
+        fourEyesApprovalRequired: true,
+        envGate: "SYLION_ALLOW_WORKLOAD_WIPE"
+      });
+    }
+
+    const started = this.#workloadJob({
+      request,
+      operatorActor,
+      runnerApp,
+      state: "running_live_workload_recreate",
+      wipeVolume,
+      result: null,
+      blockers: []
+    });
+    this.workloadControlJobs.set(started.id, started);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.workload_live_runner_started",
+      resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+      resourceId: started.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: started.state,
+      newValue: this.#publicWorkloadControlJob(started)
+    });
+
+    try {
+      const result = await this.liveWorkloadRunner({ app: runnerApp, wipeVolume });
+      const completed = {
+        ...started,
+        state: result?.applied ? "completed_live_workload_recreate" : "failed_live_workload_recreate",
+        completedAt: isoNow(),
+        result: this.#sanitizeLiveRunnerResult(result),
+        productionExecutionAllowed: false,
+        sideEffectAllowed: true
+      };
+      request.state = completed.state;
+      request.deleteRecreateMode = completed.state;
+      request.liveJobId = completed.id;
+      this.workloadControlRequests.set(request.id, request);
+      this.workloadControlJobs.set(completed.id, completed);
+      this.audit.record({
+        actorId: operatorActor.id,
+        action: "operator_portal.workload_live_runner_completed",
+        resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+        resourceId: completed.id,
+        tenantId: operatorActor.tenantId,
+        operatorId: operatorActor.operatorId,
+        correlationId: corr,
+        policyDecision: completed.state === "completed_live_workload_recreate" ? "allow" : "deny",
+        result: completed.state,
+        newValue: this.#publicWorkloadControlJob(completed)
+      });
+      return this.#publicWorkloadControlJob(completed);
+    } catch (error) {
+      const failed = {
+        ...started,
+        state: "failed_live_workload_recreate",
+        completedAt: isoNow(),
+        result: {
+          applied: false,
+          secretPrinted: false,
+          error: String(error.message || error).slice(0, 240)
+        },
+        productionExecutionAllowed: false,
+        sideEffectAllowed: false
+      };
+      request.state = failed.state;
+      request.deleteRecreateMode = failed.state;
+      request.liveJobId = failed.id;
+      this.workloadControlRequests.set(request.id, request);
+      this.workloadControlJobs.set(failed.id, failed);
+      this.audit.record({
+        actorId: operatorActor.id,
+        action: "operator_portal.workload_live_runner_failed",
+        resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+        resourceId: failed.id,
+        tenantId: operatorActor.tenantId,
+        operatorId: operatorActor.operatorId,
+        correlationId: corr,
+        policyDecision: "deny",
+        result: failed.state,
+        newValue: this.#publicWorkloadControlJob(failed)
+      });
+      return this.#publicWorkloadControlJob(failed);
+    }
   }
 
   connectionPath({ operatorActor, correlationId }) {
@@ -1566,7 +1741,98 @@ export class OperatorPortalService {
       productionExecutionAllowed: false,
       sideEffectAllowed: false,
       destructiveCleanupAllowed: false,
+      liveJobId: request.liveJobId || null,
+      liveJob: request.liveJobId ? this.#publicWorkloadControlJob(this.workloadControlJobs.get(request.liveJobId)) : null,
       requestedAt: request.requestedAt
+    };
+  }
+
+  #runnerAppForRequest(request) {
+    if (request.action === "recreate_all") return "all";
+    return LIVE_RECREATE_APP_MAP[request.rotateApp] || null;
+  }
+
+  #workloadJob({ request, operatorActor, runnerApp, state, wipeVolume, result, blockers = [] }) {
+    return {
+      id: newId("workload_live_job"),
+      requestId: request.id,
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      action: request.action,
+      rotateApp: request.rotateApp,
+      runnerApp,
+      state,
+      wipeVolume,
+      cdrRequired: true,
+      terminalDataStored: false,
+      privateBindOnlyRequired: true,
+      signalAuthHandoffRequired: request.action === "recreate_all" || runnerApp === "signal",
+      blockers,
+      result,
+      requestedBy: operatorActor.id,
+      startedAt: isoNow(),
+      completedAt: null,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: state === "running_live_workload_recreate"
+    };
+  }
+
+  #latestWorkloadControlJob(operatorId) {
+    const job = [...this.workloadControlJobs.values()]
+      .filter((item) => item.operatorId === operatorId)
+      .at(-1) || null;
+    return job ? this.#publicWorkloadControlJob(job) : null;
+  }
+
+  #sanitizeLiveRunnerResult(result) {
+    if (!result || typeof result !== "object") return { applied: false, secretPrinted: false };
+    return {
+      applied: result.applied === true,
+      secretPrinted: false,
+      workloadEvidence: result.workloadEvidence ? {
+        component: result.workloadEvidence.component,
+        app: result.workloadEvidence.app,
+        wipeVolume: result.workloadEvidence.wipeVolume === true,
+        cdrRequired: result.workloadEvidence.cdrRequired === true,
+        terminalDataStored: result.workloadEvidence.terminalDataStored === true,
+        privateBindOnly: result.workloadEvidence.privateBindOnly === true,
+        checkedAt: result.workloadEvidence.checkedAt || null
+      } : null,
+      signalHandoff: result.signalHandoff ? {
+        applied: result.signalHandoff.applied === true,
+        secretPrinted: false,
+        signalStatus: result.signalHandoff.signalStatus || null,
+        terminalDataStored: result.signalHandoff.terminalDataStored === true,
+        g1G2BypassAllowed: result.signalHandoff.g1G2BypassAllowed === true,
+        cdrRequired: result.signalHandoff.cdrRequired === true
+      } : null,
+      smoke: result.smoke || {},
+      productionExecutionAllowed: false
+    };
+  }
+
+  #publicWorkloadControlJob(job) {
+    if (!job) return null;
+    return {
+      id: job.id,
+      requestId: job.requestId,
+      operatorId: job.operatorId,
+      tenantId: job.tenantId,
+      action: job.action,
+      rotateApp: job.rotateApp,
+      runnerApp: job.runnerApp,
+      state: job.state,
+      wipeVolume: job.wipeVolume === true,
+      cdrRequired: true,
+      terminalDataStored: false,
+      privateBindOnlyRequired: true,
+      signalAuthHandoffRequired: job.signalAuthHandoffRequired === true,
+      blockers: job.blockers || [],
+      result: job.result || null,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: job.sideEffectAllowed === true
     };
   }
 
@@ -1823,11 +2089,14 @@ export class OperatorPortalService {
       },
       liveRunner: destructive ? {
         command: action === "rotate_app"
-          ? `npm run live:workload-recreate -- --app=${rotateApp || "unknown"}`
+          ? `npm run live:workload-recreate -- --app=${LIVE_RECREATE_APP_MAP[rotateApp] || "unsupported"}`
           : "npm run live:workload-recreate -- --app=all",
         wipeVolumeDefault: false,
         wipeVolumeRequiresPanicOrFourEyes: true,
         signalAuthHandoffRequired: action === "recreate_all" || rotateApp === "signal",
+        backendEndpoint: "/operator-api/workload-control/requests/:id/execute",
+        confirmationPhrase: "RUN_LIVE_WORKLOAD_RECREATE",
+        supportedByLiveRunner: action === "recreate_all" || Boolean(LIVE_RECREATE_APP_MAP[rotateApp]),
         expectedEvidence: [
           "live_workload_recreate",
           "cdrRequired=true",

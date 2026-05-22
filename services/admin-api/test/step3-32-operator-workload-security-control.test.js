@@ -3,8 +3,8 @@ import test from "node:test";
 import { createApp } from "../src/app.js";
 import { AdminApiClient } from "../src/sdk/adminApiClient.js";
 
-async function startTestServer() {
-  const app = createApp();
+async function startTestServer(options = {}) {
+  const app = createApp(options);
   const server = await app.listen(0);
   const { port } = server.address();
   return {
@@ -187,6 +187,114 @@ test("Step 3.32 destructive workload recreate requests expose CDR and panic exec
     assert.equal(queued.payload.request.executionPlan.liveRunner.signalAuthHandoffRequired, false);
     assert.ok(queued.payload.request.executionPlan.liveRunner.expectedEvidence.includes("privateBindOnly=true"));
     assert.ok(queued.payload.request.executionPlan.targetRefs.includes(`workload-slot://${seeded.operator.id}/whatsapp`));
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.32 live workload runner blocks destructive execution until server gate and confirmation pass", async () => {
+  const { app, baseUrl, close } = await startTestServer();
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    const queued = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
+      method: "POST",
+      body: {
+        action: "rotate_app",
+        rotateApp: "signal",
+        desiredCounts: { signal: 1 }
+      }
+    });
+    const blocked = await operatorRequest(baseUrl, seeded.session.token, `/operator-api/workload-control/requests/${queued.payload.request.id}/execute`, {
+      method: "POST",
+      body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" }
+    });
+    assert.equal(blocked.payload.job.state, "blocked_before_live_runner");
+    assert.ok(blocked.payload.job.blockers.includes("SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED_not_true"));
+    assert.equal(blocked.payload.job.cdrRequired, true);
+    assert.equal(blocked.payload.job.terminalDataStored, false);
+    assert.equal(blocked.payload.job.privateBindOnlyRequired, true);
+    assert.equal(blocked.payload.job.signalAuthHandoffRequired, true);
+
+    const audit = app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id);
+    assert.ok(audit.some((event) => event.action === "operator_portal.workload_live_runner_blocked"));
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.32 live workload runner executes approved recreate and stores sanitized evidence", async () => {
+  const calls = [];
+  const fakeRunner = async (input) => {
+    calls.push(input);
+    return {
+      applied: true,
+      secretPrinted: false,
+      workloadEvidence: {
+        component: "live_workload_recreate",
+        app: input.app,
+        wipeVolume: input.wipeVolume,
+        cdrRequired: true,
+        terminalDataStored: false,
+        privateBindOnly: true,
+        checkedAt: new Date(0).toISOString()
+      },
+      signalHandoff: input.app === "signal" ? {
+        applied: true,
+        secretPrinted: false,
+        signalStatus: "200",
+        terminalDataStored: false,
+        g1G2BypassAllowed: false,
+        cdrRequired: true
+      } : null,
+      smoke: { [input.app]: "200" },
+      productionExecutionAllowed: false
+    };
+  };
+  const { app, baseUrl, close } = await startTestServer({
+    liveExecutionOptions: {
+      env: {
+        ...process.env,
+        SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED: "true"
+      },
+      liveWorkloadRunner: fakeRunner
+    }
+  });
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    const queued = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
+      method: "POST",
+      body: {
+        action: "rotate_app",
+        rotateApp: "duckduckgo_browser",
+        desiredCounts: { duckduckgo_browser: 1 }
+      }
+    });
+    assert.equal(queued.payload.request.executionPlan.liveRunner.command, "npm run live:workload-recreate -- --app=duckduckgo");
+
+    const executed = await operatorRequest(baseUrl, seeded.session.token, `/operator-api/workload-control/requests/${queued.payload.request.id}/execute`, {
+      method: "POST",
+      body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" }
+    });
+    assert.equal(executed.payload.job.state, "completed_live_workload_recreate");
+    assert.equal(executed.payload.job.runnerApp, "duckduckgo");
+    assert.equal(executed.payload.job.wipeVolume, false);
+    assert.equal(executed.payload.job.result.workloadEvidence.cdrRequired, true);
+    assert.equal(executed.payload.job.result.workloadEvidence.privateBindOnly, true);
+    assert.equal(executed.payload.job.result.workloadEvidence.terminalDataStored, false);
+    assert.equal(executed.payload.job.result.smoke.duckduckgo, "200");
+    assert.equal(JSON.stringify(executed.payload).includes("VNC_PW"), false);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0], { app: "duckduckgo", wipeVolume: false });
+
+    const after = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control");
+    assert.equal(after.payload.control.latestJob.state, "completed_live_workload_recreate");
+    assert.equal(after.payload.control.latestRequest.liveJobId, executed.payload.job.id);
+    const audit = app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id);
+    assert.ok(audit.some((event) => event.action === "operator_portal.workload_live_runner_started"));
+    assert.ok(audit.some((event) => event.action === "operator_portal.workload_live_runner_completed"));
+    assert.equal(JSON.stringify(audit).includes("VNC_PW"), false);
   } finally {
     await close();
   }

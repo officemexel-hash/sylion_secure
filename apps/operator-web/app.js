@@ -765,6 +765,11 @@
     setText("#workload-control-quota", `${c.quota.tier}: ${c.quota.maxWorkloadEnvironments} environments, ${c.quota.maxAppsPerOperator} app families`);
     setText("#workload-control-current", countsToText(c.currentCounts));
     setText("#workload-control-last", c.latestRequest ? `${c.latestRequest.action} -> ${c.latestRequest.state} (${c.latestRequest.totalRequested}/${c.quota.maxWorkloadEnvironments})` : "none");
+    const runnerForm = $("#workload-live-runner-form");
+    if (runnerForm && c.latestRequest?.executionPlan?.liveRunner) {
+      runnerForm.elements.requestId.value = c.latestRequest.id;
+    }
+    renderLiveRunnerJob(c.latestJob || c.latestRequest?.liveJob || null);
     renderWorkloadCatalog(c);
     const form = $("#workload-control-form");
     if (form) {
@@ -806,6 +811,37 @@
       preview.classList.remove("placeholder");
       preview.textContent = `${result.request.executionPlan.mode}: ${result.request.executionPlan.stages.join(" -> ")} | CDR ${result.request.executionPlan.cdr.required}`;
     }
+    const runnerForm = $("#workload-live-runner-form");
+    if (runnerForm && result.request?.executionPlan?.liveRunner) {
+      runnerForm.elements.requestId.value = result.request.id;
+      runnerForm.elements.confirmation.value = "";
+    }
+    await loadWorkloadControl();
+    await loadAudit();
+  }
+
+  async function executeLiveWorkloadRunner(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const requestId = String(data.requestId || "").trim();
+    if (!requestId) {
+      setText("#workload-live-runner-result", "Select or enter a destructive workload request ID first.");
+      return;
+    }
+    const result = await fetchJson(`/operator-api/workload-control/requests/${encodeURIComponent(requestId)}/execute`, {
+      method: "POST",
+      body: {
+        confirmation: data.confirmation,
+        wipeVolume: data.wipeVolume === "on",
+        fourEyesApprovalRef: data.fourEyesApprovalRef || null
+      }
+    });
+    if (result.error) {
+      setText("#workload-live-runner-result", result.error);
+      return;
+    }
+    renderLiveRunnerJob(result.job);
+    setText("#session-status", `Live runner job: ${result.job.state}`);
     await loadWorkloadControl();
     await loadAudit();
   }
@@ -852,6 +888,25 @@
       <span>${escapeHtml(action)}${escapeHtml(rotate)} | total requested: ${escapeHtml(total)}</span>
       <span>${escapeHtml(entries.map(([key, value]) => `${key} x${value}`).join(", ") || "no environments selected")}</span>
       <span>Runner status: control-plane queued, production side effects blocked until human gate.</span>
+    `;
+  }
+
+  function renderLiveRunnerJob(job) {
+    const preview = $("#workload-live-runner-result");
+    if (!preview) return;
+    if (!job) {
+      preview.classList.add("placeholder");
+      preview.textContent = "No live runner job executed from this browser session.";
+      return;
+    }
+    preview.classList.remove("placeholder");
+    const smoke = job.result?.smoke ? Object.entries(job.result.smoke).map(([key, value]) => `${key}:${value}`).join(", ") : "-";
+    const blockers = (job.blockers || []).join(", ") || "-";
+    preview.innerHTML = `
+      <strong>${escapeHtml(job.state)}</strong>
+      <span>job ${escapeHtml(job.id)} | request ${escapeHtml(job.requestId)} | runner ${escapeHtml(job.runnerApp)} | wipe ${escapeHtml(job.wipeVolume)}</span>
+      <span>CDR ${escapeHtml(job.cdrRequired)} | terminal data stored ${escapeHtml(job.terminalDataStored)} | private bind required ${escapeHtml(job.privateBindOnlyRequired)}</span>
+      <span>smoke: ${escapeHtml(smoke)} | blockers: ${escapeHtml(blockers)}</span>
     `;
   }
 
@@ -923,6 +978,7 @@
     $("#app-switcher").addEventListener("click", handleInternalSwitcher);
     $("#session-form").addEventListener("submit", createLocalSession);
     $("#workload-control-form").addEventListener("submit", requestWorkloadControl);
+    $("#workload-live-runner-form").addEventListener("submit", executeLiveWorkloadRunner);
     $("#runtime-gate-form").addEventListener("submit", handleRuntimeGate);
     $("#vpn-evidence-form").addEventListener("submit", recordVpnEvidence);
     $("#stream-session-form").addEventListener("submit", requestStreamSession);

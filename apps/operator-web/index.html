@@ -196,7 +196,15 @@
           <button type="submit" class="primary">Queue workload change</button>
         </form>
         <div id="workload-control-preview" class="workload-preview placeholder">No pending request preview.</div>
-        <p class="hint">Production deletion remains disabled here: the panel records intent, quota decision and audit event, then the orchestrator/runner will execute once gated. Exodus is treated as a dedicated wallet workload with explicit operator risk acceptance and no terminal-side secret storage.</p>
+        <form id="workload-live-runner-form" class="dense-form">
+          <label>Live request ID <input name="requestId" placeholder="workload_control_..." autocomplete="off"></label>
+          <label>Confirmation <input name="confirmation" placeholder="RUN_LIVE_WORKLOAD_RECREATE" autocomplete="off"></label>
+          <label class="checkbox-line"><input name="wipeVolume" type="checkbox"> Wipe volume after four-eyes approval</label>
+          <label>Four-eyes approval ref <input name="fourEyesApprovalRef" placeholder="required only for wipe"></label>
+          <button type="submit" class="secondary">Run approved live recreate</button>
+        </form>
+        <div id="workload-live-runner-result" class="workload-preview placeholder">No live runner job executed from this browser session.</div>
+        <p class="hint">Live recreate runs only after server-side gate and exact confirmation phrase. Default mode preserves volumes, writes CDR/evidence metadata, then smoke-tests through G2. Exodus is treated as a dedicated wallet workload with explicit operator risk acceptance and no terminal-side secret storage.</p>
       </article>
     </section>
 

@@ -222,7 +222,8 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     securityProfiles,
     routerReadiness,
     env: runtimeEnv,
-    store
+    store,
+    liveWorkloadRunner: liveExecutionOptions.liveWorkloadRunner
   });
 
   const services = {
@@ -320,6 +321,19 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
         return send(res, 201, { request: operatorPortal.requestWorkloadControl({ operatorActor, body, correlationId }) });
+      }
+      const workloadControlExecuteMatch = url.pathname.match(/^\/operator-api\/workload-control\/requests\/([^/]+)\/execute$/);
+      if (req.method === "POST" && workloadControlExecuteMatch) {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 200, {
+          job: await operatorPortal.executeWorkloadControlRequest({
+            operatorActor,
+            requestId: workloadControlExecuteMatch[1],
+            body,
+            correlationId
+          })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/vpn-status") {
         const operatorActor = operatorActorFromRequest(req);

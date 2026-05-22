@@ -190,6 +190,18 @@ label {
   min-height: auto;
 }
 
+.checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+}
+
+.checkbox-line input {
+  width: auto;
+  min-height: auto;
+}
+
 input,
 select {
   min-height: 38px;
@@ -705,6 +717,16 @@ button.primary {
   background: var(--accent);
   color: white;
   border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #111620;
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 16px;
   font-weight: 600;
