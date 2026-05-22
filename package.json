@@ -11,6 +11,7 @@
     "test:dashboard-live-promotion": "node scripts/admin-step3-28-human-live-promotion.mjs",
     "test:operator-portal": "node scripts/operator-portal-smoke.mjs",
     "test:pixel-adb-operator-lab": "node scripts/pixel-adb-operator-lab.mjs",
+    "test:pixel-live-human-regression": "node scripts/pixel-live-human-regression.mjs",
     "test:hetzner-live-smoke": "node scripts/hetzner-live-smoke.mjs",
     "live:hetzner-operator-baseline": "node scripts/hetzner-live-operator-baseline.mjs"
   },
