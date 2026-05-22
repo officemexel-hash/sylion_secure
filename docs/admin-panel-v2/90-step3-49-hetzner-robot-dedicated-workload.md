@@ -10,6 +10,8 @@ Hetzner Robot webservice ordering is now modeled as a separate provider path fro
 - `hetzner_robot` represents dedicated/root server ordering for per-operator `WORKLOAD_NATIVE`.
 - Every operator still keeps the Ksiegi 3.4 baseline of exactly 3 machines: G1, G2 and WORKLOAD.
 - The WORKLOAD may be upgraded to a dedicated bare-metal host when Firecracker/KVM/Android native workloads are required.
+- STANDARD and PRO may use a controlled `WORKLOAD_POOL` on one dedicated bare-metal host, with separate Firecracker/Android runtimes, network namespaces, storage quotas and audit partitions per operator.
+- SOVEREIGN and PHANTOM-sensitive workloads must use `dedicated_operator` tenancy: a fully dedicated WORKLOAD host for that operator only.
 - Ordering is default-deny and requires admin step-up, an approved provisioning approval, explicit live/cost/hardware confirmations and runtime env gates.
 - No Robot username/password is stored in provider records, audit events, API responses or terminal-side state.
 
@@ -48,6 +50,9 @@ The Providers view now includes:
   - `plan_only`
   - `robot_test`
   - `live_order`
+- workload tenancy modes:
+  - `shared_pool` for STANDARD/PRO only
+  - `dedicated_operator` for PRO optional and SOVEREIGN/PHANTOM mandatory
 - evidence cards for dedicated workload orders
 
 The form is intentionally explicit about paid risk and hardware verification. KVM/binderfs must still be verified on the delivered server before Firecracker or Android workload secrets are released.
@@ -73,6 +78,37 @@ flowchart TD
     N -- "yes" --> P["Firecracker/Android workload installation"]
     P --> Q["Pixel thin client through VPN -> G1 -> G2 -> WORKLOAD"]
 ```
+
+## Tier Tenancy Decision
+
+```mermaid
+flowchart TD
+    A["Dedicated server available"] --> B{"Operator tier"}
+    B -- "STANDARD" --> C["shared_pool allowed"]
+    B -- "PRO" --> C
+    B -- "SOVEREIGN" --> D["dedicated_operator required"]
+    C --> E{"PHANTOM-sensitive workload?"}
+    E -- "yes" --> D
+    E -- "no" --> F["Firecracker runtime in pool"]
+    D --> G["Single operator per WORKLOAD host"]
+    F --> H["Per-operator namespaces, disks, quotas, CDR, audit"]
+    G --> I["No co-tenant workload on same host"]
+```
+
+## Security Position
+
+`shared_pool` is a cost-optimized tier model, not equivalent to fully dedicated hardware. It must never be marketed or shown as the same isolation class as `dedicated_operator`.
+
+Required controls for shared pool:
+
+- per-operator Firecracker jailer namespaces
+- per-operator storage quotas and encrypted volumes
+- no shared application containers across operators
+- no cross-operator network routes
+- CDR remains mandatory
+- blue-team monitoring must alert on host, runtime, key, route or namespace drift
+
+Residual risk: host kernel/root compromise can affect all operators on the shared physical host. This is acceptable only for STANDARD/PRO with explicit tier wording.
 
 ## Implemented
 

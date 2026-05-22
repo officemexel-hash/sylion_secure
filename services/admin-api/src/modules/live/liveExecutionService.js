@@ -38,6 +38,7 @@ const CONFIDENTIAL_MODES = new Set(["none", "intel_tdx", "amd_sev_snp"]);
 const PROVIDER_REHEARSAL_MODES = new Set(["gate_only", "adapter_sandbox", "live_provider"]);
 const FIRECRACKER_REHEARSAL_WORKLOADS = new Set(["signal", "telegram", "whatsapp", "threema", "zangi", "matrix"]);
 const DEDICATED_ORDER_MODES = new Set(["plan_only", "robot_test", "live_order"]);
+const WORKLOAD_TENANCY_MODES = new Set(["shared_pool", "dedicated_operator"]);
 
 function normalizeLower(value, field, allowed) {
   const normalized = requireText(value, field).toLowerCase();
@@ -229,6 +230,8 @@ export class LiveExecutionService {
     authorizedKeyRef = "admin-default-ssh-key",
     addons = ["primary_ipv4"],
     maxMonthlyPrice = null,
+    workloadTenancyMode = "dedicated_operator",
+    phantomSensitive = false,
     orderMode = "plan_only",
     liveConfirmed = false,
     costConfirmed = false,
@@ -262,10 +265,14 @@ export class LiveExecutionService {
       });
     }
     const mode = normalizeLower(orderMode, "orderMode", DEDICATED_ORDER_MODES);
+    const tenancyMode = normalizeLower(workloadTenancyMode, "workloadTenancyMode", WORKLOAD_TENANCY_MODES);
     const gate = this.#evaluateDedicatedOrderGate({
+      operator,
       operatorId,
       region,
       productId,
+      workloadTenancyMode: tenancyMode,
+      phantomSensitive,
       orderMode: mode,
       liveConfirmed,
       costConfirmed,
@@ -285,6 +292,8 @@ export class LiveExecutionService {
       authorizedKeyRef: requireText(authorizedKeyRef, "authorizedKeyRef"),
       addons: safeArray(addons, "addons"),
       maxMonthlyPrice: maxMonthlyPrice === null || maxMonthlyPrice === undefined ? null : Number(maxMonthlyPrice),
+      workloadTenancyMode: tenancyMode,
+      phantomSensitive: phantomSensitive === true,
       orderMode: mode,
       gate,
       terminalDataStored: false,
@@ -1096,13 +1105,20 @@ export class LiveExecutionService {
     };
   }
 
-  #evaluateDedicatedOrderGate({ operatorId, region, productId, orderMode, liveConfirmed, costConfirmed, hardwareGateConfirmed, maxMonthlyPrice }) {
+  #evaluateDedicatedOrderGate({ operator, operatorId, region, productId, workloadTenancyMode, phantomSensitive, orderMode, liveConfirmed, costConfirmed, hardwareGateConfirmed, maxMonthlyPrice }) {
     const blockers = [];
     const allowedOperators = splitEnvList(this.env.SYLION_LIVE_ALLOWLIST_OPERATORS);
     const allowedRegions = splitEnvList(this.env.SYLION_LIVE_ALLOWED_REGIONS);
     const allowedProducts = splitEnvList(this.env.SYLION_HETZNER_ROBOT_ALLOWED_PRODUCTS);
     const maxEnvPrice = Number(this.env.SYLION_HETZNER_ROBOT_MAX_MONTHLY_EUR || this.env.SYLION_DEDICATED_MAX_MONTHLY_EUR || 0);
     if (!DEDICATED_ORDER_MODES.has(orderMode)) blockers.push("unsupported_order_mode");
+    if (!WORKLOAD_TENANCY_MODES.has(workloadTenancyMode)) blockers.push("unsupported_workload_tenancy_mode");
+    if (operator.tier === "SOVEREIGN" && workloadTenancyMode !== "dedicated_operator") {
+      blockers.push("sovereign_requires_dedicated_operator_workload");
+    }
+    if (phantomSensitive === true && workloadTenancyMode !== "dedicated_operator") {
+      blockers.push("phantom_requires_dedicated_operator_workload");
+    }
     if (!liveConfirmed) blockers.push("live_confirmation_missing");
     if (!costConfirmed) blockers.push("cost_confirmation_missing");
     if (!hardwareGateConfirmed) blockers.push("hardware_gate_confirmation_missing");
@@ -1126,6 +1142,8 @@ export class LiveExecutionService {
       blockers,
       providerKey: "hetzner_robot",
       orderMode,
+      workloadTenancyMode,
+      phantomSensitive: phantomSensitive === true,
       mutationMode: blockers.length === 0 ? orderMode : "blocked",
       baselineUnlockState: this.#baselineUnlockState(),
       rollbackRequired: false,

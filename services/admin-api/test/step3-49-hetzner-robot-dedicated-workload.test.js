@@ -72,6 +72,34 @@ async function createRobotBaseline(client) {
   return { operator: operator.operator, provider: provider.provider, approval: approved.approval };
 }
 
+async function createRobotBaselineForTier(client, tier) {
+  const tenant = await client.createTenant({ name: `Step 3.49 ${tier} Tenant`, tier });
+  const operator = await client.createOperator({
+    tenantId: tenant.tenant.id,
+    displayName: `Step 3.49 ${tier} Operator`,
+    tier
+  });
+  const provider = await client.createProvider({
+    providerType: "hetzner_robot",
+    apiSecret: `robot-reference-only-${tier}-never-leak`,
+    regions: ["fsn1"],
+    countries: ["DE"],
+    billingHealth: { status: "healthy" },
+    testConnection: { mode: "mock", status: "passed" }
+  });
+  const approval = await client.createProvisioningApproval({
+    operatorId: operator.operator.id,
+    reasonCode: `step3_49_${tier.toLowerCase()}_workload_tenancy`,
+    evidenceRefs: ["release://step3-49/workload-tenancy"]
+  });
+  const approved = await client.updateProvisioningApprovalStatus(approval.approval.id, {
+    status: "approved_for_execution",
+    evidenceRefs: ["release://step3-49/workload-tenancy"],
+    note: "Approved for workload tenancy gate"
+  });
+  return { operator: operator.operator, provider: provider.provider, approval: approved.approval };
+}
+
 test("Step 3.49 exposes Hetzner Robot as a dedicated KVM workload provider without plaintext leakage", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
@@ -164,6 +192,75 @@ test("Step 3.49 allows a plan-only dedicated workload order after confirmations 
     assert.equal(result.order.status, "plan_ready_no_provider_mutation");
     assert.equal(result.order.sideEffectAllowed, false);
     assert.equal(calls.length, 0);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.49 allows STANDARD and PRO shared pools but blocks SOVEREIGN and PHANTOM-sensitive shared tenancy", async () => {
+  const env = {
+    SYLION_LIVE_ALLOWLIST_OPERATORS: "*",
+    SYLION_LIVE_ALLOWED_REGIONS: "fsn1",
+    SYLION_HETZNER_ROBOT_ALLOWED_PRODUCTS: "AX102",
+    SYLION_HETZNER_ROBOT_MAX_MONTHLY_EUR: "120"
+  };
+  const { baseUrl, close } = await startTestServer({ env });
+  try {
+    const client = await loginClient(baseUrl);
+    const standard = await createRobotBaselineForTier(client, "STANDARD");
+    const pro = await createRobotBaselineForTier(client, "PRO");
+    const sovereign = await createRobotBaselineForTier(client, "SOVEREIGN");
+
+    for (const seeded of [standard, pro]) {
+      const result = await client.createHetznerRobotDedicatedWorkloadOrder({
+        providerId: seeded.provider.id,
+        operatorId: seeded.operator.id,
+        approvalId: seeded.approval.id,
+        productId: "AX102",
+        region: "fsn1",
+        orderMode: "plan_only",
+        workloadTenancyMode: "shared_pool",
+        maxMonthlyPrice: 100,
+        liveConfirmed: true,
+        costConfirmed: true,
+        hardwareGateConfirmed: true
+      });
+      assert.equal(result.order.status, "plan_ready_no_provider_mutation");
+      assert.equal(result.order.workloadTenancyMode, "shared_pool");
+    }
+
+    const sovereignShared = await client.createHetznerRobotDedicatedWorkloadOrder({
+      providerId: sovereign.provider.id,
+      operatorId: sovereign.operator.id,
+      approvalId: sovereign.approval.id,
+      productId: "AX102",
+      region: "fsn1",
+      orderMode: "plan_only",
+      workloadTenancyMode: "shared_pool",
+      maxMonthlyPrice: 100,
+      liveConfirmed: true,
+      costConfirmed: true,
+      hardwareGateConfirmed: true
+    });
+    assert.equal(sovereignShared.order.status, "blocked_human_gate");
+    assert.ok(sovereignShared.order.gate.blockers.includes("sovereign_requires_dedicated_operator_workload"));
+
+    const phantomShared = await client.createHetznerRobotDedicatedWorkloadOrder({
+      providerId: pro.provider.id,
+      operatorId: pro.operator.id,
+      approvalId: pro.approval.id,
+      productId: "AX102",
+      region: "fsn1",
+      orderMode: "plan_only",
+      workloadTenancyMode: "shared_pool",
+      phantomSensitive: true,
+      maxMonthlyPrice: 100,
+      liveConfirmed: true,
+      costConfirmed: true,
+      hardwareGateConfirmed: true
+    });
+    assert.equal(phantomShared.order.status, "blocked_human_gate");
+    assert.ok(phantomShared.order.gate.blockers.includes("phantom_requires_dedicated_operator_workload"));
   } finally {
     await close();
   }

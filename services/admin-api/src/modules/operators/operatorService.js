@@ -33,7 +33,10 @@ export class OperatorService {
       baseline: {
         vpsPerOperator: 3,
         router: "GL.iNet GL-XE3000 Puli AX",
-        cdrMandatory: true
+        cdrMandatory: true,
+        workloadTenancy: tier === "SOVEREIGN" ? "dedicated_operator_only" : "shared_dedicated_pool_allowed",
+        dedicatedWorkloadPerOperatorRequired: tier === "SOVEREIGN",
+        phantomWorkloadDedicatedRequired: true
       },
       createdAt: new Date().toISOString()
     };

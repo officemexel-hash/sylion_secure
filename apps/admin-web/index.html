@@ -544,6 +544,12 @@
               <label>SSH key ref <input name="authorizedKeyRef" value="admin-default-ssh-key"></label>
               <label>Addons <input name="addons" value="primary_ipv4"></label>
               <label>Max monthly EUR <input name="maxMonthlyPrice" type="number" min="0" step="1" value="120"></label>
+              <label>Tenancy
+                <select name="workloadTenancyMode">
+                  <option value="dedicated_operator" selected>Dedicated operator</option>
+                  <option value="shared_pool">Shared pool - STANDARD/PRO only</option>
+                </select>
+              </label>
               <label>Mode
                 <select name="orderMode">
                   <option value="plan_only" selected>Plan only</option>
@@ -554,6 +560,7 @@
               <label class="check-row"><input type="checkbox" name="liveConfirmed"> I confirm dedicated host ordering intent</label>
               <label class="check-row"><input type="checkbox" name="costConfirmed"> I confirm monthly/setup cost gate</label>
               <label class="check-row"><input type="checkbox" name="hardwareGateConfirmed"> I confirm KVM/binderfs hardware gate will be verified before secrets release</label>
+              <label class="check-row"><input type="checkbox" name="phantomSensitive"> PHANTOM-sensitive workload, requires fully dedicated host</label>
               <button type="submit">Create Dedicated Order Gate</button>
             </form>
           </article>

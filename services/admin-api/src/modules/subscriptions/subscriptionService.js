@@ -28,7 +28,10 @@ const DEFAULT_PLANS = Object.freeze([
       allowedRuntimeClasses: ["containers"],
       confidentialComputeRequired: false,
       firecrackerRequired: false,
-      allowedProviderCount: 1
+      allowedProviderCount: 1,
+      workloadTenancy: "shared_dedicated_pool_allowed",
+      dedicatedWorkloadPerOperatorRequired: false,
+      phantomWorkloadDedicatedRequired: true
     },
     sessionPolicy: {
       defaultHours: 8,
@@ -59,7 +62,10 @@ const DEFAULT_PLANS = Object.freeze([
       allowedRuntimeClasses: ["containers", "firecracker"],
       confidentialComputeRequired: false,
       firecrackerRequired: true,
-      allowedProviderCount: 3
+      allowedProviderCount: 3,
+      workloadTenancy: "shared_dedicated_pool_allowed",
+      dedicatedWorkloadPerOperatorRequired: false,
+      phantomWorkloadDedicatedRequired: true
     },
     sessionPolicy: {
       defaultHours: 12,
@@ -90,7 +96,10 @@ const DEFAULT_PLANS = Object.freeze([
       allowedRuntimeClasses: ["containers", "firecracker", "confidential"],
       confidentialComputeRequired: true,
       firecrackerRequired: true,
-      allowedProviderCount: "custom"
+      allowedProviderCount: "custom",
+      workloadTenancy: "dedicated_operator_only",
+      dedicatedWorkloadPerOperatorRequired: true,
+      phantomWorkloadDedicatedRequired: true
     },
     sessionPolicy: {
       defaultHours: 12,
@@ -210,7 +219,10 @@ export class SubscriptionService {
         allowedRuntimeClasses: Array.isArray(providerPolicy.allowedRuntimeClasses) && providerPolicy.allowedRuntimeClasses.length ? providerPolicy.allowedRuntimeClasses : ["containers"],
         confidentialComputeRequired: providerPolicy.confidentialComputeRequired === true,
         firecrackerRequired: providerPolicy.firecrackerRequired === true,
-        allowedProviderCount: providerPolicy.allowedProviderCount === "custom" ? "custom" : requirePositiveInteger(providerPolicy.allowedProviderCount || 1, "providerPolicy.allowedProviderCount")
+        allowedProviderCount: providerPolicy.allowedProviderCount === "custom" ? "custom" : requirePositiveInteger(providerPolicy.allowedProviderCount || 1, "providerPolicy.allowedProviderCount"),
+        workloadTenancy: providerPolicy.workloadTenancy || (tier === TIERS.SOVEREIGN ? "dedicated_operator_only" : "shared_dedicated_pool_allowed"),
+        dedicatedWorkloadPerOperatorRequired: tier === TIERS.SOVEREIGN || providerPolicy.dedicatedWorkloadPerOperatorRequired === true,
+        phantomWorkloadDedicatedRequired: providerPolicy.phantomWorkloadDedicatedRequired !== false
       },
       sessionPolicy: {
         defaultHours: requirePositiveInteger(sessionPolicy.defaultHours || 12, "sessionPolicy.defaultHours"),

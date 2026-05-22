@@ -691,6 +691,8 @@ function render() {
     ["Product", order.productId],
     ["Region", order.region],
     ["Mode", order.orderMode],
+    ["Tenancy", order.workloadTenancyMode || "-"],
+    ["PHANTOM sensitive", String(order.phantomSensitive)],
     ["Side effect", String(order.sideEffectAllowed)],
     ["Resource", order.providerResource?.providerResourceId || "-"],
     ["Blockers", order.gate?.blockers?.join(", ") || "-"]
@@ -1742,6 +1744,8 @@ async function createDedicatedWorkloadOrder(event) {
       authorizedKeyRef: data.authorizedKeyRef,
       addons: splitCsv(data.addons),
       maxMonthlyPrice: data.maxMonthlyPrice ? Number(data.maxMonthlyPrice) : null,
+      workloadTenancyMode: data.workloadTenancyMode,
+      phantomSensitive: event.currentTarget.phantomSensitive.checked,
       orderMode: data.orderMode,
       liveConfirmed: event.currentTarget.liveConfirmed.checked,
       costConfirmed: event.currentTarget.costConfirmed.checked,
