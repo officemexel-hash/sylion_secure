@@ -374,14 +374,18 @@ export class ProviderRegistryService {
     const wantedTier = tier ? String(tier).trim().toUpperCase() : null;
     return [...this.providers.values()]
       .filter((provider) => provider.runtimeCapabilities?.[cap] !== false)
-      .filter((provider) => !wantedCountry || provider.countries.includes(wantedCountry))
+      .filter((provider) => {
+        const countries = provider.countries || ["UNSPECIFIED"];
+        return !wantedCountry || countries.includes(wantedCountry);
+      })
       .filter((provider) => !wantedTier || provider.runtimeCapabilities?.recommendedTier === wantedTier || wantedTier === "SOVEREIGN")
       .map((provider) => ({
         id: provider.id,
         providerKey: provider.providerKey,
         displayName: provider.displayName,
-        countries: provider.countries,
-        regions: provider.regionCatalog.filter((region) => !wantedCountry || region.country === wantedCountry),
+        countries: provider.countries || ["UNSPECIFIED"],
+        regions: (provider.regionCatalog || provider.regions?.map((region) => ({ region, country: "UNSPECIFIED", city: null })) || [])
+          .filter((region) => !wantedCountry || region.country === wantedCountry),
         runtimeCapabilities: provider.runtimeCapabilities,
         productionExecutionAllowed: false
       }));
