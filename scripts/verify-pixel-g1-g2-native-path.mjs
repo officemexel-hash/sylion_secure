@@ -91,6 +91,7 @@ test -x /usr/local/bin/firecracker -o -x /opt/sylion/bin/firecracker && echo fir
 test -x /usr/local/bin/jailer -o -x /opt/sylion/bin/jailer && echo jailer=true || echo jailer=false
 test -f /opt/sylion-workloads/evidence/firecracker-base-boot-smoke.json && echo boot_smoke=true || echo boot_smoke=false
 test -f /opt/sylion-workloads/evidence/native-firecracker-stream-smoke.json && grep -q '"ready": true' /opt/sylion-workloads/evidence/native-firecracker-stream-smoke.json && echo stream_smoke=true || echo stream_smoke=false
+test -f /opt/sylion-workloads/evidence/native-firecracker-gui-duckduckgo.json && grep -q '"ready": true' /opt/sylion-workloads/evidence/native-firecracker-gui-duckduckgo.json && echo duckduckgo_gui=true || echo duckduckgo_gui=false
 `;
   const { stdout } = await ssh(cfg.workload, script);
   return {
@@ -99,7 +100,8 @@ test -f /opt/sylion-workloads/evidence/native-firecracker-stream-smoke.json && g
     firecrackerPresent: parseBoolLine(stdout, "firecracker"),
     jailerPresent: parseBoolLine(stdout, "jailer"),
     baseBootSmokeEvidence: parseBoolLine(stdout, "boot_smoke"),
-    nativeStreamSmokeEvidence: parseBoolLine(stdout, "stream_smoke")
+    nativeStreamSmokeEvidence: parseBoolLine(stdout, "stream_smoke"),
+    nativeDuckDuckGoGuiEvidence: parseBoolLine(stdout, "duckduckgo_gui")
   };
 }
 
@@ -130,9 +132,9 @@ async function main() {
     workloadHost,
     readyForPrivateWorkloadStream: allTrue(g1Pixel) && allTrue(g2Workload) && allTrue(workloadHost),
     remainingBlockers: [
-      "per_app_firecracker_gui_rootfs_not_built",
-      "stream_smoke_is_not_yet_full_gui_thin_client",
+      "signal_whatsapp_telegram_threema_zangi_libreoffice_exodus_gui_rootfs_not_built",
       "pixel_human_stream_click_regression_pending",
+      "operator_panel_workload_lifecycle_not_bound_to_native_gui_runner",
       "hsm_backed_ca_pending"
     ],
     terminalDataStored: false,
