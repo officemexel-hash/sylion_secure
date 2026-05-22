@@ -55,6 +55,7 @@ const state = {
   releaseProblems: [],
   humanTests: [],
   humanTestRuns: [],
+  workloadFactualTests: [],
   evidenceArtifacts: [],
   liveExecutionSummary: null,
   liveCloudRequests: [],
@@ -264,6 +265,7 @@ async function refreshAll() {
     releaseProblems,
     humanTests,
     humanTestRuns,
+    workloadFactualTests,
     evidenceArtifacts,
     liveExecutionSummary,
     liveCloudRequests,
@@ -331,6 +333,7 @@ async function refreshAll() {
     api("/release/problems").catch(() => ({ problems: [] })),
     api("/release/human-tests").catch(() => ({ scenarios: [] })),
     api("/release/human-test-runs").catch(() => ({ runs: [] })),
+    api("/release/workload-factual-tests").catch(() => ({ tests: [] })),
     api("/release/evidence-artifacts").catch(() => ({ artifacts: [] })),
     api("/live-execution/summary").catch(() => ({ summary: null })),
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
@@ -398,6 +401,7 @@ async function refreshAll() {
   state.releaseProblems = releaseProblems.problems;
   state.humanTests = humanTests.scenarios;
   state.humanTestRuns = humanTestRuns.runs;
+  state.workloadFactualTests = workloadFactualTests.tests;
   state.evidenceArtifacts = evidenceArtifacts.artifacts;
   state.liveExecutionSummary = liveExecutionSummary.summary;
   state.liveCloudRequests = liveCloudRequests.requests;
@@ -541,6 +545,7 @@ function render() {
   renderSelect("#phantom-coverage-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#phantom-execution-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#human-test-select", state.humanTests, "No test scenarios", "title");
+  renderSelect("#factual-test-operator-select", state.operators, "No operators", "displayName");
 
   $("#ksiega-status-cards").innerHTML = (state.systemStatus?.ksiega34 || []).map((item) => card(item.label, [
     ["Status", item.status],
@@ -1211,6 +1216,16 @@ function renderRelease() {
     ["Evidence", String(run.evidenceArtifactIds?.length || 0)],
     ["Prod exec", String(run.productionExecutionAllowed)]
   ])).join("") || empty("No full human test runs recorded.");
+
+  $("#workload-factual-test-cards").innerHTML = state.workloadFactualTests.map((item) => card(`${item.appKey} / ${item.result}`, [
+    ["Operator", item.operatorId],
+    ["Terminal", item.terminalMode],
+    ["Runtime", item.runtimeMode],
+    ["Factual", String(item.factualStateVerified)],
+    ["Required", item.requiredChecks?.join(", ") || "-"],
+    ["Blockers", item.blockers?.join(", ") || "none"],
+    ["Problem", item.linkedProblemId || "-"]
+  ])).join("") || empty("No factual workload app tests recorded.");
 
   $("#release-problem-cards").innerHTML = state.releaseProblems.map((problem) => card(problem.title, [
     ["Severity", problem.severity],
@@ -2614,6 +2629,45 @@ async function recordHumanTestRun(event) {
   await refreshAll();
 }
 
+function factualCheck(checked, passedEvidence, blockedNote = "Not proven in this run") {
+  return checked
+    ? { status: "passed", evidence: passedEvidence }
+    : { status: "blocked", note: blockedNote };
+}
+
+async function recordWorkloadFactualTest(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = formData(form);
+  if (!data.operatorId) {
+    toast("Select an operator before recording factual app test", "warn");
+    return;
+  }
+  await api("/release/workload-factual-tests", {
+    method: "POST",
+    body: {
+      operatorId: data.operatorId,
+      appKey: data.appKey,
+      terminalMode: data.terminalMode,
+      runtimeMode: data.runtimeMode,
+      result: data.result,
+      checks: {
+        uiVisible: factualCheck(form.uiVisible.checked, "UI visible through selected terminal"),
+        accountBootstrap: factualCheck(form.accountBootstrap.checked, "Account created or linked in workload"),
+        sendReceive: factualCheck(form.sendReceive.checked, "Send/receive test completed"),
+        browsing: factualCheck(form.browsing.checked, "External page opened through workload browser"),
+        documentWorkflow: factualCheck(form.documentWorkflow.checked, "Document create/open/save test completed"),
+        walletWorkflow: factualCheck(form.walletWorkflow.checked, "Test-only wallet workflow completed"),
+        riskAcceptance: factualCheck(form.riskAcceptance.checked, "Operator risk acceptance recorded")
+      },
+      evidenceArtifactIds: splitCsv(data.evidenceArtifactIds),
+      note: data.note
+    }
+  });
+  toast("Factual workload app test recorded");
+  await refreshAll();
+}
+
 async function recordBlueTeamSignal(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -3031,6 +3085,7 @@ function bind() {
   $("#release-problem-form").addEventListener("submit", (event) => createReleaseProblem(event).catch(showError));
   $("#human-test-status-form").addEventListener("submit", (event) => updateHumanTestStatus(event).catch(showError));
   $("#human-test-run-form").addEventListener("submit", (event) => recordHumanTestRun(event).catch(showError));
+  $("#workload-factual-test-form").addEventListener("submit", (event) => recordWorkloadFactualTest(event).catch(showError));
   $("#blue-team-signal-form").addEventListener("submit", (event) => recordBlueTeamSignal(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));

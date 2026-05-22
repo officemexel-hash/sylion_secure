@@ -1674,6 +1674,62 @@
           </article>
           <article class="panel">
             <div class="panel-head">
+              <h2>Factual App Test <span class="help-tip" tabindex="0" data-tip="Records whether a workload application actually works through Pixel or laptop. Communicators need account bootstrap plus send/receive before PASS; HTTP 200 alone is not enough.">?</span></h2>
+              <span class="pill warn">No hallucination</span>
+            </div>
+            <form id="workload-factual-test-form">
+              <label>Operator <select name="operatorId" id="factual-test-operator-select"></select></label>
+              <label>App
+                <select name="appKey">
+                  <option value="signal">Signal</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="threema">Threema</option>
+                  <option value="zangi">Zangi</option>
+                  <option value="duckduckgo_browser">DuckDuckGo Browser</option>
+                  <option value="libreoffice">LibreOffice</option>
+                  <option value="exodus">Exodus</option>
+                </select>
+              </label>
+              <label>Terminal
+                <select name="terminalMode">
+                  <option value="pixel_grapheneos">Pixel GrapheneOS</option>
+                  <option value="laptop_web_terminal">Laptop web terminal</option>
+                </select>
+              </label>
+              <label>Runtime
+                <select name="runtimeMode">
+                  <option value="desktop">Desktop</option>
+                  <option value="web">Web</option>
+                  <option value="android_native">Android native</option>
+                  <option value="firecracker_gui">Firecracker GUI</option>
+                  <option value="container">Container</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </label>
+              <label>Result
+                <select name="result">
+                  <option value="blocked">blocked</option>
+                  <option value="failed">failed</option>
+                  <option value="passed">passed</option>
+                  <option value="unknown">unknown</option>
+                </select>
+              </label>
+              <label class="check-row"><input name="uiVisible" type="checkbox" checked> UI visible</label>
+              <label class="check-row"><input name="accountBootstrap" type="checkbox"> Account bootstrap/linking passed</label>
+              <label class="check-row"><input name="sendReceive" type="checkbox"> Send/receive passed</label>
+              <label class="check-row"><input name="browsing" type="checkbox"> Browsing passed</label>
+              <label class="check-row"><input name="documentWorkflow" type="checkbox"> Document workflow passed</label>
+              <label class="check-row"><input name="walletWorkflow" type="checkbox"> Wallet workflow passed</label>
+              <label class="check-row"><input name="riskAcceptance" type="checkbox"> Risk acceptance recorded</label>
+              <label>Evidence IDs <input name="evidenceArtifactIds" value=""></label>
+              <label>Note <input name="note" value="Real app state checked through terminal path"></label>
+              <button type="submit">Record Factual Test</button>
+            </form>
+            <div class="cards" id="workload-factual-test-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
               <h2>Full Test Run <span class="help-tip" tabindex="0" data-tip="Records one complete human or Playwright dashboard pass, updates scenario statuses and creates problem records for failed or blocked scenarios.">?</span></h2>
               <span class="pill">Step 3.21</span>
             </div>

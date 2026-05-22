@@ -175,6 +175,17 @@ export class AdminApiClient {
     return this.request("/release/human-test-runs", { method: "POST", body });
   }
 
+  listWorkloadFactualTests({ operatorId = null, appKey = null } = {}) {
+    const params = new URLSearchParams();
+    if (operatorId) params.set("operatorId", operatorId);
+    if (appKey) params.set("appKey", appKey);
+    return this.request(`/release/workload-factual-tests${params.toString() ? `?${params}` : ""}`);
+  }
+
+  recordWorkloadFactualTest(body) {
+    return this.request("/release/workload-factual-tests", { method: "POST", body });
+  }
+
   updateHumanTestScenarioStatus(scenarioId, body) {
     return this.request(`/release/human-tests/${scenarioId}/status`, { method: "POST", body });
   }

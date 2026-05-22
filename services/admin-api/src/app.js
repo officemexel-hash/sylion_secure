@@ -92,25 +92,41 @@ function readinessHttpStatus(env, app) {
   return value ? Number(value) : null;
 }
 
-function readinessAppState(env, app) {
+function readinessAppState(env, app, factualRecord = null) {
   const httpStatus = readinessHttpStatus(env, app);
   const evidenceReady = env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "true"
     || env[`SYLION_${app.envAlias}_NATIVE_EVIDENCE_READY`] === "true";
-  const factualStateVerified = env[`SYLION_${app.key.toUpperCase()}_FACTUAL_STATE_VERIFIED`] === "true"
+  const envFactualStateVerified = env[`SYLION_${app.key.toUpperCase()}_FACTUAL_STATE_VERIFIED`] === "true"
     || env[`SYLION_${app.envAlias}_FACTUAL_STATE_VERIFIED`] === "true";
+  const factualStateVerified = factualRecord
+    ? factualRecord.factualStateVerified === true
+    : envFactualStateVerified;
   const transportReady = httpStatus === 200 || evidenceReady;
   const ready = transportReady && factualStateVerified;
   const notBuilt = httpStatus === 502 || env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "false";
+  const factualBlockers = factualRecord && factualRecord.factualStateVerified !== true
+    ? factualRecord.blockers || ["factual_state_not_verified"]
+    : [];
   return {
     ...app,
     url: `https://${app.host}${app.path}`,
     httpStatus,
     evidenceReady,
     factualStateVerified,
+    latestFactualTest: factualRecord ? {
+      id: factualRecord.id,
+      result: factualRecord.result,
+      terminalMode: factualRecord.terminalMode,
+      runtimeMode: factualRecord.runtimeMode,
+      requiredChecks: factualRecord.requiredChecks,
+      blockers: factualRecord.blockers,
+      createdAt: factualRecord.createdAt,
+      linkedProblemId: factualRecord.linkedProblemId || null
+    } : null,
     state: ready ? "ready" : notBuilt ? "not_built" : "unknown_or_blocked",
     blockers: ready ? [] : [
       notBuilt ? `${app.key}_native_workload_not_built` : `${app.key}_live_route_not_verified`,
-      ...(transportReady && !factualStateVerified ? ["factual_state_not_verified"] : []),
+      ...(transportReady && !factualStateVerified ? ["factual_state_not_verified", ...factualBlockers] : []),
       ...(app.expected === "android_native" ? ["android_native_runtime_required"] : [])
     ],
     cdrRequired: true,
@@ -142,7 +158,8 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
   const rows = operatorsList.map((operator) => {
     const subscription = services.subscriptions.getTenantSubscription({ actor, tenantId: operator.tenantId, correlationId });
     const cost = tierCostModel(operator.tier);
-    const apps = PRODUCTION_READINESS_APPS.map((app) => readinessAppState(env, app));
+    const factualByApp = services.release.latestWorkloadFactualTestsByApp({ actor, operatorId: operator.id, correlationId });
+    const apps = PRODUCTION_READINESS_APPS.map((app) => readinessAppState(env, app, factualByApp[app.key] || null));
     const criticalBlockers = [
       ...(env.SYLION_PIXEL_G1_READY === "true" ? [] : ["pixel_to_g1_evidence_missing_or_stale"]),
       ...(env.SYLION_G1_G2_READY === "true" ? [] : ["g1_to_g2_evidence_missing_or_stale"]),
@@ -721,6 +738,23 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         const run = release.recordHumanTestRun({ actor, ...body, correlationId });
         return send(res, 201, { run });
+      }
+
+      if (req.method === "GET" && url.pathname === "/release/workload-factual-tests") {
+        return send(res, 200, {
+          tests: release.listWorkloadFactualTests({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            appKey: url.searchParams.get("appKey"),
+            correlationId
+          })
+        });
+      }
+
+      if (req.method === "POST" && url.pathname === "/release/workload-factual-tests") {
+        const body = await readJson(req);
+        const test = release.recordWorkloadFactualTest({ actor, ...body, correlationId });
+        return send(res, 201, { test });
       }
 
       const releaseTestStatusMatch = url.pathname.match(/^\/release\/human-tests\/([^/]+)\/status$/);
