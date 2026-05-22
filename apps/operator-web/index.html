@@ -24,6 +24,7 @@
   <nav class="sidebar" aria-label="Operator navigation">
     <ul>
       <li><a href="#overview" data-view="overview" class="active">Overview</a></li>
+      <li><a href="#app-switcher" data-view="app-switcher">Apps</a></li>
       <li><a href="#devices" data-view="devices">Devices</a></li>
       <li><a href="#workloads" data-view="workloads">Workloads</a></li>
       <li><a href="#workload-control" data-view="workload-control">Workload Control</a></li>
@@ -81,6 +82,38 @@
           <p class="hint">Physical FIDO2 is deferred, but policy/configuration is active for admin and operator layers.</p>
         </article>
       </div>
+    </section>
+
+    <section id="app-switcher" class="view">
+      <h1>Apps</h1>
+      <p class="hint">Pixel launcher for moving between operator settings and WORKLOAD applications through the G1/G2 path. Workload links stay on internal `*.sylion.internal` names and do not store operational data on the terminal.</p>
+      <article class="card">
+        <h2>Operator controls</h2>
+        <div class="quick-grid">
+          <a class="quick-tile" href="#workload-control" data-view="workload-control"><strong>Workload Control</strong><span>counts, recreate requests, tier quota</span></a>
+          <a class="quick-tile" href="#runtime-gate" data-view="runtime-gate"><strong>Runtime Gate</strong><span>Signal/Zangi launch blockers</span></a>
+          <a class="quick-tile" href="#settings-unlock" data-view="settings-unlock"><strong>Security Unlock</strong><span>G1/G2/WORKLOAD session policy</span></a>
+          <a class="quick-tile" href="#settings-safety" data-view="settings-safety"><strong>Backup & Panic</strong><span>backup, inactivity wipe, panic levels</span></a>
+          <a class="quick-tile" href="#settings-jurisdiction" data-view="settings-jurisdiction"><strong>Jurisdiction</strong><span>rotation policy by tier</span></a>
+          <a class="quick-tile" href="#matrix-server" data-view="matrix-server"><strong>Matrix Server</strong><span>own communication server request</span></a>
+          <a class="quick-tile" href="#subscription" data-view="subscription"><strong>Subscription</strong><span>renew, upgrade, quota view</span></a>
+          <a class="quick-tile" href="#audit" data-view="audit"><strong>My Audit</strong><span>operator-scoped actions</span></a>
+        </div>
+      </article>
+      <article class="card">
+        <h2>WORKLOAD apps <span class="help-tip" tabindex="0" data-tip="These links open internal workload endpoints via VPN/G2. Signal currently uses Kasm auth; Zangi is compatibility-only until Android runtime gates pass.">?</span></h2>
+        <div class="quick-grid workload-launcher">
+          <a class="quick-tile" href="https://signal.sylion.internal/" rel="noopener"><strong>Signal</strong><span>remote desktop workload</span></a>
+          <a class="quick-tile" href="https://whatsapp.sylion.internal/" rel="noopener"><strong>WhatsApp</strong><span>web/container workload</span></a>
+          <a class="quick-tile" href="https://telegram.sylion.internal/" rel="noopener"><strong>Telegram</strong><span>web/container workload</span></a>
+          <a class="quick-tile" href="https://threema.sylion.internal/" rel="noopener"><strong>Threema</strong><span>web/container workload</span></a>
+          <a class="quick-tile" href="https://zangi.sylion.internal/" rel="noopener"><strong>Zangi</strong><span>Android-native gate pending</span></a>
+          <a class="quick-tile" href="https://libreoffice.sylion.internal/" rel="noopener"><strong>LibreOffice</strong><span>document workload</span></a>
+          <a class="quick-tile" href="https://duckduckgo.sylion.internal/" rel="noopener"><strong>DuckDuckGo</strong><span>browser workload</span></a>
+          <a class="quick-tile" href="https://exodus.sylion.internal/" rel="noopener"><strong>Exodus</strong><span>wallet workload, operator risk</span></a>
+        </div>
+        <p class="hint">Use the Android back button or reopen `operator.sylion.internal/operator#app-switcher` to return to the panel. After the internal CA is installed in GrapheneOS, the browser certificate warning should disappear.</p>
+      </article>
     </section>
 
     <section id="devices" class="view">

@@ -13,16 +13,18 @@
     session: JSON.parse(sessionStorage.getItem("sylion.operator.session") || "null")
   };
 
-  function bootstrapLocalLabToken() {
+  function bootstrapOperatorToken() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("op_token");
     const localhost = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname);
-    if (!token || !localhost || !token.startsWith("op_")) return;
+    const internalHost = window.location.protocol === "https:" && window.location.hostname.endsWith(".sylion.internal");
+    if (!token || (!localhost && !internalHost) || !token.startsWith("op_")) return;
     state.operatorToken = token;
     sessionStorage.setItem("sylion.operator.token", token);
     params.delete("op_token");
     const cleanSearch = params.toString();
     window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${window.location.hash}`);
+    setText("#session-status", internalHost ? "Operator session received through internal VPN link." : "Operator session received through local lab link.");
   }
 
   function headers(extra = {}) {
@@ -66,6 +68,16 @@
     if (window.history && window.history.replaceState) {
       window.history.replaceState(null, "", "#" + viewId);
     }
+    loadViewData(viewId);
+  }
+
+  function handleInternalSwitcher(event) {
+    const link = event.target.closest("a[data-view]");
+    if (!link || !link.closest("#app-switcher")) return;
+    event.preventDefault();
+    const viewId = link.dataset.view;
+    setActiveView(viewId);
+    window.history.replaceState(null, "", "#" + viewId);
     loadViewData(viewId);
   }
 
@@ -695,6 +707,7 @@
 
   function loadViewData(viewId) {
     if (viewId === "overview") loadOverview();
+    if (viewId === "app-switcher") loadOverview();
     if (viewId === "devices") loadDevices();
     if (viewId === "workloads") loadWorkloads();
     if (viewId === "workload-control") loadWorkloadControl();
@@ -714,8 +727,9 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
-    bootstrapLocalLabToken();
+    bootstrapOperatorToken();
     $(".sidebar").addEventListener("click", handleNav);
+    $("#app-switcher").addEventListener("click", handleInternalSwitcher);
     $("#session-form").addEventListener("submit", createLocalSession);
     $("#workload-control-form").addEventListener("submit", requestWorkloadControl);
     $("#runtime-gate-form").addEventListener("submit", handleRuntimeGate);

@@ -52,6 +52,11 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.contentType, /text\/html/);
     assert.match(html.body, /SYLION Operator Portal/);
     assert.match(html.body, /Scoped local session required/);
+    assert.match(html.body, /data-view="app-switcher"/);
+    assert.match(html.body, /https:\/\/signal\.sylion\.internal\//);
+    assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal\//);
+    assert.match(html.body, /https:\/\/libreoffice\.sylion\.internal\//);
+    assert.match(html.body, /Backup & Panic/);
   } finally {
     await close();
   }
@@ -70,6 +75,11 @@ test("Operator portal serves styles.css and app.js", async () => {
     assert.match(js.contentType, /text\/javascript|application\/javascript/);
     assert.match(js.body, /detectTerminalMode/);
     assert.match(js.body, /streaming-profile/);
+    assert.match(js.body, /bootstrapOperatorToken/);
+    assert.match(js.body, /\.sylion\.internal/);
+
+    assert.match(css.body, /quick-grid/);
+    assert.match(css.body, /position: fixed/);
   } finally {
     await close();
   }

@@ -317,6 +317,48 @@ dd {
   margin: 14px 0;
 }
 
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.quick-tile {
+  min-height: 82px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #141a25;
+  padding: 12px;
+  display: grid;
+  align-content: space-between;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.quick-tile:hover,
+.quick-tile:focus {
+  border-color: var(--accent);
+  background: rgba(91, 141, 239, 0.12);
+  outline: none;
+}
+
+.quick-tile strong {
+  display: block;
+  color: var(--text);
+}
+
+.quick-tile span {
+  color: var(--text-dim);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.workload-launcher .quick-tile {
+  border-color: #344159;
+}
+
 .app-tile {
   min-height: 96px;
   border: 1px solid var(--border);
@@ -757,7 +799,8 @@ button.primary:disabled {
   }
 
   .dense-form,
-  .compact-metrics {
+  .compact-metrics,
+  .quick-grid {
     grid-template-columns: 1fr;
   }
 
