@@ -149,8 +149,48 @@ function tierCostModel(tier) {
   };
 }
 
+function sessionBrokerReadiness(env) {
+  const selected = String(env.SYLION_G2_SESSION_BROKER || "adr_pending").toLowerCase();
+  const guacamoleReady = env.SYLION_GUACAMOLE_BROKER_READY === "true";
+  const webrtcReady = env.SYLION_SELKIES_GATEWAY_READY === "true" || env.SYLION_G2_STREAM_GATEWAY_READY === "true";
+  const novncLabReady = env.SYLION_NOVNC_LAB_READY === "true";
+  const normalized = selected === "guac" || selected === "apache_guacamole"
+    ? "guacamole"
+    : selected === "selkies" || selected === "webrtc" || selected === "selkies_webrtc"
+      ? "webrtc_selkies"
+      : selected === "novnc" || selected === "novnc_websockify"
+        ? "novnc_lab"
+        : selected;
+  const productionCandidateReady = normalized === "guacamole"
+    ? guacamoleReady
+    : normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies"
+      ? webrtcReady
+      : false;
+  const blockers = [
+    ...(normalized === "adr_pending" ? ["g2_session_broker_adr_pending"] : []),
+    ...(normalized === "novnc_lab" ? ["novnc_lab_only_not_approved_for_production_broker"] : []),
+    ...(normalized === "guacamole" && !guacamoleReady ? ["guacamole_broker_poc_not_ready"] : []),
+    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") && !webrtcReady ? ["webrtc_selkies_broker_poc_not_ready"] : []),
+    ...(env.SYLION_G2_SESSION_BROKER_APPROVED === "true" ? [] : ["g2_session_broker_human_approval_missing"])
+  ];
+  return {
+    selectedProtocol: normalized,
+    candidates: [
+      { protocol: "guacamole", ready: guacamoleReady, productionCandidate: true, labOnly: false },
+      { protocol: "webrtc_selkies", ready: webrtcReady, productionCandidate: true, labOnly: false },
+      { protocol: "novnc_lab", ready: novncLabReady, productionCandidate: false, labOnly: true }
+    ],
+    state: blockers.length ? "blocked" : "ready_for_human_gate",
+    readyForHumanGate: blockers.length === 0 && productionCandidateReady,
+    blockers,
+    noVncProductionApproved: false,
+    productionExecutionAllowed: false
+  };
+}
+
 function buildProductionReadiness({ actor, services, env, correlationId }) {
   const productionOperatorId = env.SYLION_PRODUCTION_OPERATOR_ID || null;
+  const sessionBroker = sessionBrokerReadiness(env);
   const operatorsList = services.operators.list({ actor, correlationId })
     .filter((operator) => !productionOperatorId || operator.id === productionOperatorId);
   const hosts = services.liveExecution.listWorkloadNativeHosts({ actor, correlationId });
@@ -165,6 +205,7 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
       ...(env.SYLION_G1_G2_READY === "true" ? [] : ["g1_to_g2_evidence_missing_or_stale"]),
       ...(env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true" ? [] : ["g2_to_ax102_evidence_missing_or_stale"]),
       ...(nativeHost ? [] : ["workload_native_host_not_registered"]),
+      ...sessionBroker.blockers,
       ...apps.flatMap((app) => app.blockers.map((blocker) => `${app.key}:${blocker}`))
     ];
     return {
@@ -198,6 +239,7 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
         g1g2: env.SYLION_G1_G2_READY === "true" ? "ready" : "evidence_required",
         g2Workload: env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true" ? "ready" : "evidence_required"
       },
+      sessionBroker,
       apps,
       blockers: criticalBlockers,
       status: criticalBlockers.length ? "blocked" : "ready_for_human_gate",
@@ -206,6 +248,7 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
   });
   return {
     generatedAt: new Date().toISOString(),
+    sessionBroker,
     operators: rows,
     summary: {
       operators: rows.length,

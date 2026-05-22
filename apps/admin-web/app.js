@@ -1152,6 +1152,14 @@ function renderProductionReadiness() {
       ["CDR", "mandatory"],
       ["G1/G2 bypass", "blocked"],
       ["HSM/FIDO2", "interface ready; physical test deferred"]
+    ]),
+    card("G2 Session Broker", [
+      ["Selected", readiness.sessionBroker?.selectedProtocol || "adr_pending"],
+      ["State", readiness.sessionBroker?.state || "blocked"],
+      ["Guacamole", String(readiness.sessionBroker?.candidates?.find((item) => item.protocol === "guacamole")?.ready || false)],
+      ["WebRTC/Selkies", String(readiness.sessionBroker?.candidates?.find((item) => item.protocol === "webrtc_selkies")?.ready || false)],
+      ["noVNC", readiness.sessionBroker?.noVncProductionApproved ? "approved" : "lab only"],
+      ["Blockers", readiness.sessionBroker?.blockers?.join(", ") || "none"]
     ])
   ].join("");
 
@@ -1171,6 +1179,7 @@ function renderProductionReadiness() {
     ["Laptop", operator.path?.laptop],
     ["G1/G2", operator.path?.g1g2],
     ["G2/workload", operator.path?.g2Workload],
+    ["Broker", `${operator.sessionBroker?.selectedProtocol || "-"} / ${operator.sessionBroker?.state || "-"}`],
     ["Blockers", operator.blockers?.slice(0, 6).join(", ") || "none"]
   ])).join("") || empty("No operators in readiness matrix.");
 

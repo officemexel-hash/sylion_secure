@@ -210,7 +210,9 @@ test("Step 3.38 Pixel CA provisioning and workload session broker stay reference
     assert.equal(ca.payload.package.installMethods[1].status, "blocked_on_grapheneos_file_uri");
 
     const broker = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-session-broker/signal");
-    assert.equal(broker.payload.broker.authMode, "kasm_session_broker_required");
+    assert.equal(broker.payload.broker.authMode, "g2_session_broker_required");
+    assert.equal(broker.payload.broker.sessionBroker.requiredLayer, "G2");
+    assert.equal(broker.payload.broker.sessionBroker.noVncProductionApproved, false);
     assert.equal(broker.payload.broker.handoff.storesOperationalDataOnTerminal, false);
     assert.ok(broker.payload.broker.blockers.includes("pixel_internal_ca_not_trusted"));
     assert.equal(JSON.stringify(broker.payload).includes("privateKey"), false);

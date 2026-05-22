@@ -540,6 +540,7 @@
       method: "POST",
       body: {
         templateKey: data.templateKey,
+        protocol: data.protocol,
         width,
         height,
         dpr
@@ -552,6 +553,7 @@
     const session = result.session;
     setText("#stream-session-state", session.state);
     setText("#stream-session-gateway", `${session.gateway.host} | ${session.gateway.protocol}`);
+    setText("#stream-session-broker", `${session.gateway.broker?.protocol || session.gateway.protocol} | ${session.gateway.broker?.labOnly ? "lab only" : "production candidate"}`);
     setText("#stream-session-url", session.launchUrl || "blocked_until_gate_passes");
     setText("#stream-session-blockers", (session.blockers || []).join(", ") || "-");
     const center = $(".stream-center span");
@@ -574,7 +576,7 @@
         tlsInternalOnly: data.tlsInternalOnly === "on",
         inputProxyReady: data.inputProxyReady === "on",
         publicInternetExposure: false,
-        protocol: "webrtc_or_selkies",
+        protocol: data.protocol,
         sources
       }
     });
@@ -610,7 +612,7 @@
           process: "sylion-g2-stream-gateway",
           bindAddress: data.gatewayBindAddress,
           port: Number(data.gatewayPort || 8443),
-          protocol: "webrtc_or_selkies",
+          protocol: data.protocol,
           tlsMode: "internal_tls_only",
           publicInternetExposure: false
         },

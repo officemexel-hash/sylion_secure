@@ -1,4 +1,4 @@
-# Step 3.78 - Zangi Android Native noVNC Bridge
+# Step 3.78 - Zangi Android Native noVNC Lab Bridge
 
 Date: 2026-05-22
 
@@ -6,7 +6,9 @@ Date: 2026-05-22
 
 This step wires the Zangi Android-native workload surface into the real G2 workload gateway path:
 
-Pixel terminal -> G1 VPN -> G2 TLS broker -> workload private network -> AX102 Android runner -> noVNC/websockify.
+Pixel terminal -> G1 VPN -> G2 TLS broker -> workload private network -> AX102 Android runner -> noVNC/websockify lab adapter.
+
+Per `ADR-g2-session-broker-001`, this route is lab evidence only. It does not approve noVNC as the production G2 Session Broker.
 
 This is still not a production PASS for Zangi. The route exists, but the Pixel human test blocks the app because the Android screen stream does not yet render the usable Android UI and no approved Zangi APK/account bootstrap exists.
 

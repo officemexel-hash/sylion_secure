@@ -37,6 +37,23 @@ const WORKLOAD_CONTROL_APPS = Object.freeze([
 ]);
 
 const ANDROID_WORKLOAD_APPS = new Set(["zangi"]);
+const SESSION_BROKER_PROTOCOLS = Object.freeze({
+  GUACAMOLE: "guacamole",
+  WEBRTC_SELKIES: "webrtc_selkies",
+  LEGACY_WEBRTC_OR_SELKIES: "webrtc_or_selkies",
+  NOVNC_LAB: "novnc_lab"
+});
+const PRODUCTION_SESSION_BROKER_PROTOCOLS = new Set([
+  SESSION_BROKER_PROTOCOLS.GUACAMOLE,
+  SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES,
+  SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+]);
+const LAB_SESSION_BROKER_PROTOCOLS = new Set([
+  SESSION_BROKER_PROTOCOLS.NOVNC_LAB,
+  "novnc",
+  "novnc_websockify",
+  "novnc_over_g2_private_websockify_vnc_vencrypt_adapter"
+]);
 
 const WORKLOAD_CONTROL_ACTIONS = new Set(["scale_to_counts", "rotate_app", "recreate_all"]);
 const UNLOCK_LAYERS = Object.freeze(["g1", "g2", "workload"]);
@@ -772,6 +789,13 @@ export class OperatorPortalService {
           "https://duckduckgo.sylion.internal/vnc.html",
           "https://libreoffice.sylion.internal/"
         ],
+        sessionBroker: {
+          requiredLayer: "G2",
+          productionCandidates: ["guacamole", "webrtc_selkies"],
+          labFallback: "novnc_lab",
+          selectedProtocol: this.#selectedSessionBrokerProtocol(),
+          noVncProductionApproved: false
+        },
         streamResizePolicy: "server_side_dynamic_resolution",
         clipboardDefault: "disabled",
         fileTransfer: "cdr_required"
@@ -791,7 +815,7 @@ export class OperatorPortalService {
         requiredChecks: [
           "ikev2_sa_established",
           "operator_panel_loads_through_internal_tls",
-          "noVNC_or_WebRTC_frame_visible",
+          "guacamole_or_webrtc_session_broker_visible",
           "clipboard_disabled_by_default",
           "cdr_gate_blocks_file_transfer_without_decision"
         ]
@@ -821,7 +845,8 @@ export class OperatorPortalService {
       state: execution.launchAllowed || routeStatus.ready ? "session_ready" : "session_prepared_with_blockers",
       url: this.#workloadLaunchUrl(normalizedTemplate, host),
       routeStatus,
-      authMode: normalizedTemplate === "signal" ? "kasm_session_broker_required" : "g2_internal_tls",
+      authMode: normalizedTemplate === "signal" ? "g2_session_broker_required" : "g2_internal_tls",
+      sessionBroker: this.#sessionBrokerCatalog(),
       handoff: {
         terminalMode: operatorActor.terminalMode,
         opensInBrowser: true,
@@ -1168,8 +1193,10 @@ export class OperatorPortalService {
       terminalMode: operatorActor.terminalMode,
       viewport: { width: w, height: h, dpr: ratio, orientation: portrait ? "portrait" : "landscape" },
       stream: {
-        protocol: "webrtc_planned",
+        protocol: this.#selectedSessionBrokerProtocol(),
         source: "G2 pixel stream gateway",
+        brokerLayer: "G2",
+        brokerCandidates: this.#sessionBrokerCatalog().candidates,
         targetWidth,
         targetHeight,
         codec: "h264_baseline_or_av1_when_available",
@@ -1213,7 +1240,12 @@ export class OperatorPortalService {
     const env = this.env || {};
     const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
     const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
-    const streamGatewayReady = this.#streamGatewayReady(readiness, env);
+    const brokerPolicy = this.#sessionBrokerPolicy({
+      protocol: body.protocol || runtimeManifest?.gateway?.protocol || readiness?.gateway?.protocol || env.SYLION_G2_SESSION_BROKER,
+      readiness,
+      runtimeManifest
+    });
+    const streamGatewayReady = this.#streamGatewayReady(readiness, env) && brokerPolicy.gatewayReady;
     const appStreamHost = this.#streamHostForTemplate(templateKey);
     const streamSourceBlockers = this.#streamSourceBlockers({ templateKey, env, readiness });
     const appSpecificBlockers = [
@@ -1224,6 +1256,7 @@ export class OperatorPortalService {
       ...foundation.blockers.map((blocker) => `live_access:${blocker}`),
       ...streamSourceBlockers,
       ...(streamGatewayReady ? [] : ["g2_stream_gateway_not_ready"]),
+      ...brokerPolicy.blockers,
       ...appSpecificBlockers
     ];
     const ready = blockers.length === 0;
@@ -1241,7 +1274,8 @@ export class OperatorPortalService {
         role: "G2",
         host: "g2-stream.sylion.internal",
         appHost: appStreamHost,
-        protocol: streamGatewayReady ? "webrtc_or_selkies_ready" : "webrtc_or_selkies_required",
+        protocol: brokerPolicy.protocol,
+        broker: brokerPolicy,
         transport: "internal_tls_via_g1_g2",
         publicInternetExposure: false,
         evidenceId: readiness?.id || null,
@@ -1274,6 +1308,7 @@ export class OperatorPortalService {
       warnings: [
         ...execution.warnings,
         ...(runtimeManifest?.ready ? [] : ["stream_runtime_manifest_not_ready"]),
+        ...(brokerPolicy.labOnly ? ["novnc_is_lab_only_until_human_approved_adr"] : []),
         "streaming_session_is_pixels_only_terminal_boundary",
         "production_runner_requires_human_pixel_visual_regression"
       ],
@@ -1313,11 +1348,24 @@ export class OperatorPortalService {
       deviceId: operatorActor.deviceId,
       gateway: {
         g2StreamGatewayReady: body.g2StreamGatewayReady === true,
-        protocol: String(body.protocol || "webrtc_or_selkies").slice(0, 64),
+        protocol: this.#normalizeSessionBrokerProtocol(body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES),
         publicInternetExposure: body.publicInternetExposure === true,
         tlsInternalOnly: body.tlsInternalOnly === true,
-        inputProxyReady: body.inputProxyReady === true
+        inputProxyReady: body.inputProxyReady === true,
+        brokerLayer: "G2"
       },
+      broker: this.#sessionBrokerPolicy({
+        protocol: body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES,
+        readiness: {
+          ready: body.g2StreamGatewayReady === true
+            && body.publicInternetExposure !== true
+            && body.tlsInternalOnly === true
+            && body.inputProxyReady === true,
+          gateway: {
+            protocol: this.#normalizeSessionBrokerProtocol(body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES)
+          }
+        }
+      }),
       sources,
       observedAt: isoNow(),
       source: "operator_streaming_readiness_evidence",
@@ -1371,11 +1419,23 @@ export class OperatorPortalService {
         process: String(body.gateway?.process || "sylion-g2-stream-gateway").slice(0, 96),
         bindAddress: gatewayBind,
         port: gatewayPort,
-        protocol: String(body.gateway?.protocol || "webrtc_or_selkies").slice(0, 64),
+        protocol: this.#normalizeSessionBrokerProtocol(body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES),
         tlsMode: String(body.gateway?.tlsMode || "internal_tls_only").slice(0, 64),
         publicInternetExposure: body.gateway?.publicInternetExposure === true || body.publicInternetExposure === true,
         inputProxy: "server_side_input_events_only"
       },
+      broker: this.#sessionBrokerPolicy({
+        protocol: body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES,
+        runtimeManifest: {
+          ready: this.#privateBindAllowed(gatewayBind)
+            && body.gateway?.publicInternetExposure !== true
+            && body.publicInternetExposure !== true
+            && String(body.gateway?.tlsMode || "internal_tls_only") === "internal_tls_only",
+          gateway: {
+            protocol: this.#normalizeSessionBrokerProtocol(body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES)
+          }
+        }
+      }),
       sources,
       healthChecks: {
         gateway: `https://${gatewayBind}:${gatewayPort}/healthz`,
@@ -2457,6 +2517,96 @@ export class OperatorPortalService {
       .at(-1) || null;
   }
 
+  #selectedSessionBrokerProtocol() {
+    return this.#normalizeSessionBrokerProtocol(this.env?.SYLION_G2_SESSION_BROKER || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
+  }
+
+  #sessionBrokerCatalog() {
+    return {
+      requiredLayer: "G2",
+      selectedProtocol: this.#selectedSessionBrokerProtocol(),
+      candidates: [
+        {
+          protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
+          name: "Apache Guacamole",
+          status: this.env?.SYLION_GUACAMOLE_BROKER_READY === "true" ? "candidate_ready" : "poc_required",
+          productionCandidate: true,
+          labOnly: false,
+          strengths: ["mature_vnc_rdp_ssh_broker", "central_policy_point", "audit_metadata_point"]
+        },
+        {
+          protocol: SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES,
+          name: "Selkies/WebRTC",
+          status: this.env?.SYLION_SELKIES_GATEWAY_READY === "true" ? "candidate_ready" : "poc_required",
+          productionCandidate: true,
+          labOnly: false,
+          strengths: ["mobile_latency_candidate", "dynamic_resize_candidate", "touch_input_candidate"]
+        },
+        {
+          protocol: SESSION_BROKER_PROTOCOLS.NOVNC_LAB,
+          name: "noVNC/websockify",
+          status: this.env?.SYLION_NOVNC_LAB_READY === "true" ? "lab_ready" : "lab_adapter_only",
+          productionCandidate: false,
+          labOnly: true,
+          strengths: ["quick_vnc_smoke", "firecracker_gui_lab_bridge"]
+        }
+      ],
+      productionApprovalRequired: true,
+      noVncProductionApproved: false
+    };
+  }
+
+  #normalizeSessionBrokerProtocol(value) {
+    const raw = String(value || "").trim().toLowerCase();
+    if (raw === "selkies" || raw === "webrtc" || raw === "selkies_webrtc") return SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES;
+    if (raw === "guac" || raw === "apache_guacamole") return SESSION_BROKER_PROTOCOLS.GUACAMOLE;
+    if (LAB_SESSION_BROKER_PROTOCOLS.has(raw)) return SESSION_BROKER_PROTOCOLS.NOVNC_LAB;
+    if (PRODUCTION_SESSION_BROKER_PROTOCOLS.has(raw)) return raw;
+    return SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES;
+  }
+
+  #sessionBrokerPolicy({ protocol = null, readiness = null, runtimeManifest = null } = {}) {
+    const selected = this.#normalizeSessionBrokerProtocol(protocol || this.#selectedSessionBrokerProtocol());
+    const labOnly = selected === SESSION_BROKER_PROTOCOLS.NOVNC_LAB;
+    const guacamoleReady = this.env?.SYLION_GUACAMOLE_BROKER_READY === "true"
+      || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE)
+      || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE);
+    const webrtcReady = this.env?.SYLION_SELKIES_GATEWAY_READY === "true"
+      || this.env?.SYLION_G2_STREAM_GATEWAY_READY === "true"
+      || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES)
+      || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES)
+      || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES)
+      || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
+    const gatewayReady = selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
+      ? guacamoleReady
+      : selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+        ? webrtcReady
+        : false;
+    const blockers = [
+      ...(labOnly ? ["novnc_lab_only_not_approved_for_production_broker"] : []),
+      ...(selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE && !guacamoleReady ? ["guacamole_broker_poc_not_ready"] : []),
+      ...((selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES) && !webrtcReady
+        ? ["webrtc_selkies_broker_poc_not_ready"]
+        : [])
+    ];
+    return {
+      protocol: selected,
+      requiredLayer: "G2",
+      gatewayReady,
+      labOnly,
+      productionCandidate: !labOnly,
+      productionApproved: false,
+      humanGateRequired: true,
+      blockers,
+      candidates: this.#sessionBrokerCatalog().candidates.map((candidate) => ({
+        protocol: candidate.protocol,
+        status: candidate.status,
+        labOnly: candidate.labOnly,
+        productionCandidate: candidate.productionCandidate
+      }))
+    };
+  }
+
   #streamGatewayReady(readiness, env) {
     if (readiness?.gateway?.g2StreamGatewayReady === true
       && readiness.gateway.publicInternetExposure === false
@@ -2464,7 +2614,9 @@ export class OperatorPortalService {
       && readiness.gateway.inputProxyReady === true) {
       return true;
     }
-    return env.SYLION_G2_STREAM_GATEWAY_READY === "true" || env.SYLION_SELKIES_GATEWAY_READY === "true";
+    return env.SYLION_G2_STREAM_GATEWAY_READY === "true"
+      || env.SYLION_SELKIES_GATEWAY_READY === "true"
+      || env.SYLION_GUACAMOLE_BROKER_READY === "true";
   }
 
   #streamSourceBlockers({ templateKey, env, readiness = null }) {
@@ -2480,6 +2632,7 @@ export class OperatorPortalService {
       ...(evidence.gateway.publicInternetExposure ? ["g2_stream_gateway_public_exposure_forbidden"] : []),
       ...(evidence.gateway.tlsInternalOnly ? [] : ["g2_stream_gateway_internal_tls_required"]),
       ...(evidence.gateway.inputProxyReady ? [] : ["g2_input_proxy_not_ready"]),
+      ...(evidence.broker?.blockers || []),
       ...(sourceReady.length ? [] : ["at_least_one_workload_stream_source_required"])
     ];
   }
@@ -2490,6 +2643,7 @@ export class OperatorPortalService {
       ...(this.#privateBindAllowed(manifest.gateway.bindAddress) ? [] : ["g2_gateway_private_bind_required"]),
       ...(manifest.gateway.publicInternetExposure ? ["g2_gateway_public_exposure_forbidden"] : []),
       ...(manifest.gateway.tlsMode === "internal_tls_only" ? [] : ["g2_gateway_internal_tls_required"]),
+      ...(manifest.broker?.blockers || []),
       ...(sourceEntries.length ? [] : ["at_least_one_stream_source_manifest_required"]),
       ...sourceEntries.flatMap(([key, source]) => [
         ...(this.#privateBindAllowed(source.bindAddress) ? [] : [`${key}_source_private_bind_required`]),
@@ -2519,6 +2673,7 @@ export class OperatorPortalService {
       terminalMode: manifest.terminalMode,
       deviceId: manifest.deviceId,
       gateway: manifest.gateway,
+      broker: manifest.broker,
       sources: manifest.sources,
       healthChecks: manifest.healthChecks,
       guardrails: manifest.guardrails,
@@ -2537,6 +2692,7 @@ export class OperatorPortalService {
       terminalMode: evidence.terminalMode,
       deviceId: evidence.deviceId,
       gateway: evidence.gateway,
+      broker: evidence.broker,
       sources: evidence.sources,
       ready: evidence.ready,
       blockers: evidence.blockers,

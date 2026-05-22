@@ -86,6 +86,8 @@ test("Step 3.60 production readiness exposes operator cost, route evidence and a
     const readiness = await client.getProductionReadiness();
     assert.equal(readiness.readiness.summary.operators, 1);
     assert.equal(readiness.readiness.summary.productionExecutionAllowed, false);
+    assert.equal(readiness.readiness.sessionBroker.selectedProtocol, "adr_pending");
+    assert.ok(readiness.readiness.sessionBroker.blockers.includes("g2_session_broker_adr_pending"));
     const row = readiness.readiness.operators[0];
     assert.equal(row.operatorId, operator.operator.id);
     assert.equal(row.tier, "PRO");
@@ -96,6 +98,7 @@ test("Step 3.60 production readiness exposes operator cost, route evidence and a
     assert.equal(row.path.laptop, "ready");
     assert.equal(row.path.g1g2, "ready");
     assert.equal(row.path.g2Workload, "ready");
+    assert.equal(row.sessionBroker.noVncProductionApproved, false);
     assert.equal(row.subscription.tokenState, "planned");
 
     const duck = row.apps.find((app) => app.key === "duckduckgo_browser");
