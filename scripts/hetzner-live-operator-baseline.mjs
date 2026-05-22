@@ -173,6 +173,7 @@ write_files:
             - PGID=1000
             - TZ=UTC
             - TITLE=SYLION DuckDuckGo
+            - FIREFOX_CLI=https://duckduckgo.com/
           ports:
             - "127.0.0.1:3001:3000"
           volumes:
@@ -200,6 +201,7 @@ write_files:
             - PGID=1000
             - TZ=UTC
             - TITLE=SYLION WhatsApp Web
+            - CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://web.whatsapp.com/
           ports:
             - "127.0.0.1:3010:3000"
           volumes:
@@ -214,6 +216,7 @@ write_files:
             - PGID=1000
             - TZ=UTC
             - TITLE=SYLION Telegram Web
+            - CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://web.telegram.org/k/
           ports:
             - "127.0.0.1:3011:3000"
           volumes:
@@ -228,6 +231,7 @@ write_files:
             - PGID=1000
             - TZ=UTC
             - TITLE=SYLION Threema Web
+            - CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://web.threema.ch/
           ports:
             - "127.0.0.1:3012:3000"
           volumes:
@@ -242,6 +246,7 @@ write_files:
             - PGID=1000
             - TZ=UTC
             - TITLE=SYLION Zangi
+            - CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://zangi.com/en-us/download
           ports:
             - "127.0.0.1:3014:3000"
           volumes:
@@ -256,6 +261,7 @@ write_files:
             - PGID=1000
             - TZ=UTC
             - TITLE=SYLION Exodus
+            - CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://www.exodus.com/download/
           ports:
             - "127.0.0.1:3015:3000"
           volumes:
@@ -323,13 +329,13 @@ write_files:
       docker volume create sylion_exodus_config >/dev/null
       docker volume create sylion_signal_profile >/dev/null
 
-      docker run -d --name sylion-duckduckgo --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION DuckDuckGo' -p "$private_ip:3001:3000" -v sylion_duckduckgo_config:/config lscr.io/linuxserver/firefox:latest
+      docker run -d --name sylion-duckduckgo --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION DuckDuckGo' -e FIREFOX_CLI='https://duckduckgo.com/' -p "$private_ip:3001:3000" -v sylion_duckduckgo_config:/config lscr.io/linuxserver/firefox:latest
       docker run -d --name sylion-libreoffice --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -p "$private_ip:3002:3000" -v sylion_libreoffice_config:/config lscr.io/linuxserver/libreoffice:latest
-      docker run -d --name sylion-whatsapp-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION WhatsApp Web' -p "$private_ip:3010:3000" -v sylion_whatsapp_config:/config lscr.io/linuxserver/chromium:latest
-      docker run -d --name sylion-telegram-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Telegram Web' -p "$private_ip:3011:3000" -v sylion_telegram_config:/config lscr.io/linuxserver/chromium:latest
-      docker run -d --name sylion-threema-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Threema Web' -p "$private_ip:3012:3000" -v sylion_threema_config:/config lscr.io/linuxserver/chromium:latest
-      docker run -d --name sylion-zangi-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Zangi' -p "$private_ip:3014:3000" -v sylion_zangi_config:/config lscr.io/linuxserver/chromium:latest
-      docker run -d --name sylion-exodus --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Exodus' -p "$private_ip:3015:3000" -v sylion_exodus_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-whatsapp-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION WhatsApp Web' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://web.whatsapp.com/' -p "$private_ip:3010:3000" -v sylion_whatsapp_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-telegram-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Telegram Web' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://web.telegram.org/k/' -p "$private_ip:3011:3000" -v sylion_telegram_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-threema-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Threema Web' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://web.threema.ch/' -p "$private_ip:3012:3000" -v sylion_threema_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-zangi-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Zangi' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://zangi.com/en-us/download' -p "$private_ip:3014:3000" -v sylion_zangi_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-exodus --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Exodus' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://www.exodus.com/download/' -p "$private_ip:3015:3000" -v sylion_exodus_config:/config lscr.io/linuxserver/chromium:latest
       docker run -d --name sylion-signal-desktop --restart unless-stopped --shm-size 1g -e VNC_PW=sylion-signal-local -e KASM_RESOLUTION=1080x2400 -p "$private_ip:3013:6901" -v sylion_signal_profile:/home/kasm-user/.config/Signal sylion/signal-workload:prod-candidate
 
       docker exec sylion-signal-desktop dpkg-query -W signal-desktop > /opt/sylion-workloads/signal-version.txt

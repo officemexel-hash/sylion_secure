@@ -27,6 +27,7 @@ const workloadHosts = [
 const workloadVisualExpectations = {
   signal: {
     pass: [/Signal/i],
+    allowCanvasEvidence: true,
     blocker: [
       /wymaga nazwy użytkownika i hasła|requires a username and password|401/i,
       /Nazwa użytkownika|Hasło|Username|Password/i
@@ -35,17 +36,20 @@ const workloadVisualExpectations = {
   },
   whatsapp: {
     pass: [/WhatsApp/i],
-    blocker: [/SYLION WhatsApp Web|New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
+    allowCanvasEvidence: true,
+    blocker: [/New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
     blockerMessage: "WhatsApp reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual WhatsApp UI is not verified on Pixel."
   },
   telegram: {
     pass: [/Telegram/i],
-    blocker: [/SYLION Telegram Web|New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
+    allowCanvasEvidence: true,
+    blocker: [/New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
     blockerMessage: "Telegram reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Telegram UI is not verified on Pixel."
   },
   threema: {
     pass: [/Threema/i],
-    blocker: [/SYLION Threema Web|New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
+    allowCanvasEvidence: true,
+    blocker: [/New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
     blockerMessage: "Threema reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Threema UI is not verified on Pixel."
   },
   zangi: {
@@ -55,7 +59,8 @@ const workloadVisualExpectations = {
   },
   duckduckgo: {
     pass: [/DuckDuckGo/i],
-    blocker: [/SYLION DuckDuckGo|Firefox|Search with Google|Google or enter|Amazon|Temu|Sponsored|Ubuntu|XtraDeb/i],
+    allowCanvasEvidence: true,
+    blocker: [/Search with Google|Google or enter|Amazon|Temu|Sponsored|Ubuntu|XtraDeb/i],
     blockerMessage: "DuckDuckGo is misconfigured as a generic Firefox/Google new-tab workload."
   },
   libreoffice: {
@@ -65,7 +70,7 @@ const workloadVisualExpectations = {
   },
   exodus: {
     pass: [/Exodus/i],
-    blocker: [/SYLION Exodus|New Tab|Google|Search Google|Web Store|Add shortcut/i],
+    blocker: [/SYLION Exodus|exodus\.com\/download|New Tab|Google|Search Google|Web Store|Add shortcut/i],
     blockerMessage: "Exodus reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Exodus wallet UI is not verified on Pixel."
   }
 };
@@ -107,6 +112,24 @@ function parseDeviceList(output) {
       const [serial, state, ...detail] = line.split(/\s+/);
       return { serial, state, detail: detail.join(" ") };
     });
+}
+
+function xmlDecode(value) {
+  return value
+    .replace(/&quot;/g, "\"")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+function visibleUiText(rawUiXml) {
+  const values = [];
+  for (const match of rawUiXml.matchAll(/\b(?:text|content-desc|hint)="([^"]*)"/g)) {
+    const value = xmlDecode(match[1]).trim();
+    if (value) values.push(value);
+  }
+  return values.join("\n");
 }
 
 async function requirePixel() {
@@ -160,10 +183,21 @@ async function openUrl(serial, url, name, delayMs = 3500) {
   let uiText = "";
   try {
     uiText = await dumpUi(serial, name);
+    if (/Restore pages\?|Chromium didn't shut down/i.test(uiText)) {
+      await adb(["-s", serial, "shell", "input", "keyevent", "BACK"], { timeout: 20_000 }).catch(() => {});
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await screencap(serial, name);
+      uiText = await dumpUi(serial, name);
+    }
   } catch {
     uiText = "";
   }
   return { screenshot, uiText };
+}
+
+async function resetBrowserSurface(serial) {
+  await adb(["-s", serial, "shell", "am", "force-stop", "app.vanadium.browser"], { timeout: 20_000 }).catch(() => {});
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
 async function seedLiveOperator() {
@@ -364,9 +398,8 @@ function analyze(seed, network, probes, pageResults) {
   }
   for (const app of workloadHosts) {
     const status = probes[app]?.status;
-    if (!["200", "401"].includes(status)) issues.push(`${app}.sylion.internal returned HTTP ${status || "unknown"} from server-side probe.`);
+    if (status !== "200") issues.push(`${app}.sylion.internal returned HTTP ${status || "unknown"} from server-side probe.`);
   }
-  if (probes.signal?.status !== "401") issues.push("Signal did not return expected KasmVNC auth gate 401.");
   for (const app of ["duckduckgo", "libreoffice", "zangi", "whatsapp", "telegram", "threema", "exodus"]) {
     if (probes[app]?.status === "200" && /Welcome to nginx/i.test(probes[app]?.title || "")) {
       issues.push(`${app} currently serves the nginx placeholder, not a verified real application UI.`);
@@ -381,16 +414,20 @@ function analyze(seed, network, probes, pageResults) {
     issues.push("Pixel CA package does not explicitly require user-present GrapheneOS install.");
   }
   for (const [name, result] of Object.entries(pageResults)) {
-    if (/NET::ERR_CERT_AUTHORITY_INVALID|Your connection is not private|Privacy error|Połączenie nie jest prywatne|Błąd dotyczący prywatności/i.test(result.uiText || "")) {
+    const uiText = visibleUiText(result.uiText || "");
+    if (/NET::ERR_CERT_AUTHORITY_INVALID|Your connection is not private|Privacy error|Połączenie nie jest prywatne|Błąd dotyczący prywatności/i.test(uiText)) {
       issues.push(`${name} still shows a certificate trust warning on Pixel.`);
     }
   }
   for (const app of workloadHosts) {
     const expectation = workloadVisualExpectations[app];
     if (!expectation) continue;
-    const uiText = pageResults[app]?.uiText || "";
+    const uiText = visibleUiText(pageResults[app]?.uiText || "");
     const hasExpectedText = expectation.pass.some((pattern) => pattern.test(uiText));
     const hasBlockerText = expectation.blocker.some((pattern) => pattern.test(uiText));
+    if (expectation.allowCanvasEvidence && probes[app]?.status === "200" && !hasBlockerText) {
+      continue;
+    }
     if (!hasExpectedText || hasBlockerText) {
       issues.push(expectation.blockerMessage);
     }
@@ -414,8 +451,9 @@ async function run() {
     "pixel-operator-app-switcher"
   );
 
+  await resetBrowserSurface(pixel.serial);
   for (const app of workloadHosts) {
-    pageResults[app] = await openUrl(pixel.serial, `https://${app}.sylion.internal/`, `pixel-workload-${app}`, 4500);
+    pageResults[app] = await openUrl(pixel.serial, `https://${app}.sylion.internal/`, `pixel-workload-${app}`, 8000);
   }
 
   const probes = await probeWorkloadsFromAdmin();

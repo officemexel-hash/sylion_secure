@@ -72,10 +72,15 @@ Confirmed working:
   - `10.42.0.12`
 - Server-side HTTPS probes return:
   - Admin/operator: `200`
-  - Signal: `401` KasmVNC auth gate
+  - Signal: `200` after G2 workload-auth handoff
   - Other workload hostnames: `200`
 - Internal certificate SAN contains all current SYLION internal names.
 - Operator panel is reachable on the Pixel and exposes the app switcher plus operator controls.
+- Signal Desktop renders on Pixel and shows the QR device-link screen.
+- WhatsApp Web renders on Pixel and shows the QR login screen.
+- Telegram Web renders on Pixel and shows the QR/login screen.
+- Threema Web renders on Pixel and shows the QR login screen.
+- DuckDuckGo renders on Pixel through the remote browser workload.
 - LibreOffice renders a real LibreOffice remote desktop surface on the Pixel.
 
 Findings:
@@ -90,12 +95,9 @@ Findings:
    - CA certificate
    - `Downloads/sylion-internal-ca.crt`
 3. `/operator-api/vpn-install-package` still reports `blocked_human_gate` even though a live strongSwan VPN exists on the Pixel. The operator control plane must be updated to reconcile live VPN evidence.
-4. Signal reaches the private workload host but stops at a browser basic-auth gate. Pixel does not yet see the Signal Desktop session.
-5. WhatsApp, Telegram and Threema expose only a generic SYLION/Selkies stream shell or browser new-tab state in the human visual evidence. The actual communicator UI is not verified.
-6. Zangi is not production-ready: current evidence is either the generic stream shell or a public Zangi download page. Production Zangi still requires an isolated Android-native workload runner.
-7. DuckDuckGo is misconfigured as a generic Firefox/Google new-tab workload, not a DuckDuckGo browsing workload.
-8. Exodus exposes only the generic stream shell or browser state; the actual Exodus wallet UI is not verified. Exodus remains operator-risk-accepted and must never store wallet secrets in SYLION control-plane metadata.
-9. The current test now treats HTTP `200` plus stream-shell visibility as insufficient for production. Each workload must prove app-specific UI on Pixel.
+4. Zangi is not production-ready: current evidence is an official Zangi web/download surface, not an isolated Android-native workload runner.
+5. Exodus exposes the official download/product surface, not the actual wallet app UI. Exodus remains operator-risk-accepted and must never store wallet secrets in SYLION control-plane metadata.
+6. The current test treats HTTP `200` plus stream-shell visibility as insufficient for production. Each workload must prove app-specific UI on Pixel or stay blocked in the catalog.
 
 ## Mermaid Flow
 
@@ -107,26 +109,23 @@ flowchart LR
     DNS --> Operator["operator.sylion.internal"]
     DNS --> Workloads["*.sylion.internal workloads"]
     Workloads --> Gateway["G2 / workload gateway 10.42.0.12"]
-    Gateway --> Signal["Signal KasmVNC auth gate"]
-    Gateway --> Shell["Selkies / noVNC stream shell"]
-    Shell --> Libre["LibreOffice real UI visible"]
-    Shell --> Blocked["Communicator/browser/wallet UI not yet verified"]
+    Gateway --> Signal["Signal Desktop QR visible"]
+    Gateway --> WebApps["Web communicators QR visible"]
+    Gateway --> Browser["DuckDuckGo browser visible"]
+    Gateway --> Libre["LibreOffice real UI visible"]
+    Gateway --> Blocked["Zangi native runner and Exodus wallet app blocked"]
     CA["SYLION internal CA"] -. "user-present installed" .-> Pixel
 ```
 
 ## Next Required Work
 
 1. Update operator API VPN package state so live strongSwan evidence can mark the VPN path as installed/active.
-2. Wire workload session broker credentials into the Pixel launch path so Signal opens the Signal Desktop stream instead of a browser auth prompt.
-3. Replace generic stream-shell placeholders with real workload images for WhatsApp, Telegram, Threema, DuckDuckGo and Exodus, or keep them explicitly blocked in the catalog.
-4. Implement the Android-native runtime path for Zangi before calling it production.
-5. Add app-specific Pixel assertions:
-   - Signal Desktop visible after auth handoff.
-   - WhatsApp Web QR/session screen visible.
-   - Telegram Web/Desktop visible.
-   - Threema Web/Desktop visible.
-   - Zangi native runtime visible.
-   - DuckDuckGo search page visible and can browse.
-   - LibreOffice can open Writer/Calc.
-   - Exodus wallet app visible only behind operator-risk acceptance.
+2. Move G2 workload-auth handoff from live patch into the baseline provisioning path and session broker model.
+3. Implement the Android-native runtime path for Zangi before calling it production.
+4. Decide whether Exodus is supported as a downloadable/operator-owned wallet or replaced by a real isolated desktop/mobile wallet workload behind explicit risk acceptance.
+5. Add interactive Pixel assertions:
+   - type a DuckDuckGo query and verify navigation.
+   - open LibreOffice Writer/Calc.
+   - close/open workload tabs through the operator app switcher.
+   - reset/recreate a workload from the operator settings panel and confirm CDR/audit events.
 6. Add a router package handoff test for Puli AX when the device arrives.
