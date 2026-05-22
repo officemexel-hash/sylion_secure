@@ -122,7 +122,20 @@ async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
 }
 
 export class OperatorPortalService {
-  constructor({ audit, rbac, operators, devices, subscriptions, operatorEnvironments, securityProfiles, routerReadiness = null, env = process.env, store = null, liveWorkloadRunner = defaultLiveWorkloadRunner }) {
+  constructor({
+    audit,
+    rbac,
+    operators,
+    devices,
+    subscriptions,
+    operatorEnvironments,
+    securityProfiles,
+    routerReadiness = null,
+    env = process.env,
+    store = null,
+    liveWorkloadRunner = defaultLiveWorkloadRunner,
+    workloadImageManifestResolver = null
+  }) {
     this.audit = audit;
     this.rbac = rbac;
     this.operators = operators;
@@ -146,6 +159,7 @@ export class OperatorPortalService {
     this.workloadControlJobs = new PersistentMap({ store, collection: "operator_workload_control_jobs" });
     this.accountBootstrapSessions = new PersistentMap({ store, collection: "operator_account_bootstrap_sessions" });
     this.liveWorkloadRunner = liveWorkloadRunner;
+    this.workloadImageManifestResolver = workloadImageManifestResolver;
   }
 
   createLocalSession({ actor, operatorId, terminalMode, deviceId = null, correlationId }) {
@@ -2861,25 +2875,35 @@ export class OperatorPortalService {
 
   #androidRuntimeSubstrate() {
     const env = this.env || {};
+    const manifest = this.workloadImageManifestResolver?.("zangi") || null;
+    const checkStatus = (key) => manifest?.checks?.find((check) => check.key === key)?.status;
+    const androidImageRef = env.SYLION_ANDROID_WORKLOAD_IMAGE_REF || manifest?.imageRef || null;
+    const zangiApkRef = env.SYLION_ZANGI_APK_REF || manifest?.packageRef || null;
+    const kvmReady = env.SYLION_ANDROID_KVM_READY === "true"
+      || env.SYLION_KVM_READY === "true"
+      || checkStatus("host_lab_ready") === "passed";
+    const binderReady = env.SYLION_ANDROID_BINDER_READY === "true"
+      || env.SYLION_ANDROID_BINDERFS_READY === "true"
+      || checkStatus("android_binderfs_evidence") === "passed";
     const checks = [
       {
         key: "kvm_device",
-        status: env.SYLION_ANDROID_KVM_READY === "true" || env.SYLION_KVM_READY === "true" ? "passed" : "blocked",
+        status: kvmReady ? "passed" : "blocked",
         detail: "/dev/kvm must be present on the WORKLOAD host or a dedicated Android runtime host"
       },
       {
         key: "binder_or_binderfs",
-        status: env.SYLION_ANDROID_BINDER_READY === "true" || env.SYLION_ANDROID_BINDERFS_READY === "true" ? "passed" : "blocked",
+        status: binderReady ? "passed" : "blocked",
         detail: "Android workloads require binder/binderfs support"
       },
       {
         key: "approved_android_image",
-        status: env.SYLION_ANDROID_WORKLOAD_IMAGE_REF ? "passed" : "blocked",
+        status: androidImageRef ? "passed" : "blocked",
         detail: "Android system image must be approved and pinned"
       },
       {
         key: "approved_zangi_apk_ref",
-        status: env.SYLION_ZANGI_APK_REF ? "passed" : "blocked",
+        status: zangiApkRef ? "passed" : "blocked",
         detail: "Zangi APK/source reference must be approved before native launch"
       }
     ];
@@ -2889,6 +2913,12 @@ export class OperatorPortalService {
       runtimeClass: "android_workload",
       hostRequirement: "kvm_or_bare_metal_with_binderfs",
       currentProviderFit: blockers.length ? "blocked_on_current_host" : "ready_for_android_runner_review",
+      evidenceSource: manifest ? "workload_image_manifest" : "environment_gate",
+      manifestId: manifest?.id || null,
+      refs: {
+        androidImageRef,
+        zangiApkRef
+      },
       ready: blockers.length === 0,
       checks,
       blockers

@@ -13,6 +13,18 @@ const sshKey = arg("key", process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION
 const host = arg("host", process.env.SYLION_WORKLOAD_SSH_HOST);
 const user = arg("user", process.env.SYLION_WORKLOAD_SSH_USER || "root");
 const workloadHost = arg("target", process.env.SYLION_WORKLOAD_SSH || (host ? `${user}@${host}` : "sylion@178.105.197.37"));
+const zangiApkRef = arg("zangi-apk-ref", process.env.SYLION_ZANGI_APK_REF);
+const androidImageRef = arg("android-image-ref", process.env.SYLION_ANDROID_WORKLOAD_IMAGE_REF);
+
+function safeRef(value, field) {
+  if (!value) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/password|secret|token|api[_-]?key|otp|sms|seed|mnemonic|private[_-]?key/i.test(text)) {
+    throw new Error(`${field} must be an artifact/package/image reference, not secret-bearing material`);
+  }
+  return text;
+}
 
 async function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -100,9 +112,11 @@ printf 'anbox=%s\\n' "$(command -v anbox >/dev/null 2>&1 && echo true || echo fa
     ...(facts.kvm ? [] : ["workload_host_missing_dev_kvm"]),
     ...(binderReady ? [] : ["workload_host_missing_binder_or_binderfs"])
   ];
+  const approvedZangiApkRef = safeRef(zangiApkRef, "zangi-apk-ref");
+  const approvedAndroidImageRef = safeRef(androidImageRef, "android-image-ref");
   const provenanceBlockers = [
-    ...(process.env.SYLION_ZANGI_APK_REF ? [] : ["approved_zangi_apk_ref_missing"]),
-    ...(process.env.SYLION_ANDROID_WORKLOAD_IMAGE_REF ? [] : ["approved_android_workload_image_missing"])
+    ...(approvedZangiApkRef ? [] : ["approved_zangi_apk_ref_missing"]),
+    ...(approvedAndroidImageRef ? [] : ["approved_android_workload_image_missing"])
   ];
   const blockers = [...hostBlockers, ...provenanceBlockers];
   return {
@@ -113,6 +127,10 @@ printf 'anbox=%s\\n' "$(command -v anbox >/dev/null 2>&1 && echo true || echo fa
     facts,
     hostReady: hostBlockers.length === 0,
     provenanceReady: provenanceBlockers.length === 0,
+    approvedRefs: {
+      zangiApkRef: approvedZangiApkRef,
+      androidImageRef: approvedAndroidImageRef
+    },
     ready: blockers.length === 0,
     blockers,
     recommendation: blockers.length

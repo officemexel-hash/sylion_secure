@@ -365,7 +365,8 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     routerReadiness,
     env: runtimeEnv,
     store,
-    liveWorkloadRunner: liveExecutionOptions.liveWorkloadRunner
+    liveWorkloadRunner: liveExecutionOptions.liveWorkloadRunner,
+    workloadImageManifestResolver: (appKey) => liveExecution.latestReadyWorkloadImageManifestForApp(appKey)
   });
 
   const services = {

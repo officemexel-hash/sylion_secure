@@ -80,6 +80,71 @@ async function seedOperator(client, tier = "PRO") {
   return { tenant, operator: created.operator, session: session.session };
 }
 
+async function registerAndroidReadyHostAndManifest(client) {
+  await client.registerWorkloadNativeHost({
+    hostId: "WORKLOAD_NATIVE_ANDROID_01",
+    serverNumber: "2983993",
+    productId: "AX102-U",
+    region: "hel1",
+    publicIpv4: "65.109.123.72",
+    lifecycleState: "lab_qualified",
+    tenancyMode: "shared_pool",
+    evidence: {
+      bootstrap: {
+        kvmDevice: "present",
+        virtualizationFlags: 32,
+        firecrackerBinary: "/opt/sylion/bin/firecracker",
+        jailerBinary: "/opt/sylion/bin/jailer"
+      },
+      firecrackerInstall: {
+        firecrackerVersion: "Firecracker v1.15.1",
+        jailerVersion: "Jailer v1.15.1"
+      },
+      firecrackerSmoke: {
+        microvmStarted: true,
+        state: "Running"
+      },
+      hardware: {
+        kvmDevice: "present",
+        amdVirtualizationFlags: 32,
+        apparmor: "active",
+        auditd: "active"
+      }
+    },
+    productionBlockers: [
+      "tenant_isolation_not_validated",
+      "android_runner_not_human_regressed",
+      "hsm_pki_not_integrated"
+    ]
+  });
+  return client.createWorkloadImageManifest({
+    hostId: "WORKLOAD_NATIVE_ANDROID_01",
+    appKey: "zangi",
+    appName: "Zangi",
+    runtimeKind: "android_native_workload",
+    imageRef: "image://sylion/android-native/zangi-lab-v0",
+    packageRef: "package://zangi/android-apk/approved-lab-ref",
+    cdrPolicyRef: "cdr://mandatory-workload-file-transfer",
+    streamGateway: {
+      bindAddress: "127.0.0.1",
+      sourcePort: 7914,
+      throughG2: true,
+      pixelOptimized: true,
+      publicExposureAllowed: false
+    },
+    buildEvidence: {
+      binderfs: true,
+      androidRuntime: true,
+      cdrHookDeclared: true
+    },
+    productionBlockers: [
+      "android_runner_not_human_regressed",
+      "account_bootstrap_not_verified",
+      "hsm_pki_not_integrated"
+    ]
+  });
+}
+
 test("Step 3.32 operator can queue communicator environment counts within tier quota", async () => {
   const { app, baseUrl, close } = await startTestServer();
   try {
@@ -153,6 +218,33 @@ test("Step 3.32 Zangi native runtime is blocked until Android host gates pass", 
     assert.equal(start.payload.request.state, "blocked");
     assert.equal(start.payload.request.launchAllowed, false);
     assert.equal(start.payload.request.productionExecutionAllowed, false);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.32 Zangi runtime gate consumes approved Android-native manifest refs", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    const manifest = await registerAndroidReadyHostAndManifest(client);
+    assert.equal(manifest.manifest.readyForLabLaunch, true);
+
+    const control = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control");
+    const zangiCatalog = control.payload.control.catalog.find((app) => app.key === "zangi");
+    assert.equal(zangiCatalog.runtimeGate.ready, true);
+    assert.equal(zangiCatalog.runtimeGate.evidenceSource, "workload_image_manifest");
+    assert.equal(zangiCatalog.runtimeGate.manifestId, manifest.manifest.id);
+    assert.equal(zangiCatalog.runtimeGate.refs.androidImageRef, "image://sylion/android-native/zangi-lab-v0");
+    assert.equal(zangiCatalog.runtimeGate.refs.zangiApkRef, "package://zangi/android-apk/approved-lab-ref");
+
+    const execution = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-execution/zangi");
+    assert.equal(execution.payload.execution.runtime.substrate.androidRuntime.ready, true);
+    assert.equal(execution.payload.execution.runtime.substrate.androidRuntime.evidenceSource, "workload_image_manifest");
+    assert.equal(execution.payload.execution.blockers.includes("android_kvm_device_not_ready"), false);
+    assert.ok(execution.payload.execution.blockers.includes("human_production_execution_approval_required"));
+    assert.equal(execution.payload.execution.productionExecutionAllowed, false);
   } finally {
     await close();
   }

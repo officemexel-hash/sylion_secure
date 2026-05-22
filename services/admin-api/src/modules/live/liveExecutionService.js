@@ -271,6 +271,15 @@ export class LiveExecutionService {
     return [...this.workloadImageManifests.values()];
   }
 
+  latestReadyWorkloadImageManifestForApp(appKey) {
+    const normalizedAppKey = String(appKey || "").trim().toLowerCase();
+    return [...this.workloadImageManifests.values()]
+      .filter((manifest) => manifest.appKey === normalizedAppKey)
+      .filter((manifest) => manifest.readyForLabLaunch === true)
+      .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0))
+      .at(0) || null;
+  }
+
   registerWorkloadNativeHost({
     actor,
     hostId = "WORKLOAD_NATIVE_LAB_01",

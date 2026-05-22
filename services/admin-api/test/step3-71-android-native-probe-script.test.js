@@ -9,6 +9,8 @@ test("Step 3.71 Android-native probe targets live hosts explicitly and does not 
   assert.match(source, /function arg\(name, fallback = null\)/);
   assert.match(source, /const host = arg\("host"/);
   assert.match(source, /const user = arg\("user"/);
+  assert.match(source, /const zangiApkRef = arg\("zangi-apk-ref"/);
+  assert.match(source, /const androidImageRef = arg\("android-image-ref"/);
   assert.match(source, /"ConnectTimeout=10"/);
   assert.match(source, /"ServerAliveInterval=10"/);
   assert.match(source, /"bash -s"/);
@@ -21,8 +23,10 @@ test("Step 3.71 Android-native probe separates host readiness from approved Zang
   assert.match(source, /const provenanceBlockers = \[/);
   assert.match(source, /hostReady: hostBlockers\.length === 0/);
   assert.match(source, /provenanceReady: provenanceBlockers\.length === 0/);
+  assert.match(source, /approvedRefs: \{/);
   assert.match(source, /approved_zangi_apk_ref_missing/);
   assert.match(source, /approved_android_workload_image_missing/);
+  assert.match(source, /must be an artifact\/package\/image reference/);
 });
 
 test("Step 3.71 Android binderfs installer is apply-gated and persists host kernel gates", () => {
