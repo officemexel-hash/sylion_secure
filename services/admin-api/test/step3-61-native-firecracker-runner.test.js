@@ -38,17 +38,24 @@ test("Step 3.61 AX102 Firecracker GUI runner exposes separate app profiles witho
   assert.equal(whatsapp.hostEndpoint, "10.44.0.13:3010");
   assert.equal(whatsapp.serverName, "whatsapp.sylion.internal");
 
+  const signal = await planFor("signal");
+  assert.equal(signal.hostEndpoint, "10.44.0.13:3013");
+  assert.equal(signal.serverName, "signal.sylion.internal");
+
   const exodus = await planFor("exodus");
   assert.equal(exodus.hostEndpoint, "10.44.0.13:3015");
   assert.equal(exodus.serverName, "exodus.sylion.internal");
 });
 
-test("Step 3.61 GUI microVM runner requires entropy and visible windows before readiness", async () => {
+test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible windows before readiness", async () => {
   const source = await readFile("scripts/launch-native-firecracker-gui-workload.mjs", "utf8");
 
   assert.match(source, /haveged -F -w 1024/);
   assert.match(source, /sylion-visible-window=true/);
-  assert.match(source, /ready:\(\$hostCode=="200" and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true/);
+  assert.match(source, /vncBannerReady:\$vncBannerReady/);
+  assert.match(source, /ready:\(\$hostCode=="200" and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true and \$vncBannerReady==true/);
+  assert.match(source, /vcpu_count": \$\{profile\.vcpuCount \|\| 2\}/);
+  assert.match(source, /mem_size_mib": \$\{profile\.memSizeMib \|\| 4096\}/);
   assert.match(source, /exodus_official_download_blocked_or_unavailable/);
   assert.match(source, /blockers:\$blockers/);
 });

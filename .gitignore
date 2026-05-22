@@ -6,3 +6,4 @@ coverage/
 *.log
 .data/
 .deploy/
+docs/admin-panel-v2/test-artifacts/

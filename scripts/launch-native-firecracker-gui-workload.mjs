@@ -141,7 +141,9 @@ EOF
     hostTapIp: "172.16.58.21",
     tap: "syliongui5",
     serverName: "signal.sylion.internal",
-    guestMac: "AA:FC:00:00:58:16"
+    guestMac: "AA:FC:00:00:58:16",
+    vcpuCount: 4,
+    memSizeMib: 6144
   },
   exodus: {
     title: "SYLION Exodus Desktop",
@@ -461,8 +463,8 @@ cat > "$run_dir/config.json" <<EOF
     }
   ],
   "machine-config": {
-    "vcpu_count": 2,
-    "mem_size_mib": 4096,
+    "vcpu_count": ${profile.vcpuCount || 2},
+    "mem_size_mib": ${profile.memSizeMib || 4096},
     "smt": false,
     "track_dirty_pages": false
   }
@@ -474,6 +476,21 @@ for i in $(seq 1 60); do
   if timeout 2 bash -lc "</dev/tcp/$guest_ip/5900" 2>/dev/null; then break; fi
   sleep 2
 done
+vnc_banner="$(GUEST_IP="$guest_ip" python3 - <<'PY'
+import os
+import socket
+
+try:
+    with socket.create_connection((os.environ["GUEST_IP"], 5900), 3) as sock:
+        print(sock.recv(12).decode("ascii", "ignore").strip())
+except Exception:
+    pass
+PY
+)"
+vnc_banner_ready=false
+case "$vnc_banner" in
+  RFB*) vnc_banner_ready=true ;;
+esac
 setsid websockify --web=/usr/share/novnc "$workload_private:$host_port" "$guest_ip:5900" > "$run_dir/websockify.log" 2>&1 &
 echo $! > "$run_dir/websockify.pid"
 sleep 1
@@ -511,12 +528,14 @@ jq -n \
   --argjson appRunning "$app_running" \
   --argjson appCrashed "$app_crashed" \
   --argjson visibleWindow "$visible_window" \
+  --arg vncBanner "$vnc_banner" \
+  --argjson vncBannerReady "$vnc_banner_ready" \
   --arg targetHttpCode "$target_http_code" \
   --argjson targetRequired "$target_required" \
   --argjson targetMarker "$target_marker" \
   --argjson blockers "$blockers_json" \
-  '{component:"native_firecracker_gui_workload", checkedAt:$checkedAt, runId:$runId, runDir:$runDir, appKey:$appKey, workloadPrivate:$workloadPrivate, hostPort:$hostPort, guestIp:$guestIp, tap:$tap, hostHttpCode:$hostCode, bootMarkers:$bootMarkers, noVncMarker:$novncMarker, appRunning:$appRunning, appCrashed:$appCrashed, visibleWindow:$visibleWindow, targetHttpCode:$targetHttpCode, targetContentRequired:$targetRequired, targetContentVerified:$targetMarker, ready:($hostCode=="200" and $novncMarker==true and $appRunning==true and $appCrashed==false and $visibleWindow==true and (($targetRequired==false) or ($targetMarker==true)) and ($blockers|length)==0), blockers:$blockers, terminalDataStored:false, secretsPrinted:false, productionExecutionAllowed:false}' | tee /opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json
-if [ "$app_running" != "true" ] || [ "$app_crashed" = "true" ] || [ "$visible_window" != "true" ] || { [ "$target_required" = "true" ] && [ "$target_marker" != "true" ]; } || [ -s "$run_dir/preflight.blockers" ]; then
+  '{component:"native_firecracker_gui_workload", checkedAt:$checkedAt, runId:$runId, runDir:$runDir, appKey:$appKey, workloadPrivate:$workloadPrivate, hostPort:$hostPort, guestIp:$guestIp, tap:$tap, hostHttpCode:$hostCode, bootMarkers:$bootMarkers, noVncMarker:$novncMarker, appRunning:$appRunning, appCrashed:$appCrashed, visibleWindow:$visibleWindow, vncBanner:$vncBanner, vncBannerReady:$vncBannerReady, targetHttpCode:$targetHttpCode, targetContentRequired:$targetRequired, targetContentVerified:$targetMarker, ready:($hostCode=="200" and $novncMarker==true and $appRunning==true and $appCrashed==false and $visibleWindow==true and $vncBannerReady==true and (($targetRequired==false) or ($targetMarker==true)) and ($blockers|length)==0), blockers:$blockers, terminalDataStored:false, secretsPrinted:false, productionExecutionAllowed:false}' | tee /opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json
+if [ "$app_running" != "true" ] || [ "$app_crashed" = "true" ] || [ "$visible_window" != "true" ] || [ "$vnc_banner_ready" != "true" ] || { [ "$target_required" = "true" ] && [ "$target_marker" != "true" ]; } || [ -s "$run_dir/preflight.blockers" ]; then
   kill "$(cat "$run_dir/firecracker.pid")" 2>/dev/null || true
   kill "$(cat "$run_dir/websockify.pid")" 2>/dev/null || true
   ip link show "$tap" >/dev/null 2>&1 && ip link del "$tap" || true
