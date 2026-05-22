@@ -577,6 +577,45 @@
     await loadAudit();
   }
 
+  function parseRuntimeSources(value) {
+    const sources = {};
+    for (const item of splitCsv(value)) {
+      const [templateKey, bindAddress, port] = item.split(":").map((part) => part.trim());
+      if (!templateKey || !bindAddress) continue;
+      sources[templateKey] = {
+        process: `${templateKey}-stream-source`,
+        bindAddress,
+        port: Number(port || 7900),
+        healthPath: "/healthz",
+        cdrRequired: true
+      };
+    }
+    return sources;
+  }
+
+  async function recordStreamRuntimeManifest(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/streaming-runtime-manifest", {
+      method: "POST",
+      body: {
+        gateway: {
+          process: "sylion-g2-stream-gateway",
+          bindAddress: data.gatewayBindAddress,
+          port: Number(data.gatewayPort || 8443),
+          protocol: "webrtc_or_selkies",
+          tlsMode: "internal_tls_only",
+          publicInternetExposure: false
+        },
+        sources: parseRuntimeSources(data.sources)
+      }
+    });
+    setText("#stream-runtime-status", result.error || (result.manifest.ready
+      ? `Runtime manifest accepted: ${result.manifest.id}`
+      : `Runtime manifest blocked: ${(result.manifest.blockers || []).join(", ")}`));
+    await loadAudit();
+  }
+
   async function loadSignalPreview() {
     const [pathData, streamData, executionData] = await Promise.all([
       fetchJson("/operator-api/connection-path"),
@@ -888,6 +927,7 @@
     $("#vpn-evidence-form").addEventListener("submit", recordVpnEvidence);
     $("#stream-session-form").addEventListener("submit", requestStreamSession);
     $("#stream-readiness-form").addEventListener("submit", recordStreamReadiness);
+    $("#stream-runtime-form").addEventListener("submit", recordStreamRuntimeManifest);
     $("#unlock-form").addEventListener("submit", saveUnlockPolicy);
     $("#safety-form").addEventListener("submit", saveSafetyPolicy);
     $("#jurisdiction-form").addEventListener("submit", saveJurisdictionPolicy);

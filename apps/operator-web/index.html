@@ -421,6 +421,13 @@
           <button type="submit">Record stream readiness</button>
         </form>
         <p id="stream-readiness-status" class="hint">No stream readiness evidence recorded in this browser session.</p>
+        <form id="stream-runtime-form" class="dense-form">
+          <label>G2 bind <input name="gatewayBindAddress" value="10.42.0.12"></label>
+          <label>G2 port <input name="gatewayPort" type="number" min="1" max="65535" value="8443"></label>
+          <label>Source apps <input name="sources" value="signal:10.42.0.13:7901,duckduckgo_browser:10.42.0.13:7902,libreoffice:10.42.0.13:7903"></label>
+          <button type="submit">Record runtime manifest</button>
+        </form>
+        <p id="stream-runtime-status" class="hint">No stream runtime manifest recorded in this browser session.</p>
         <dl class="stream-metrics">
           <dt>Session</dt><dd id="stream-session-state">not_requested</dd>
           <dt>Gateway</dt><dd id="stream-session-gateway">-</dd>

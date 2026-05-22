@@ -124,6 +124,46 @@ async function recordStreamingReadiness(baseUrl, token, body = {}) {
   });
 }
 
+async function recordStreamingRuntimeManifest(baseUrl, token, body = {}) {
+  return operatorRequest(baseUrl, token, "/operator-api/streaming-runtime-manifest", {
+    method: "POST",
+    body: {
+      gateway: {
+        process: "sylion-g2-stream-gateway",
+        bindAddress: "10.42.0.12",
+        port: 8443,
+        protocol: "webrtc_or_selkies",
+        tlsMode: "internal_tls_only",
+        publicInternetExposure: false
+      },
+      sources: {
+        signal: {
+          process: "signal-stream-source",
+          bindAddress: "10.42.0.13",
+          port: 7901,
+          healthPath: "/healthz",
+          cdrRequired: true
+        },
+        duckduckgo_browser: {
+          process: "duckduckgo-stream-source",
+          bindAddress: "10.42.0.13",
+          port: 7902,
+          healthPath: "/healthz",
+          cdrRequired: true
+        },
+        libreoffice: {
+          process: "libreoffice-stream-source",
+          bindAddress: "10.42.0.13",
+          port: 7903,
+          healthPath: "/healthz",
+          cdrRequired: true
+        }
+      },
+      ...body
+    }
+  });
+}
+
 test("Step 3.43 streaming session is blocked until live access and G2 stream gateway are ready", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
@@ -240,6 +280,10 @@ test("Step 3.43 operator-scoped stream readiness evidence unlocks only approved 
     assert.equal(readiness.evidence.ready, true);
     assert.equal(readiness.evidence.contentInspected, false);
     assert.equal(readiness.evidence.terminalDataStored, false);
+    const manifest = await recordStreamingRuntimeManifest(baseUrl, seeded.session.token);
+    assert.equal(manifest.manifest.ready, true);
+    assert.equal(manifest.manifest.gateway.bindAddress, "10.42.0.12");
+    assert.equal(manifest.manifest.guardrails.terminalReceivesOnlyPixels, true);
 
     const ready = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
       method: "POST",
@@ -247,6 +291,8 @@ test("Step 3.43 operator-scoped stream readiness evidence unlocks only approved 
     });
     assert.equal(ready.session.state, "stream_session_ready");
     assert.equal(ready.session.gateway.evidenceId, readiness.evidence.id);
+    assert.equal(ready.session.gateway.runtimeManifestId, manifest.manifest.id);
+    assert.equal(ready.session.source.runtimeManifestId, manifest.manifest.id);
     assert.equal(ready.session.source.readiness, "ready");
     assert.equal(ready.session.security.terminalDataStored, false);
 
@@ -255,6 +301,44 @@ test("Step 3.43 operator-scoped stream readiness evidence unlocks only approved 
     });
     assert.equal(denied.evidence.ready, false);
     assert.ok(denied.evidence.blockers.includes("g2_stream_gateway_public_exposure_forbidden"));
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.43 stream runtime manifest rejects public binds and sources without CDR", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    const deniedPublic = await recordStreamingRuntimeManifest(baseUrl, seeded.session.token, {
+      gateway: {
+        process: "bad-public-gateway",
+        bindAddress: "0.0.0.0",
+        port: 8443,
+        protocol: "webrtc_or_selkies",
+        tlsMode: "internal_tls_only",
+        publicInternetExposure: true
+      }
+    });
+    assert.equal(deniedPublic.manifest.ready, false);
+    assert.ok(deniedPublic.manifest.blockers.includes("g2_gateway_private_bind_required"));
+    assert.ok(deniedPublic.manifest.blockers.includes("g2_gateway_public_exposure_forbidden"));
+
+    const deniedCdr = await recordStreamingRuntimeManifest(baseUrl, seeded.session.token, {
+      sources: {
+        signal: {
+          process: "signal-stream-source",
+          bindAddress: "10.42.0.13",
+          port: 7901,
+          healthPath: "/healthz",
+          cdrRequired: false
+        }
+      }
+    });
+    assert.equal(deniedCdr.manifest.ready, false);
+    assert.ok(deniedCdr.manifest.blockers.includes("signal_source_cdr_required"));
+    assert.equal(JSON.stringify(deniedCdr).includes("message_database"), false);
   } finally {
     await close();
   }

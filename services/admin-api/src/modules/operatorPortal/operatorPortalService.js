@@ -87,6 +87,7 @@ export class OperatorPortalService {
     this.vpnEvidence = new PersistentMap({ store, collection: "operator_vpn_evidence" });
     this.streamingSessions = new PersistentMap({ store, collection: "operator_streaming_sessions" });
     this.streamingReadinessEvidence = new PersistentMap({ store, collection: "operator_streaming_readiness_evidence" });
+    this.streamingRuntimeManifests = new PersistentMap({ store, collection: "operator_streaming_runtime_manifests" });
   }
 
   createLocalSession({ actor, operatorId, terminalMode, deviceId = null, correlationId }) {
@@ -749,6 +750,7 @@ export class OperatorPortalService {
     });
     const env = this.env || {};
     const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
+    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
     const streamGatewayReady = this.#streamGatewayReady(readiness, env);
     const appStreamHost = this.#streamHostForTemplate(templateKey);
     const streamSourceBlockers = this.#streamSourceBlockers({ templateKey, env, readiness });
@@ -780,12 +782,14 @@ export class OperatorPortalService {
         protocol: streamGatewayReady ? "webrtc_or_selkies_ready" : "webrtc_or_selkies_required",
         transport: "internal_tls_via_g1_g2",
         publicInternetExposure: false,
-        evidenceId: readiness?.id || null
+        evidenceId: readiness?.id || null,
+        runtimeManifestId: runtimeManifest?.id || null
       },
       source: {
         workloadRole: "WORKLOAD",
         readiness: streamSourceBlockers.length ? "blocked" : "ready",
         mode: "existing_workload_stream_source",
+        runtimeManifestId: runtimeManifest?.sources?.[templateKey] ? runtimeManifest.id : null,
         productionWorkloadExecutionRequired: false
       },
       stream: {
@@ -807,6 +811,7 @@ export class OperatorPortalService {
       blockers,
       warnings: [
         ...execution.warnings,
+        ...(runtimeManifest?.ready ? [] : ["stream_runtime_manifest_not_ready"]),
         "streaming_session_is_pixels_only_terminal_boundary",
         "production_runner_requires_human_pixel_visual_regression"
       ],
@@ -873,6 +878,75 @@ export class OperatorPortalService {
       newValue: this.#publicStreamingReadiness(evidence)
     });
     return this.#publicStreamingReadiness(evidence);
+  }
+
+  recordStreamingRuntimeManifest({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const gatewayBind = String(body.gateway?.bindAddress || body.gatewayBindAddress || "").trim();
+    const gatewayPort = this.#normalizeInteger(body.gateway?.port ?? body.gatewayPort, "gatewayPort", 1, 65535, 8443);
+    const sourcesInput = body.sources && typeof body.sources === "object" ? body.sources : {};
+    const sources = {};
+    for (const app of WORKLOAD_CONTROL_APPS) {
+      const source = sourcesInput[app.key];
+      if (!source) continue;
+      sources[app.key] = {
+        templateKey: app.key,
+        process: String(source.process || `${app.key}-stream-source`).slice(0, 96),
+        bindAddress: String(source.bindAddress || "").trim(),
+        port: this.#normalizeInteger(source.port, `${app.key}Port`, 1, 65535, 7900),
+        healthPath: String(source.healthPath || "/healthz").slice(0, 128),
+        cdrRequired: source.cdrRequired !== false,
+        terminalDataStored: false
+      };
+    }
+    const manifest = {
+      id: newId("stream_runtime"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      gateway: {
+        process: String(body.gateway?.process || "sylion-g2-stream-gateway").slice(0, 96),
+        bindAddress: gatewayBind,
+        port: gatewayPort,
+        protocol: String(body.gateway?.protocol || "webrtc_or_selkies").slice(0, 64),
+        tlsMode: String(body.gateway?.tlsMode || "internal_tls_only").slice(0, 64),
+        publicInternetExposure: body.gateway?.publicInternetExposure === true || body.publicInternetExposure === true,
+        inputProxy: "server_side_input_events_only"
+      },
+      sources,
+      healthChecks: {
+        gateway: `https://${gatewayBind}:${gatewayPort}/healthz`,
+        sources: Object.fromEntries(Object.entries(sources).map(([key, source]) => [key, `http://${source.bindAddress}:${source.port}${source.healthPath}`]))
+      },
+      guardrails: {
+        terminalReceivesOnlyPixels: true,
+        terminalDataStored: false,
+        cdrRequired: true,
+        g1G2BypassAllowed: false,
+        publicInternetExposureAllowed: false,
+        contentInspectionAllowed: false
+      },
+      createdAt: isoNow(),
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+    manifest.blockers = this.#streamingRuntimeManifestBlockers(manifest);
+    manifest.ready = manifest.blockers.length === 0;
+    this.streamingRuntimeManifests.set(manifest.id, manifest);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.streaming_runtime_manifest_recorded",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: manifest.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: manifest.ready ? "allow" : "deny",
+      result: manifest.ready ? "streaming_runtime_manifest_ready" : "streaming_runtime_manifest_blocked",
+      newValue: this.#publicStreamingRuntimeManifest(manifest)
+    });
+    return this.#publicStreamingRuntimeManifest(manifest);
   }
 
   subscription({ operatorActor, correlationId }) {
@@ -1603,6 +1677,12 @@ export class OperatorPortalService {
       .at(-1) || null;
   }
 
+  #latestStreamingRuntimeManifestForOperator(operatorId) {
+    return [...this.streamingRuntimeManifests.values()]
+      .filter((manifest) => manifest.operatorId === operatorId)
+      .at(-1) || null;
+  }
+
   #streamGatewayReady(readiness, env) {
     if (readiness?.gateway?.g2StreamGatewayReady === true
       && readiness.gateway.publicInternetExposure === false
@@ -1628,6 +1708,52 @@ export class OperatorPortalService {
       ...(evidence.gateway.inputProxyReady ? [] : ["g2_input_proxy_not_ready"]),
       ...(sourceReady.length ? [] : ["at_least_one_workload_stream_source_required"])
     ];
+  }
+
+  #streamingRuntimeManifestBlockers(manifest) {
+    const sourceEntries = Object.entries(manifest.sources || {});
+    return [
+      ...(this.#privateBindAllowed(manifest.gateway.bindAddress) ? [] : ["g2_gateway_private_bind_required"]),
+      ...(manifest.gateway.publicInternetExposure ? ["g2_gateway_public_exposure_forbidden"] : []),
+      ...(manifest.gateway.tlsMode === "internal_tls_only" ? [] : ["g2_gateway_internal_tls_required"]),
+      ...(sourceEntries.length ? [] : ["at_least_one_stream_source_manifest_required"]),
+      ...sourceEntries.flatMap(([key, source]) => [
+        ...(this.#privateBindAllowed(source.bindAddress) ? [] : [`${key}_source_private_bind_required`]),
+        ...(source.cdrRequired ? [] : [`${key}_source_cdr_required`]),
+        ...(source.terminalDataStored === false ? [] : [`${key}_terminal_data_storage_forbidden`])
+      ])
+    ];
+  }
+
+  #privateBindAllowed(address) {
+    const value = String(address || "").trim();
+    if (value === "localhost" || value === "127.0.0.1") return true;
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(value)) return true;
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(value)) return true;
+    const match = value.match(/^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/);
+    if (match) {
+      const second = Number(match[1]);
+      return second >= 16 && second <= 31;
+    }
+    return false;
+  }
+
+  #publicStreamingRuntimeManifest(manifest) {
+    return {
+      id: manifest.id,
+      operatorId: manifest.operatorId,
+      terminalMode: manifest.terminalMode,
+      deviceId: manifest.deviceId,
+      gateway: manifest.gateway,
+      sources: manifest.sources,
+      healthChecks: manifest.healthChecks,
+      guardrails: manifest.guardrails,
+      ready: manifest.ready,
+      blockers: manifest.blockers,
+      createdAt: manifest.createdAt,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
   }
 
   #publicStreamingReadiness(evidence) {
