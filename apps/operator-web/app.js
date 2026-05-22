@@ -481,6 +481,36 @@
     }
   }
 
+  async function loadRuntimeGate(templateKey = $("#runtime-gate-form")?.elements.templateKey?.value || "zangi") {
+    const data = await fetchJson(`/operator-api/workload-execution/${encodeURIComponent(templateKey)}`);
+    if (data.error) {
+      setText("#runtime-gate-state", data.error);
+      return;
+    }
+    const execution = data.execution || {};
+    const androidRuntime = execution.runtime?.substrate?.androidRuntime || {};
+    setText("#runtime-gate-app", execution.appName || templateKey);
+    setText("#runtime-gate-kind", execution.runtime?.kind || "-");
+    setText("#runtime-gate-runner", execution.runtime?.runner || "-");
+    setText("#runtime-gate-state", execution.readinessState || "-");
+    setText("#runtime-gate-android-fit", androidRuntime.required ? androidRuntime.currentProviderFit : "not required");
+    const list = $("#runtime-gate-list");
+    if (list) {
+      const blockers = execution.blockers || [];
+      const checks = androidRuntime.checks || [];
+      list.innerHTML = [
+        ...checks.map((check) => `<li><strong>${escapeHtml(check.key)}: ${escapeHtml(check.status)}</strong><span>${escapeHtml(check.detail)}</span></li>`),
+        ...blockers.map((blocker) => `<li><strong>${escapeHtml(blocker)}</strong><span>Blocks production launch for this workload.</span></li>`)
+      ].join("") || `<li><strong>ready</strong><span>No runtime blockers detected.</span></li>`;
+    }
+  }
+
+  async function handleRuntimeGate(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    await loadRuntimeGate(data.templateKey || "zangi");
+  }
+
   async function loadAudit() {
     const list = $("#audit-list");
     if (!list) return;
@@ -585,6 +615,10 @@
     catalog.innerHTML = (control.catalog || []).map((app) => {
       const count = Number(counts[app.key] || 0);
       const risk = app.requiresOperatorRiskAcceptance ? `<span class="badge badge-warn">operator risk</span>` : "";
+      const native = app.nativeRuntimeRequired ? `<span class="badge badge-warn">native ${escapeHtml(app.nativeRuntimeClass)}</span>` : "";
+      const runtime = app.runtimeGate?.required
+        ? `<span class="badge ${app.runtimeGate.ready ? "" : "badge-warn"}">${escapeHtml(app.runtimeGate.currentProviderFit)}</span>`
+        : "";
       return `
         <article class="app-tile">
           <div>
@@ -594,6 +628,8 @@
           <div class="app-tile-meta">
             <span class="badge">${escapeHtml(count)} env</span>
             <span class="badge">CDR ${escapeHtml(app.cdrRequired)}</span>
+            ${native}
+            ${runtime}
             ${risk}
           </div>
         </article>
@@ -664,6 +700,7 @@
     if (viewId === "workload-control") loadWorkloadControl();
     if (viewId === "connection-path") loadConnectionPath();
     if (viewId === "signal-preview") loadSignalPreview();
+    if (viewId === "runtime-gate") loadRuntimeGate();
     if (viewId === "vpn") loadVpn();
     if (viewId === "streaming") loadStreaming();
     if (viewId === "audit") loadAudit();
@@ -681,6 +718,7 @@
     $(".sidebar").addEventListener("click", handleNav);
     $("#session-form").addEventListener("submit", createLocalSession);
     $("#workload-control-form").addEventListener("submit", requestWorkloadControl);
+    $("#runtime-gate-form").addEventListener("submit", handleRuntimeGate);
     $("#unlock-form").addEventListener("submit", saveUnlockPolicy);
     $("#safety-form").addEventListener("submit", saveSafetyPolicy);
     $("#jurisdiction-form").addEventListener("submit", saveJurisdictionPolicy);

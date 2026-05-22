@@ -14,13 +14,25 @@ const WORKLOAD_CONTROL_APPS = Object.freeze([
   { key: "signal", name: "Signal", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
   { key: "telegram", name: "Telegram", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
   { key: "threema", name: "Threema", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
-  { key: "zangi", name: "Zangi", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  {
+    key: "zangi",
+    name: "Zangi",
+    category: "messenger",
+    isolation: "android_workload_kvm_required",
+    cdrRequired: true,
+    nativeRuntimeRequired: true,
+    nativeRuntimeClass: "android_workload",
+    compatibilityMode: "remote_browser_download_page_only",
+    productionNativeRequires: ["kvm_device", "binder_or_binderfs", "approved_android_image", "approved_zangi_apk_ref"]
+  },
   { key: "matrix_client", name: "Matrix Client", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
   { key: "matrix_server", name: "Matrix Server", category: "server", isolation: "dedicated_service_workload", cdrRequired: true },
   { key: "duckduckgo_browser", name: "DuckDuckGo Browser", category: "browser", isolation: "container_standard_firecracker_pro", cdrRequired: true },
   { key: "libreoffice", name: "LibreOffice", category: "office", isolation: "container_standard_firecracker_pro", cdrRequired: true },
   { key: "exodus", name: "Exodus", category: "wallet", isolation: "dedicated_wallet_workload", cdrRequired: true, requiresOperatorRiskAcceptance: true }
 ]);
+
+const ANDROID_WORKLOAD_APPS = new Set(["zangi"]);
 
 const WORKLOAD_CONTROL_ACTIONS = new Set(["scale_to_counts", "rotate_app", "recreate_all"]);
 const UNLOCK_LAYERS = Object.freeze(["g1", "g2", "workload"]);
@@ -194,13 +206,17 @@ export class OperatorPortalService {
     requireCorrelationId(correlationId);
     const subscription = this.subscription({ operatorActor, correlationId });
     const currentCounts = this.#currentWorkloadCounts(operatorActor.operatorId);
+    const androidRuntime = this.#androidRuntimeSubstrate();
     const latestRequest = [...this.workloadControlRequests.values()]
       .filter((request) => request.operatorId === operatorActor.operatorId)
       .at(-1) || null;
     return {
       operatorId: operatorActor.operatorId,
       tenantId: operatorActor.tenantId,
-      catalog: WORKLOAD_CONTROL_APPS,
+      catalog: WORKLOAD_CONTROL_APPS.map((app) => ({
+        ...app,
+        runtimeGate: ANDROID_WORKLOAD_APPS.has(app.key) ? androidRuntime : { required: false, ready: true, blockers: [] }
+      })),
       quota: {
         maxWorkloadEnvironments: subscription.quota.maxWorkloadEnvironments,
         maxAppsPerOperator: subscription.quota.maxAppsPerOperator,
@@ -220,7 +236,8 @@ export class OperatorPortalService {
         quotaEnforced: true,
         destructiveCleanupAllowed: false,
         controlPlaneOnly: true,
-        productionExecutionAllowed: false
+        productionExecutionAllowed: false,
+        androidNativeWorkloadGate: androidRuntime
       }
     };
   }
@@ -1269,11 +1286,49 @@ export class OperatorPortalService {
     };
   }
 
+  #androidRuntimeSubstrate() {
+    const env = this.env || {};
+    const checks = [
+      {
+        key: "kvm_device",
+        status: env.SYLION_ANDROID_KVM_READY === "true" || env.SYLION_KVM_READY === "true" ? "passed" : "blocked",
+        detail: "/dev/kvm must be present on the WORKLOAD host or a dedicated Android runtime host"
+      },
+      {
+        key: "binder_or_binderfs",
+        status: env.SYLION_ANDROID_BINDER_READY === "true" || env.SYLION_ANDROID_BINDERFS_READY === "true" ? "passed" : "blocked",
+        detail: "Android workloads require binder/binderfs support"
+      },
+      {
+        key: "approved_android_image",
+        status: env.SYLION_ANDROID_WORKLOAD_IMAGE_REF ? "passed" : "blocked",
+        detail: "Android system image must be approved and pinned"
+      },
+      {
+        key: "approved_zangi_apk_ref",
+        status: env.SYLION_ZANGI_APK_REF ? "passed" : "blocked",
+        detail: "Zangi APK/source reference must be approved before native launch"
+      }
+    ];
+    const blockers = checks.filter((check) => check.status !== "passed").map((check) => check.key);
+    return {
+      required: true,
+      runtimeClass: "android_workload",
+      hostRequirement: "kvm_or_bare_metal_with_binderfs",
+      currentProviderFit: blockers.length ? "blocked_on_current_host" : "ready_for_android_runner_review",
+      ready: blockers.length === 0,
+      checks,
+      blockers
+    };
+  }
+
   #workloadExecutionForOperator({ operatorId, terminalMode, deviceId, templateKey }) {
     const path = this.#connectionPathForOperator({ operatorId, terminalMode, deviceId });
     const normalizedTemplate = String(templateKey || "signal").trim().toLowerCase();
     const slot = path.microVmSlots.find((item) => item.templateKey === normalizedTemplate)
       || path.microVmSlots.find((item) => item.appName?.toLowerCase() === normalizedTemplate);
+    const androidRuntimeRequired = ANDROID_WORKLOAD_APPS.has(normalizedTemplate);
+    const androidRuntime = this.#androidRuntimeSubstrate();
     const env = this.env || {};
     const runtimeRefs = {
       firecrackerBinary: env.SYLION_FIRECRACKER_BIN || null,
@@ -1282,6 +1337,8 @@ export class OperatorPortalService {
       workloadImageRef: env.SYLION_SIGNAL_WORKLOAD_IMAGE_REF || null,
       signalPackageRef: env.SYLION_SIGNAL_PACKAGE_REF || null,
       signalAccountEnrollmentRef: env.SYLION_SIGNAL_ACCOUNT_REF || null,
+      androidImageRef: env.SYLION_ANDROID_WORKLOAD_IMAGE_REF || null,
+      zangiApkRef: env.SYLION_ZANGI_APK_REF || null,
       cdrPolicyRef: "cdr://mandatory-workload-file-transfer",
       hsmCertificateRef: env.SYLION_OPERATOR_HSM_CERT_REF || null
     };
@@ -1291,15 +1348,17 @@ export class OperatorPortalService {
     const firecrackerReady = Boolean(runtimeRefs.firecrackerBinary && runtimeRefs.kernelImageRef && runtimeRefs.rootfsImageRef && kvmReady);
     const cdrReady = true;
     const blockers = [
-      ...(slot ? [] : ["signal_microvm_slot_missing"]),
+      ...(slot ? [] : [`${normalizedTemplate}_workload_slot_missing`]),
       ...(path.state === "local_lab_connected" ? [] : ["g1_g2_workload_path_not_ready"]),
-      ...(runtimeRefs.firecrackerBinary ? [] : ["real_firecracker_binary_not_configured"]),
-      ...(kvmReady ? [] : ["kvm_device_not_verified"]),
-      ...(runtimeRefs.kernelImageRef ? [] : ["firecracker_kernel_image_not_configured"]),
-      ...(runtimeRefs.rootfsImageRef ? [] : ["signal_rootfs_image_not_configured"]),
-      ...(runtimeRefs.workloadImageRef ? [] : ["approved_signal_workload_image_missing"]),
-      ...(runtimeRefs.signalPackageRef ? [] : ["signal_application_package_not_bound"]),
-      ...(runtimeRefs.signalAccountEnrollmentRef ? [] : ["signal_account_enrollment_not_configured"]),
+      ...(androidRuntimeRequired ? androidRuntime.blockers.map((blocker) => `android_${blocker}_not_ready`) : [
+        ...(runtimeRefs.firecrackerBinary ? [] : ["real_firecracker_binary_not_configured"]),
+        ...(kvmReady ? [] : ["kvm_device_not_verified"]),
+        ...(runtimeRefs.kernelImageRef ? [] : ["firecracker_kernel_image_not_configured"]),
+        ...(runtimeRefs.rootfsImageRef ? [] : [`${normalizedTemplate}_rootfs_image_not_configured`]),
+        ...(runtimeRefs.workloadImageRef ? [] : [`approved_${normalizedTemplate}_workload_image_missing`])
+      ]),
+      ...(normalizedTemplate === "signal" && !runtimeRefs.signalPackageRef ? ["signal_application_package_not_bound"] : []),
+      ...(normalizedTemplate === "signal" && !runtimeRefs.signalAccountEnrollmentRef ? ["signal_account_enrollment_not_configured"] : []),
       ...(runtimeRefs.hsmCertificateRef || hsmFidoDeferred ? [] : ["hsm_backed_operator_certificate_required"]),
       ...(hsmFidoDeferred ? [] : ["fresh_fido2_operator_unlock_required"]),
       ...(vpnReady ? [] : ["real_ipsec_profile_required"]),
@@ -1308,16 +1367,19 @@ export class OperatorPortalService {
     ];
     const warnings = [
       "puli_ax_router_physical_gate_temporarily_out_of_scope_for_this_sprint",
-      "terminal_remains_thin_client_no_signal_data_on_pixel",
+      `terminal_remains_thin_client_no_${normalizedTemplate}_data_on_pixel`,
+      ...(androidRuntimeRequired ? ["native_zangi_requires_android_workload_not_chromium_download_page"] : []),
       ...(hsmFidoDeferred ? ["physical_hsm_fido2_configuration_deferred_but_visible_in_panels"] : [])
     ];
-    const productionFlag = env.SYLION_ENABLE_SIGNAL_PRODUCTION_EXECUTION === "true";
+    const productionFlag = androidRuntimeRequired
+      ? env.SYLION_ENABLE_ANDROID_WORKLOAD_PRODUCTION_EXECUTION === "true"
+      : env.SYLION_ENABLE_SIGNAL_PRODUCTION_EXECUTION === "true";
     const launchAllowed = productionFlag && blockers.length === 0;
     return {
       operatorId,
       tenantId: path.tenantId,
       templateKey: slot?.templateKey || normalizedTemplate,
-      appName: slot?.appName || "Signal",
+      appName: slot?.appName || (normalizedTemplate === "zangi" ? "Zangi" : "Signal"),
       slot: slot || null,
       route: {
         terminalMode,
@@ -1325,10 +1387,10 @@ export class OperatorPortalService {
         segments: path.segments.map((segment) => ({ id: segment.id, from: segment.from, to: segment.to, protocol: segment.protocol, state: segment.state }))
       },
       runtime: {
-        kind: "firecracker_microvm",
+        kind: androidRuntimeRequired ? "android_workload" : "firecracker_microvm",
         targetVpsRole: "WORKLOAD",
         hostMode: "production_contract",
-        runner: "real_firecracker_runner_required",
+        runner: androidRuntimeRequired ? "real_android_workload_runner_required" : "real_firecracker_runner_required",
         runtimeRefs,
         substrate: {
           vpn: {
@@ -1345,6 +1407,7 @@ export class OperatorPortalService {
             kernelConfigured: Boolean(runtimeRefs.kernelImageRef),
             rootfsConfigured: Boolean(runtimeRefs.rootfsImageRef)
           },
+          androidRuntime: androidRuntimeRequired ? androidRuntime : { required: false, ready: true, blockers: [] },
           cdr: {
             required: true,
             ready: cdrReady,
@@ -1363,7 +1426,9 @@ export class OperatorPortalService {
         cdrRequired: true,
         terminalDataStored: false
       },
-      readinessState: launchAllowed ? "ready_for_firecracker_runner" : "blocked_before_execution",
+      readinessState: launchAllowed
+        ? (androidRuntimeRequired ? "ready_for_android_workload_runner" : "ready_for_firecracker_runner")
+        : "blocked_before_execution",
       blockers,
       warnings,
       sideEffectAllowed: launchAllowed,

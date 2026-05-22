@@ -29,6 +29,7 @@
       <li><a href="#workload-control" data-view="workload-control">Workload Control</a></li>
       <li><a href="#connection-path" data-view="connection-path">Connection Path</a></li>
       <li><a href="#signal-preview" data-view="signal-preview">Signal Preview</a></li>
+      <li><a href="#runtime-gate" data-view="runtime-gate">Runtime Gate</a></li>
       <li><a href="#vpn" data-view="vpn">VPN status</a></li>
       <li><a href="#streaming" data-view="streaming">Streaming</a></li>
       <li><a href="#audit" data-view="audit">My audit</a></li>
@@ -220,6 +221,33 @@
             <li class="placeholder">Loading Signal execution gates...</li>
           </ul>
         </article>
+      </article>
+    </section>
+
+    <section id="runtime-gate" class="view">
+      <h1>Runtime Gate</h1>
+      <p class="hint">Real workload launch status for native apps. Zangi is treated as Android-native workload, not as a Chromium placeholder.</p>
+      <article class="card">
+        <h2>Workload runtime <span class="help-tip" tabindex="0" data-tip="This gate checks whether the selected app can run as a real production workload on the current provider substrate. Android-native apps require KVM plus binder/binderfs and approved app artifacts.">?</span></h2>
+        <form id="runtime-gate-form" class="dense-form">
+          <label>Application
+            <select name="templateKey">
+              <option value="signal">Signal</option>
+              <option value="zangi">Zangi</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">Check runtime</button>
+        </form>
+        <dl class="compact-metrics">
+          <dt>App</dt><dd id="runtime-gate-app">-</dd>
+          <dt>Runtime</dt><dd id="runtime-gate-kind">-</dd>
+          <dt>Runner</dt><dd id="runtime-gate-runner">-</dd>
+          <dt>Readiness</dt><dd id="runtime-gate-state">-</dd>
+          <dt>Android host fit</dt><dd id="runtime-gate-android-fit">-</dd>
+        </dl>
+        <ul id="runtime-gate-list" class="path-list">
+          <li class="placeholder">Select an application to check its real runtime gates.</li>
+        </ul>
       </article>
     </section>
 

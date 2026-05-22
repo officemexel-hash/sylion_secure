@@ -579,6 +579,7 @@ function render() {
     ["Regions", provider.regions?.join(", ")],
     ["Containers", String(provider.runtimeCapabilities?.containers)],
     ["Firecracker", String(provider.runtimeCapabilities?.firecracker)],
+    ["Android workloads", String(provider.runtimeCapabilities?.androidWorkloads)],
     ["TDX", String(provider.runtimeCapabilities?.intelTdx)],
     ["SEV-SNP", String(provider.runtimeCapabilities?.amdSevSnp)],
     ["Tier fit", provider.runtimeCapabilities?.recommendedTier || "-"],
@@ -1529,12 +1530,12 @@ async function createProvider(event) {
 
 function runtimeCapabilitiesForClass(runtimeClass) {
   if (runtimeClass === "firecracker") {
-    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, intelTdx: false, amdSevSnp: false, recommendedTier: "PRO" };
+    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, androidWorkloads: "kvm_binderfs_review_required", intelTdx: false, amdSevSnp: false, recommendedTier: "PRO" };
   }
   if (runtimeClass === "confidential") {
-    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, intelTdx: true, amdSevSnp: true, recommendedTier: "SOVEREIGN" };
+    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, androidWorkloads: "kvm_binderfs_review_required", intelTdx: true, amdSevSnp: true, recommendedTier: "SOVEREIGN" };
   }
-  return { containers: true, nestedKvm: false, bareMetalKvm: false, firecracker: false, intelTdx: false, amdSevSnp: false, recommendedTier: "STANDARD" };
+  return { containers: true, nestedKvm: false, bareMetalKvm: false, firecracker: false, androidWorkloads: false, intelTdx: false, amdSevSnp: false, recommendedTier: "STANDARD" };
 }
 
 async function createProviderDryRunPlan(event) {

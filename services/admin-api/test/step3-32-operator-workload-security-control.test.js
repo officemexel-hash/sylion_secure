@@ -90,6 +90,11 @@ test("Step 3.32 operator can queue communicator environment counts within tier q
     assert.equal(before.payload.control.quota.maxWorkloadEnvironments, 10);
     assert.equal(before.payload.control.guardrails.cdrRequired, true);
     assert.equal(before.payload.control.guardrails.terminalDataStored, false);
+    const zangiCatalog = before.payload.control.catalog.find((app) => app.key === "zangi");
+    assert.equal(zangiCatalog.nativeRuntimeRequired, true);
+    assert.equal(zangiCatalog.runtimeGate.runtimeClass, "android_workload");
+    assert.equal(zangiCatalog.runtimeGate.ready, false);
+    assert.ok(zangiCatalog.runtimeGate.blockers.includes("kvm_device"));
 
     const desiredCounts = {
       whatsapp: 3,
@@ -122,6 +127,29 @@ test("Step 3.32 operator can queue communicator environment counts within tier q
 
     const audit = app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id);
     assert.ok(audit.some((event) => event.action === "operator_portal.workload_control_requested"));
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.32 Zangi native runtime is blocked until Android host gates pass", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    const execution = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-execution/zangi");
+    assert.equal(execution.payload.execution.runtime.kind, "android_workload");
+    assert.equal(execution.payload.execution.runtime.runner, "real_android_workload_runner_required");
+    assert.equal(execution.payload.execution.runtime.substrate.androidRuntime.ready, false);
+    assert.ok(execution.payload.execution.blockers.includes("android_kvm_device_not_ready"));
+    assert.ok(execution.payload.execution.warnings.includes("native_zangi_requires_android_workload_not_chromium_download_page"));
+
+    const start = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-execution/zangi/start", {
+      method: "POST"
+    });
+    assert.equal(start.payload.request.state, "blocked");
+    assert.equal(start.payload.request.launchAllowed, false);
+    assert.equal(start.payload.request.productionExecutionAllowed, false);
   } finally {
     await close();
   }

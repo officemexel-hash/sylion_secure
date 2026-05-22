@@ -15,6 +15,7 @@ const PROVIDER_METADATA = Object.freeze({
       nestedKvm: false,
       bareMetalKvm: "dedicated_only",
       firecracker: "dedicated_only",
+      androidWorkloads: "dedicated_kvm_or_bare_metal_only",
       intelTdx: false,
       amdSevSnp: false,
       recommendedTier: "STANDARD"
@@ -31,6 +32,7 @@ const PROVIDER_METADATA = Object.freeze({
       nestedKvm: false,
       bareMetalKvm: true,
       firecracker: true,
+      androidWorkloads: "bare_metal_kvm_review_required",
       intelTdx: "sgx_or_dedicated_confidential_only",
       amdSevSnp: "bare_metal_review_required",
       recommendedTier: "PRO"
@@ -47,6 +49,7 @@ const PROVIDER_METADATA = Object.freeze({
       nestedKvm: "c8i_m8i_r8i_or_bare_metal",
       bareMetalKvm: true,
       firecracker: true,
+      androidWorkloads: "nested_kvm_or_bare_metal_with_binderfs_required",
       intelTdx: "instance_family_review_required",
       amdSevSnp: "nitro_confidential_review_required",
       recommendedTier: "SOVEREIGN"
@@ -63,6 +66,7 @@ const PROVIDER_METADATA = Object.freeze({
       nestedKvm: "requires_supported_nested_virtualization_size",
       bareMetalKvm: false,
       firecracker: "nested_kvm_size_or_dedicated_host_required",
+      androidWorkloads: "nested_kvm_size_with_binderfs_required",
       intelTdx: true,
       amdSevSnp: true,
       recommendedTier: "SOVEREIGN"
@@ -79,6 +83,7 @@ const PROVIDER_METADATA = Object.freeze({
       nestedKvm: "nested_virtualization_supported_on_selected_machines",
       bareMetalKvm: false,
       firecracker: "nested_kvm_machine_required",
+      androidWorkloads: "nested_kvm_machine_with_binderfs_required",
       intelTdx: true,
       amdSevSnp: true,
       recommendedTier: "SOVEREIGN"
@@ -95,6 +100,7 @@ const PROVIDER_METADATA = Object.freeze({
       nestedKvm: "bare_metal_preferred",
       bareMetalKvm: true,
       firecracker: true,
+      androidWorkloads: "bare_metal_preferred",
       intelTdx: "shape_review_required",
       amdSevSnp: "amd_confidential_shape_review_required",
       recommendedTier: "SOVEREIGN"
@@ -111,6 +117,7 @@ const PROVIDER_METADATA = Object.freeze({
       nestedKvm: false,
       bareMetalKvm: true,
       firecracker: true,
+      androidWorkloads: true,
       intelTdx: false,
       amdSevSnp: false,
       recommendedTier: "PRO"
@@ -174,6 +181,7 @@ function normalizeRuntimeCapabilities(capabilities = {}, defaults = {}) {
     nestedKvm: capabilities.nestedKvm ?? defaults.nestedKvm ?? false,
     bareMetalKvm: capabilities.bareMetalKvm ?? defaults.bareMetalKvm ?? false,
     firecracker: capabilities.firecracker ?? defaults.firecracker ?? false,
+    androidWorkloads: capabilities.androidWorkloads ?? defaults.androidWorkloads ?? false,
     intelTdx: capabilities.intelTdx ?? defaults.intelTdx ?? false,
     amdSevSnp: capabilities.amdSevSnp ?? defaults.amdSevSnp ?? false,
     recommendedTier: capabilities.recommendedTier || defaults.recommendedTier || "STANDARD",

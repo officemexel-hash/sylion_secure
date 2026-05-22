@@ -60,6 +60,7 @@ Current G2 checks return:
 
 - Exodus is categorized as a dedicated wallet workload with operator risk acceptance. Wallet secrets must never be stored in the terminal, admin config, or plain workload metadata.
 - The current Standard/Pro implementation uses containers as the live compatibility substrate. Firecracker and confidential-compute variants remain the higher-tier runner target.
+- Zangi is not production-native in the current Chromium compatibility container. Step 3.36 adds an Android-native runtime gate and blocks real Zangi launch on the current Hetzner Cloud WORKLOAD VPS because KVM and binder/binderfs are not exposed.
 - Android/Vanadium still needs the SYLION internal TLS CA installed through GrapheneOS provisioning to remove the browser warning.
 
 ## Tests
@@ -67,4 +68,3 @@ Current G2 checks return:
 - `node --test services/admin-api/test/step3-32-operator-workload-security-control.test.js services/admin-api/test/step3-34-live-signal-workload-image.test.js`
 - `SYLION_BASE_URL=http://127.0.0.1:18102 node scripts/operator-portal-smoke.mjs`
 - `npm.cmd test`
-

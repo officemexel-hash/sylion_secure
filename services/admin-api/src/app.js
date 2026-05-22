@@ -332,9 +332,19 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { execution: operatorPortal.workloadExecution({ operatorActor, templateKey: "signal", correlationId }) });
       }
+      if (req.method === "GET" && url.pathname.startsWith("/operator-api/workload-execution/") && !url.pathname.endsWith("/start")) {
+        const operatorActor = operatorActorFromRequest(req);
+        const templateKey = decodeURIComponent(url.pathname.split("/").at(-1) || "signal");
+        return send(res, 200, { execution: operatorPortal.workloadExecution({ operatorActor, templateKey, correlationId }) });
+      }
       if (req.method === "POST" && url.pathname === "/operator-api/workload-execution/signal/start") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { request: operatorPortal.startWorkloadExecution({ operatorActor, templateKey: "signal", correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname.startsWith("/operator-api/workload-execution/") && url.pathname.endsWith("/start")) {
+        const operatorActor = operatorActorFromRequest(req);
+        const templateKey = decodeURIComponent(url.pathname.split("/").at(-2) || "signal");
+        return send(res, 200, { request: operatorPortal.startWorkloadExecution({ operatorActor, templateKey, correlationId }) });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/vpn-install-package") {
         const operatorActor = operatorActorFromRequest(req);
