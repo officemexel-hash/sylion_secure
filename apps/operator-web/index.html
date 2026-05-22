@@ -398,6 +398,27 @@
           <dt>Bitrate</dt><dd id="stream-bitrate">-</dd>
           <dt>Touch scale</dt><dd id="stream-pointer-scale">-</dd>
         </dl>
+        <form id="stream-session-form" class="dense-form">
+          <label>Stream app
+            <select name="templateKey">
+              <option value="signal">Signal</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="telegram">Telegram</option>
+              <option value="threema">Threema</option>
+              <option value="duckduckgo_browser">DuckDuckGo</option>
+              <option value="libreoffice">LibreOffice</option>
+              <option value="zangi">Zangi</option>
+              <option value="exodus">Exodus</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">Request stream session</button>
+        </form>
+        <dl class="stream-metrics">
+          <dt>Session</dt><dd id="stream-session-state">not_requested</dd>
+          <dt>Gateway</dt><dd id="stream-session-gateway">-</dd>
+          <dt>Launch URL</dt><dd id="stream-session-url">-</dd>
+          <dt>Blockers</dt><dd id="stream-session-blockers">-</dd>
+        </dl>
         <p class="hint">The VPS/G2 side must change stream resolution dynamically to match Pixel viewport, orientation, DPR, and network budget. Terminal remains display/input only.</p>
       </article>
     </section>

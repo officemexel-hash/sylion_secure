@@ -85,6 +85,7 @@ export class OperatorPortalService {
     this.matrixRequests = new PersistentMap({ store, collection: "operator_matrix_server_requests" });
     this.subscriptionRequests = new PersistentMap({ store, collection: "operator_subscription_change_requests" });
     this.vpnEvidence = new PersistentMap({ store, collection: "operator_vpn_evidence" });
+    this.streamingSessions = new PersistentMap({ store, collection: "operator_streaming_sessions" });
   }
 
   createLocalSession({ actor, operatorId, terminalMode, deviceId = null, correlationId }) {
@@ -721,6 +722,109 @@ export class OperatorPortalService {
       productionExecutionAllowed: false,
       sideEffectAllowed: false
     };
+  }
+
+  requestStreamingSession({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const templateKey = this.#normalizeStreamingTemplate(body.templateKey || body.app || "signal");
+    const viewport = {
+      width: body.width,
+      height: body.height,
+      dpr: body.dpr
+    };
+    const profile = this.streamingProfile({
+      operatorActor,
+      width: viewport.width,
+      height: viewport.height,
+      dpr: viewport.dpr,
+      correlationId: corr
+    });
+    const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
+    const execution = this.#workloadExecutionForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey
+    });
+    const env = this.env || {};
+    const streamGatewayReady = env.SYLION_G2_STREAM_GATEWAY_READY === "true" || env.SYLION_SELKIES_GATEWAY_READY === "true";
+    const appStreamHost = this.#streamHostForTemplate(templateKey);
+    const streamSourceBlockers = this.#streamSourceBlockers({ templateKey, env });
+    const appSpecificBlockers = [
+      ...(ANDROID_WORKLOAD_APPS.has(templateKey) ? ["android_native_stream_runner_required"] : []),
+      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
+    ];
+    const blockers = [
+      ...foundation.blockers.map((blocker) => `live_access:${blocker}`),
+      ...streamSourceBlockers,
+      ...(streamGatewayReady ? [] : ["g2_stream_gateway_not_ready"]),
+      ...appSpecificBlockers
+    ];
+    const ready = blockers.length === 0;
+    const session = {
+      id: newId("stream_session"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey,
+      appName: execution.appName,
+      state: ready ? "stream_session_ready" : "stream_session_blocked",
+      launchUrl: ready ? `https://${appStreamHost}/stream/${templateKey}` : null,
+      gateway: {
+        role: "G2",
+        host: "g2-stream.sylion.internal",
+        appHost: appStreamHost,
+        protocol: streamGatewayReady ? "webrtc_or_selkies_ready" : "webrtc_or_selkies_required",
+        transport: "internal_tls_via_g1_g2",
+        publicInternetExposure: false
+      },
+      source: {
+        workloadRole: "WORKLOAD",
+        readiness: streamSourceBlockers.length ? "blocked" : "ready",
+        mode: "existing_workload_stream_source",
+        productionWorkloadExecutionRequired: false
+      },
+      stream: {
+        ...profile.stream,
+        renderingMode: "server_side_pixels_only",
+        sourceWorkload: `workload://${operatorActor.operatorId}/${templateKey}`,
+        terminalReceives: ["video_pixels", "audio_optional", "input_events"],
+        terminalForbidden: ["workload_files", "app_secrets", "message_database", "wallet_seed", "session_cookies"],
+        fileTransfer: "cdr_required"
+      },
+      security: {
+        terminalDataStored: false,
+        clipboardEnabled: false,
+        fileIngressEgress: "blocked_without_cdr_decision",
+        g1G2BypassAllowed: false,
+        recordingAllowed: false,
+        auditContentStored: false
+      },
+      blockers,
+      warnings: [
+        ...execution.warnings,
+        "streaming_session_is_pixels_only_terminal_boundary",
+        "production_runner_requires_human_pixel_visual_regression"
+      ],
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdAt: isoNow()
+    };
+    this.streamingSessions.set(session.id, session);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.streaming_session_requested",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: session.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: ready ? "allow" : "deny",
+      result: session.state,
+      newValue: this.#publicStreamingSession(session)
+    });
+    return this.#publicStreamingSession(session);
   }
 
   subscription({ operatorActor, correlationId }) {
@@ -1424,6 +1528,54 @@ export class OperatorPortalService {
       actions.push("Enroll physical HSM/FIDO2 after hardware arrives; keep panel refs write-only until then.");
     }
     return actions;
+  }
+
+  #normalizeStreamingTemplate(value) {
+    const key = String(value || "").trim().toLowerCase();
+    const normalized = key === "duckduckgo" ? "duckduckgo_browser" : key;
+    if (!WORKLOAD_CONTROL_APPS.some((app) => app.key === normalized)) {
+      throw validationError("Unknown streaming app", {
+        app: value,
+        supported: WORKLOAD_CONTROL_APPS.map((app) => app.key)
+      });
+    }
+    return normalized;
+  }
+
+  #streamHostForTemplate(templateKey) {
+    if (templateKey === "duckduckgo_browser") return "duckduckgo.sylion.internal";
+    if (templateKey === "matrix_client") return "matrix-client.sylion.internal";
+    if (templateKey === "matrix_server") return "matrix-server.sylion.internal";
+    return `${templateKey}.sylion.internal`;
+  }
+
+  #streamSourceBlockers({ templateKey, env }) {
+    const envKey = `SYLION_${templateKey.toUpperCase().replaceAll("-", "_")}_STREAM_SOURCE_READY`;
+    const sourceReady = env.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true" || env[envKey] === "true";
+    return sourceReady ? [] : [`${templateKey}_stream_source_not_ready`];
+  }
+
+  #publicStreamingSession(session) {
+    return {
+      id: session.id,
+      operatorId: session.operatorId,
+      tenantId: session.tenantId,
+      terminalMode: session.terminalMode,
+      deviceId: session.deviceId,
+      templateKey: session.templateKey,
+      appName: session.appName,
+      state: session.state,
+      launchUrl: session.launchUrl,
+      gateway: session.gateway,
+      source: session.source,
+      stream: session.stream,
+      security: session.security,
+      blockers: session.blockers,
+      warnings: session.warnings,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdAt: session.createdAt
+    };
   }
 
   #workloadExecutionPlan({ action, rotateApp, desiredCounts, operatorId }) {

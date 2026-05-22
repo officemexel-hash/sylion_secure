@@ -380,6 +380,11 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           })
         });
       }
+      if (req.method === "POST" && url.pathname === "/operator-api/streaming-sessions") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { session: operatorPortal.requestStreamingSession({ operatorActor, body, correlationId }) });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/audit") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { events: operatorPortal.auditEvents({ operatorActor, correlationId }) });

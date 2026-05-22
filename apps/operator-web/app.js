@@ -523,6 +523,39 @@
     }
   }
 
+  async function requestStreamSession(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
+    const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
+    const dpr = Number(window.devicePixelRatio || 1).toFixed(2);
+    const result = await fetchJson("/operator-api/streaming-sessions", {
+      method: "POST",
+      body: {
+        templateKey: data.templateKey,
+        width,
+        height,
+        dpr
+      }
+    });
+    if (result.error) {
+      setText("#stream-session-state", result.error);
+      return;
+    }
+    const session = result.session;
+    setText("#stream-session-state", session.state);
+    setText("#stream-session-gateway", `${session.gateway.host} | ${session.gateway.protocol}`);
+    setText("#stream-session-url", session.launchUrl || "blocked_until_gate_passes");
+    setText("#stream-session-blockers", (session.blockers || []).join(", ") || "-");
+    const center = $(".stream-center span");
+    if (center) {
+      center.textContent = session.state === "stream_session_ready"
+        ? `${session.appName} stream ready through G2`
+        : `${session.appName} stream blocked by gates`;
+    }
+    await loadAudit();
+  }
+
   async function loadSignalPreview() {
     const [pathData, streamData, executionData] = await Promise.all([
       fetchJson("/operator-api/connection-path"),
@@ -832,6 +865,7 @@
     $("#workload-control-form").addEventListener("submit", requestWorkloadControl);
     $("#runtime-gate-form").addEventListener("submit", handleRuntimeGate);
     $("#vpn-evidence-form").addEventListener("submit", recordVpnEvidence);
+    $("#stream-session-form").addEventListener("submit", requestStreamSession);
     $("#unlock-form").addEventListener("submit", saveUnlockPolicy);
     $("#safety-form").addEventListener("submit", saveSafetyPolicy);
     $("#jurisdiction-form").addEventListener("submit", saveJurisdictionPolicy);
