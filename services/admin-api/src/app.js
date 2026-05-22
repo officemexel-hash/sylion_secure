@@ -773,6 +773,52 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
+      if (req.method === "GET" && url.pathname === "/release/account-bootstrap-evidence") {
+        return send(res, 200, {
+          sessions: operatorPortal.listAccountBootstrapEvidenceForAdmin({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const accountBootstrapPromoteMatch = url.pathname.match(/^\/release\/account-bootstrap-evidence\/([^/]+)\/promote$/);
+      if (req.method === "POST" && accountBootstrapPromoteMatch) {
+        const body = await readJson(req);
+        const session = operatorPortal.getAccountBootstrapEvidenceForAdmin({
+          actor,
+          sessionId: accountBootstrapPromoteMatch[1],
+          correlationId
+        });
+        if (session.factualCandidate !== true) {
+          throw validationError("Only complete account bootstrap evidence can be promoted to factual test", {
+            sessionId: session.id,
+            blockers: session.blockers || []
+          });
+        }
+        const test = release.recordWorkloadFactualTest({
+          actor,
+          operatorId: session.operatorId,
+          appKey: session.appKey,
+          terminalMode: session.terminalMode,
+          runtimeMode: session.runtimeMode,
+          result: body.result || "passed",
+          checks: session.checks,
+          evidenceArtifactIds: body.evidenceArtifactIds || session.evidenceArtifactIds || [],
+          latencyMs: body.latencyMs ?? session.latencyMs,
+          note: body.note || `Admin/QA promoted account bootstrap evidence ${session.id}`,
+          correlationId
+        });
+        const reviewed = operatorPortal.markAccountBootstrapEvidenceReviewed({
+          actor,
+          sessionId: session.id,
+          factualTestId: test.id,
+          correlationId
+        });
+        return send(res, 201, { test, session: reviewed });
+      }
+
       if (req.method === "POST" && url.pathname === "/release/workload-factual-tests") {
         const body = await readJson(req);
         const test = release.recordWorkloadFactualTest({ actor, ...body, correlationId });

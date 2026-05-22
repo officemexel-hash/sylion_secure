@@ -56,6 +56,7 @@ const state = {
   humanTests: [],
   humanTestRuns: [],
   workloadFactualTests: [],
+  accountBootstrapEvidence: [],
   evidenceArtifacts: [],
   liveExecutionSummary: null,
   liveCloudRequests: [],
@@ -266,6 +267,7 @@ async function refreshAll() {
     humanTests,
     humanTestRuns,
     workloadFactualTests,
+    accountBootstrapEvidence,
     evidenceArtifacts,
     liveExecutionSummary,
     liveCloudRequests,
@@ -334,6 +336,7 @@ async function refreshAll() {
     api("/release/human-tests").catch(() => ({ scenarios: [] })),
     api("/release/human-test-runs").catch(() => ({ runs: [] })),
     api("/release/workload-factual-tests").catch(() => ({ tests: [] })),
+    api("/release/account-bootstrap-evidence").catch(() => ({ sessions: [] })),
     api("/release/evidence-artifacts").catch(() => ({ artifacts: [] })),
     api("/live-execution/summary").catch(() => ({ summary: null })),
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
@@ -402,6 +405,7 @@ async function refreshAll() {
   state.humanTests = humanTests.scenarios;
   state.humanTestRuns = humanTestRuns.runs;
   state.workloadFactualTests = workloadFactualTests.tests;
+  state.accountBootstrapEvidence = accountBootstrapEvidence.sessions;
   state.evidenceArtifacts = evidenceArtifacts.artifacts;
   state.liveExecutionSummary = liveExecutionSummary.summary;
   state.liveCloudRequests = liveCloudRequests.requests;
@@ -1226,6 +1230,19 @@ function renderRelease() {
     ["Blockers", item.blockers?.join(", ") || "none"],
     ["Problem", item.linkedProblemId || "-"]
   ])).join("") || empty("No factual workload app tests recorded.");
+
+  $("#account-bootstrap-evidence-cards").innerHTML = state.accountBootstrapEvidence.map((item) => `
+    <article class="mini-card" data-account-bootstrap-id="${escapeHtml(item.id)}">
+      <strong>${escapeHtml(item.appName)} / ${escapeHtml(item.state)}</strong>
+      <p><span>Operator</span>${escapeHtml(item.operatorId)}</p>
+      <p><span>Terminal</span>${escapeHtml(item.terminalMode)}</p>
+      <p><span>Runtime</span>${escapeHtml(item.runtimeMode)}</p>
+      <p><span>Candidate</span>${escapeHtml(item.factualCandidate)}</p>
+      <p><span>Blockers</span>${escapeHtml(item.blockers?.join(", ") || "none")}</p>
+      <p><span>Promoted</span>${escapeHtml(item.promotedFactualTestId || "-")}</p>
+      <button type="button" data-bootstrap-promote="${escapeHtml(item.id)}" ${item.factualCandidate && !item.promotedFactualTestId ? "" : "disabled"}>Promote to factual test</button>
+    </article>
+  `).join("") || empty("No operator bootstrap evidence recorded.");
 
   $("#release-problem-cards").innerHTML = state.releaseProblems.map((problem) => card(problem.title, [
     ["Severity", problem.severity],
@@ -2668,6 +2685,19 @@ async function recordWorkloadFactualTest(event) {
   await refreshAll();
 }
 
+async function promoteAccountBootstrapEvidence(event) {
+  const sessionId = event.target.dataset.bootstrapPromote;
+  if (!sessionId) return;
+  await api(`/release/account-bootstrap-evidence/${encodeURIComponent(sessionId)}/promote`, {
+    method: "POST",
+    body: {
+      note: `Admin QA promoted account bootstrap evidence ${sessionId}`
+    }
+  });
+  toast("Account bootstrap evidence promoted to factual test");
+  await refreshAll();
+}
+
 async function recordBlueTeamSignal(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -3086,6 +3116,7 @@ function bind() {
   $("#human-test-status-form").addEventListener("submit", (event) => updateHumanTestStatus(event).catch(showError));
   $("#human-test-run-form").addEventListener("submit", (event) => recordHumanTestRun(event).catch(showError));
   $("#workload-factual-test-form").addEventListener("submit", (event) => recordWorkloadFactualTest(event).catch(showError));
+  $("#account-bootstrap-evidence-cards").addEventListener("click", (event) => promoteAccountBootstrapEvidence(event).catch(showError));
   $("#blue-team-signal-form").addEventListener("submit", (event) => recordBlueTeamSignal(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));

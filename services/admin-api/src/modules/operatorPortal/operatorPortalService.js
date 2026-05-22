@@ -867,6 +867,66 @@ export class OperatorPortalService {
     };
   }
 
+  listAccountBootstrapEvidenceForAdmin({ actor, operatorId = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      operatorId
+    });
+    return [...this.accountBootstrapSessions.values()]
+      .filter((session) => !operatorId || session.operatorId === operatorId)
+      .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))
+      .map((session) => this.#publicAccountBootstrapSession(session));
+  }
+
+  getAccountBootstrapEvidenceForAdmin({ actor, sessionId, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: sessionId
+    });
+    const session = this.accountBootstrapSessions.get(sessionId);
+    if (!session) throw notFound("account_bootstrap_session", sessionId);
+    return this.#publicAccountBootstrapSession(session);
+  }
+
+  markAccountBootstrapEvidenceReviewed({ actor, sessionId, factualTestId, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: sessionId
+    });
+    const previous = this.accountBootstrapSessions.get(sessionId);
+    if (!previous) throw notFound("account_bootstrap_session", sessionId);
+    const next = {
+      ...previous,
+      state: "promoted_to_factual_test",
+      adminQaReviewRequired: false,
+      promotedFactualTestId: factualTestId,
+      reviewedBy: actor.id,
+      reviewedAt: isoNow(),
+      updatedAt: isoNow()
+    };
+    this.accountBootstrapSessions.set(next.id, next);
+    this.audit.record({
+      actorId: actor.id,
+      action: "operator_portal.account_bootstrap_promoted_to_factual_test",
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: next.id,
+      tenantId: next.tenantId,
+      operatorId: next.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: next.state,
+      previousValue: this.#publicAccountBootstrapSession(previous),
+      newValue: this.#publicAccountBootstrapSession(next)
+    });
+    return this.#publicAccountBootstrapSession(next);
+  }
+
   requestAccountBootstrap({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.#assertNoBootstrapSecrets(body);
@@ -2304,6 +2364,9 @@ export class OperatorPortalService {
       note: session.note || null,
       factualCandidate: session.factualCandidate === true,
       adminQaReviewRequired: session.adminQaReviewRequired !== false,
+      promotedFactualTestId: session.promotedFactualTestId || null,
+      reviewedBy: session.reviewedBy || null,
+      reviewedAt: session.reviewedAt || null,
       terminalDataStored: false,
       cdrRequired: true,
       productionExecutionAllowed: false,

@@ -70,6 +70,8 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(html.body, /id="human-test-status-form"/);
     assert.match(html.body, /id="workload-factual-test-form"/);
     assert.match(html.body, /id="workload-factual-test-cards"/);
+    assert.match(html.body, /Account Bootstrap Queue/);
+    assert.match(html.body, /id="account-bootstrap-evidence-cards"/);
     assert.match(html.body, /id="evidence-artifact-form"/);
     assert.match(html.body, /Release Gate Control/);
 
@@ -102,6 +104,8 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(js.body, /createEvidenceArtifact/);
     assert.match(js.body, /updateHumanTestStatus/);
     assert.match(js.body, /recordWorkloadFactualTest/);
+    assert.match(js.body, /release\/account-bootstrap-evidence/);
+    assert.match(js.body, /promoteAccountBootstrapEvidence/);
     assert.match(js.body, /monitoring\/blue-team-dashboard/);
     assert.match(js.body, /recordBlueTeamSignal/);
     assert.match(js.body, /production-readiness\/operators/);

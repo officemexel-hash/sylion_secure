@@ -140,9 +140,23 @@ test("Step 3.72 operator account bootstrap records pass/fail evidence without se
     assert.equal(passed.payload.session.adminQaReviewRequired, true);
     assert.equal(passed.payload.session.terminalDataStored, false);
 
+    const queue = await client.request("/release/account-bootstrap-evidence");
+    assert.ok(queue.sessions.some((session) => session.id === passed.payload.session.id));
+    const promoted = await client.request(`/release/account-bootstrap-evidence/${passed.payload.session.id}/promote`, {
+      method: "POST",
+      body: {
+        note: "Admin QA reviewed metadata-only operator bootstrap evidence"
+      }
+    });
+    assert.equal(promoted.test.factualStateVerified, true);
+    assert.equal(promoted.test.appKey, "signal");
+    assert.equal(promoted.session.state, "promoted_to_factual_test");
+    assert.equal(promoted.session.promotedFactualTestId, promoted.test.id);
+
     const audit = app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id);
     assert.ok(audit.some((event) => event.action === "operator_portal.account_bootstrap_requested"));
     assert.ok(audit.some((event) => event.action === "operator_portal.account_bootstrap_evidence_recorded"));
+    assert.ok(audit.some((event) => event.action === "operator_portal.account_bootstrap_promoted_to_factual_test"));
   } finally {
     await close();
   }
