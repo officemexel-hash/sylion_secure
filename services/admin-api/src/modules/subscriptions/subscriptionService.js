@@ -136,6 +136,7 @@ function cleanAddons(addons = []) {
 }
 
 function publicPlan(plan) {
+  const defaults = DEFAULT_PLANS.find((item) => item.tier === plan.tier) || {};
   return {
     id: plan.id,
     tier: plan.tier,
@@ -145,9 +146,9 @@ function publicPlan(plan) {
     maxAppsPerOperator: plan.maxAppsPerOperator,
     regionCount: plan.regionCount,
     jurisdictionRotationMode: plan.jurisdictionRotationMode,
-    jurisdictionPolicy: plan.jurisdictionPolicy,
-    providerPolicy: plan.providerPolicy,
-    sessionPolicy: plan.sessionPolicy,
+    jurisdictionPolicy: plan.jurisdictionPolicy || defaults.jurisdictionPolicy,
+    providerPolicy: plan.providerPolicy || defaults.providerPolicy,
+    sessionPolicy: plan.sessionPolicy || defaults.sessionPolicy,
     matrixAddonAvailable: plan.matrixAddonAvailable,
     phantomAdminLifecycleAvailable: plan.phantomAdminLifecycleAvailable,
     phantomExecutionAllowed: false,
