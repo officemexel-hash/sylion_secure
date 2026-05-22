@@ -595,6 +595,18 @@ export class AdminApiClient {
     return this.request("/operators", { method: "POST", body });
   }
 
+  listDisposableTeardownPlans(operatorId = null) {
+    return this.request(`/operators/disposable-teardown-plans${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  createDisposableTeardownPlan(operatorId, body = {}) {
+    return this.request(`/operators/${operatorId}/disposable-teardown-plan`, { method: "POST", body });
+  }
+
+  executeDisposableTeardown(operatorId, body = {}) {
+    return this.request(`/operators/${operatorId}/disposable-teardown-execute`, { method: "POST", body });
+  }
+
   createProvider(body) {
     return this.request("/providers", { method: "POST", body });
   }

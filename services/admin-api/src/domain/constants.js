@@ -86,7 +86,8 @@ export const RESOURCE_TYPES = Object.freeze({
   OPERATOR_PORTAL_SESSION: "operator_portal_session",
   TERMINAL_CONNECTION_PROFILE: "terminal_connection_profile",
   ROUTER_PACKAGE: "router_package",
-  ROUTER_POSTURE: "router_posture"
+  ROUTER_POSTURE: "router_posture",
+  DISPOSABLE_OPERATOR_TEARDOWN: "disposable_operator_teardown"
 });
 
 export const DEVICE_TYPES = Object.freeze({

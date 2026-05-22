@@ -1764,6 +1764,45 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
+      if (req.method === "GET" && url.pathname === "/operators/disposable-teardown-plans") {
+        return send(res, 200, {
+          plans: operators.listDisposableTeardownPlans({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const disposableTeardownPlanMatch = url.pathname.match(/^\/operators\/([^/]+)\/disposable-teardown-plan$/);
+      if (req.method === "POST" && disposableTeardownPlanMatch) {
+        const body = await readJson(req);
+        const plan = operators.createDisposableTeardownPlan({
+          actor,
+          operatorId: disposableTeardownPlanMatch[1],
+          requestedAction: body.requestedAction,
+          reason: body.reason,
+          body,
+          correlationId
+        });
+        return send(res, 201, { plan });
+      }
+
+      const disposableTeardownExecuteMatch = url.pathname.match(/^\/operators\/([^/]+)\/disposable-teardown-execute$/);
+      if (req.method === "POST" && disposableTeardownExecuteMatch) {
+        const body = await readJson(req);
+        const job = operators.executeDisposableTeardown({
+          actor,
+          operatorId: disposableTeardownExecuteMatch[1],
+          planId: body.planId,
+          confirmation: body.confirmation,
+          reason: body.reason,
+          body,
+          correlationId
+        });
+        return send(res, 200, { job });
+      }
+
       const operatorConnectionPathMatch = url.pathname.match(/^\/operators\/([^/]+)\/connection-path$/);
       if (req.method === "GET" && operatorConnectionPathMatch) {
         return send(res, 200, {
