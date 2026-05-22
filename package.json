@@ -6,7 +6,7 @@
   "scripts": {
     "start:admin-api": "node services/admin-api/src/server.js",
     "start:admin-api:persistent": "node --experimental-sqlite services/admin-api/src/server.js",
-    "test": "node --test services/admin-api/test/*.test.js",
+    "test": "node --test --test-concurrency=1 services/admin-api/test/*.test.js",
     "test:dashboard": "node scripts/admin-dashboard-smoke.mjs",
     "test:dashboard-live-promotion": "node scripts/admin-step3-28-human-live-promotion.mjs",
     "test:operator-portal": "node scripts/operator-portal-smoke.mjs",
@@ -18,7 +18,8 @@
     "live:g2-workload-gateway": "node scripts/install-g2-workload-gateway.mjs --deploy",
     "live:signal-auth-handoff": "node scripts/sync-signal-auth-handoff.mjs --apply",
     "live:workload-recreate": "node scripts/live-workload-recreate.mjs --apply",
-    "live:android-native-probe": "node scripts/android-native-workload-probe.mjs"
+    "live:android-native-probe": "node scripts/android-native-workload-probe.mjs",
+    "live:android-binderfs-gate": "node scripts/install-android-binderfs-host-gate.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0"

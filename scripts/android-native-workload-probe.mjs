@@ -1,21 +1,57 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 
-const execFileAsync = promisify(execFile);
+function arg(name, fallback = null) {
+  const prefix = `--${name}=`;
+  const found = process.argv.find((item) => item.startsWith(prefix));
+  return found ? found.slice(prefix.length) : fallback;
+}
 
 const defaultSshKey = process.platform === "win32"
   ? ".deploy\\sylion_hetzner_admin_ed25519"
   : ".deploy/sylion_hetzner_admin_ed25519";
-const sshKey = process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey;
-const workloadHost = process.env.SYLION_WORKLOAD_SSH || "sylion@178.105.197.37";
+const sshKey = arg("key", process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey);
+const host = arg("host", process.env.SYLION_WORKLOAD_SSH_HOST);
+const user = arg("user", process.env.SYLION_WORKLOAD_SSH_USER || "root");
+const workloadHost = arg("target", process.env.SYLION_WORKLOAD_SSH || (host ? `${user}@${host}` : "sylion@178.105.197.37"));
 
 async function run(command, args, options = {}) {
-  const result = await execFileAsync(command, args, {
-    timeout: options.timeout ?? 60_000,
-    windowsHide: true,
-    input: options.input
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    let stdout = "";
+    let stderr = "";
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error(`Command timed out after ${options.timeout ?? 60_000}ms: ${command}`));
+    }, options.timeout ?? 60_000);
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.on("close", (code, signal) => {
+      clearTimeout(timeout);
+      if (code === 0) {
+        resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+      } else {
+        const error = new Error(`Command failed with code ${code ?? signal}: ${command}`);
+        error.code = code;
+        error.signal = signal;
+        error.stdout = stdout;
+        error.stderr = stderr;
+        reject(error);
+      }
+    });
+    if (options.input) child.stdin.end(options.input);
+    else child.stdin.end();
   });
-  return { stdout: result.stdout.trim(), stderr: result.stderr.trim() };
 }
 
 async function ssh(script, options = {}) {
@@ -25,17 +61,25 @@ async function ssh(script, options = {}) {
     "-o",
     "BatchMode=yes",
     "-o",
+    "ConnectTimeout=10",
+    "-o",
+    "ServerAliveInterval=10",
+    "-o",
+    "ServerAliveCountMax=2",
+    "-o",
     "StrictHostKeyChecking=accept-new",
     workloadHost,
-    script
-  ], options);
+    "bash -s"
+  ], { ...options, input: script });
 }
 
 async function probe() {
   const script = `
 set -euo pipefail
 printf 'kvm=%s\\n' "$(test -e /dev/kvm && echo true || echo false)"
-printf 'binderfs=%s\\n' "$(grep -qw binder /proc/filesystems && echo true || echo false)"
+printf 'binderfs_supported=%s\\n' "$(grep -qw binder /proc/filesystems && echo true || echo false)"
+printf 'binderfs_mounts=%s\\n' "$(findmnt -t binder 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')"
+printf 'binder_device=%s\\n' "$(test -e /dev/binder && echo true || echo false)"
 printf 'ashmem=%s\\n' "$(test -e /dev/ashmem && echo true || echo false)"
 printf 'kernel=%s\\n' "$(uname -r)"
 printf 'arch=%s\\n' "$(uname -m)"
@@ -51,23 +95,28 @@ printf 'anbox=%s\\n' "$(command -v anbox >/dev/null 2>&1 && echo true || echo fa
     if (value === "false") return [key, false];
     return [key, value];
   }));
-  const blockers = [
+  const binderReady = facts.binder_device || facts.binderfs_supported || Number(facts.binderfs_mounts || 0) > 0;
+  const hostBlockers = [
     ...(facts.kvm ? [] : ["workload_host_missing_dev_kvm"]),
-    ...(facts.binderfs ? [] : ["workload_host_missing_binderfs"]),
-    ...(facts.docker ? [] : ["docker_runtime_missing"]),
+    ...(binderReady ? [] : ["workload_host_missing_binder_or_binderfs"])
+  ];
+  const provenanceBlockers = [
     ...(process.env.SYLION_ZANGI_APK_REF ? [] : ["approved_zangi_apk_ref_missing"]),
     ...(process.env.SYLION_ANDROID_WORKLOAD_IMAGE_REF ? [] : ["approved_android_workload_image_missing"])
   ];
+  const blockers = [...hostBlockers, ...provenanceBlockers];
   return {
     component: "android_native_workload_probe",
     targetHost: workloadHost,
     apps: ["zangi"],
     runtimeClass: "android_workload",
     facts,
+    hostReady: hostBlockers.length === 0,
+    provenanceReady: provenanceBlockers.length === 0,
     ready: blockers.length === 0,
     blockers,
     recommendation: blockers.length
-      ? "Use a provider/flavor with nested virtualization or bare-metal KVM plus binderfs before launching native Android workloads."
+      ? "Complete host kernel gates and approved Android image/APK provenance before launching native Android workloads."
       : "Host can proceed to Android workload runner installation review.",
     terminalDataStored: false,
     cdrRequired: true,
