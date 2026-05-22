@@ -413,6 +413,14 @@
           </label>
           <button type="submit" class="primary">Request stream session</button>
         </form>
+        <form id="stream-readiness-form" class="dense-form">
+          <label><input name="g2StreamGatewayReady" type="checkbox" checked> G2 stream gateway ready</label>
+          <label><input name="tlsInternalOnly" type="checkbox" checked> Internal TLS only</label>
+          <label><input name="inputProxyReady" type="checkbox" checked> Input proxy ready</label>
+          <label>Ready sources <input name="sources" value="signal,duckduckgo_browser,libreoffice"></label>
+          <button type="submit">Record stream readiness</button>
+        </form>
+        <p id="stream-readiness-status" class="hint">No stream readiness evidence recorded in this browser session.</p>
         <dl class="stream-metrics">
           <dt>Session</dt><dd id="stream-session-state">not_requested</dd>
           <dt>Gateway</dt><dd id="stream-session-gateway">-</dd>

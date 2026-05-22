@@ -106,6 +106,24 @@ async function recordLiveVpnEvidence(baseUrl, token) {
   });
 }
 
+async function recordStreamingReadiness(baseUrl, token, body = {}) {
+  return operatorRequest(baseUrl, token, "/operator-api/streaming-readiness", {
+    method: "POST",
+    body: {
+      g2StreamGatewayReady: true,
+      tlsInternalOnly: true,
+      inputProxyReady: true,
+      publicInternetExposure: false,
+      sources: {
+        signal: true,
+        duckduckgo_browser: true,
+        libreoffice: true
+      },
+      ...body
+    }
+  });
+}
+
 test("Step 3.43 streaming session is blocked until live access and G2 stream gateway are ready", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
@@ -180,6 +198,63 @@ test("Step 3.43 Signal, DuckDuckGo and LibreOffice can become ready for G2 thin 
       assert.equal(session.session.security.fileIngressEgress, "blocked_without_cdr_decision");
       assert.equal(session.session.productionExecutionAllowed, false);
     }
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.43 operator-scoped stream readiness evidence unlocks only approved thin stream sources", async () => {
+  const { baseUrl, close } = await startTestServer({
+    liveExecutionOptions: {
+      env: {
+        SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL: "true",
+        SYLION_G1_G2_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_GATEWAY_READY: "true",
+        SYLION_REAL_IPSEC_READY: "true",
+        SYLION_KVM_READY: "true",
+        SYLION_FIRECRACKER_BIN: "/usr/local/bin/firecracker",
+        SYLION_FIRECRACKER_KERNEL: "image://kernel",
+        SYLION_SIGNAL_ROOTFS: "image://rootfs",
+        SYLION_SIGNAL_WORKLOAD_IMAGE_REF: "image://workload",
+        SYLION_SIGNAL_PACKAGE_REF: "package://signal",
+        SYLION_SIGNAL_ACCOUNT_REF: "account://signal",
+        SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true",
+        SYLION_ENABLE_SIGNAL_PRODUCTION_EXECUTION: "true"
+      }
+    }
+  });
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    await recordLiveVpnEvidence(baseUrl, seeded.session.token);
+
+    const blocked = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
+      method: "POST",
+      body: { templateKey: "signal", width: 390, height: 844, dpr: 3 }
+    });
+    assert.ok(blocked.session.blockers.includes("signal_stream_source_not_ready"));
+    assert.ok(blocked.session.blockers.includes("g2_stream_gateway_not_ready"));
+
+    const readiness = await recordStreamingReadiness(baseUrl, seeded.session.token);
+    assert.equal(readiness.evidence.ready, true);
+    assert.equal(readiness.evidence.contentInspected, false);
+    assert.equal(readiness.evidence.terminalDataStored, false);
+
+    const ready = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
+      method: "POST",
+      body: { templateKey: "signal", width: 390, height: 844, dpr: 3 }
+    });
+    assert.equal(ready.session.state, "stream_session_ready");
+    assert.equal(ready.session.gateway.evidenceId, readiness.evidence.id);
+    assert.equal(ready.session.source.readiness, "ready");
+    assert.equal(ready.session.security.terminalDataStored, false);
+
+    const denied = await recordStreamingReadiness(baseUrl, seeded.session.token, {
+      publicInternetExposure: true
+    });
+    assert.equal(denied.evidence.ready, false);
+    assert.ok(denied.evidence.blockers.includes("g2_stream_gateway_public_exposure_forbidden"));
   } finally {
     await close();
   }

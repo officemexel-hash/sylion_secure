@@ -86,6 +86,7 @@ export class OperatorPortalService {
     this.subscriptionRequests = new PersistentMap({ store, collection: "operator_subscription_change_requests" });
     this.vpnEvidence = new PersistentMap({ store, collection: "operator_vpn_evidence" });
     this.streamingSessions = new PersistentMap({ store, collection: "operator_streaming_sessions" });
+    this.streamingReadinessEvidence = new PersistentMap({ store, collection: "operator_streaming_readiness_evidence" });
   }
 
   createLocalSession({ actor, operatorId, terminalMode, deviceId = null, correlationId }) {
@@ -747,9 +748,10 @@ export class OperatorPortalService {
       templateKey
     });
     const env = this.env || {};
-    const streamGatewayReady = env.SYLION_G2_STREAM_GATEWAY_READY === "true" || env.SYLION_SELKIES_GATEWAY_READY === "true";
+    const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
+    const streamGatewayReady = this.#streamGatewayReady(readiness, env);
     const appStreamHost = this.#streamHostForTemplate(templateKey);
-    const streamSourceBlockers = this.#streamSourceBlockers({ templateKey, env });
+    const streamSourceBlockers = this.#streamSourceBlockers({ templateKey, env, readiness });
     const appSpecificBlockers = [
       ...(ANDROID_WORKLOAD_APPS.has(templateKey) ? ["android_native_stream_runner_required"] : []),
       ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
@@ -777,7 +779,8 @@ export class OperatorPortalService {
         appHost: appStreamHost,
         protocol: streamGatewayReady ? "webrtc_or_selkies_ready" : "webrtc_or_selkies_required",
         transport: "internal_tls_via_g1_g2",
-        publicInternetExposure: false
+        publicInternetExposure: false,
+        evidenceId: readiness?.id || null
       },
       source: {
         workloadRole: "WORKLOAD",
@@ -825,6 +828,51 @@ export class OperatorPortalService {
       newValue: this.#publicStreamingSession(session)
     });
     return this.#publicStreamingSession(session);
+  }
+
+  recordStreamingReadiness({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const sourcesInput = body.sources && typeof body.sources === "object" ? body.sources : {};
+    const sources = {};
+    for (const app of WORKLOAD_CONTROL_APPS) {
+      const value = sourcesInput[app.key] ?? sourcesInput[this.#streamHostForTemplate(app.key)] ?? false;
+      sources[app.key] = value === true || value === "true";
+    }
+    const evidence = {
+      id: newId("stream_readiness"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      gateway: {
+        g2StreamGatewayReady: body.g2StreamGatewayReady === true,
+        protocol: String(body.protocol || "webrtc_or_selkies").slice(0, 64),
+        publicInternetExposure: body.publicInternetExposure === true,
+        tlsInternalOnly: body.tlsInternalOnly === true,
+        inputProxyReady: body.inputProxyReady === true
+      },
+      sources,
+      observedAt: isoNow(),
+      source: "operator_streaming_readiness_evidence",
+      contentInspected: false,
+      terminalDataStored: false
+    };
+    evidence.blockers = this.#streamingReadinessBlockers(evidence);
+    evidence.ready = evidence.blockers.length === 0;
+    this.streamingReadinessEvidence.set(evidence.id, evidence);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.streaming_readiness_recorded",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: evidence.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: evidence.ready ? "allow" : "deny",
+      result: evidence.ready ? "streaming_readiness_evidence_ready" : "streaming_readiness_incomplete",
+      newValue: this.#publicStreamingReadiness(evidence)
+    });
+    return this.#publicStreamingReadiness(evidence);
   }
 
   subscription({ operatorActor, correlationId }) {
@@ -1549,10 +1597,55 @@ export class OperatorPortalService {
     return `${templateKey}.sylion.internal`;
   }
 
-  #streamSourceBlockers({ templateKey, env }) {
+  #latestStreamingReadinessForOperator(operatorId) {
+    return [...this.streamingReadinessEvidence.values()]
+      .filter((evidence) => evidence.operatorId === operatorId)
+      .at(-1) || null;
+  }
+
+  #streamGatewayReady(readiness, env) {
+    if (readiness?.gateway?.g2StreamGatewayReady === true
+      && readiness.gateway.publicInternetExposure === false
+      && readiness.gateway.tlsInternalOnly === true
+      && readiness.gateway.inputProxyReady === true) {
+      return true;
+    }
+    return env.SYLION_G2_STREAM_GATEWAY_READY === "true" || env.SYLION_SELKIES_GATEWAY_READY === "true";
+  }
+
+  #streamSourceBlockers({ templateKey, env, readiness = null }) {
     const envKey = `SYLION_${templateKey.toUpperCase().replaceAll("-", "_")}_STREAM_SOURCE_READY`;
-    const sourceReady = env.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true" || env[envKey] === "true";
+    const sourceReady = readiness?.sources?.[templateKey] === true || env.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true" || env[envKey] === "true";
     return sourceReady ? [] : [`${templateKey}_stream_source_not_ready`];
+  }
+
+  #streamingReadinessBlockers(evidence) {
+    const sourceReady = Object.entries(evidence.sources || {}).filter(([, ready]) => ready === true).map(([key]) => key);
+    return [
+      ...(evidence.gateway.g2StreamGatewayReady ? [] : ["g2_stream_gateway_not_ready"]),
+      ...(evidence.gateway.publicInternetExposure ? ["g2_stream_gateway_public_exposure_forbidden"] : []),
+      ...(evidence.gateway.tlsInternalOnly ? [] : ["g2_stream_gateway_internal_tls_required"]),
+      ...(evidence.gateway.inputProxyReady ? [] : ["g2_input_proxy_not_ready"]),
+      ...(sourceReady.length ? [] : ["at_least_one_workload_stream_source_required"])
+    ];
+  }
+
+  #publicStreamingReadiness(evidence) {
+    return {
+      id: evidence.id,
+      operatorId: evidence.operatorId,
+      terminalMode: evidence.terminalMode,
+      deviceId: evidence.deviceId,
+      gateway: evidence.gateway,
+      sources: evidence.sources,
+      ready: evidence.ready,
+      blockers: evidence.blockers,
+      observedAt: evidence.observedAt,
+      contentInspected: false,
+      terminalDataStored: false,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
   }
 
   #publicStreamingSession(session) {

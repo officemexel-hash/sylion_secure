@@ -556,6 +556,27 @@
     await loadAudit();
   }
 
+  async function recordStreamReadiness(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const sources = Object.fromEntries(splitCsv(data.sources).map((key) => [key, true]));
+    const result = await fetchJson("/operator-api/streaming-readiness", {
+      method: "POST",
+      body: {
+        g2StreamGatewayReady: data.g2StreamGatewayReady === "on",
+        tlsInternalOnly: data.tlsInternalOnly === "on",
+        inputProxyReady: data.inputProxyReady === "on",
+        publicInternetExposure: false,
+        protocol: "webrtc_or_selkies",
+        sources
+      }
+    });
+    setText("#stream-readiness-status", result.error || (result.evidence.ready
+      ? `Stream readiness accepted: ${result.evidence.observedAt}`
+      : `Readiness incomplete: ${(result.evidence.blockers || []).join(", ")}`));
+    await loadAudit();
+  }
+
   async function loadSignalPreview() {
     const [pathData, streamData, executionData] = await Promise.all([
       fetchJson("/operator-api/connection-path"),
@@ -866,6 +887,7 @@
     $("#runtime-gate-form").addEventListener("submit", handleRuntimeGate);
     $("#vpn-evidence-form").addEventListener("submit", recordVpnEvidence);
     $("#stream-session-form").addEventListener("submit", requestStreamSession);
+    $("#stream-readiness-form").addEventListener("submit", recordStreamReadiness);
     $("#unlock-form").addEventListener("submit", saveUnlockPolicy);
     $("#safety-form").addEventListener("submit", saveSafetyPolicy);
     $("#jurisdiction-form").addEventListener("submit", saveJurisdictionPolicy);
