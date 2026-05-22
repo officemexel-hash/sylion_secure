@@ -8,18 +8,17 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 const apps = [
-  { key: "duckduckgo", serverName: "duckduckgo.sylion.internal", upstreamScheme: "http", upstreamPort: 3001 },
-  { key: "libreoffice", serverName: "libreoffice.sylion.internal", upstreamScheme: "http", upstreamPort: 3002 },
-  { key: "whatsapp", serverName: "whatsapp.sylion.internal", upstreamScheme: "http", upstreamPort: 3010 },
-  { key: "telegram", serverName: "telegram.sylion.internal", upstreamScheme: "http", upstreamPort: 3011 },
-  { key: "threema", serverName: "threema.sylion.internal", upstreamScheme: "http", upstreamPort: 3012 },
+  { key: "duckduckgo", serverName: "duckduckgo.sylion.internal", upstreamScheme: "http", upstreamPort: 3001, noVnc: true },
+  { key: "libreoffice", serverName: "libreoffice.sylion.internal", upstreamScheme: "http", upstreamPort: 3002, noVnc: true },
+  { key: "whatsapp", serverName: "whatsapp.sylion.internal", upstreamScheme: "http", upstreamPort: 3010, noVnc: true },
+  { key: "telegram", serverName: "telegram.sylion.internal", upstreamScheme: "http", upstreamPort: 3011, noVnc: true },
+  { key: "threema", serverName: "threema.sylion.internal", upstreamScheme: "http", upstreamPort: 3012, noVnc: true },
   {
     key: "signal",
     serverName: "signal.sylion.internal",
-    upstreamScheme: "https",
+    upstreamScheme: "http",
     upstreamPort: 3013,
-    authInclude: "/etc/nginx/snippets/sylion-signal-auth.conf",
-    proxySslVerify: false
+    noVnc: true
   },
   {
     key: "zangi",
@@ -33,7 +32,7 @@ const apps = [
     serverName: "exodus.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3015,
-    productionGate: "isolated_wallet_runtime_required"
+    noVnc: true
   }
 ];
 
@@ -50,7 +49,7 @@ const defaultPlan = {
   },
   adminUpstream: process.env.SYLION_ADMIN_UPSTREAM || "http://10.42.0.10:8080",
   workload: {
-    bindAddress: process.env.SYLION_WORKLOAD_BIND || "10.42.0.13"
+    bindAddress: process.env.SYLION_WORKLOAD_BIND || "10.44.0.13"
   },
   invariants: {
     privateBindOnly: true,
@@ -122,12 +121,18 @@ function renderWorkloadServer(plan, app) {
   const productionGate = app.productionGate
     ? `    add_header X-Sylion-Production-Gate "${escapeNginx(app.productionGate)}" always;\n`
     : "";
+  const rootRedirect = app.noVnc
+    ? `  location = / {
+    return 302 /vnc.html?autoconnect=true&resize=scale&path=websockify;
+  }
+`
+    : "";
   return `server {
   listen ${bindAddress}:443 ssl;
   server_name ${app.serverName};
   ssl_certificate ${tlsCertificate};
   ssl_certificate_key ${tlsKey};
-  location / {
+${rootRedirect}  location / {
 ${authInclude}${proxySsl}${productionGate}    proxy_pass ${upstream};
 ${commonProxyHeaders()}
   }
@@ -154,6 +159,7 @@ export function publicPlan(plan = defaultPlan) {
       serverName: app.serverName,
       upstream: `${app.upstreamScheme}://${plan.workload.bindAddress}:${app.upstreamPort}`,
       authMode: app.authInclude ? "root_only_nginx_include" : "none",
+      noVnc: app.noVnc === true,
       productionGate: app.productionGate || "none"
     }))
   };

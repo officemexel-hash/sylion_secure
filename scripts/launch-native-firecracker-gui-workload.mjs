@@ -7,12 +7,45 @@ const defaultSshKey = process.platform === "win32"
   ? ".deploy\\sylion_hetzner_admin_ed25519"
   : ".deploy/sylion_hetzner_admin_ed25519";
 
+const mozillaAptSetup = `
+mkdir -p "$mount_dir/etc/apt/keyrings"
+curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg -o "$mount_dir/etc/apt/keyrings/packages.mozilla.org.asc"
+cat > "$mount_dir/etc/apt/sources.list.d/mozilla.list" <<'EOF'
+deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main
+EOF
+cat > "$mount_dir/etc/apt/preferences.d/mozilla" <<'EOF'
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1000
+EOF
+`;
+
+function firefoxApp(url) {
+  return [
+    "dbus-run-session -- env",
+    "MOZ_ENABLE_WAYLAND=0",
+    "MOZ_DISABLE_CONTENT_SANDBOX=1",
+    "XDG_SESSION_TYPE=x11",
+    "GDK_BACKEND=x11",
+    "NO_AT_BRIDGE=1",
+    "firefox",
+    "--no-remote",
+    "--new-window",
+    "--width 1080",
+    "--height 2200",
+    url
+  ].join(" ");
+}
+
 const profiles = {
   duckduckgo: {
     title: "SYLION DuckDuckGo",
     url: "https://duckduckgo.com/",
-    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc netsurf-gtk fonts-dejavu-core",
-    launchCommand: "netsurf-gtk https://duckduckgo.com/",
+    preAptSetup: mozillaAptSetup,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
+    launchCommand: firefoxApp("https://duckduckgo.com/"),
+    visibleWindowPattern: "DuckDuckGo|Mozilla Firefox|Firefox",
+    processPattern: "firefox",
     hostPort: 3001,
     guestIp: "172.16.58.2",
     hostTapIp: "172.16.58.1",
@@ -26,7 +59,7 @@ const profiles = {
   libreoffice: {
     title: "SYLION LibreOffice",
     url: "about:blank",
-    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc libreoffice-writer libreoffice-calc fonts-dejavu-core",
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl libreoffice-writer libreoffice-calc fonts-dejavu-core",
     launchCommand: "libreoffice --writer --nologo --nofirststartwizard",
     hostPort: 3002,
     guestIp: "172.16.58.6",
@@ -38,8 +71,11 @@ const profiles = {
   whatsapp: {
     title: "SYLION WhatsApp Web",
     url: "https://web.whatsapp.com/",
-    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc netsurf-gtk fonts-dejavu-core",
-    launchCommand: "netsurf-gtk https://web.whatsapp.com/",
+    preAptSetup: mozillaAptSetup,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
+    launchCommand: firefoxApp("https://web.whatsapp.com/"),
+    visibleWindowPattern: "WhatsApp|Mozilla Firefox|Firefox",
+    processPattern: "firefox",
     hostPort: 3010,
     guestIp: "172.16.58.10",
     hostTapIp: "172.16.58.9",
@@ -50,8 +86,11 @@ const profiles = {
   telegram: {
     title: "SYLION Telegram Web",
     url: "https://web.telegram.org/",
-    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc netsurf-gtk fonts-dejavu-core",
-    launchCommand: "netsurf-gtk https://web.telegram.org/",
+    preAptSetup: mozillaAptSetup,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
+    launchCommand: firefoxApp("https://web.telegram.org/"),
+    visibleWindowPattern: "Telegram|Mozilla Firefox|Firefox",
+    processPattern: "firefox",
     hostPort: 3011,
     guestIp: "172.16.58.14",
     hostTapIp: "172.16.58.13",
@@ -62,8 +101,11 @@ const profiles = {
   threema: {
     title: "SYLION Threema Web",
     url: "https://web.threema.ch/",
-    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc netsurf-gtk fonts-dejavu-core",
-    launchCommand: "netsurf-gtk https://web.threema.ch/",
+    preAptSetup: mozillaAptSetup,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
+    launchCommand: firefoxApp("https://web.threema.ch/"),
+    visibleWindowPattern: "Threema|Mozilla Firefox|Firefox",
+    processPattern: "firefox",
     hostPort: 3012,
     guestIp: "172.16.58.18",
     hostTapIp: "172.16.58.17",
@@ -81,14 +123,48 @@ cat > "$mount_dir/etc/apt/sources.list.d/signal-xenial.list" <<'EOF'
 deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.asc] https://updates.signal.org/desktop/apt xenial main
 EOF
 `,
-    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc x11-utils fonts-dejavu-core dbus dbus-x11 libasound2t64 libgtk-3-0 libnss3 libxss1 libgbm1 libdrm2 libxkbcommon0 libatspi2.0-0 libxdamage1 libxrandr2 libxcomposite1 libxext6 libxfixes3 libx11-xcb1 libxcb-dri3-0 signal-desktop",
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libasound2t64 libgtk-3-0 libnss3 libxss1 libgbm1 libdrm2 libxkbcommon0 libatspi2.0-0 libxdamage1 libxrandr2 libxcomposite1 libxext6 libxfixes3 libx11-xcb1 libxcb-dri3-0 signal-desktop",
     launchCommand: "dbus-run-session -- signal-desktop --no-sandbox --password-store=basic --ozone-platform=x11 --disable-features=UseOzonePlatform --disable-gpu --disable-gpu-compositing --disable-dev-shm-usage --enable-logging=stderr",
+    visibleWindowPattern: "Signal|signal",
+    processPattern: "signal-desktop|electron",
     hostPort: 3013,
     guestIp: "172.16.58.22",
     hostTapIp: "172.16.58.21",
     tap: "syliongui5",
     serverName: "signal.sylion.internal",
     guestMac: "AA:FC:00:00:58:16"
+  },
+  exodus: {
+    title: "SYLION Exodus Desktop",
+    url: "exodus://",
+    preAptSetup: `
+mkdir -p "$mount_dir/tmp"
+exodus_url="$(curl -fsSL https://www.exodus.com/download/ | grep -Eo 'https://downloads.exodus.com/[^"]+linux[^"]+\\.deb' | head -1 || true)"
+if [ -z "$exodus_url" ]; then
+  exodus_url="https://downloads.exodus.com/releases/exodus-linux-x64-latest.deb"
+fi
+if ! curl -fL "$exodus_url" -o "$mount_dir/tmp/exodus.deb"; then
+  echo "exodus_official_download_blocked_or_unavailable" >> "$run_dir/preflight.blockers"
+  rm -f "$mount_dir/tmp/exodus.deb"
+fi
+`,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libgtk-3-0 libnss3 libxss1 libasound2t64",
+    postAptInstall: `
+if [ -s "$mount_dir/tmp/exodus.deb" ]; then
+  chroot "$mount_dir" apt-get install -y --no-install-recommends /tmp/exodus.deb >/dev/null
+else
+  echo "exodus_deb_artifact_missing" >> "$run_dir/preflight.blockers"
+fi
+`,
+    launchCommand: "dbus-run-session -- exodus --no-sandbox --disable-gpu --disable-dev-shm-usage",
+    visibleWindowPattern: "Exodus|exodus",
+    processPattern: "exodus",
+    hostPort: 3015,
+    guestIp: "172.16.58.30",
+    hostTapIp: "172.16.58.29",
+    tap: "syliongui7",
+    serverName: "exodus.sylion.internal",
+    guestMac: "AA:FC:00:00:58:1E"
   }
 };
 
@@ -134,7 +210,7 @@ function remoteLaunchScript() {
   return `
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-apt-get install -y --no-install-recommends jq qemu-utils socat novnc websockify >/dev/null
+apt-get install -y --no-install-recommends jq qemu-utils socat novnc websockify curl gnupg >/dev/null
 run_id="${cfg.runId}"
 app_key="${appKey}"
 base="/opt/sylion-firecracker/images/base/noble-base.ext4"
@@ -150,7 +226,7 @@ mkdir -p "$run_dir" /opt/sylion-workloads/evidence
 if [ ! -f "$base" ]; then echo "missing_base_rootfs" >&2; exit 2; fi
 if [ ! -f "$kernel" ]; then echo "missing_firecracker_kernel" >&2; exit 2; fi
 cp --reflink=auto "$base" "$rootfs"
-truncate -s 8G "$rootfs"
+truncate -s 12G "$rootfs"
 resize2fs -f "$rootfs" >/dev/null
 mount_dir="$(mktemp -d /mnt/sylion-gui-rootfs.XXXXXX)"
 cleanup_mount() {
@@ -182,6 +258,7 @@ chroot "$mount_dir" apt-get install -y --no-install-recommends ca-certificates >
 ${profile.preAptSetup || ""}
 chroot "$mount_dir" apt-get update >/dev/null
 chroot "$mount_dir" apt-get install -y --no-install-recommends ${profile.installPackages} >/dev/null
+${profile.postAptInstall || ""}
 chroot "$mount_dir" dbus-uuidgen --ensure=/etc/machine-id 2>/dev/null || true
 mkdir -p "$mount_dir/root/.config/openbox"
 cat > "$mount_dir/root/.config/openbox/autostart" <<'EOF'
@@ -199,7 +276,10 @@ mount -t tmpfs tmpfs /run 2>/dev/null || true
 mount -t tmpfs tmpfs /tmp 2>/dev/null || true
 mkdir -p /dev/shm /run/user/1000
 mount -t tmpfs tmpfs /dev/shm 2>/dev/null || true
+chmod 1777 /tmp /dev/shm 2>/dev/null || true
+[ -e /dev/fd ] || ln -s /proc/self/fd /dev/fd
 chown 1000:1000 /run/user/1000
+chmod 0700 /run/user/1000
 ip link set lo up
 iface=""
 for candidate in /sys/class/net/*; do
@@ -213,25 +293,49 @@ fi
 ip addr add ${profile.guestIp}/30 dev "$iface" 2>/dev/null || true
 ip link set "$iface" up
 ip route replace default via ${profile.hostTapIp} dev "$iface" 2>/dev/null || true
+if command -v haveged >/dev/null 2>&1; then
+  haveged -F -w 1024 >/tmp/sylion-haveged.log 2>&1 &
+fi
 export DISPLAY=:1
 export HOME=/root
-Xvfb :1 -screen 0 1080x2400x24 -nolisten tcp &
+Xvfb :1 -screen 0 1080x2400x24 -ac -nolisten tcp &
 sleep 1
 openbox-session &
 sleep 1
-su -s /bin/sh sylion -c 'export DISPLAY=:1 HOME=/home/sylion XDG_RUNTIME_DIR=/run/user/1000; ${profile.launchCommand} >/tmp/sylion-app.log 2>&1' &
+if [ "${profile.runAsRoot ? "true" : "false"}" = "true" ]; then
+  mkdir -p /run/sylion-root
+  chmod 0700 /run/sylion-root
+  export DISPLAY=:1 HOME=/root XDG_RUNTIME_DIR=/run/sylion-root
+  ${profile.launchCommand} >/tmp/sylion-app.log 2>&1 &
+else
+  su -s /bin/sh sylion -c 'export DISPLAY=:1 HOME=/home/sylion USER=sylion LOGNAME=sylion XDG_RUNTIME_DIR=/run/user/1000 XDG_SESSION_TYPE=x11 GDK_BACKEND=x11; ${profile.launchCommand} >/tmp/sylion-app.log 2>&1' &
+fi
 app_pid="$!"
 echo "sylion-app-pid=$app_pid"
-sleep 15
-if kill -0 "$app_pid" 2>/dev/null; then
+sleep 35
+if command -v xdotool >/dev/null 2>&1; then
+  DISPLAY=:1 xdotool search --name '.' windowmove %@ 0 0 windowsize %@ 1080 2200 2>/dev/null || true
+  DISPLAY=:1 xdotool search --class 'firefox|navigator|chrome|signal|libreoffice|soffice|exodus' windowmove %@ 0 0 windowsize %@ 1080 2200 2>/dev/null || true
+  DISPLAY=:1 xwininfo -root -children 2>/dev/null \
+    | awk '/^     0x[0-9a-f]+/ && $1 != "0x20011f" { print $1 }' \
+    | while read -r win; do
+        DISPLAY=:1 xdotool windowmap "$win" windowmove "$win" 0 0 windowsize "$win" 1080 2200 2>/dev/null || true
+      done
+fi
+if command -v wmctrl >/dev/null 2>&1; then
+  DISPLAY=:1 wmctrl -r :ACTIVE: -e 0,0,0,1080,2200 2>/dev/null || true
+  DISPLAY=:1 wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz 2>/dev/null || true
+fi
+sleep 5
+if pgrep -af '${profile.processPattern || "signal-desktop|chrome|exodus|libreoffice|soffice|netsurf"}' >/dev/null 2>&1 || kill -0 "$app_pid" 2>/dev/null; then
   echo "sylion-app-running=true"
 else
   echo "sylion-app-running=false"
 fi
 sed -n '1,160p' /tmp/sylion-app.log 2>/dev/null || true
-ps -ef | grep -Ei 'signal|electron|dbus|openbox|Xvfb' | grep -v grep || true
+ps -ef | grep -Ei '${profile.processPattern || "signal|electron|chrome|exodus|libreoffice|soffice|dbus|openbox|Xvfb"}|dbus|openbox|Xvfb' | grep -v grep || true
 DISPLAY=:1 xwininfo -root -tree 2>/dev/null | sed -n '1,80p' || true
-if DISPLAY=:1 xwininfo -root -tree 2>/dev/null | grep -Eiq 'Signal|WhatsApp|Telegram|Threema|LibreOffice|NetSurf'; then
+if DISPLAY=:1 xwininfo -root -tree 2>/dev/null | grep -Eiq '${profile.visibleWindowPattern || "Signal|WhatsApp|Telegram|Threema|LibreOffice|DuckDuckGo|Chrome|NetSurf"}'; then
   echo "sylion-visible-window=true"
 else
   echo "sylion-visible-window=false"
@@ -244,8 +348,21 @@ chmod 0755 "$mount_dir/sbin/sylion-gui-init"
 cleanup_mount
 trap - EXIT
 pkill -f "firecracker.*$run_dir/config.json" 2>/dev/null || true
+for stale_config in /opt/sylion-firecracker/runs/gui-"$app_key"-*/config.json; do
+  [ -e "$stale_config" ] || continue
+  stale_dir="$(dirname "$stale_config")"
+  [ "$stale_dir" = "$run_dir" ] && continue
+  if [ -f "$stale_dir/firecracker.pid" ]; then
+    kill "$(cat "$stale_dir/firecracker.pid")" 2>/dev/null || true
+  fi
+  pkill -f "firecracker --no-api --config-file $stale_config" 2>/dev/null || true
+  pkill -f "websockify.*$workload_private:$host_port" 2>/dev/null || true
+done
 pkill -f "socat TCP-LISTEN:$host_port,bind=$workload_private" 2>/dev/null || true
 pkill -f "websockify.*$workload_private:$host_port" 2>/dev/null || true
+if [ "$app_key" = "signal" ]; then
+  docker rm -f sylion-signal-desktop >/dev/null 2>&1 || true
+fi
 fuser -k "$workload_private:$host_port/tcp" >/dev/null 2>&1 || true
 ip link show "$tap" >/dev/null 2>&1 && ip link del "$tap" || true
 ip tuntap add dev "$tap" mode tap
@@ -278,7 +395,7 @@ cat > "$run_dir/config.json" <<EOF
   ],
   "machine-config": {
     "vcpu_count": 2,
-    "mem_size_mib": 2048,
+    "mem_size_mib": 4096,
     "smt": false,
     "track_dirty_pages": false
   }
@@ -303,6 +420,10 @@ app_crashed=false
 grep -q 'sylion-app-running=false' "$run_dir/serial.log" && app_crashed=true || true
 visible_window=false
 grep -q 'sylion-visible-window=true' "$run_dir/serial.log" && visible_window=true || true
+blockers_json="[]"
+if [ -s "$run_dir/preflight.blockers" ]; then
+  blockers_json="$(jq -R -s 'split("\\n") | map(select(length > 0))' "$run_dir/preflight.blockers")"
+fi
 jq -n \
   --arg checkedAt "$(date -Is)" \
   --arg runId "$run_id" \
@@ -318,15 +439,21 @@ jq -n \
   --argjson appRunning "$app_running" \
   --argjson appCrashed "$app_crashed" \
   --argjson visibleWindow "$visible_window" \
-  '{component:"native_firecracker_gui_workload", checkedAt:$checkedAt, runId:$runId, runDir:$runDir, appKey:$appKey, workloadPrivate:$workloadPrivate, hostPort:$hostPort, guestIp:$guestIp, tap:$tap, hostHttpCode:$hostCode, bootMarkers:$bootMarkers, noVncMarker:$novncMarker, appRunning:$appRunning, appCrashed:$appCrashed, visibleWindow:$visibleWindow, ready:($hostCode=="200" and $novncMarker==true and $appRunning==true and $appCrashed==false and $visibleWindow==true), terminalDataStored:false, secretsPrinted:false, productionExecutionAllowed:false}' | tee /opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json
+  --argjson blockers "$blockers_json" \
+  '{component:"native_firecracker_gui_workload", checkedAt:$checkedAt, runId:$runId, runDir:$runDir, appKey:$appKey, workloadPrivate:$workloadPrivate, hostPort:$hostPort, guestIp:$guestIp, tap:$tap, hostHttpCode:$hostCode, bootMarkers:$bootMarkers, noVncMarker:$novncMarker, appRunning:$appRunning, appCrashed:$appCrashed, visibleWindow:$visibleWindow, ready:($hostCode=="200" and $novncMarker==true and $appRunning==true and $appCrashed==false and $visibleWindow==true and ($blockers|length)==0), blockers:$blockers, terminalDataStored:false, secretsPrinted:false, productionExecutionAllowed:false}' | tee /opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json
+if [ "$app_running" != "true" ] || [ "$app_crashed" = "true" ] || [ "$visible_window" != "true" ] || [ -s "$run_dir/preflight.blockers" ]; then
+  kill "$(cat "$run_dir/firecracker.pid")" 2>/dev/null || true
+  kill "$(cat "$run_dir/websockify.pid")" 2>/dev/null || true
+  ip link show "$tap" >/dev/null 2>&1 && ip link del "$tap" || true
+fi
 `;
 }
 
 async function verifyFromG2() {
   const script = `
 set -euo pipefail
-code="$(curl -k -sS -o /tmp/sylion-native-gui.html -w "%{http_code}" --resolve ${profile.serverName}:443:${cfg.g2Private} --max-time 12 https://${profile.serverName}/vnc.html || true)"
-headers="$(curl -k -sS -I --resolve ${profile.serverName}:443:${cfg.g2Private} --max-time 12 https://${profile.serverName}/vnc.html | tr '\\r\\n' ' ' || true)"
+code="$(curl -k -sS -o /tmp/sylion-native-gui.html -w "%{http_code}" --resolve ${profile.serverName}:443:${cfg.g2Private} --max-time 12 'https://${profile.serverName}/vnc.html?autoconnect=true&resize=scale&path=websockify' || true)"
+headers="$(curl -k -sS -I --resolve ${profile.serverName}:443:${cfg.g2Private} --max-time 12 'https://${profile.serverName}/vnc.html?autoconnect=true&resize=scale&path=websockify' | tr '\\r\\n' ' ' || true)"
 grep -qi 'noVNC' /tmp/sylion-native-gui.html && marker=true || marker=false
 echo "code=$code"
 echo "marker=$marker"

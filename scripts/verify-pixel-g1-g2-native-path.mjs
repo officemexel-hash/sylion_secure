@@ -143,7 +143,7 @@ async function main() {
   ]);
   const remainingBlockers = [
     "zangi_android_native_runner_not_built",
-    "exodus_dedicated_wallet_runtime_not_built",
+    "exodus_official_download_artifact_required",
     "hsm_backed_ca_pending"
   ];
   if (!pixelHumanRegression.ready) {

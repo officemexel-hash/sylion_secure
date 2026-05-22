@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { promisify } from "node:util";
 
@@ -36,4 +37,18 @@ test("Step 3.61 AX102 Firecracker GUI runner exposes separate app profiles witho
   const whatsapp = await planFor("whatsapp");
   assert.equal(whatsapp.hostEndpoint, "10.44.0.13:3010");
   assert.equal(whatsapp.serverName, "whatsapp.sylion.internal");
+
+  const exodus = await planFor("exodus");
+  assert.equal(exodus.hostEndpoint, "10.44.0.13:3015");
+  assert.equal(exodus.serverName, "exodus.sylion.internal");
+});
+
+test("Step 3.61 GUI microVM runner requires entropy and visible windows before readiness", async () => {
+  const source = await readFile("scripts/launch-native-firecracker-gui-workload.mjs", "utf8");
+
+  assert.match(source, /haveged -F -w 1024/);
+  assert.match(source, /sylion-visible-window=true/);
+  assert.match(source, /ready:\(\$hostCode=="200" and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true/);
+  assert.match(source, /exodus_official_download_blocked_or_unavailable/);
+  assert.match(source, /blockers:\$blockers/);
 });
