@@ -403,6 +403,7 @@
               <label>Provider
                 <select name="providerType">
                   <option value="hetzner">Hetzner</option>
+                  <option value="hetzner_robot">Hetzner Robot Dedicated</option>
                   <option value="ovh">OVH</option>
                   <option value="aws">AWS EC2</option>
                   <option value="azure">Azure</option>
@@ -530,6 +531,34 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
+              <h2>Dedicated Workload <span class="help-tip" tabindex="0" data-tip="Plans or orders one Hetzner Robot dedicated WORKLOAD_NATIVE host for a single operator. Paid ordering requires env gates, approved approval, step-up and explicit cost/hardware confirmations.">?</span></h2>
+              <span class="pill warn">Paid gate</span>
+            </div>
+            <form id="dedicated-order-form">
+              <label>Provider <select name="providerId" id="dedicated-order-provider-select"></select></label>
+              <label>Operator <select name="operatorId" id="dedicated-order-operator-select"></select></label>
+              <label>Approval <select name="approvalId" id="dedicated-order-approval-select"></select></label>
+              <label>Product ID <input name="productId" value="AX102"></label>
+              <label>Region <input name="region" value="fsn1"></label>
+              <label>Install image <input name="dist" value="Ubuntu 24.04 minimal"></label>
+              <label>SSH key ref <input name="authorizedKeyRef" value="admin-default-ssh-key"></label>
+              <label>Addons <input name="addons" value="primary_ipv4"></label>
+              <label>Max monthly EUR <input name="maxMonthlyPrice" type="number" min="0" step="1" value="120"></label>
+              <label>Mode
+                <select name="orderMode">
+                  <option value="plan_only" selected>Plan only</option>
+                  <option value="robot_test">Robot test transaction</option>
+                  <option value="live_order">Live paid order</option>
+                </select>
+              </label>
+              <label class="check-row"><input type="checkbox" name="liveConfirmed"> I confirm dedicated host ordering intent</label>
+              <label class="check-row"><input type="checkbox" name="costConfirmed"> I confirm monthly/setup cost gate</label>
+              <label class="check-row"><input type="checkbox" name="hardwareGateConfirmed"> I confirm KVM/binderfs hardware gate will be verified before secrets release</label>
+              <button type="submit">Create Dedicated Order Gate</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
               <h2>Firecracker Host <span class="help-tip" tabindex="0" data-tip="Qualifies a host for future Firecracker execution. It does not launch microVMs from the dashboard.">?</span></h2>
               <span class="pill warn">No launch</span>
             </div>
@@ -616,6 +645,10 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Provider Rehearsals</h2><span class="pill">Smoke evidence</span></div>
             <div class="cards" id="provider-rehearsal-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Dedicated Workload Orders</h2><span class="pill warn">Hetzner Robot</span></div>
+            <div class="cards" id="dedicated-order-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Live Rollback Plans <span class="help-tip" tabindex="0" data-tip="Every live provider request must have rollback metadata before mutation. Blocked requests keep no-op cleanup actions; executed requests store sanitized delete actions.">?</span></h2><span class="pill warn">Required</span></div>

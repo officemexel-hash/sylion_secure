@@ -4,6 +4,7 @@ import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 import { HetznerLiveAdapter } from "./hetznerLiveAdapter.js";
+import { HetznerRobotAdapter } from "./hetznerRobotAdapter.js";
 import { OvhLiveAdapter } from "./ovhLiveAdapter.js";
 import { EnvSecretProvider } from "../secrets/envSecretProvider.js";
 
@@ -36,6 +37,7 @@ const CPU_VENDORS = new Set(["intel", "amd", "unknown"]);
 const CONFIDENTIAL_MODES = new Set(["none", "intel_tdx", "amd_sev_snp"]);
 const PROVIDER_REHEARSAL_MODES = new Set(["gate_only", "adapter_sandbox", "live_provider"]);
 const FIRECRACKER_REHEARSAL_WORKLOADS = new Set(["signal", "telegram", "whatsapp", "threema", "zangi", "matrix"]);
+const DEDICATED_ORDER_MODES = new Set(["plan_only", "robot_test", "live_order"]);
 
 function normalizeLower(value, field, allowed) {
   const normalized = requireText(value, field).toLowerCase();
@@ -110,6 +112,7 @@ export class LiveExecutionService {
     operators,
     approvals,
     adapterFactory = null,
+    robotAdapterFactory = null,
     env = process.env,
     secretProvider = null,
     hostProbe = null,
@@ -127,6 +130,10 @@ export class LiveExecutionService {
       if (providerKey === "ovh") return new OvhLiveAdapter();
       throw validationError("Live provider adapter is not implemented", { providerKey });
     });
+    this.robotAdapterFactory = robotAdapterFactory || (() => new HetznerRobotAdapter({
+      user: this.env.SYLION_HETZNER_ROBOT_USER,
+      password: this.env.SYLION_HETZNER_ROBOT_PASSWORD
+    }));
     this.hostProbe = hostProbe || (() => ({
       platform: process.platform,
       kvmDevicePresent: existsSync("/dev/kvm"),
@@ -136,6 +143,7 @@ export class LiveExecutionService {
     this.requests = new PersistentMap({ store, collection: "live_execution_requests" });
     this.hostQualifications = new PersistentMap({ store, collection: "firecracker_host_qualifications" });
     this.firecrackerRehearsals = new PersistentMap({ store, collection: "firecracker_launch_rehearsals" });
+    this.dedicatedOrders = new PersistentMap({ store, collection: "dedicated_workload_orders" });
     this.cpuQualifications = new PersistentMap({ store, collection: "cpu_confidential_qualifications" });
     this.rollbackPlans = new PersistentMap({ store, collection: "live_rollback_plans" });
     this.providerRehearsals = new PersistentMap({ store, collection: "live_provider_rehearsals" });
@@ -165,12 +173,14 @@ export class LiveExecutionService {
       providerRehearsals: this.providerRehearsals.size,
       firecrackerQualifications: this.hostQualifications.size,
       firecrackerLaunchRehearsals: this.firecrackerRehearsals.size,
+      dedicatedWorkloadOrders: this.dedicatedOrders.size,
       cpuQualifications: this.cpuQualifications.size,
       confidentialReadyHosts: [...this.cpuQualifications.values()].filter((item) => item.secretsReleaseAllowed).length,
       phantomExecutionRequests: this.phantomRequests.size,
       rollbackPlans: this.rollbackPlans.size,
       providerAdapters: [
         { providerKey: "hetzner", status: "gated_live_adapter", rollbackRequired: true },
+        { providerKey: "hetzner_robot", status: "dedicated_order_adapter_human_gate", rollbackRequired: false },
         { providerKey: "ovh", status: "stub_blocked", rollbackRequired: true }
       ],
       productionExecutionAllowed: false,
@@ -197,6 +207,150 @@ export class LiveExecutionService {
       resourceType: RESOURCE_TYPES.LIVE_PROVIDER_REHEARSAL
     });
     return [...this.providerRehearsals.values()];
+  }
+
+  listDedicatedWorkloadOrders({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.DEDICATED_WORKLOAD_ORDER
+    });
+    return [...this.dedicatedOrders.values()];
+  }
+
+  async createDedicatedWorkloadOrder({
+    actor,
+    providerId,
+    operatorId,
+    approvalId,
+    productId,
+    region,
+    dist = "Ubuntu 24.04 minimal",
+    authorizedKeyRef = "admin-default-ssh-key",
+    addons = ["primary_ipv4"],
+    maxMonthlyPrice = null,
+    orderMode = "plan_only",
+    liveConfirmed = false,
+    costConfirmed = false,
+    hardwareGateConfirmed = false,
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.manage", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.DEDICATED_WORKLOAD_ORDER
+    });
+    const provider = this.providers.get(providerId);
+    if (!provider) throw notFound("provider", providerId);
+    if (provider.providerKey !== "hetzner_robot") {
+      throw validationError("Dedicated workload order requires a Hetzner Robot provider record", {
+        providerKey: provider.providerKey
+      });
+    }
+    const operator = this.operators.get(operatorId);
+    if (!operator) throw notFound("operator", operatorId);
+    if (operator.baseline?.vpsPerOperator !== 3) {
+      throw validationError("Dedicated workload order requires the 3-machine operator baseline", { operatorId });
+    }
+    const approval = this.approvals.assertExecutionApproved({ actor, approvalId, planId: null, correlationId: corr }).approval;
+    if (approval.operatorId !== operatorId) {
+      throw validationError("Approval does not match requested operator", {
+        approvalId,
+        operatorId,
+        approvalOperatorId: approval.operatorId
+      });
+    }
+    const mode = normalizeLower(orderMode, "orderMode", DEDICATED_ORDER_MODES);
+    const gate = this.#evaluateDedicatedOrderGate({
+      operatorId,
+      region,
+      productId,
+      orderMode: mode,
+      liveConfirmed,
+      costConfirmed,
+      hardwareGateConfirmed,
+      maxMonthlyPrice
+    });
+    const recordBase = {
+      id: newId("dedicated_order"),
+      providerId,
+      providerKey: provider.providerKey,
+      operatorId,
+      tenantId: operator.tenantId,
+      approvalId,
+      productId: requireText(productId, "productId"),
+      region: requireText(region, "region"),
+      dist: requireText(dist, "dist"),
+      authorizedKeyRef: requireText(authorizedKeyRef, "authorizedKeyRef"),
+      addons: safeArray(addons, "addons"),
+      maxMonthlyPrice: maxMonthlyPrice === null || maxMonthlyPrice === undefined ? null : Number(maxMonthlyPrice),
+      orderMode: mode,
+      gate,
+      terminalDataStored: false,
+      productionExecutionAllowed: false,
+      createdAt: isoNow(),
+      createdBy: actor.id
+    };
+    if (!gate.allowed || mode === "plan_only") {
+      const planned = {
+        ...recordBase,
+        status: gate.allowed ? "plan_ready_no_provider_mutation" : "blocked_human_gate",
+        sideEffectAllowed: false,
+        providerResource: null,
+        phases: [{ name: "dedicated_order_gate", status: gate.allowed ? "passed" : "blocked", details: { blockers: gate.blockers } }]
+      };
+      this.dedicatedOrders.set(planned.id, planned);
+      this.audit.record({
+        actorId: actor.id,
+        action: "dedicated_workload.order_planned",
+        resourceType: RESOURCE_TYPES.DEDICATED_WORKLOAD_ORDER,
+        resourceId: planned.id,
+        tenantId: operator.tenantId,
+        operatorId,
+        approvalId,
+        correlationId: corr,
+        policyDecision: planned.status === "plan_ready_no_provider_mutation" ? "allow" : "deny",
+        result: planned.status,
+        newValue: planned
+      });
+      return planned;
+    }
+    const adapter = this.robotAdapterFactory();
+    const providerResource = await adapter.orderDedicatedServer({
+      productId,
+      location: region,
+      dist,
+      authorizedKey: authorizedKeyRef,
+      addons,
+      test: mode === "robot_test",
+      maxMonthlyPrice
+    });
+    const ordered = {
+      ...recordBase,
+      status: mode === "robot_test" ? "robot_test_transaction_accepted" : "live_order_requested",
+      sideEffectAllowed: mode === "live_order",
+      providerResource,
+      phases: [
+        { name: "dedicated_order_gate", status: "passed", details: { mode } },
+        { name: "robot_transaction", status: "passed", details: { providerResourceId: providerResource.providerResourceId } }
+      ]
+    };
+    this.dedicatedOrders.set(ordered.id, ordered);
+    this.audit.record({
+      actorId: actor.id,
+      action: mode === "live_order" ? "dedicated_workload.live_order_requested" : "dedicated_workload.robot_test_completed",
+      resourceType: RESOURCE_TYPES.DEDICATED_WORKLOAD_ORDER,
+      resourceId: ordered.id,
+      tenantId: operator.tenantId,
+      operatorId,
+      approvalId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: ordered.status,
+      newValue: ordered
+    });
+    return ordered;
   }
 
   async runProviderRehearsal({
@@ -939,6 +1093,43 @@ export class LiveExecutionService {
       mutationMode: rehearsalMode,
       providerSideEffectAllowed: rehearsalMode === "live_provider" && blockers.length === 0,
       productionExecutionAllowed: false
+    };
+  }
+
+  #evaluateDedicatedOrderGate({ operatorId, region, productId, orderMode, liveConfirmed, costConfirmed, hardwareGateConfirmed, maxMonthlyPrice }) {
+    const blockers = [];
+    const allowedOperators = splitEnvList(this.env.SYLION_LIVE_ALLOWLIST_OPERATORS);
+    const allowedRegions = splitEnvList(this.env.SYLION_LIVE_ALLOWED_REGIONS);
+    const allowedProducts = splitEnvList(this.env.SYLION_HETZNER_ROBOT_ALLOWED_PRODUCTS);
+    const maxEnvPrice = Number(this.env.SYLION_HETZNER_ROBOT_MAX_MONTHLY_EUR || this.env.SYLION_DEDICATED_MAX_MONTHLY_EUR || 0);
+    if (!DEDICATED_ORDER_MODES.has(orderMode)) blockers.push("unsupported_order_mode");
+    if (!liveConfirmed) blockers.push("live_confirmation_missing");
+    if (!costConfirmed) blockers.push("cost_confirmation_missing");
+    if (!hardwareGateConfirmed) blockers.push("hardware_gate_confirmation_missing");
+    if (!allowedOperators.includes("*") && !allowedOperators.includes(operatorId)) blockers.push("operator_not_allowlisted");
+    if (!allowedRegions.includes(region)) blockers.push("region_not_allowlisted");
+    if (allowedProducts.length && !allowedProducts.includes(productId)) blockers.push("product_not_allowlisted");
+    if (maxMonthlyPrice !== null && maxMonthlyPrice !== undefined && maxEnvPrice > 0 && Number(maxMonthlyPrice) > maxEnvPrice) {
+      blockers.push("monthly_price_above_env_cap");
+    }
+    if (orderMode === "robot_test" || orderMode === "live_order") {
+      if (this.env.SYLION_PROVIDER_MODE !== "live") blockers.push("provider_mode_not_live");
+      if (this.env.SYLION_LIVE_ALLOWED !== "true") blockers.push("live_allowed_flag_false");
+      if (!this.secretProvider.hasProviderSecret("hetzner_robot")) blockers.push("hetzner_robot_credentials_missing");
+      if (this.env.SYLION_HETZNER_ROBOT_ORDERING_ENABLED !== "true") blockers.push("hetzner_robot_ordering_disabled");
+    }
+    if (orderMode === "live_order" && this.env.SYLION_HETZNER_ROBOT_PAID_ORDER_ALLOWED !== "true") {
+      blockers.push("paid_dedicated_order_env_gate_disabled");
+    }
+    return {
+      allowed: blockers.length === 0,
+      blockers,
+      providerKey: "hetzner_robot",
+      orderMode,
+      mutationMode: blockers.length === 0 ? orderMode : "blocked",
+      baselineUnlockState: this.#baselineUnlockState(),
+      rollbackRequired: false,
+      dedicatedWorkloadRole: "WORKLOAD_NATIVE"
     };
   }
 

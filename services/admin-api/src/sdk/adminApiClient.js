@@ -203,6 +203,14 @@ export class AdminApiClient {
     return this.request("/live-execution/cloud/rehearsals");
   }
 
+  listDedicatedWorkloadOrders() {
+    return this.request("/live-execution/dedicated-workload/orders");
+  }
+
+  createHetznerRobotDedicatedWorkloadOrder(body) {
+    return this.request("/live-execution/dedicated-workload/hetzner-robot/order", { method: "POST", body });
+  }
+
   reconcileProviderLiveVpsSet(providerKey, body) {
     return this.request(`/live-execution/cloud/${providerKey}/reconcile`, { method: "POST", body });
   }

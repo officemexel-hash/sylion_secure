@@ -626,6 +626,24 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { rehearsals: liveExecution.listProviderRehearsals({ actor, correlationId }) });
       }
 
+      if (req.method === "GET" && url.pathname === "/live-execution/dedicated-workload/orders") {
+        return send(res, 200, { orders: liveExecution.listDedicatedWorkloadOrders({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/dedicated-workload/hetzner-robot/order") {
+        auth.requireFreshStepUp(actor, "dedicated_workload.hetzner_robot.order", {
+          correlationId,
+          resourceType: "dedicated_workload_order"
+        });
+        const body = await readJson(req);
+        const order = await liveExecution.createDedicatedWorkloadOrder({
+          actor,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { order });
+      }
+
       const providerReconcileMatch = url.pathname.match(/^\/live-execution\/cloud\/([^/]+)\/reconcile$/);
       if (req.method === "POST" && providerReconcileMatch) {
         const body = await readJson(req);

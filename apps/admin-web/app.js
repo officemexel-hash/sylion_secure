@@ -58,6 +58,7 @@ const state = {
   liveCloudRequests: [],
   liveRollbackPlans: [],
   liveProviderRehearsals: [],
+  dedicatedWorkloadOrders: [],
   blueTeamDashboard: null,
   monitoringEvents: [],
   incidents: [],
@@ -262,6 +263,7 @@ async function refreshAll() {
     liveCloudRequests,
     liveRollbackPlans,
     liveProviderRehearsals,
+    dedicatedWorkloadOrders,
     blueTeamDashboard,
     monitoringEvents,
     incidents,
@@ -324,6 +326,7 @@ async function refreshAll() {
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
     api("/live-execution/cloud/rollback-plans").catch(() => ({ plans: [] })),
     api("/live-execution/cloud/rehearsals").catch(() => ({ rehearsals: [] })),
+    api("/live-execution/dedicated-workload/orders").catch(() => ({ orders: [] })),
     api("/monitoring/blue-team-dashboard").catch(() => ({ dashboard: null })),
     api("/monitoring/events").catch(() => ({ events: [] })),
     api("/incidents").catch(() => ({ incidents: [] })),
@@ -386,6 +389,7 @@ async function refreshAll() {
   state.liveCloudRequests = liveCloudRequests.requests;
   state.liveRollbackPlans = liveRollbackPlans.plans;
   state.liveProviderRehearsals = liveProviderRehearsals.rehearsals;
+  state.dedicatedWorkloadOrders = dedicatedWorkloadOrders.orders;
   state.blueTeamDashboard = blueTeamDashboard.dashboard;
   state.monitoringEvents = monitoringEvents.events;
   state.incidents = incidents.incidents;
@@ -479,6 +483,9 @@ function render() {
   renderSelect("#provider-rehearsal-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#provider-rehearsal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#provider-rehearsal-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#dedicated-order-provider-select", state.providers.filter((provider) => provider.providerKey === "hetzner_robot"), "No Hetzner Robot provider", "displayName");
+  renderSelect("#dedicated-order-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#dedicated-order-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
   renderSelect("#blue-team-signal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#firecracker-rehearsal-host-select", state.firecrackerQualifications, "No qualified hosts", "hostId");
   renderSelect("#firecracker-rehearsal-operator-select", state.operators, "No operators", "displayName");
@@ -676,6 +683,18 @@ function render() {
     ["Side effect", String(rehearsal.sideEffectAllowed)],
     ["Blockers", rehearsal.gate?.blockers?.join(", ") || "-"]
   ])).join("") || empty("No provider rehearsals recorded.");
+
+  $("#dedicated-order-cards").innerHTML = state.dedicatedWorkloadOrders.map((order) => card(order.id, [
+    ["Status", order.status],
+    ["Provider", order.providerKey],
+    ["Operator", order.operatorId],
+    ["Product", order.productId],
+    ["Region", order.region],
+    ["Mode", order.orderMode],
+    ["Side effect", String(order.sideEffectAllowed)],
+    ["Resource", order.providerResource?.providerResourceId || "-"],
+    ["Blockers", order.gate?.blockers?.join(", ") || "-"]
+  ])).join("") || empty("No dedicated workload orders recorded.");
 
   $("#live-rollback-plan-cards").innerHTML = state.liveRollbackPlans.map((plan) => card(plan.id, [
     ["Provider", plan.providerKey],
@@ -1708,6 +1727,31 @@ async function runProviderRehearsal(event) {
   await refreshAll();
 }
 
+async function createDedicatedWorkloadOrder(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await withStepUpRetry(() => api("/live-execution/dedicated-workload/hetzner-robot/order", {
+    method: "POST",
+    body: {
+      providerId: data.providerId,
+      operatorId: data.operatorId,
+      approvalId: data.approvalId,
+      productId: data.productId,
+      region: data.region,
+      dist: data.dist,
+      authorizedKeyRef: data.authorizedKeyRef,
+      addons: splitCsv(data.addons),
+      maxMonthlyPrice: data.maxMonthlyPrice ? Number(data.maxMonthlyPrice) : null,
+      orderMode: data.orderMode,
+      liveConfirmed: event.currentTarget.liveConfirmed.checked,
+      costConfirmed: event.currentTarget.costConfirmed.checked,
+      hardwareGateConfirmed: event.currentTarget.hardwareGateConfirmed.checked
+    }
+  }), "Dedicated Workload Order");
+  toast("Dedicated workload order gate recorded");
+  await refreshAll();
+}
+
 async function qualifyFirecrackerHost(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -2722,6 +2766,7 @@ function bind() {
   $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));
   $("#baseline-promotion-form").addEventListener("submit", (event) => promoteOperatorBaselineToLive(event).catch(showError));
   $("#provider-rehearsal-form").addEventListener("submit", (event) => runProviderRehearsal(event).catch(showError));
+  $("#dedicated-order-form").addEventListener("submit", (event) => createDedicatedWorkloadOrder(event).catch(showError));
   $("#firecracker-qualification-form").addEventListener("submit", (event) => qualifyFirecrackerHost(event).catch(showError));
   $("#firecracker-rehearsal-form").addEventListener("submit", (event) => runFirecrackerLaunchRehearsal(event).catch(showError));
   $("#cpu-confidential-qualification-form").addEventListener("submit", (event) => qualifyCpuConfidentialHost(event).catch(showError));

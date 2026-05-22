@@ -29,6 +29,29 @@ const PROVIDER_METADATA = Object.freeze({
       recommendedTier: "STANDARD"
     }
   },
+  hetzner_robot: {
+    providerKey: "hetzner_robot",
+    displayName: "Hetzner Robot Dedicated",
+    apiType: "robot_webservice_basic_auth_env",
+    defaultRegions: ["fsn1", "nbg1", "hel1"],
+    defaultCountries: ["DE", "FI"],
+    regionCatalog: [
+      { region: "fsn1", country: "DE", city: "Falkenstein", firecrackerEligible: true, androidWorkloadEligible: true },
+      { region: "nbg1", country: "DE", city: "Nuremberg", firecrackerEligible: true, androidWorkloadEligible: true },
+      { region: "hel1", country: "FI", city: "Helsinki", firecrackerEligible: true, androidWorkloadEligible: true }
+    ],
+    docsUrl: "https://robot.hetzner.com/doc/webservice/en.html",
+    runtimeCapabilities: {
+      containers: true,
+      nestedKvm: false,
+      bareMetalKvm: true,
+      firecracker: true,
+      androidWorkloads: "bare_metal_kvm_binderfs_gate_required",
+      intelTdx: false,
+      amdSevSnp: false,
+      recommendedTier: "PRO"
+    }
+  },
   ovh: {
     providerKey: "ovh",
     displayName: "OVHcloud",
