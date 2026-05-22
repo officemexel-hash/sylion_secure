@@ -23,6 +23,7 @@
         <button data-view="subscriptions">Subscriptions</button>
         <button data-view="devices">Devices</button>
         <button data-view="providers">Providers</button>
+        <button data-view="blue-team">Blue Team</button>
         <button data-view="security">Security</button>
         <button data-view="phantom">PHANTOM</button>
         <button data-view="release">Release</button>
@@ -915,6 +916,59 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Quota Decisions</h2><span class="pill">Audit-ready</span></div>
             <div class="cards" id="quota-decision-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="blue-team" hidden>
+          <article class="panel wide command-panel">
+            <div>
+              <span class="eyebrow">Defensive monitoring</span>
+              <h2>Blue team cockpit <span class="help-tip" tabindex="0" data-tip="Metadata-only detection layer. It correlates audit, CDR, monitoring signals and incidents without storing communication content.">?</span></h2>
+            </div>
+            <div class="command-grid">
+              <span id="blue-team-status">Status loading</span>
+              <span id="blue-team-cdr">CDR checking</span>
+              <span id="blue-team-content">No communication content</span>
+            </div>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Record Signal <span class="help-tip" tabindex="0" data-tip="Records a metadata-only alert/anomaly. Do not paste messages, files, packet captures or communication content.">?</span></h2>
+              <span class="pill warn">Metadata only</span>
+            </div>
+            <form id="blue-team-signal-form">
+              <label>Signal
+                <select name="signal">
+                  <option value="auth_attack">Auth attack</option>
+                  <option value="key_material_change">Key material change</option>
+                  <option value="cdr_policy_gap">CDR policy gap</option>
+                  <option value="ipsec_down">IPsec down</option>
+                  <option value="dns_leak">DNS leak</option>
+                  <option value="microvm_crash_loop">microVM crash loop</option>
+                  <option value="provider_drift">Provider drift</option>
+                </select>
+              </label>
+              <label>Operator <select name="operatorId" id="blue-team-signal-operator-select"></select></label>
+              <label>Resource ID <input name="resourceId" value="metadata-signal-1"></label>
+              <label>Evidence ref <input name="evidenceRef" value="evidence://blue-team/manual-signal"></label>
+              <button type="submit">Record Metadata Signal</button>
+            </form>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Metadata Signals</h2><span class="pill">No content</span></div>
+            <div class="cards" id="blue-team-metadata-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Alerts & Anomalies</h2><span class="pill warn">Triage</span></div>
+            <div class="cards" id="blue-team-alert-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>CDR Per Operator</h2><span class="pill">Mandatory</span></div>
+            <div class="cards" id="blue-team-cdr-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Incidents</h2><span class="pill warn">Runbooks</span></div>
+            <div class="cards" id="blue-team-incident-cards"></div>
           </article>
         </section>
 

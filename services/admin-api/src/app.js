@@ -1334,6 +1334,19 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
+      if (req.method === "GET" && url.pathname === "/monitoring/blue-team-dashboard") {
+        return send(res, 200, {
+          dashboard: monitoring.blueTeamDashboard({
+            actor,
+            auditEvents: audit.list(),
+            cdrDecisions: cdr.listDecisions(),
+            cdrEvents: cdr.listMonitoringEvents(),
+            operators: operators.list({ actor, correlationId }),
+            correlationId
+          })
+        });
+      }
+
       if (req.method === "POST" && url.pathname === "/monitoring/health-status") {
         const body = await readJson(req);
         const event = monitoring.recordHealthStatus({ actor, ...body, correlationId });

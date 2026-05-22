@@ -58,6 +58,9 @@ const state = {
   liveCloudRequests: [],
   liveRollbackPlans: [],
   liveProviderRehearsals: [],
+  blueTeamDashboard: null,
+  monitoringEvents: [],
+  incidents: [],
   secretBackendStatus: null,
   secretBackends: [],
   firecrackerQualifications: [],
@@ -74,6 +77,11 @@ const state = {
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+function setText(selector, value) {
+  const element = $(selector);
+  if (element) element.textContent = value;
+}
 
 function toast(message, tone = "info") {
   const target = $("#toast");
@@ -254,6 +262,9 @@ async function refreshAll() {
     liveCloudRequests,
     liveRollbackPlans,
     liveProviderRehearsals,
+    blueTeamDashboard,
+    monitoringEvents,
+    incidents,
     secretBackendStatus,
     secretBackends,
     firecrackerQualifications,
@@ -313,6 +324,9 @@ async function refreshAll() {
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
     api("/live-execution/cloud/rollback-plans").catch(() => ({ plans: [] })),
     api("/live-execution/cloud/rehearsals").catch(() => ({ rehearsals: [] })),
+    api("/monitoring/blue-team-dashboard").catch(() => ({ dashboard: null })),
+    api("/monitoring/events").catch(() => ({ events: [] })),
+    api("/incidents").catch(() => ({ incidents: [] })),
     api("/secrets/backend-status").catch(() => ({ status: null })),
     api("/secrets/backends").catch(() => ({ backends: [] })),
     api("/live-execution/firecracker/host-qualifications").catch(() => ({ qualifications: [] })),
@@ -372,6 +386,9 @@ async function refreshAll() {
   state.liveCloudRequests = liveCloudRequests.requests;
   state.liveRollbackPlans = liveRollbackPlans.plans;
   state.liveProviderRehearsals = liveProviderRehearsals.rehearsals;
+  state.blueTeamDashboard = blueTeamDashboard.dashboard;
+  state.monitoringEvents = monitoringEvents.events;
+  state.incidents = incidents.incidents;
   state.secretBackendStatus = secretBackendStatus.status;
   state.secretBackends = secretBackends.backends;
   state.firecrackerQualifications = firecrackerQualifications.qualifications;
@@ -462,6 +479,7 @@ function render() {
   renderSelect("#provider-rehearsal-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#provider-rehearsal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#provider-rehearsal-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#blue-team-signal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#firecracker-rehearsal-host-select", state.firecrackerQualifications, "No qualified hosts", "hostId");
   renderSelect("#firecracker-rehearsal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#subscription-tenant-select", state.tenants, "No tenants");
@@ -692,6 +710,36 @@ function render() {
     ["Attestation", String(item.attestation?.verified)],
     ["Secrets", String(item.secretsReleaseAllowed)]
   ])).join("") || empty("No CPU confidential-computing qualifications recorded.");
+
+  const blue = state.blueTeamDashboard;
+  setText("#blue-team-status", blue ? `Status: ${blue.status}` : "Status unavailable");
+  setText("#blue-team-cdr", blue ? `CDR mandatory: ${blue.cdrMandatoryForAllOperators}` : "CDR unavailable");
+  setText("#blue-team-content", blue ? `Content stored: ${blue.communicationContentStored}` : "No communication content");
+  $("#blue-team-metadata-cards").innerHTML = (blue?.metadataSignals || []).map((item) => card(item.key, [
+    ["Value", String(item.value)]
+  ])).join("") || empty("No blue-team metadata yet.");
+  $("#blue-team-alert-cards").innerHTML = (blue?.alerts || []).map((alert) => card(alert.summary || alert.signal, [
+    ["Signal", alert.signal],
+    ["Severity", alert.severity],
+    ["Operator", alert.operatorId || "-"],
+    ["Resource", alert.resource?.id || "-"],
+    ["Content stored", String(alert.contentStored)]
+  ])).join("") || empty("No alerts or anomalies.");
+  $("#blue-team-cdr-cards").innerHTML = (blue?.cdrCoverage || []).map((row) => card(row.displayName || row.operatorId, [
+    ["Status", row.status],
+    ["Mandatory", String(row.cdrMandatory)],
+    ["Decisions", String(row.decisions)],
+    ["Allowed", String(row.allowed)],
+    ["Quarantined", String(row.quarantined)],
+    ["Blocked", String(row.blocked)],
+    ["Content stored", String(row.contentStored)]
+  ])).join("") || empty("No operator CDR coverage.");
+  $("#blue-team-incident-cards").innerHTML = state.incidents.map((incident) => card(incident.sourceSignal, [
+    ["Severity", incident.severity],
+    ["Status", incident.status],
+    ["Operator", incident.operatorId || "-"],
+    ["Runbook", String(incident.runbookTasks?.length || 0)]
+  ])).join("") || empty("No incidents.");
 
   $("#phantom-execution-request-cards").innerHTML = state.phantomExecutionRequests.map((item) => card(item.packageId, [
     ["Status", item.status],
@@ -2300,6 +2348,30 @@ async function recordHumanTestRun(event) {
   await refreshAll();
 }
 
+async function recordBlueTeamSignal(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const operator = state.operators.find((item) => item.id === data.operatorId);
+  await api("/monitoring/signals", {
+    method: "POST",
+    body: {
+      signal: data.signal,
+      tenantId: operator?.tenantId || null,
+      operatorId: data.operatorId || null,
+      resource: {
+        id: data.resourceId,
+        kind: "blue_team_signal"
+      },
+      details: {
+        detector: "admin_blue_team_panel",
+        evidenceRef: data.evidenceRef
+      }
+    }
+  });
+  toast("Blue-team signal recorded");
+  await refreshAll();
+}
+
 async function handleCredentialAction(event) {
   const action = event.target.dataset.credentialAction;
   if (!action) return;
@@ -2618,6 +2690,7 @@ function setView(name) {
     subscriptions: ["Subscriptions", "Manage tiers, add-ons, workload quotas and billing state."],
     devices: ["Devices", "Register Pixel, Puli AX and FIDO2 assets."],
     providers: ["Providers", "Add provider accounts without retaining plaintext secrets."],
+    "blue-team": ["Blue Team", "Metadata-only defensive monitoring, CDR coverage, alerts and anomalies."],
     security: ["Security", "Review core V2 security boundaries."],
     phantom: ["PHANTOM", "Governance-only separate track with HUMAN GATE."],
     release: ["Release", "Production readiness gates, human tests, problem registry and evidence."],
@@ -2688,6 +2761,7 @@ function bind() {
   $("#release-problem-form").addEventListener("submit", (event) => createReleaseProblem(event).catch(showError));
   $("#human-test-status-form").addEventListener("submit", (event) => updateHumanTestStatus(event).catch(showError));
   $("#human-test-run-form").addEventListener("submit", (event) => recordHumanTestRun(event).catch(showError));
+  $("#blue-team-signal-form").addEventListener("submit", (event) => recordBlueTeamSignal(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));
