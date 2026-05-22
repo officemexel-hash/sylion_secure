@@ -1821,6 +1821,21 @@ export class OperatorPortalService {
         checked: true,
         destructiveActionRequiresSessionUnlock: true
       },
+      liveRunner: destructive ? {
+        command: action === "rotate_app"
+          ? `npm run live:workload-recreate -- --app=${rotateApp || "unknown"}`
+          : "npm run live:workload-recreate -- --app=all",
+        wipeVolumeDefault: false,
+        wipeVolumeRequiresPanicOrFourEyes: true,
+        signalAuthHandoffRequired: action === "recreate_all" || rotateApp === "signal",
+        expectedEvidence: [
+          "live_workload_recreate",
+          "cdrRequired=true",
+          "terminalDataStored=false",
+          "privateBindOnly=true",
+          "signalStatus=200 when signal is recreated"
+        ]
+      } : null,
       targetRefs: destructive
         ? [`workload-slot://${operatorId}/${action === "rotate_app" ? rotateApp : "all"}`]
         : Object.entries(desiredCounts).filter(([, count]) => count > 0).map(([app, count]) => `workload-desired://${operatorId}/${app}/${count}`),

@@ -181,6 +181,11 @@ test("Step 3.32 destructive workload recreate requests expose CDR and panic exec
     assert.equal(queued.payload.request.executionPlan.targetApp, "whatsapp");
     assert.equal(queued.payload.request.executionPlan.cdr.fileIngressEgressBlockedWithoutDecision, true);
     assert.equal(queued.payload.request.executionPlan.panicPolicy.destructiveActionRequiresSessionUnlock, true);
+    assert.equal(queued.payload.request.executionPlan.liveRunner.command, "npm run live:workload-recreate -- --app=whatsapp");
+    assert.equal(queued.payload.request.executionPlan.liveRunner.wipeVolumeDefault, false);
+    assert.equal(queued.payload.request.executionPlan.liveRunner.wipeVolumeRequiresPanicOrFourEyes, true);
+    assert.equal(queued.payload.request.executionPlan.liveRunner.signalAuthHandoffRequired, false);
+    assert.ok(queued.payload.request.executionPlan.liveRunner.expectedEvidence.includes("privateBindOnly=true"));
     assert.ok(queued.payload.request.executionPlan.targetRefs.includes(`workload-slot://${seeded.operator.id}/whatsapp`));
   } finally {
     await close();
