@@ -87,9 +87,10 @@ async function verifyWorkloadHost() {
 set -euo pipefail
 ip -4 addr show lo | grep -q '${cfg.workloadPrivate}/32' && echo private_ip=true || echo private_ip=false
 test -e /dev/kvm && echo kvm=true || echo kvm=false
-command -v firecracker >/dev/null 2>&1 && echo firecracker=true || echo firecracker=false
-command -v jailer >/dev/null 2>&1 && echo jailer=true || echo jailer=false
+test -x /usr/local/bin/firecracker -o -x /opt/sylion/bin/firecracker && echo firecracker=true || echo firecracker=false
+test -x /usr/local/bin/jailer -o -x /opt/sylion/bin/jailer && echo jailer=true || echo jailer=false
 test -f /opt/sylion-workloads/evidence/firecracker-base-boot-smoke.json && echo boot_smoke=true || echo boot_smoke=false
+test -f /opt/sylion-workloads/evidence/native-firecracker-stream-smoke.json && grep -q '"ready": true' /opt/sylion-workloads/evidence/native-firecracker-stream-smoke.json && echo stream_smoke=true || echo stream_smoke=false
 `;
   const { stdout } = await ssh(cfg.workload, script);
   return {
@@ -97,7 +98,8 @@ test -f /opt/sylion-workloads/evidence/firecracker-base-boot-smoke.json && echo 
     kvmPresent: parseBoolLine(stdout, "kvm"),
     firecrackerPresent: parseBoolLine(stdout, "firecracker"),
     jailerPresent: parseBoolLine(stdout, "jailer"),
-    baseBootSmokeEvidence: parseBoolLine(stdout, "boot_smoke")
+    baseBootSmokeEvidence: parseBoolLine(stdout, "boot_smoke"),
+    nativeStreamSmokeEvidence: parseBoolLine(stdout, "stream_smoke")
   };
 }
 
@@ -129,7 +131,7 @@ async function main() {
     readyForPrivateWorkloadStream: allTrue(g1Pixel) && allTrue(g2Workload) && allTrue(workloadHost),
     remainingBlockers: [
       "per_app_firecracker_gui_rootfs_not_built",
-      "microvm_tap_network_not_bound_to_g2_stream",
+      "stream_smoke_is_not_yet_full_gui_thin_client",
       "pixel_human_stream_click_regression_pending",
       "hsm_backed_ca_pending"
     ],
