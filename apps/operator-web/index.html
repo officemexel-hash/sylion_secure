@@ -321,6 +321,15 @@
           <dt>Profile type</dt><dd id="vpn-install-type" class="placeholder">android_ipsec_ikev2_profile</dd>
           <dt>Blockers</dt><dd id="vpn-install-blockers" class="placeholder">Loading...</dd>
         </dl>
+        <form id="vpn-evidence-form" class="dense-form">
+          <label><input name="vpnConnected" type="checkbox" checked> VPN connected</label>
+          <label>VPN interface <input name="vpnInterface" value="tun1"></label>
+          <label><input name="dnsThroughTunnel" type="checkbox" checked> DNS through tunnel</label>
+          <label><input name="certificateTrusted" type="checkbox" checked> Internal CA trusted</label>
+          <label>Reachable hosts <input name="reachableHosts" value="admin.sylion.internal,operator.sylion.internal,signal.sylion.internal,10.42.0.12"></label>
+          <button type="submit" class="primary">Record live VPN evidence</button>
+        </form>
+        <p id="vpn-evidence-status" class="hint">No live evidence recorded in this browser session.</p>
       </article>
       <article class="card">
         <h2>Pixel CA provisioning <span class="help-tip" tabindex="0" data-tip="Installs the SYLION internal CA so GrapheneOS/Vanadium trusts operator and workload internal TLS names. Private keys are never included.">?</span></h2>

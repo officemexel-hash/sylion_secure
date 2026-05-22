@@ -373,6 +373,11 @@
     setText("#vpn-g2", data.vpn.endpoints.g2 || "-");
     setText("#vpn-workload", data.vpn.endpoints.workload || "-");
     setText("#vpn-handshake", data.vpn.lastHandshake || "-");
+    if (data.vpn.liveEvidence) {
+      setText("#vpn-evidence-status", data.vpn.liveEvidence.ready
+        ? `Live evidence active: ${data.vpn.liveEvidence.observedAt}`
+        : `Evidence incomplete: ${(data.vpn.liveEvidence.blockers || []).join(", ")}`);
+    }
     const install = await fetchJson("/operator-api/vpn-install-package");
     if (!install.error) {
       setText("#vpn-install-state", install.package.installState);
@@ -403,6 +408,27 @@
     }
     const broker = result.broker;
     setText("#workload-broker-status", `${broker.appName}: ${broker.state} | ${broker.authMode} | blockers: ${(broker.blockers || []).join(", ") || "none"} | ${broker.url}`);
+  }
+
+  async function recordVpnEvidence(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/vpn-evidence", {
+      method: "POST",
+      body: {
+        vpnConnected: data.vpnConnected === "on",
+        vpnSession: "SYLION",
+        vpnInterface: data.vpnInterface,
+        dnsThroughTunnel: data.dnsThroughTunnel === "on",
+        certificateTrusted: data.certificateTrusted === "on",
+        reachableHosts: splitCsv(data.reachableHosts)
+      }
+    });
+    setText("#vpn-evidence-status", result.error || (result.evidence.ready
+      ? `Live VPN evidence accepted: ${result.evidence.observedAt}`
+      : `Evidence incomplete: ${(result.evidence.blockers || []).join(", ")}`));
+    await loadVpn();
+    await loadAudit();
   }
 
   async function loadConnectionPath() {
@@ -646,6 +672,11 @@
       }
     });
     setText("#session-status", result.error || `Workload control queued: ${result.request.state}`);
+    const preview = $("#workload-control-preview");
+    if (preview && result.request?.executionPlan) {
+      preview.classList.remove("placeholder");
+      preview.textContent = `${result.request.executionPlan.mode}: ${result.request.executionPlan.stages.join(" -> ")} | CDR ${result.request.executionPlan.cdr.required}`;
+    }
     await loadWorkloadControl();
     await loadAudit();
   }
@@ -763,6 +794,7 @@
     $("#session-form").addEventListener("submit", createLocalSession);
     $("#workload-control-form").addEventListener("submit", requestWorkloadControl);
     $("#runtime-gate-form").addEventListener("submit", handleRuntimeGate);
+    $("#vpn-evidence-form").addEventListener("submit", recordVpnEvidence);
     $("#unlock-form").addEventListener("submit", saveUnlockPolicy);
     $("#safety-form").addEventListener("submit", saveSafetyPolicy);
     $("#jurisdiction-form").addEventListener("submit", saveJurisdictionPolicy);

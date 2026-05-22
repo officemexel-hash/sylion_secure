@@ -118,6 +118,9 @@ test("Step 3.32 operator can queue communicator environment counts within tier q
     assert.equal(queued.payload.request.sideEffectAllowed, false);
     assert.equal(queued.payload.request.productionExecutionAllowed, false);
     assert.equal(queued.payload.request.desiredCounts.whatsapp, 3);
+    assert.equal(queued.payload.request.executionPlan.cdr.required, true);
+    assert.ok(queued.payload.request.executionPlan.stages.includes("cdr_policy_attached"));
+    assert.ok(queued.payload.request.executionPlan.stages.includes("panic_policy_checked"));
 
     const after = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control");
     assert.equal(after.payload.control.latestRequest.state, "queued_control_plane_update");
@@ -150,6 +153,35 @@ test("Step 3.32 Zangi native runtime is blocked until Android host gates pass", 
     assert.equal(start.payload.request.state, "blocked");
     assert.equal(start.payload.request.launchAllowed, false);
     assert.equal(start.payload.request.productionExecutionAllowed, false);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.32 destructive workload recreate requests expose CDR and panic execution plan without side effects", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    const queued = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
+      method: "POST",
+      body: {
+        action: "rotate_app",
+        rotateApp: "whatsapp",
+        desiredCounts: {
+          whatsapp: 2,
+          signal: 1
+        }
+      }
+    });
+    assert.equal(queued.status, 201);
+    assert.equal(queued.payload.request.state, "queued_destructive_recreate_control_plane");
+    assert.equal(queued.payload.request.deleteRecreateMode, "queued_control_plane");
+    assert.equal(queued.payload.request.destructiveCleanupAllowed, false);
+    assert.equal(queued.payload.request.executionPlan.targetApp, "whatsapp");
+    assert.equal(queued.payload.request.executionPlan.cdr.fileIngressEgressBlockedWithoutDecision, true);
+    assert.equal(queued.payload.request.executionPlan.panicPolicy.destructiveActionRequiresSessionUnlock, true);
+    assert.ok(queued.payload.request.executionPlan.targetRefs.includes(`workload-slot://${seeded.operator.id}/whatsapp`));
   } finally {
     await close();
   }

@@ -193,7 +193,35 @@ test("Step 3.17 scopes operator portal sessions to Pixel or laptop terminal VPN 
     assert.equal(vpnInstall.package.transport, "ipsec_ikev2_certificate_auth");
     assert.equal(vpnInstall.package.readyForRealInstall, false);
     assert.equal(vpnInstall.package.productionExecutionAllowed, false);
-    assert.ok(vpnInstall.package.requires.includes("real_g1_public_ipsec_endpoint"));
+    assert.ok(vpnInstall.package.requires.includes("pixel_live_vpn_evidence"));
+
+    const evidence = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/vpn-evidence", {
+      method: "POST",
+      body: {
+        vpnConnected: true,
+        vpnSession: "SYLION",
+        vpnInterface: "tun1",
+        dnsThroughTunnel: true,
+        certificateTrusted: true,
+        reachableHosts: [
+          "admin.sylion.internal",
+          "operator.sylion.internal",
+          "signal.sylion.internal",
+          "10.42.0.12"
+        ]
+      }
+    });
+    assert.equal(evidence.evidence.ready, true);
+    assert.equal(evidence.evidence.contentInspected, false);
+
+    const activeVpn = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/vpn-status");
+    assert.equal(activeVpn.vpn.state, "live_ipsec_connected");
+    assert.equal(activeVpn.vpn.liveEvidence.ready, true);
+
+    const activeInstall = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/vpn-install-package");
+    assert.equal(activeInstall.package.installState, "active_live_evidence");
+    assert.equal(activeInstall.package.readyForRealInstall, true);
+    assert.deepEqual(activeInstall.package.requires, []);
 
     const stream = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/streaming-profile?width=390&height=844&dpr=3");
     assert.equal(stream.profile.terminalMode, "pixel_grapheneos");
