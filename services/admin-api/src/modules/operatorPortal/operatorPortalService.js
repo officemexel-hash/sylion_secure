@@ -440,6 +440,101 @@ export class OperatorPortalService {
     };
   }
 
+  pixelCaProvisioning({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const caPem = this.env.SYLION_INTERNAL_CA_CERT_PEM || null;
+    const fingerprint = this.env.SYLION_INTERNAL_CA_SHA256 || null;
+    return {
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      packageType: "grapheneos_internal_ca_profile",
+      caCertificateRef: caPem ? "env://SYLION_INTERNAL_CA_CERT_PEM" : "pki://sylion/internal-ca/current",
+      caCertificatePem: caPem,
+      caFingerprintSha256: fingerprint,
+      trustScope: ["operator.sylion.internal", "*.sylion.internal"],
+      installMethods: [
+        {
+          method: "grapheneos_settings_certificate_installer",
+          status: "recommended",
+          steps: [
+            "Open Settings",
+            "Security and privacy",
+            "More security settings",
+            "Encryption and credentials",
+            "Install a certificate",
+            "CA certificate",
+            "Select sylion-internal.crt from Downloads",
+            "Confirm screen lock"
+          ]
+        },
+        {
+          method: "adb_file_intent",
+          status: "blocked_on_grapheneos_file_uri",
+          reason: "GrapheneOS certificate installer may reject direct file:// intents from ADB."
+        }
+      ],
+      validation: {
+        expectedBrowserErrorBeforeInstall: "NET::ERR_CERT_AUTHORITY_INVALID",
+        expectedBrowserStateAfterInstall: "trusted_internal_tls",
+        requiresUserPresence: true,
+        privateKeyIncluded: false
+      },
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  workloadSessionBroker({ operatorActor, templateKey = "signal", correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const execution = this.#workloadExecutionForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey
+    });
+    const app = String(templateKey || "signal").trim().toLowerCase();
+    const host = `${app === "duckduckgo_browser" ? "duckduckgo" : app}.sylion.internal`;
+    const broker = {
+      id: newId("workload_broker"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      templateKey: execution.templateKey,
+      appName: execution.appName,
+      state: execution.launchAllowed ? "session_ready" : "session_prepared_with_blockers",
+      url: `https://${host}/`,
+      authMode: app === "signal" ? "kasm_session_broker_required" : "g2_internal_tls",
+      handoff: {
+        terminalMode: operatorActor.terminalMode,
+        opensInBrowser: true,
+        returnsViaAndroidBack: true,
+        storesOperationalDataOnTerminal: false,
+        clipboardEnabled: false,
+        fileTransfer: "cdr_required"
+      },
+      blockers: [
+        ...execution.blockers,
+        ...(this.env.SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL === "true" ? [] : ["pixel_internal_ca_not_trusted"])
+      ],
+      warnings: execution.warnings,
+      productionExecutionAllowed: execution.productionExecutionAllowed,
+      sideEffectAllowed: false,
+      createdAt: isoNow()
+    };
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.workload_session_broker_prepared",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: broker.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: broker.blockers.length ? "deny" : "allow",
+      result: broker.state,
+      newValue: { ...broker, url: broker.url, tokenMaterialStored: false }
+    });
+    return broker;
+  }
+
   streamingProfile({ operatorActor, width = 390, height = 844, dpr = 3, correlationId }) {
     requireCorrelationId(correlationId);
     const w = Math.max(320, Math.min(Number(width) || 390, 2560));
@@ -733,12 +828,32 @@ export class OperatorPortalService {
     }
     this.#assertJurisdictionModeAllowed(mode, subscription.quota.jurisdictionRotationMode);
     const regions = Array.isArray(body.regions) ? body.regions.map((item) => String(item).trim()).filter(Boolean) : [];
+    const countries = Array.isArray(body.countries) ? [...new Set(body.countries.map((item) => String(item).trim().toUpperCase()).filter(Boolean))] : [];
+    const providers = Array.isArray(body.providers) ? [...new Set(body.providers.map((item) => String(item).trim().toLowerCase()).filter(Boolean))] : [];
+    const frequencyHours = this.#normalizeJurisdictionFrequency(body.frequencyHours, subscription.quota);
+    const maxCountries = subscription.quota.jurisdictionPolicy?.maxCountries;
+    if (maxCountries !== "custom" && countries.length > Number(maxCountries || subscription.quota.regionCount || 1)) {
+      throw validationError("Jurisdiction country count exceeds subscription tier", {
+        countries: countries.length,
+        maxCountries
+      });
+    }
+    if (providers.length > 1 && subscription.quota.jurisdictionPolicy?.providerRotationAllowed !== true) {
+      throw validationError("Provider rotation is not available in this subscription tier", {
+        providers,
+        subscriptionMode: subscription.quota.jurisdictionRotationMode
+      });
+    }
     const next = {
       id: `jurisdiction_${operatorActor.operatorId}`,
       operatorId: operatorActor.operatorId,
       tenantId: operatorActor.tenantId,
       mode,
       regions,
+      countries,
+      providers,
+      frequencyHours,
+      rotationScopes: this.#rotationScopesForJurisdictionMode(mode, subscription.quota),
       subscriptionMode: subscription.quota.jurisdictionRotationMode,
       state: "queued_policy_update",
       productionExecutionAllowed: false,
@@ -1248,6 +1363,10 @@ export class OperatorPortalService {
       tenantId: operatorActor.tenantId,
       mode: "disabled",
       regions: [],
+      countries: [],
+      providers: [],
+      frequencyHours: subscription.quota.jurisdictionPolicy?.minFrequencyHours || 168,
+      rotationScopes: [],
       subscriptionMode: subscription.quota.jurisdictionRotationMode,
       state: "not_configured",
       productionExecutionAllowed: false,
@@ -1271,6 +1390,30 @@ export class OperatorPortalService {
     }
   }
 
+  #normalizeJurisdictionFrequency(value, quota) {
+    const min = Number(quota.jurisdictionPolicy?.minFrequencyHours || 168);
+    const frequencyHours = value === undefined || value === null || value === "" ? min : Number(value);
+    if (!Number.isInteger(frequencyHours) || frequencyHours < min || frequencyHours > 8760) {
+      throw validationError("Jurisdiction rotation frequency is outside subscription tier policy", {
+        frequencyHours: value,
+        minFrequencyHours: min,
+        maxFrequencyHours: 8760
+      });
+    }
+    return frequencyHours;
+  }
+
+  #rotationScopesForJurisdictionMode(mode, quota) {
+    if (mode === "disabled") return [];
+    if (mode === "manual") return ["session", "ip_route", "region"];
+    if (mode === "scheduled") return quota.jurisdictionPolicy?.providerRotationAllowed
+      ? ["session", "ip_route", "region", "provider", "workload_vps"]
+      : ["session", "ip_route", "region"];
+    return quota.jurisdictionPolicy?.allVpsRotationAllowed
+      ? ["session", "ip_route", "region", "provider", "workload_vps", "g1", "g2", "all_3_vps", "certificates"]
+      : ["session", "ip_route", "region", "provider", "workload_vps"];
+  }
+
   #publicJurisdictionPolicy(policy) {
     return {
       id: policy.id,
@@ -1278,6 +1421,10 @@ export class OperatorPortalService {
       tenantId: policy.tenantId,
       mode: policy.mode,
       regions: policy.regions,
+      countries: policy.countries || [],
+      providers: policy.providers || [],
+      frequencyHours: policy.frequencyHours || null,
+      rotationScopes: policy.rotationScopes || [],
       subscriptionMode: policy.subscriptionMode,
       state: policy.state,
       productionExecutionAllowed: false,

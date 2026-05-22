@@ -350,6 +350,15 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { package: operatorPortal.vpnInstallPackage({ operatorActor, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/pixel-ca-provisioning") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { package: operatorPortal.pixelCaProvisioning({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname.startsWith("/operator-api/workload-session-broker/")) {
+        const operatorActor = operatorActorFromRequest(req);
+        const templateKey = decodeURIComponent(url.pathname.split("/").at(-1) || "signal");
+        return send(res, 200, { broker: operatorPortal.workloadSessionBroker({ operatorActor, templateKey, correlationId }) });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/streaming-profile") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, {
@@ -1616,6 +1625,18 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       if (req.method === "GET" && url.pathname === "/providers") {
         return send(res, 200, { providers: providers.list({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/providers/eligible") {
+        return send(res, 200, {
+          providers: providers.listEligible({
+            actor,
+            capability: url.searchParams.get("capability"),
+            country: url.searchParams.get("country"),
+            tier: url.searchParams.get("tier"),
+            correlationId
+          })
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/secrets/backend-status") {

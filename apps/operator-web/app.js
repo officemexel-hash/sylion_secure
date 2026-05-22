@@ -291,8 +291,11 @@
     if (form) {
       form.elements.mode.value = p.mode;
       form.elements.regions.value = (p.regions || []).join(",");
+      form.elements.countries.value = (p.countries || []).join(",");
+      form.elements.providers.value = (p.providers || []).join(",");
+      form.elements.frequencyHours.value = p.frequencyHours || "";
     }
-    list.innerHTML = `<li><strong>${escapeHtml(p.mode)}</strong><span>tier mode: ${escapeHtml(p.subscriptionMode)} | regions: ${escapeHtml((p.regions || []).join(", ") || "none")} | state: ${escapeHtml(p.state)}</span></li>`;
+    list.innerHTML = `<li><strong>${escapeHtml(p.mode)}</strong><span>tier mode: ${escapeHtml(p.subscriptionMode)} | countries: ${escapeHtml((p.countries || []).join(", ") || "none")} | providers: ${escapeHtml((p.providers || []).join(", ") || "none")} | every ${escapeHtml(p.frequencyHours || "-")}h | scopes: ${escapeHtml((p.rotationScopes || []).join(", ") || "none")} | state: ${escapeHtml(p.state)}</span></li>`;
   }
 
   async function saveJurisdictionPolicy(event) {
@@ -302,7 +305,10 @@
       method: "POST",
       body: {
         mode: data.mode,
-        regions: splitCsv(data.regions)
+        regions: splitCsv(data.regions),
+        countries: splitCsv(data.countries),
+        providers: splitCsv(data.providers),
+        frequencyHours: Number(data.frequencyHours)
       }
     });
     setText("#session-status", result.error || "Jurisdiction policy saved");
@@ -373,6 +379,30 @@
       setText("#vpn-install-type", install.package.packageType);
       setText("#vpn-install-blockers", (install.package.requires || []).join(", "));
     }
+    const ca = await fetchJson("/operator-api/pixel-ca-provisioning");
+    if (!ca.error) {
+      const recommended = (ca.package.installMethods || []).find((item) => item.status === "recommended") || ca.package.installMethods?.[0];
+      setText("#ca-package-type", ca.package.packageType);
+      setText("#ca-trust-scope", (ca.package.trustScope || []).join(", "));
+      setText("#ca-install-method", recommended?.method || "-");
+      setText("#ca-fingerprint", ca.package.caFingerprintSha256 || "pending profile fingerprint");
+      const steps = $("#ca-install-steps");
+      if (steps) {
+        steps.innerHTML = (recommended?.steps || []).map((step) => `<li><strong>${escapeHtml(step)}</strong><span>GrapheneOS user-present install step.</span></li>`).join("") || `<li class="placeholder">No CA provisioning steps available.</li>`;
+      }
+    }
+  }
+
+  async function prepareWorkloadBroker(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson(`/operator-api/workload-session-broker/${encodeURIComponent(data.templateKey)}`);
+    if (result.error) {
+      setText("#workload-broker-status", result.error);
+      return;
+    }
+    const broker = result.broker;
+    setText("#workload-broker-status", `${broker.appName}: ${broker.state} | ${broker.authMode} | blockers: ${(broker.blockers || []).join(", ") || "none"} | ${broker.url}`);
   }
 
   async function loadConnectionPath() {
@@ -736,6 +766,7 @@
     $("#unlock-form").addEventListener("submit", saveUnlockPolicy);
     $("#safety-form").addEventListener("submit", saveSafetyPolicy);
     $("#jurisdiction-form").addEventListener("submit", saveJurisdictionPolicy);
+    $("#workload-broker-form").addEventListener("submit", prepareWorkloadBroker);
     $("#matrix-form").addEventListener("submit", requestMatrixServer);
     $("#subscription-form").addEventListener("submit", requestSubscriptionChange);
     $("#fido2-form").addEventListener("submit", saveFido2);

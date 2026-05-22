@@ -124,6 +124,17 @@ function splitCsv(value) {
     .filter(Boolean);
 }
 
+function parseRegionCatalog(value) {
+  return splitCsv(value).map((item) => {
+    const [region, country, ...cityParts] = item.split(":").map((part) => part.trim());
+    return {
+      region,
+      country: String(country || "").toUpperCase(),
+      city: cityParts.join(":") || null
+    };
+  }).filter((entry) => entry.region && entry.country);
+}
+
 function supportsBrowserWebAuthn() {
   return Boolean(window.PublicKeyCredential && navigator.credentials?.create && navigator.credentials?.get);
 }
@@ -576,7 +587,9 @@ function render() {
 
   $("#provider-cards").innerHTML = state.providers.map((provider) => card(provider.displayName, [
     ["Provider", provider.providerKey],
+    ["Countries", provider.countries?.join(", ") || "-"],
     ["Regions", provider.regions?.join(", ")],
+    ["Region catalog", provider.regionCatalog?.map((item) => `${item.region}:${item.country}`).join(", ") || "-"],
     ["Containers", String(provider.runtimeCapabilities?.containers)],
     ["Firecracker", String(provider.runtimeCapabilities?.firecracker)],
     ["Android workloads", String(provider.runtimeCapabilities?.androidWorkloads)],
@@ -713,6 +726,11 @@ function render() {
     ["Tier", plan.tier],
     ["Max envs", String(plan.maxWorkloadEnvironments)],
     ["Per app", String(plan.maxAppsPerOperator)],
+    ["Jurisdiction", `${plan.jurisdictionRotationMode} / min ${plan.jurisdictionPolicy?.minFrequencyHours || "-"}h`],
+    ["Countries", String(plan.jurisdictionPolicy?.maxCountries || plan.regionCount)],
+    ["Runtime classes", plan.providerPolicy?.allowedRuntimeClasses?.join(", ") || "-"],
+    ["Confidential req", String(plan.providerPolicy?.confidentialComputeRequired)],
+    ["Max session", `${plan.sessionPolicy?.maxHours || "-"}h`],
     ["PHANTOM exec", String(plan.phantomExecutionAllowed)]
   ])).join("") || empty("No subscription plans visible.");
 
@@ -1518,7 +1536,10 @@ async function createProvider(event) {
       providerType: data.providerType,
       apiSecret: data.apiSecret,
       regions: splitCsv(data.regions),
+      countries: splitCsv(data.countries).map((country) => country.toUpperCase()),
+      regionCatalog: parseRegionCatalog(data.regionCatalog),
       runtimeCapabilities: runtimeCapabilitiesForClass(data.runtimeClass),
+      metadata: { providerRole: data.providerRole },
       billingHealth: { status: "healthy" },
       testConnection: { mode: "mock", status: "passed" }
     }

@@ -9,6 +9,14 @@ const PROVIDER_METADATA = Object.freeze({
     displayName: "Hetzner Cloud",
     apiType: "token",
     defaultRegions: ["fsn1", "nbg1", "hel1", "ash", "hil"],
+    defaultCountries: ["DE", "FI", "US"],
+    regionCatalog: [
+      { region: "fsn1", country: "DE", city: "Falkenstein" },
+      { region: "nbg1", country: "DE", city: "Nuremberg" },
+      { region: "hel1", country: "FI", city: "Helsinki" },
+      { region: "ash", country: "US", city: "Ashburn" },
+      { region: "hil", country: "US", city: "Hillsboro" }
+    ],
     docsUrl: "https://docs.hetzner.cloud/",
     runtimeCapabilities: {
       containers: true,
@@ -26,6 +34,14 @@ const PROVIDER_METADATA = Object.freeze({
     displayName: "OVHcloud",
     apiType: "application_secret",
     defaultRegions: ["gra", "rbx", "sbg", "waw", "bhs"],
+    defaultCountries: ["FR", "PL", "CA"],
+    regionCatalog: [
+      { region: "gra", country: "FR", city: "Gravelines" },
+      { region: "rbx", country: "FR", city: "Roubaix" },
+      { region: "sbg", country: "FR", city: "Strasbourg" },
+      { region: "waw", country: "PL", city: "Warsaw" },
+      { region: "bhs", country: "CA", city: "Beauharnois" }
+    ],
     docsUrl: "https://help.ovhcloud.com/csm/en-public-cloud-compute-api",
     runtimeCapabilities: {
       containers: true,
@@ -43,6 +59,12 @@ const PROVIDER_METADATA = Object.freeze({
     displayName: "AWS EC2",
     apiType: "access_key",
     defaultRegions: ["eu-central-1", "eu-west-1", "us-east-1"],
+    defaultCountries: ["DE", "IE", "US"],
+    regionCatalog: [
+      { region: "eu-central-1", country: "DE", city: "Frankfurt" },
+      { region: "eu-west-1", country: "IE", city: "Dublin" },
+      { region: "us-east-1", country: "US", city: "Northern Virginia" }
+    ],
     docsUrl: "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/amazon-ec2-nested-virtualization.html",
     runtimeCapabilities: {
       containers: true,
@@ -60,6 +82,12 @@ const PROVIDER_METADATA = Object.freeze({
     displayName: "Microsoft Azure",
     apiType: "service_principal",
     defaultRegions: ["westeurope", "polandcentral", "germanywestcentral"],
+    defaultCountries: ["NL", "PL", "DE"],
+    regionCatalog: [
+      { region: "westeurope", country: "NL", city: "Amsterdam" },
+      { region: "polandcentral", country: "PL", city: "Warsaw" },
+      { region: "germanywestcentral", country: "DE", city: "Frankfurt" }
+    ],
     docsUrl: "https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-vm-overview",
     runtimeCapabilities: {
       containers: true,
@@ -77,6 +105,12 @@ const PROVIDER_METADATA = Object.freeze({
     displayName: "Google Cloud",
     apiType: "service_account",
     defaultRegions: ["europe-west1", "europe-west3", "us-central1"],
+    defaultCountries: ["BE", "DE", "US"],
+    regionCatalog: [
+      { region: "europe-west1", country: "BE", city: "St. Ghislain" },
+      { region: "europe-west3", country: "DE", city: "Frankfurt" },
+      { region: "us-central1", country: "US", city: "Iowa" }
+    ],
     docsUrl: "https://cloud.google.com/confidential-computing/confidential-vm/docs/confidential-vm-overview",
     runtimeCapabilities: {
       containers: true,
@@ -94,6 +128,12 @@ const PROVIDER_METADATA = Object.freeze({
     displayName: "Oracle Cloud Infrastructure",
     apiType: "api_key",
     defaultRegions: ["eu-frankfurt-1", "uk-london-1", "us-ashburn-1"],
+    defaultCountries: ["DE", "GB", "US"],
+    regionCatalog: [
+      { region: "eu-frankfurt-1", country: "DE", city: "Frankfurt" },
+      { region: "uk-london-1", country: "GB", city: "London" },
+      { region: "us-ashburn-1", country: "US", city: "Ashburn" }
+    ],
     docsUrl: "https://docs.oracle.com/en-us/iaas/Content/Compute/References/confidential_compute.htm",
     runtimeCapabilities: {
       containers: true,
@@ -111,6 +151,12 @@ const PROVIDER_METADATA = Object.freeze({
     displayName: "Scaleway Elastic Metal",
     apiType: "token",
     defaultRegions: ["fr-par", "nl-ams", "pl-waw"],
+    defaultCountries: ["FR", "NL", "PL"],
+    regionCatalog: [
+      { region: "fr-par", country: "FR", city: "Paris" },
+      { region: "nl-ams", country: "NL", city: "Amsterdam" },
+      { region: "pl-waw", country: "PL", city: "Warsaw" }
+    ],
     docsUrl: "https://www.scaleway.com/en/docs/tutorials/install-kvm-elastic-metal/",
     runtimeCapabilities: {
       containers: true,
@@ -126,6 +172,7 @@ const PROVIDER_METADATA = Object.freeze({
 });
 
 const BILLING_HEALTH = new Set(["unknown", "healthy", "warning", "blocked"]);
+const RUNTIME_CAPABILITIES = new Set(["containers", "nestedKvm", "bareMetalKvm", "firecracker", "androidWorkloads", "intelTdx", "amdSevSnp"]);
 
 function sanitizeProviderType(value) {
   return String(value || "").trim().toLowerCase();
@@ -142,6 +189,38 @@ function normalizeRegions(regions, defaults) {
     throw validationError("Provider regions must be a non-empty array");
   }
   return regions.map((region) => String(region).trim()).filter(Boolean);
+}
+
+function normalizeCountries(countries, defaults = []) {
+  const source = countries === undefined ? defaults : countries;
+  if (countries === undefined && defaults.length === 0) {
+    return ["UNSPECIFIED"];
+  }
+  if (!Array.isArray(source) || source.length === 0) {
+    throw validationError("Provider countries must be a non-empty array");
+  }
+  return [...new Set(source.map((country) => String(country).trim().toUpperCase()).filter(Boolean))];
+}
+
+function normalizeRegionCatalog(regionCatalog, regions, countries, defaults = []) {
+  const source = Array.isArray(regionCatalog) && regionCatalog.length ? regionCatalog : defaults;
+  const normalized = source.map((entry) => ({
+    region: String(entry.region || "").trim(),
+    country: String(entry.country || "").trim().toUpperCase(),
+    city: entry.city ? String(entry.city).trim() : null,
+    firecrackerEligible: entry.firecrackerEligible ?? null,
+    confidentialComputeEligible: entry.confidentialComputeEligible ?? null,
+    androidWorkloadEligible: entry.androidWorkloadEligible ?? null
+  })).filter((entry) => entry.region && entry.country);
+  if (normalized.length) return normalized;
+  return regions.map((region, index) => ({
+    region,
+    country: countries[index % countries.length],
+    city: null,
+    firecrackerEligible: null,
+    confidentialComputeEligible: null,
+    androidWorkloadEligible: null
+  }));
 }
 
 function normalizeQuota(quota = {}) {
@@ -209,6 +288,8 @@ export class ProviderRegistryService {
     quota,
     billingHealth,
     runtimeCapabilities,
+    countries,
+    regionCatalog,
     metadata = {},
     testConnection = { mode: "mock" },
     correlationId
@@ -252,12 +333,14 @@ export class ProviderRegistryService {
         externalReference: secret.externalReference
       },
       regions: normalizeRegions(regions, base.defaultRegions),
+      countries: normalizeCountries(countries, base.defaultCountries),
       quota: normalizeQuota(quota),
       billingHealth: normalizeBillingHealth(billingHealth),
       runtimeCapabilities: normalizeRuntimeCapabilities(runtimeCapabilities, base.runtimeCapabilities),
       connection: this.#testConnection({ providerKey: base.providerKey, testConnection, correlationId: corr }),
       createdAt: new Date().toISOString()
     };
+    provider.regionCatalog = normalizeRegionCatalog(regionCatalog, provider.regions, provider.countries, base.regionCatalog);
 
     this.providers.set(provider.id, provider);
     this.audit.record({
@@ -275,6 +358,33 @@ export class ProviderRegistryService {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "provider.read", { resourceType: RESOURCE_TYPES.PROVIDER, correlationId: corr });
     return [...this.providers.values()];
+  }
+
+  listEligible({ actor, capability, country = null, tier = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "provider.read", { resourceType: RESOURCE_TYPES.PROVIDER, correlationId: corr });
+    const cap = String(capability || "").trim();
+    if (!RUNTIME_CAPABILITIES.has(cap)) {
+      throw validationError("Unsupported provider runtime capability filter", {
+        capability,
+        supported: [...RUNTIME_CAPABILITIES]
+      });
+    }
+    const wantedCountry = country ? String(country).trim().toUpperCase() : null;
+    const wantedTier = tier ? String(tier).trim().toUpperCase() : null;
+    return [...this.providers.values()]
+      .filter((provider) => provider.runtimeCapabilities?.[cap] !== false)
+      .filter((provider) => !wantedCountry || provider.countries.includes(wantedCountry))
+      .filter((provider) => !wantedTier || provider.runtimeCapabilities?.recommendedTier === wantedTier || wantedTier === "SOVEREIGN")
+      .map((provider) => ({
+        id: provider.id,
+        providerKey: provider.providerKey,
+        displayName: provider.displayName,
+        countries: provider.countries,
+        regions: provider.regionCatalog.filter((region) => !wantedCountry || region.country === wantedCountry),
+        runtimeCapabilities: provider.runtimeCapabilities,
+        productionExecutionAllowed: false
+      }));
   }
 
   get(providerId) {
@@ -402,6 +512,8 @@ export class ProviderRegistryService {
       providerKey,
       displayName: displayName || merged.displayName,
       defaultRegions: merged.defaultRegions || [],
+      defaultCountries: merged.defaultCountries || [],
+      regionCatalog: merged.regionCatalog || [],
       runtimeCapabilities: merged.runtimeCapabilities || {},
       metadata: {
         providerKey,

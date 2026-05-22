@@ -17,6 +17,24 @@ const DEFAULT_PLANS = Object.freeze([
     maxAppsPerOperator: 3,
     regionCount: 2,
     jurisdictionRotationMode: "limited_manual",
+    jurisdictionPolicy: {
+      allowedModes: ["disabled", "manual"],
+      minFrequencyHours: 168,
+      maxCountries: 2,
+      providerRotationAllowed: false,
+      allVpsRotationAllowed: false
+    },
+    providerPolicy: {
+      allowedRuntimeClasses: ["containers"],
+      confidentialComputeRequired: false,
+      firecrackerRequired: false,
+      allowedProviderCount: 1
+    },
+    sessionPolicy: {
+      defaultHours: 8,
+      maxHours: 8,
+      fido2RequiredAtSessionEnd: true
+    },
     matrixAddonAvailable: true,
     phantomAdminLifecycleAvailable: false,
     cdrMandatory: true,
@@ -30,6 +48,24 @@ const DEFAULT_PLANS = Object.freeze([
     maxAppsPerOperator: 5,
     regionCount: 5,
     jurisdictionRotationMode: "scheduled",
+    jurisdictionPolicy: {
+      allowedModes: ["disabled", "manual", "scheduled"],
+      minFrequencyHours: 24,
+      maxCountries: 5,
+      providerRotationAllowed: true,
+      allVpsRotationAllowed: false
+    },
+    providerPolicy: {
+      allowedRuntimeClasses: ["containers", "firecracker"],
+      confidentialComputeRequired: false,
+      firecrackerRequired: true,
+      allowedProviderCount: 3
+    },
+    sessionPolicy: {
+      defaultHours: 12,
+      maxHours: 12,
+      fido2RequiredAtSessionEnd: true
+    },
     matrixAddonAvailable: true,
     phantomAdminLifecycleAvailable: true,
     cdrMandatory: true,
@@ -43,6 +79,24 @@ const DEFAULT_PLANS = Object.freeze([
     maxAppsPerOperator: 10,
     regionCount: "custom",
     jurisdictionRotationMode: "full_policy",
+    jurisdictionPolicy: {
+      allowedModes: ["disabled", "manual", "scheduled", "full_policy"],
+      minFrequencyHours: 4,
+      maxCountries: "custom",
+      providerRotationAllowed: true,
+      allVpsRotationAllowed: true
+    },
+    providerPolicy: {
+      allowedRuntimeClasses: ["containers", "firecracker", "confidential"],
+      confidentialComputeRequired: true,
+      firecrackerRequired: true,
+      allowedProviderCount: "custom"
+    },
+    sessionPolicy: {
+      defaultHours: 12,
+      maxHours: 24,
+      fido2RequiredAtSessionEnd: true
+    },
     matrixAddonAvailable: true,
     phantomAdminLifecycleAvailable: true,
     cdrMandatory: true,
@@ -91,6 +145,9 @@ function publicPlan(plan) {
     maxAppsPerOperator: plan.maxAppsPerOperator,
     regionCount: plan.regionCount,
     jurisdictionRotationMode: plan.jurisdictionRotationMode,
+    jurisdictionPolicy: plan.jurisdictionPolicy,
+    providerPolicy: plan.providerPolicy,
+    sessionPolicy: plan.sessionPolicy,
     matrixAddonAvailable: plan.matrixAddonAvailable,
     phantomAdminLifecycleAvailable: plan.phantomAdminLifecycleAvailable,
     phantomExecutionAllowed: false,
@@ -123,7 +180,7 @@ export class SubscriptionService {
     return [...this.plans.values()].map(publicPlan);
   }
 
-  createPlan({ actor, tier, name, maxWorkloadEnvironments, maxAppsPerOperator, regionCount, jurisdictionRotationMode, matrixAddonAvailable = true, phantomAdminLifecycleAvailable = false, cdrMandatory = true, supportLevel = "custom", correlationId }) {
+  createPlan({ actor, tier, name, maxWorkloadEnvironments, maxAppsPerOperator, regionCount, jurisdictionRotationMode, jurisdictionPolicy = {}, providerPolicy = {}, sessionPolicy = {}, matrixAddonAvailable = true, phantomAdminLifecycleAvailable = false, cdrMandatory = true, supportLevel = "custom", correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "subscription.manage", { correlationId: corr, resourceType: RESOURCE_TYPES.SUBSCRIPTION_PLAN });
     if (!TIER_VALUES.has(tier)) {
@@ -141,6 +198,24 @@ export class SubscriptionService {
       maxAppsPerOperator: requirePositiveInteger(maxAppsPerOperator, "maxAppsPerOperator"),
       regionCount: regionCount === "custom" ? "custom" : requirePositiveInteger(regionCount, "regionCount"),
       jurisdictionRotationMode: requireText(jurisdictionRotationMode, "jurisdictionRotationMode"),
+      jurisdictionPolicy: {
+        allowedModes: Array.isArray(jurisdictionPolicy.allowedModes) && jurisdictionPolicy.allowedModes.length ? jurisdictionPolicy.allowedModes : ["disabled", "manual"],
+        minFrequencyHours: requirePositiveInteger(jurisdictionPolicy.minFrequencyHours || 24, "jurisdictionPolicy.minFrequencyHours"),
+        maxCountries: jurisdictionPolicy.maxCountries === "custom" ? "custom" : requirePositiveInteger(jurisdictionPolicy.maxCountries || regionCount || 1, "jurisdictionPolicy.maxCountries"),
+        providerRotationAllowed: jurisdictionPolicy.providerRotationAllowed === true,
+        allVpsRotationAllowed: jurisdictionPolicy.allVpsRotationAllowed === true
+      },
+      providerPolicy: {
+        allowedRuntimeClasses: Array.isArray(providerPolicy.allowedRuntimeClasses) && providerPolicy.allowedRuntimeClasses.length ? providerPolicy.allowedRuntimeClasses : ["containers"],
+        confidentialComputeRequired: providerPolicy.confidentialComputeRequired === true,
+        firecrackerRequired: providerPolicy.firecrackerRequired === true,
+        allowedProviderCount: providerPolicy.allowedProviderCount === "custom" ? "custom" : requirePositiveInteger(providerPolicy.allowedProviderCount || 1, "providerPolicy.allowedProviderCount")
+      },
+      sessionPolicy: {
+        defaultHours: requirePositiveInteger(sessionPolicy.defaultHours || 12, "sessionPolicy.defaultHours"),
+        maxHours: requirePositiveInteger(sessionPolicy.maxHours || 12, "sessionPolicy.maxHours"),
+        fido2RequiredAtSessionEnd: sessionPolicy.fido2RequiredAtSessionEnd !== false
+      },
       matrixAddonAvailable: matrixAddonAvailable === true,
       phantomAdminLifecycleAvailable: phantomAdminLifecycleAvailable === true,
       phantomExecutionAllowed: false,

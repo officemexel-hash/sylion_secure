@@ -102,6 +102,22 @@
       </article>
       <article class="card">
         <h2>WORKLOAD apps <span class="help-tip" tabindex="0" data-tip="These links open internal workload endpoints via VPN/G2. Signal currently uses Kasm auth; Zangi is compatibility-only until Android runtime gates pass.">?</span></h2>
+        <form id="workload-broker-form" class="dense-form">
+          <label>Prepare session
+            <select name="templateKey">
+              <option value="signal">Signal</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="telegram">Telegram</option>
+              <option value="threema">Threema</option>
+              <option value="zangi">Zangi</option>
+              <option value="libreoffice">LibreOffice</option>
+              <option value="duckduckgo">DuckDuckGo</option>
+              <option value="exodus">Exodus</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">Prepare workload session</button>
+        </form>
+        <p id="workload-broker-status" class="hint">Broker not prepared in this browser session.</p>
         <div class="quick-grid workload-launcher">
           <a class="quick-tile" href="https://signal.sylion.internal/" rel="noopener"><strong>Signal</strong><span>remote desktop workload</span></a>
           <a class="quick-tile" href="https://whatsapp.sylion.internal/" rel="noopener"><strong>WhatsApp</strong><span>web/container workload</span></a>
@@ -306,6 +322,18 @@
           <dt>Blockers</dt><dd id="vpn-install-blockers" class="placeholder">Loading...</dd>
         </dl>
       </article>
+      <article class="card">
+        <h2>Pixel CA provisioning <span class="help-tip" tabindex="0" data-tip="Installs the SYLION internal CA so GrapheneOS/Vanadium trusts operator and workload internal TLS names. Private keys are never included.">?</span></h2>
+        <dl>
+          <dt>Package</dt><dd id="ca-package-type" class="placeholder">Loading...</dd>
+          <dt>Trust scope</dt><dd id="ca-trust-scope" class="placeholder">-</dd>
+          <dt>Install method</dt><dd id="ca-install-method" class="placeholder">-</dd>
+          <dt>Fingerprint</dt><dd id="ca-fingerprint" class="placeholder">-</dd>
+        </dl>
+        <ol id="ca-install-steps" class="path-list">
+          <li class="placeholder">Loading CA provisioning steps...</li>
+        </ol>
+      </article>
     </section>
 
     <section id="streaming" class="view">
@@ -398,6 +426,9 @@
             </select>
           </label>
           <label>Regions <input name="regions" placeholder="de,fi,nl"></label>
+          <label>Countries <input name="countries" placeholder="DE,FI,NL"></label>
+          <label>Providers <input name="providers" placeholder="hetzner,ovh,scaleway"></label>
+          <label>Frequency hours <input name="frequencyHours" type="number" min="4" max="8760" value="168"></label>
           <button type="submit" class="primary">Save jurisdiction policy</button>
         </form>
         <ul id="jurisdiction-list" class="key-list"><li class="placeholder">Loading...</li></ul>
