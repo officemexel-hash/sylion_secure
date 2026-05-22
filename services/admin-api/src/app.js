@@ -499,6 +499,28 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const templateKey = decodeURIComponent(url.pathname.split("/").at(-1) || "signal");
         return send(res, 200, { execution: operatorPortal.workloadExecution({ operatorActor, templateKey, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/account-bootstrap") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { bootstrap: operatorPortal.accountBootstrap({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/account-bootstrap/sessions") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        const session = operatorPortal.requestAccountBootstrap({ operatorActor, body, correlationId });
+        return send(res, 201, { session });
+      }
+      const accountBootstrapEvidenceMatch = url.pathname.match(/^\/operator-api\/account-bootstrap\/sessions\/([^/]+)\/evidence$/);
+      if (req.method === "POST" && accountBootstrapEvidenceMatch) {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        const session = operatorPortal.recordAccountBootstrapEvidence({
+          operatorActor,
+          sessionId: accountBootstrapEvidenceMatch[1],
+          body,
+          correlationId
+        });
+        return send(res, 200, { session });
+      }
       if (req.method === "POST" && url.pathname === "/operator-api/workload-execution/signal/start") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { request: operatorPortal.startWorkloadExecution({ operatorActor, templateKey: "signal", correlationId }) });

@@ -32,6 +32,7 @@
       <li><a href="#live-access" data-view="live-access">Live Access</a></li>
       <li><a href="#signal-preview" data-view="signal-preview">Signal Preview</a></li>
       <li><a href="#runtime-gate" data-view="runtime-gate">Runtime Gate</a></li>
+      <li><a href="#account-bootstrap" data-view="account-bootstrap">Account Bootstrap</a></li>
       <li><a href="#vpn" data-view="vpn">VPN status</a></li>
       <li><a href="#streaming" data-view="streaming">Streaming</a></li>
       <li><a href="#audit" data-view="audit">My audit</a></li>
@@ -333,6 +334,76 @@
         <ul id="runtime-gate-list" class="path-list">
           <li class="placeholder">Select an application to check its real runtime gates.</li>
         </ul>
+      </article>
+    </section>
+
+    <section id="account-bootstrap" class="view">
+      <h1>Account Bootstrap</h1>
+      <p class="hint">Record human account setup evidence for communicator workloads. Do not enter phone numbers, OTP/SMS codes, passwords, wallet seeds or message content here. Use artifact references and pass/fail checks only.</p>
+      <article class="card">
+        <h2>Start bootstrap <span class="help-tip" tabindex="0" data-tip="This creates an operator-scoped evidence session. It does not mark production ready; admin/QA must still review factual evidence.">?</span></h2>
+        <form id="account-bootstrap-form" class="dense-form">
+          <label>App
+            <select name="appKey">
+              <option value="signal">Signal</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="telegram">Telegram</option>
+              <option value="threema">Threema</option>
+              <option value="zangi">Zangi</option>
+              <option value="matrix_client">Matrix Client</option>
+              <option value="exodus">Exodus</option>
+            </select>
+          </label>
+          <label>Bootstrap mode
+            <select name="mode">
+              <option value="physical_mobile_companion">Physical mobile companion</option>
+              <option value="android_native_workload">Android-native workload</option>
+              <option value="approved_test_number_provider">Approved test-number provider</option>
+              <option value="desktop_linked_account">Desktop linked account</option>
+              <option value="manual_operator_account">Manual operator account</option>
+            </select>
+          </label>
+          <label>Runtime
+            <select name="runtimeMode">
+              <option value="desktop">Desktop</option>
+              <option value="web">Web</option>
+              <option value="android_native">Android native</option>
+              <option value="firecracker_gui">Firecracker GUI</option>
+              <option value="container">Container</option>
+            </select>
+          </label>
+          <label>Approved provider ref <input name="approvedPhoneProviderRef" placeholder="provider-ref://..." autocomplete="off"></label>
+          <button type="submit" class="primary">Create bootstrap session</button>
+        </form>
+        <p id="account-bootstrap-status" class="hint">No bootstrap session created in this browser session.</p>
+      </article>
+      <article class="card">
+        <h2>Record evidence</h2>
+        <form id="account-bootstrap-evidence-form" class="dense-form">
+          <label>Session ID <input name="sessionId" placeholder="acct_bootstrap_..." autocomplete="off"></label>
+          <label>Result
+            <select name="result">
+              <option value="in_progress">In progress</option>
+              <option value="blocked">Blocked</option>
+              <option value="failed">Failed</option>
+              <option value="passed">Passed</option>
+            </select>
+          </label>
+          <label class="check-row"><input name="uiVisible" type="checkbox"> UI visible on Pixel/laptop</label>
+          <label class="check-row"><input name="accountBootstrap" type="checkbox"> Account created/linked inside workload</label>
+          <label class="check-row"><input name="sendReceive" type="checkbox"> Send/receive tested</label>
+          <label class="check-row"><input name="walletWorkflow" type="checkbox"> Wallet workflow tested</label>
+          <label class="check-row"><input name="riskAcceptance" type="checkbox"> Operator risk accepted</label>
+          <label>Evidence artifact refs <input name="evidenceArtifactIds" placeholder="artifact://..., qa://..." autocomplete="off"></label>
+          <label>Latency ms <input name="latencyMs" type="number" min="0" max="600000" placeholder="optional"></label>
+          <label>Note <input name="note" placeholder="No secrets, no codes, no phone numbers" autocomplete="off"></label>
+          <button type="submit" class="secondary">Record evidence</button>
+        </form>
+      </article>
+      <article class="card">
+        <h2>Sessions</h2>
+        <div id="account-bootstrap-catalog" class="app-catalog"><div class="placeholder">Loading bootstrap catalog...</div></div>
+        <ul id="account-bootstrap-list" class="key-list"><li class="placeholder">Loading...</li></ul>
       </article>
     </section>
 

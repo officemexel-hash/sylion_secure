@@ -1,9 +1,19 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createApp } from "../services/admin-api/src/app.js";
 import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
 
-const baseUrl = process.env.SYLION_BASE_URL || "http://127.0.0.1:8099";
+let baseUrl = process.env.SYLION_BASE_URL || null;
 const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-17-operator-portal-smoke");
+
+async function startOwnedServer() {
+  if (baseUrl) return null;
+  const app = createApp();
+  const server = await app.listen(0);
+  const { port } = server.address();
+  baseUrl = `http://127.0.0.1:${port}`;
+  return { app, close: () => new Promise((resolve) => server.close(resolve)) };
+}
 
 async function loadPlaywright() {
   try {
@@ -77,6 +87,7 @@ async function seedOperator(client) {
 
 async function run() {
   await mkdir(outputDir, { recursive: true });
+  const ownedServer = await startOwnedServer();
   const { chromium } = await loadPlaywright();
   const client = await loginClient();
   const seeded = await seedOperator(client);
@@ -97,7 +108,7 @@ async function run() {
     await page.getByText(seeded.operatorName, { exact: false }).waitFor({ timeout: 10000 });
     actions.push("operator_session_loaded");
 
-    for (const label of ["Devices", "Workload Control", "Connection Path", "Signal Preview", "VPN status", "Security Unlock", "Backup & Panic", "Jurisdiction", "Matrix Server", "FIDO2 policy", "HSM refs", "Subscription", "My audit"]) {
+    for (const label of ["Devices", "Workload Control", "Connection Path", "Signal Preview", "Runtime Gate", "Account Bootstrap", "VPN status", "Security Unlock", "Backup & Panic", "Jurisdiction", "Matrix Server", "FIDO2 policy", "HSM refs", "Subscription", "My audit"]) {
       await page.getByRole("link", { name: label }).click();
       await page.waitForTimeout(250);
       actions.push(`view_${label.toLowerCase().replaceAll(" ", "_")}`);
@@ -111,6 +122,20 @@ async function run() {
     await page.getByRole("button", { name: "Queue workload change" }).click();
     await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Workload control queued"));
     actions.push("operator_workload_control_queued");
+
+    await page.getByRole("link", { name: "Account Bootstrap" }).click();
+    const bootstrapSection = page.locator("#account-bootstrap");
+    await bootstrapSection.locator('select[name="appKey"]').selectOption("signal");
+    await bootstrapSection.locator('select[name="mode"]').selectOption("physical_mobile_companion");
+    await bootstrapSection.locator('select[name="runtimeMode"]').selectOption("desktop");
+    await bootstrapSection.getByRole("button", { name: "Create bootstrap session" }).click();
+    await page.waitForFunction(() => document.querySelector("#account-bootstrap-status")?.textContent?.includes("Bootstrap session created"));
+    await bootstrapSection.locator('select[name="result"]').selectOption("blocked");
+    await bootstrapSection.locator('input[name="uiVisible"]').check();
+    await bootstrapSection.locator('input[name="evidenceArtifactIds"]').fill("artifact://operator-smoke/signal-visible");
+    await bootstrapSection.getByRole("button", { name: "Record evidence" }).click();
+    await page.waitForFunction(() => document.querySelector("#account-bootstrap-status")?.textContent?.includes("Evidence recorded"));
+    actions.push("operator_account_bootstrap_evidence_recorded");
 
     await page.getByRole("link", { name: "Security Unlock" }).click();
     await page.locator('input[name="sessionHours"]').fill("12");
@@ -130,10 +155,11 @@ async function run() {
     actions.push("operator_safety_policy_saved");
 
     await page.getByRole("link", { name: "Jurisdiction" }).click();
-    await page.locator('select[name="mode"]').selectOption("scheduled");
-    await page.locator('input[name="regions"]').fill("de,fi,nl");
-    await page.locator('input[name="countries"]').fill("DE,FI,NL");
-    await page.getByRole("button", { name: "Save jurisdiction policy" }).click();
+    const jurisdictionSection = page.locator("#settings-jurisdiction");
+    await jurisdictionSection.locator('select[name="mode"]').selectOption("scheduled");
+    await jurisdictionSection.locator('input[name="regions"]').fill("de,fi,nl");
+    await jurisdictionSection.locator('input[name="countries"]').fill("DE,FI,NL");
+    await jurisdictionSection.getByRole("button", { name: "Save jurisdiction policy" }).click();
     await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Jurisdiction policy saved"));
     actions.push("operator_jurisdiction_policy_saved");
 
@@ -177,6 +203,7 @@ async function run() {
     await page.screenshot({ path: join(outputDir, "operator-portal-mobile.png"), fullPage: true });
   } finally {
     await browser.close();
+    if (ownedServer) await ownedServer.close();
   }
 
   if (issues.length) {

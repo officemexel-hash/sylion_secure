@@ -715,6 +715,94 @@
     await loadRuntimeGate(data.templateKey || "zangi");
   }
 
+  async function loadAccountBootstrap() {
+    const data = await fetchJson("/operator-api/account-bootstrap");
+    if (data.error) {
+      setText("#account-bootstrap-status", data.error);
+      return;
+    }
+    const bootstrap = data.bootstrap || {};
+    const catalog = $("#account-bootstrap-catalog");
+    if (catalog) {
+      catalog.innerHTML = (bootstrap.catalog || []).map((app) => `
+        <article class="app-tile">
+          <div>
+            <strong>${escapeHtml(app.name)}</strong>
+            <span>${escapeHtml(app.category)} | ${escapeHtml(app.defaultRuntimeMode)} | ${escapeHtml(app.defaultMode)}</span>
+          </div>
+          <div class="app-tile-meta">
+            <span class="badge">checks ${escapeHtml((app.requiredChecks || []).join("+"))}</span>
+            <span class="badge">CDR ${escapeHtml(app.cdrRequired)}</span>
+            <span class="badge badge-warn">QA review</span>
+          </div>
+        </article>
+      `).join("") || `<div class="placeholder">No bootstrap-capable apps.</div>`;
+    }
+    const list = $("#account-bootstrap-list");
+    if (list) {
+      list.innerHTML = (bootstrap.latestSessions || []).map((session) => `
+        <li>
+          <strong>${escapeHtml(session.appName)} - ${escapeHtml(session.state)}</strong>
+          <span>${escapeHtml(session.id)} | ${escapeHtml(session.mode)} | ${escapeHtml(session.runtimeMode)} | factual candidate ${escapeHtml(session.factualCandidate)}</span>
+          <span>blockers: ${escapeHtml((session.blockers || []).join(", ") || "-")}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No bootstrap sessions yet.</li>`;
+    }
+  }
+
+  async function requestAccountBootstrap(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/account-bootstrap/sessions", {
+      method: "POST",
+      body: {
+        appKey: data.appKey,
+        mode: data.mode,
+        runtimeMode: data.runtimeMode,
+        approvedPhoneProviderRef: data.approvedPhoneProviderRef || null
+      }
+    });
+    if (result.error) {
+      setText("#account-bootstrap-status", result.error);
+      return;
+    }
+    setText("#account-bootstrap-status", `Bootstrap session created: ${result.session.id}`);
+    const evidenceForm = $("#account-bootstrap-evidence-form");
+    if (evidenceForm) evidenceForm.elements.sessionId.value = result.session.id;
+    await loadAccountBootstrap();
+    await loadAudit();
+  }
+
+  async function recordAccountBootstrapEvidence(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const sessionId = String(data.sessionId || "").trim();
+    if (!sessionId) {
+      setText("#account-bootstrap-status", "Select a bootstrap session first.");
+      return;
+    }
+    const pass = (checked) => ({ status: checked === "on" ? "passed" : "not_run" });
+    const result = await fetchJson(`/operator-api/account-bootstrap/sessions/${encodeURIComponent(sessionId)}/evidence`, {
+      method: "POST",
+      body: {
+        result: data.result,
+        checks: {
+          uiVisible: pass(data.uiVisible),
+          accountBootstrap: pass(data.accountBootstrap),
+          sendReceive: pass(data.sendReceive),
+          walletWorkflow: pass(data.walletWorkflow),
+          riskAcceptance: pass(data.riskAcceptance)
+        },
+        evidenceArtifactIds: splitCsv(data.evidenceArtifactIds),
+        latencyMs: data.latencyMs ? Number(data.latencyMs) : null,
+        note: data.note || null
+      }
+    });
+    setText("#account-bootstrap-status", result.error || `Evidence recorded: ${result.session.state}`);
+    if (!result.error) await loadAccountBootstrap();
+    await loadAudit();
+  }
+
   async function loadAudit() {
     const list = $("#audit-list");
     if (!list) return;
@@ -967,6 +1055,7 @@
     if (viewId === "live-access") loadLiveAccess();
     if (viewId === "signal-preview") loadSignalPreview();
     if (viewId === "runtime-gate") loadRuntimeGate();
+    if (viewId === "account-bootstrap") loadAccountBootstrap();
     if (viewId === "vpn") loadVpn();
     if (viewId === "streaming") loadStreaming();
     if (viewId === "audit") loadAudit();
@@ -987,6 +1076,8 @@
     $("#workload-control-form").addEventListener("submit", requestWorkloadControl);
     $("#workload-live-runner-form").addEventListener("submit", executeLiveWorkloadRunner);
     $("#runtime-gate-form").addEventListener("submit", handleRuntimeGate);
+    $("#account-bootstrap-form").addEventListener("submit", requestAccountBootstrap);
+    $("#account-bootstrap-evidence-form").addEventListener("submit", recordAccountBootstrapEvidence);
     $("#vpn-evidence-form").addEventListener("submit", recordVpnEvidence);
     $("#stream-session-form").addEventListener("submit", requestStreamSession);
     $("#stream-readiness-form").addEventListener("submit", recordStreamReadiness);

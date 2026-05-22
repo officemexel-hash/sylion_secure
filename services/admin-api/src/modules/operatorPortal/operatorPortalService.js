@@ -42,6 +42,16 @@ const WORKLOAD_CONTROL_ACTIONS = new Set(["scale_to_counts", "rotate_app", "recr
 const UNLOCK_LAYERS = Object.freeze(["g1", "g2", "workload"]);
 const PANIC_LEVELS = Object.freeze(["data_wipe", "environment_destroy", "account_revoke"]);
 const JURISDICTION_MODES = Object.freeze(["disabled", "manual", "scheduled", "full_policy"]);
+const ACCOUNT_BOOTSTRAP_RESULTS = new Set(["passed", "failed", "blocked", "in_progress"]);
+const ACCOUNT_BOOTSTRAP_CHECK_STATUSES = new Set(["passed", "failed", "blocked", "not_run", "not_applicable"]);
+const ACCOUNT_BOOTSTRAP_MODES = new Set([
+  "desktop_linked_account",
+  "android_native_workload",
+  "physical_mobile_companion",
+  "approved_test_number_provider",
+  "manual_operator_account"
+]);
+const BOOTSTRAP_SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|phone.*number|panic.*code|seed|mnemonic|private[_-]?key)/i;
 const LIVE_RECREATE_APP_MAP = Object.freeze({
   whatsapp: "whatsapp",
   signal: "signal",
@@ -134,6 +144,7 @@ export class OperatorPortalService {
     this.streamingReadinessEvidence = new PersistentMap({ store, collection: "operator_streaming_readiness_evidence" });
     this.streamingRuntimeManifests = new PersistentMap({ store, collection: "operator_streaming_runtime_manifests" });
     this.workloadControlJobs = new PersistentMap({ store, collection: "operator_workload_control_jobs" });
+    this.accountBootstrapSessions = new PersistentMap({ store, collection: "operator_account_bootstrap_sessions" });
     this.liveWorkloadRunner = liveWorkloadRunner;
   }
 
@@ -828,6 +839,145 @@ export class OperatorPortalService {
       newValue: { ...broker, url: broker.url, tokenMaterialStored: false }
     });
     return broker;
+  }
+
+  accountBootstrap({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const latestSessions = [...this.accountBootstrapSessions.values()]
+      .filter((session) => session.operatorId === operatorActor.operatorId)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, 12)
+      .map((session) => this.#publicAccountBootstrapSession(session));
+    return {
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      catalog: this.#accountBootstrapCatalog(),
+      latestSessions,
+      guardrails: {
+        noPhoneNumbersStored: true,
+        noOtpStored: true,
+        noSeedsOrWalletSecretsStored: true,
+        evidenceRefsOnly: true,
+        adminQaReviewRequiredForProductionReadiness: true,
+        terminalDataStored: false,
+        cdrRequired: true,
+        productionExecutionAllowed: false
+      }
+    };
+  }
+
+  requestAccountBootstrap({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.#assertNoBootstrapSecrets(body);
+    const appKey = this.#normalizeWorkloadTemplate(body.appKey || body.templateKey || "signal");
+    const mode = this.#normalizeBootstrapMode(body.mode || this.#defaultBootstrapMode(appKey));
+    const runtimeMode = this.#normalizeBootstrapRuntime(body.runtimeMode || this.#defaultBootstrapRuntime(appKey));
+    const app = this.#appDefinition(appKey);
+    const requiredChecks = this.#accountBootstrapRequiredChecks(appKey);
+    const routeStatus = this.#workloadRouteStatus(appKey);
+    const androidRuntime = ANDROID_WORKLOAD_APPS.has(appKey) ? this.#androidRuntimeSubstrate() : null;
+    const session = {
+      id: newId("acct_bootstrap"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      appKey,
+      appName: app.name,
+      mode,
+      runtimeMode,
+      state: "awaiting_human_bootstrap",
+      requiredChecks,
+      routeStatus,
+      runtimeGate: androidRuntime,
+      launchUrl: this.#workloadLaunchUrl(appKey),
+      approvedPhoneProviderRef: body.approvedPhoneProviderRef ? String(body.approvedPhoneProviderRef).trim().slice(0, 160) : null,
+      evidencePolicy: {
+        allowedEvidence: ["artifact_ref", "manual_note_without_secrets", "latency_ms", "pass_fail_checks"],
+        forbiddenEvidence: ["phone_number", "otp_or_sms_code", "password", "seed", "message_content", "wallet_secret"],
+        accountCreationResponsibility: "operator_human_step",
+        adminQaReviewRequired: true
+      },
+      blockers: [
+        ...(routeStatus.ready ? [] : routeStatus.blockers),
+        ...(androidRuntime && !androidRuntime.ready ? androidRuntime.blockers.map((blocker) => `android_runtime:${blocker}`) : []),
+        ...(appKey === "exodus" ? ["operator_wallet_risk_acceptance_required"] : []),
+        "human_account_bootstrap_not_recorded",
+        "send_receive_not_verified"
+      ],
+      checks: this.#normalizeBootstrapChecks(requiredChecks, {}),
+      factualCandidate: false,
+      terminalDataStored: false,
+      cdrRequired: true,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdBy: operatorActor.id,
+      createdAt: isoNow()
+    };
+    this.accountBootstrapSessions.set(session.id, session);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.account_bootstrap_requested",
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: session.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "deny",
+      result: session.state,
+      newValue: this.#publicAccountBootstrapSession(session)
+    });
+    return this.#publicAccountBootstrapSession(session);
+  }
+
+  recordAccountBootstrapEvidence({ operatorActor, sessionId, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.#assertNoBootstrapSecrets(body);
+    const previous = this.accountBootstrapSessions.get(sessionId);
+    if (!previous || previous.operatorId !== operatorActor.operatorId) {
+      throw notFound("account_bootstrap_session", sessionId);
+    }
+    const result = this.#normalizeBootstrapResult(body.result || "in_progress");
+    const checks = this.#normalizeBootstrapChecks(previous.requiredChecks, body.checks || {});
+    const missingRequired = previous.requiredChecks.filter((check) => checks[check]?.status !== "passed");
+    if (result === "passed" && missingRequired.length) {
+      throw validationError("Account bootstrap PASS requires every required check to pass", {
+        appKey: previous.appKey,
+        missingRequired,
+        requiredChecks: previous.requiredChecks
+      });
+    }
+    const factualCandidate = result === "passed" && missingRequired.length === 0;
+    const next = {
+      ...previous,
+      state: factualCandidate ? "evidence_passed_pending_admin_qa_review" : result === "blocked" ? "blocked_pending_fix" : "evidence_incomplete",
+      checks,
+      result,
+      blockers: factualCandidate ? [] : missingRequired.map((check) => `${check}_not_passed`),
+      evidenceArtifactIds: this.#safeBootstrapArray(body.evidenceArtifactIds || [], "evidenceArtifactIds"),
+      latencyMs: body.latencyMs === undefined || body.latencyMs === null || body.latencyMs === "" ? null : Number(body.latencyMs),
+      note: body.note ? String(body.note).trim().slice(0, 500) : null,
+      factualCandidate,
+      adminQaReviewRequired: true,
+      updatedBy: operatorActor.id,
+      updatedAt: isoNow()
+    };
+    this.accountBootstrapSessions.set(next.id, next);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.account_bootstrap_evidence_recorded",
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: next.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: factualCandidate ? "allow" : "deny",
+      result: next.state,
+      previousValue: this.#publicAccountBootstrapSession(previous),
+      newValue: this.#publicAccountBootstrapSession(next)
+    });
+    return this.#publicAccountBootstrapSession(next);
   }
 
   liveAccessFoundation({ operatorActor, correlationId }) {
@@ -2010,6 +2160,157 @@ export class OperatorPortalService {
       });
     }
     return normalized;
+  }
+
+  #accountBootstrapCatalog() {
+    return WORKLOAD_CONTROL_APPS
+      .filter((app) => ["messenger", "wallet"].includes(app.category))
+      .map((app) => ({
+        key: app.key,
+        name: app.name,
+        category: app.category,
+        requiredChecks: this.#accountBootstrapRequiredChecks(app.key),
+        defaultMode: this.#defaultBootstrapMode(app.key),
+        supportedModes: this.#supportedBootstrapModes(app.key),
+        defaultRuntimeMode: this.#defaultBootstrapRuntime(app.key),
+        requiresAdminQaReview: true,
+        terminalDataStored: false,
+        cdrRequired: true,
+        productionExecutionAllowed: false
+      }));
+  }
+
+  #accountBootstrapRequiredChecks(appKey) {
+    if (appKey === "exodus") return ["uiVisible", "walletWorkflow", "riskAcceptance"];
+    return ["uiVisible", "accountBootstrap", "sendReceive"];
+  }
+
+  #defaultBootstrapMode(appKey) {
+    if (appKey === "zangi") return "android_native_workload";
+    if (appKey === "signal" || appKey === "whatsapp") return "physical_mobile_companion";
+    if (appKey === "exodus") return "manual_operator_account";
+    return "approved_test_number_provider";
+  }
+
+  #defaultBootstrapRuntime(appKey) {
+    if (appKey === "zangi") return "android_native";
+    if (appKey === "signal") return "desktop";
+    if (appKey === "exodus") return "desktop";
+    return "web";
+  }
+
+  #supportedBootstrapModes(appKey) {
+    if (appKey === "zangi") return ["android_native_workload", "approved_test_number_provider"];
+    if (appKey === "signal" || appKey === "whatsapp") return ["physical_mobile_companion", "android_native_workload"];
+    if (appKey === "exodus") return ["manual_operator_account"];
+    return ["approved_test_number_provider", "desktop_linked_account", "android_native_workload"];
+  }
+
+  #normalizeBootstrapMode(value) {
+    const mode = String(value || "").trim();
+    if (!ACCOUNT_BOOTSTRAP_MODES.has(mode)) {
+      throw validationError("Unsupported account bootstrap mode", {
+        mode,
+        supported: [...ACCOUNT_BOOTSTRAP_MODES]
+      });
+    }
+    return mode;
+  }
+
+  #normalizeBootstrapRuntime(value) {
+    const mode = String(value || "").trim();
+    if (!["desktop", "web", "android_native", "firecracker_gui", "container", "unknown"].includes(mode)) {
+      throw validationError("Unsupported account bootstrap runtime mode", { mode });
+    }
+    return mode;
+  }
+
+  #normalizeBootstrapResult(value) {
+    const result = String(value || "").trim();
+    if (!ACCOUNT_BOOTSTRAP_RESULTS.has(result)) {
+      throw validationError("Unsupported account bootstrap result", {
+        result,
+        supported: [...ACCOUNT_BOOTSTRAP_RESULTS]
+      });
+    }
+    return result;
+  }
+
+  #normalizeBootstrapChecks(requiredChecks, checks) {
+    if (!checks || typeof checks !== "object" || Array.isArray(checks)) {
+      throw validationError("Account bootstrap checks must be an object", { field: "checks" });
+    }
+    const keys = [...new Set([...requiredChecks, ...Object.keys(checks)])];
+    return Object.fromEntries(keys.map((key) => {
+      const input = checks[key] || {};
+      const asObject = typeof input === "string" ? { status: input } : input;
+      const status = String(asObject.status || "not_run").trim();
+      if (!ACCOUNT_BOOTSTRAP_CHECK_STATUSES.has(status)) {
+        throw validationError("Unsupported account bootstrap check status", {
+          check: key,
+          status,
+          supported: [...ACCOUNT_BOOTSTRAP_CHECK_STATUSES]
+        });
+      }
+      return [key, {
+        status,
+        evidence: asObject.evidence ? String(asObject.evidence).trim().slice(0, 240) : null,
+        mode: asObject.mode ? String(asObject.mode).trim().slice(0, 96) : null,
+        note: asObject.note ? String(asObject.note).trim().slice(0, 240) : null
+      }];
+    }));
+  }
+
+  #assertNoBootstrapSecrets(value, path = []) {
+    if (!value || typeof value !== "object") return;
+    for (const [key, nested] of Object.entries(value)) {
+      const currentPath = [...path, key];
+      if (BOOTSTRAP_SECRET_FIELD_PATTERN.test(key)) {
+        throw validationError("Account bootstrap must not store phone numbers, OTPs, passwords, seeds or token material", {
+          field: currentPath.join("."),
+          allowed: "Use provider refs, artifact refs and pass/fail evidence only."
+        });
+      }
+      if (nested && typeof nested === "object") this.#assertNoBootstrapSecrets(nested, currentPath);
+    }
+  }
+
+  #safeBootstrapArray(value, field) {
+    if (!Array.isArray(value)) throw validationError(`${field} must be an array`, { field });
+    return value.map((item, index) => String(item || "").trim().slice(0, 200) || `empty_${index}`);
+  }
+
+  #publicAccountBootstrapSession(session) {
+    return {
+      id: session.id,
+      operatorId: session.operatorId,
+      tenantId: session.tenantId,
+      terminalMode: session.terminalMode,
+      appKey: session.appKey,
+      appName: session.appName,
+      mode: session.mode,
+      runtimeMode: session.runtimeMode,
+      state: session.state,
+      requiredChecks: session.requiredChecks,
+      checks: session.checks,
+      blockers: session.blockers || [],
+      routeStatus: session.routeStatus,
+      runtimeGate: session.runtimeGate,
+      launchUrl: session.launchUrl,
+      approvedPhoneProviderRef: session.approvedPhoneProviderRef,
+      evidencePolicy: session.evidencePolicy,
+      evidenceArtifactIds: session.evidenceArtifactIds || [],
+      latencyMs: session.latencyMs ?? null,
+      note: session.note || null,
+      factualCandidate: session.factualCandidate === true,
+      adminQaReviewRequired: session.adminQaReviewRequired !== false,
+      terminalDataStored: false,
+      cdrRequired: true,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt || null
+    };
   }
 
   #appDefinition(templateKey) {
