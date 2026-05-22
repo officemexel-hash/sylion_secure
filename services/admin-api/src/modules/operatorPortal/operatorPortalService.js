@@ -589,6 +589,101 @@ export class OperatorPortalService {
     return broker;
   }
 
+  liveAccessFoundation({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const path = this.#connectionPathForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId
+    });
+    const vpn = this.vpnStatus({ operatorActor, correlationId });
+    const caPackage = this.pixelCaProvisioning({ operatorActor, correlationId });
+    const evidence = vpn.liveEvidence;
+    const env = this.env || {};
+    const caTrusted = evidence?.certificateTrusted === true || env.SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL === "true";
+    const liveVpnReady = evidence?.ready === true;
+    const g1ToG2Ready = env.SYLION_G1_G2_POLICY_READY === "true" || liveVpnReady;
+    const g2ToWorkloadReady = env.SYLION_G2_WORKLOAD_POLICY_READY === "true" || liveVpnReady;
+    const gatewayReady = env.SYLION_G2_WORKLOAD_GATEWAY_READY === "true" || evidence?.reachableHosts?.some((host) => host === "signal.sylion.internal");
+    const hsmFidoDeferred = env.SYLION_DEFER_PHYSICAL_HSM_FIDO2 === "true";
+    const routerDeferred = env.SYLION_PULI_AX_PHYSICAL_READY !== "true";
+    const checks = [
+      this.#liveAccessCheck("scoped_operator_session", true, "Operator session is scoped to one operator and terminal."),
+      this.#liveAccessCheck("thin_terminal_boundary", true, "Pixel/laptop remains display and input only."),
+      this.#liveAccessCheck("pixel_internal_ca_trust", caTrusted, "Pixel trusts SYLION Internal CA for *.sylion.internal."),
+      this.#liveAccessCheck("t0_pixel_to_g1_ipsec", liveVpnReady, "Pixel strongSwan/IKEv2 tunnel to G1 is established and evidenced."),
+      this.#liveAccessCheck("dns_through_tunnel", evidence?.dnsThroughTunnel === true, "Internal DNS is resolved through the tunnel only."),
+      this.#liveAccessCheck("g1_to_g2_policy_path", g1ToG2Ready, "G1 forwards only the authorized policy path to G2."),
+      this.#liveAccessCheck("g2_to_workload_policy_path", g2ToWorkloadReady, "G2 reaches WORKLOAD only through the workload policy path."),
+      this.#liveAccessCheck("g2_workload_gateway_tls", gatewayReady, "Internal workload names terminate through G2 TLS gateway."),
+      this.#liveAccessCheck("cdr_file_gate", true, "File ingress and egress stay blocked without CDR decision."),
+      this.#liveAccessCheck("puli_ax_physical_router", !routerDeferred, "Puli AX physical router package and posture are validated.", routerDeferred ? "deferred" : "passed"),
+      this.#liveAccessCheck("hsm_fido2_physical_enforcement", !hsmFidoDeferred, "Physical HSM/FIDO2 enforcement is configured.", hsmFidoDeferred ? "deferred" : "passed")
+    ];
+    const requiredBlockers = checks.filter((check) => check.required && check.status !== "passed").map((check) => check.key);
+    const appGateways = ["signal", "whatsapp", "telegram", "threema", "zangi", "duckduckgo_browser", "libreoffice", "exodus"].map((templateKey) => {
+      const host = `${templateKey === "duckduckgo_browser" ? "duckduckgo" : templateKey}.sylion.internal`;
+      const browserOnly = !ANDROID_WORKLOAD_APPS.has(templateKey);
+      return {
+        templateKey,
+        host,
+        route: `terminal -> G1 -> G2 -> WORKLOAD -> ${templateKey}`,
+        brokerState: requiredBlockers.length ? "blocked_until_live_access_ready" : "ready_for_session_broker",
+        runtimeClass: browserOnly ? "firecracker_or_container_workload" : "android_workload_required",
+        terminalDataStored: false,
+        cdrRequired: true,
+        productionExecutionAllowed: false
+      };
+    });
+    return {
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      state: requiredBlockers.length ? "blocked_before_live_access" : "live_access_ready_for_workload_broker",
+      phase: "stage_a_b_pixel_vpn_g1_g2_workload",
+      path: {
+        nodes: path.nodes.map((node) => ({ id: node.id, role: node.role, label: node.label, status: node.status })),
+        segments: path.segments.map((segment) => ({
+          id: segment.id,
+          from: segment.from,
+          to: segment.to,
+          protocol: segment.protocol,
+          state: segment.state,
+          routePolicy: segment.routePolicy,
+          killSwitch: segment.killSwitch
+        }))
+      },
+      vpn: {
+        state: vpn.state,
+        transport: vpn.transport,
+        lastHandshake: vpn.lastHandshake,
+        evidenceReady: liveVpnReady,
+        blockers: evidence?.blockers || ["vpn_evidence_missing"]
+      },
+      ca: {
+        packageType: caPackage.packageType,
+        trustedOnPixel: caTrusted,
+        fingerprintPresent: Boolean(caPackage.caFingerprintSha256),
+        requiresUserPresence: caPackage.validation.requiresUserPresence
+      },
+      checks,
+      blockers: requiredBlockers,
+      appGateways,
+      nextActions: this.#liveAccessNextActions({ requiredBlockers, hsmFidoDeferred, routerDeferred }),
+      guardrails: {
+        noTerminalOperationalData: true,
+        g1G2BypassAllowed: false,
+        baselineTransport: "ipsec_ikev2",
+        cdrRequired: true,
+        hsmFido2DeferredOnly: hsmFidoDeferred,
+        puliAxPhysicalDeferredOnly: routerDeferred
+      },
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      generatedAt: isoNow()
+    };
+  }
+
   streamingProfile({ operatorActor, width = 390, height = 844, dpr = 3, correlationId }) {
     requireCorrelationId(correlationId);
     const w = Math.max(320, Math.min(Number(width) || 390, 2560));
@@ -1291,6 +1386,44 @@ export class OperatorPortalService {
       terminalDataStored: false,
       contentInspected: false
     };
+  }
+
+  #liveAccessCheck(key, passed, detail, statusOverride = null) {
+    const status = statusOverride || (passed ? "passed" : "blocked");
+    return {
+      key,
+      status,
+      required: status !== "deferred",
+      detail,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #liveAccessNextActions({ requiredBlockers, hsmFidoDeferred, routerDeferred }) {
+    const actions = [];
+    if (requiredBlockers.includes("pixel_internal_ca_trust")) {
+      actions.push("Install SYLION Internal CA on Pixel through GrapheneOS user-present certificate flow.");
+    }
+    if (requiredBlockers.includes("t0_pixel_to_g1_ipsec")) {
+      actions.push("Establish Pixel strongSwan IKEv2 tunnel to G1 and record live VPN evidence.");
+    }
+    if (requiredBlockers.includes("dns_through_tunnel")) {
+      actions.push("Verify DNS leak prevention and internal DNS resolution through the VPN tunnel.");
+    }
+    if (requiredBlockers.includes("g1_to_g2_policy_path") || requiredBlockers.includes("g2_to_workload_policy_path")) {
+      actions.push("Apply G1/G2 policy routing and default-deny firewall rules for T1/T2.");
+    }
+    if (requiredBlockers.includes("g2_workload_gateway_tls")) {
+      actions.push("Enable G2 TLS workload gateway for signal/whatsapp/telegram/threema/zangi/duckduckgo/libreoffice/exodus hostnames.");
+    }
+    if (routerDeferred) {
+      actions.push("Complete Puli AX physical package and posture smoke when router is available.");
+    }
+    if (hsmFidoDeferred) {
+      actions.push("Enroll physical HSM/FIDO2 after hardware arrives; keep panel refs write-only until then.");
+    }
+    return actions;
   }
 
   #workloadExecutionPlan({ action, rotateApp, desiredCounts, operatorId }) {

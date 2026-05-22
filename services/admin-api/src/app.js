@@ -364,6 +364,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const templateKey = decodeURIComponent(url.pathname.split("/").at(-1) || "signal");
         return send(res, 200, { broker: operatorPortal.workloadSessionBroker({ operatorActor, templateKey, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/live-access-foundation") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { foundation: operatorPortal.liveAccessFoundation({ operatorActor, correlationId }) });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/streaming-profile") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, {

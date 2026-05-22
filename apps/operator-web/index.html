@@ -29,6 +29,7 @@
       <li><a href="#workloads" data-view="workloads">Workloads</a></li>
       <li><a href="#workload-control" data-view="workload-control">Workload Control</a></li>
       <li><a href="#connection-path" data-view="connection-path">Connection Path</a></li>
+      <li><a href="#live-access" data-view="live-access">Live Access</a></li>
       <li><a href="#signal-preview" data-view="signal-preview">Signal Preview</a></li>
       <li><a href="#runtime-gate" data-view="runtime-gate">Runtime Gate</a></li>
       <li><a href="#vpn" data-view="vpn">VPN status</a></li>
@@ -221,6 +222,33 @@
       <article class="card">
         <h2>Communicator microVMs</h2>
         <ul id="path-microvms" class="path-list"><li class="placeholder">Loading...</li></ul>
+      </article>
+    </section>
+
+    <section id="live-access" class="view">
+      <h1>Live Access Foundation</h1>
+      <p class="hint">Stage A/B contract for Pixel -> VPN -> G1 -> G2 -> WORKLOAD without local browser shortcuts. Router and physical HSM/FIDO2 may stay deferred, but required network and CA evidence must pass.</p>
+      <article class="card">
+        <h2>Foundation state <span class="help-tip" tabindex="0" data-tip="This combines VPN evidence, Pixel CA trust, DNS-through-tunnel, G1/G2 policy path, G2 workload gateway and CDR guardrails.">?</span></h2>
+        <dl>
+          <dt>State</dt><dd id="live-access-state" class="placeholder">Loading...</dd>
+          <dt>Phase</dt><dd id="live-access-phase" class="placeholder">-</dd>
+          <dt>VPN evidence</dt><dd id="live-access-vpn" class="placeholder">-</dd>
+          <dt>CA trust</dt><dd id="live-access-ca" class="placeholder">-</dd>
+          <dt>Blockers</dt><dd id="live-access-blockers" class="placeholder">Loading...</dd>
+        </dl>
+      </article>
+      <article class="card">
+        <h2>Required checks</h2>
+        <ul id="live-access-checks" class="path-list"><li class="placeholder">Loading...</li></ul>
+      </article>
+      <article class="card">
+        <h2>App gateways</h2>
+        <ul id="live-access-apps" class="path-list"><li class="placeholder">Loading...</li></ul>
+      </article>
+      <article class="card">
+        <h2>Next actions</h2>
+        <ul id="live-access-next" class="path-list"><li class="placeholder">Loading...</li></ul>
       </article>
     </section>
 

@@ -465,6 +465,42 @@
     }
   }
 
+  async function loadLiveAccess() {
+    const data = await fetchJson("/operator-api/live-access-foundation");
+    if (data.error) {
+      setText("#live-access-state", data.error);
+      return;
+    }
+    const foundation = data.foundation;
+    setText("#live-access-state", foundation.state);
+    setText("#live-access-phase", foundation.phase);
+    setText("#live-access-vpn", `${foundation.vpn.state} | evidence ${foundation.vpn.evidenceReady}`);
+    setText("#live-access-ca", foundation.ca.trustedOnPixel ? "trusted_on_pixel" : "not_trusted_on_pixel");
+    setText("#live-access-blockers", (foundation.blockers || []).join(", ") || "-");
+    const checks = $("#live-access-checks");
+    if (checks) {
+      checks.innerHTML = (foundation.checks || []).map((check) => `
+        <li>
+          <strong>${escapeHtml(check.key)}: ${escapeHtml(check.status)}</strong>
+          <span>${escapeHtml(check.detail)}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No live access checks.</li>`;
+    }
+    const apps = $("#live-access-apps");
+    if (apps) {
+      apps.innerHTML = (foundation.appGateways || []).map((app) => `
+        <li>
+          <strong>${escapeHtml(app.templateKey)}: ${escapeHtml(app.brokerState)}</strong>
+          <span>${escapeHtml(app.host)} | ${escapeHtml(app.runtimeClass)} | CDR ${escapeHtml(app.cdrRequired)}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No app gateways.</li>`;
+    }
+    const next = $("#live-access-next");
+    if (next) {
+      next.innerHTML = (foundation.nextActions || []).map((action) => `<li><strong>${escapeHtml(action)}</strong></li>`).join("") || `<li><strong>Live access foundation is ready for the workload broker.</strong></li>`;
+    }
+  }
+
   async function loadStreaming() {
     const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
     const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
@@ -773,6 +809,7 @@
     if (viewId === "workloads") loadWorkloads();
     if (viewId === "workload-control") loadWorkloadControl();
     if (viewId === "connection-path") loadConnectionPath();
+    if (viewId === "live-access") loadLiveAccess();
     if (viewId === "signal-preview") loadSignalPreview();
     if (viewId === "runtime-gate") loadRuntimeGate();
     if (viewId === "vpn") loadVpn();
