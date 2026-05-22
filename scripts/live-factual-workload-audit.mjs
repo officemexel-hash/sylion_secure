@@ -20,7 +20,7 @@ const adminApiBaseUrl = argValue("--admin-api") || process.env.SYLION_ADMIN_API_
 const adminApiToken = process.env.SYLION_ADMIN_API_TOKEN || "";
 const operatorId = argValue("--operator-id") || process.env.SYLION_OPERATOR_ID || "";
 
-const apps = [
+const allApps = [
   {
     key: "duckduckgo",
     host: "duckduckgo.sylion.internal",
@@ -102,6 +102,33 @@ const apps = [
     blockers: [/Download Exodus|exodus\.com\/download|New Tab|Google|Index of|vnc\.html/i]
   }
 ];
+
+function parseRequestedApps(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export function selectApps(availableApps, requestedValue) {
+  const requested = parseRequestedApps(requestedValue);
+  if (!requested.length) return availableApps;
+  const byKey = new Map();
+  for (const app of availableApps) {
+    byKey.set(app.key, app);
+    byKey.set(canonicalAppKey(app.key), app);
+  }
+  const selected = requested.map((key) => {
+    const app = byKey.get(key);
+    if (!app) {
+      throw new Error(`unsupported_app:${key}`);
+    }
+    return app;
+  });
+  return [...new Map(selected.map((app) => [app.key, app])).values()];
+}
+
+const apps = selectApps(allApps, argValue("--apps") || process.env.SYLION_FACTUAL_APPS || "");
 
 function shellSingle(value) {
   return `'${String(value).replace(/'/g, "'\\''")}'`;
@@ -560,6 +587,13 @@ async function pixelAudit() {
 }
 
 async function main() {
+  if (args.has("--list-apps")) {
+    console.log(JSON.stringify({
+      supportedApps: allApps.map((app) => app.key),
+      selectedApps: apps.map((app) => app.key)
+    }, null, 2));
+    return;
+  }
   await mkdir(outputDir, { recursive: true });
   const runtime = await workloadRuntimeAudit().catch((error) => `runtime_audit_failed:${error.message}`);
   const routes = await g2RouteProbe().catch((error) => {
