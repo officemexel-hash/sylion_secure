@@ -12,7 +12,10 @@ test("Step 3.34 live Hetzner workload builds a current SYLION Signal image", asy
   assert.match(baselineSource, /buildLiveBaselineUserData/);
   assert.match(source, /signal-workload\.Dockerfile/);
   assert.match(source, /https:\/\/updates\.signal\.org\/desktop\/apt/);
-  assert.match(source, /apt-get install -y --no-install-recommends signal-desktop/);
+  assert.match(source, /apt-get install -y --no-install-recommends[\s\S]+signal-desktop/);
+  assert.match(source, /xfce4-session/);
+  assert.match(source, /VNC_RESOLUTION=800x900/);
+  assert.match(source, /kasmvnc_defaults\.yaml/);
   assert.match(source, /sylion\/signal-workload:prod-candidate/);
   assert.doesNotMatch(source, /docker run[\s\S]*sylion-signal-desktop[\s\S]*kasmweb\/signal:1\.18\.0/);
   assert.doesNotMatch(source, /sylion-signal-local/);
@@ -22,8 +25,9 @@ test("Step 3.34 live Hetzner workload binds UI services to the private operator 
   const source = renderWorkloadCloudInit();
   const startScript = source.slice(source.indexOf("path: /usr/local/sbin/sylion-start-workloads.sh"));
 
-  assert.match(startScript, /private_ip=.*10\\\.42/);
+  assert.match(startScript, /10\\\.\(42\|44\)\\\./);
   assert.match(startScript, /openssl rand -base64 24/);
+  assert.match(startScript, /chown -R 1000:1000 \/target/);
   assert.match(startScript, /--env-file \/etc\/sylion\/workload-secrets\/signal\.env/);
   assert.match(startScript, /-p "\$private_ip:3013:6901"/);
   assert.match(startScript, /-p "\$private_ip:3014:3000"/);

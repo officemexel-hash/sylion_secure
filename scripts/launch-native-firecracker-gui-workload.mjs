@@ -81,8 +81,8 @@ cat > "$mount_dir/etc/apt/sources.list.d/signal-xenial.list" <<'EOF'
 deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.asc] https://updates.signal.org/desktop/apt xenial main
 EOF
 `,
-    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc fonts-dejavu-core signal-desktop",
-    launchCommand: "signal-desktop --no-sandbox",
+    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc x11-utils fonts-dejavu-core dbus dbus-x11 libasound2t64 libgtk-3-0 libnss3 libxss1 libgbm1 libdrm2 libxkbcommon0 libatspi2.0-0 libxdamage1 libxrandr2 libxcomposite1 libxext6 libxfixes3 libx11-xcb1 libxcb-dri3-0 signal-desktop",
+    launchCommand: "dbus-run-session -- signal-desktop --no-sandbox --password-store=basic --ozone-platform=x11 --disable-features=UseOzonePlatform --disable-gpu --disable-gpu-compositing --disable-dev-shm-usage --enable-logging=stderr",
     hostPort: 3013,
     guestIp: "172.16.58.22",
     hostTapIp: "172.16.58.21",
@@ -182,10 +182,12 @@ chroot "$mount_dir" apt-get install -y --no-install-recommends ca-certificates >
 ${profile.preAptSetup || ""}
 chroot "$mount_dir" apt-get update >/dev/null
 chroot "$mount_dir" apt-get install -y --no-install-recommends ${profile.installPackages} >/dev/null
+chroot "$mount_dir" dbus-uuidgen --ensure=/etc/machine-id 2>/dev/null || true
 mkdir -p "$mount_dir/root/.config/openbox"
 cat > "$mount_dir/root/.config/openbox/autostart" <<'EOF'
 xsetroot -solid '#071014' &
 EOF
+chroot "$mount_dir" useradd -m -u 1000 -s /bin/sh sylion 2>/dev/null || true
 cat > "$mount_dir/sbin/sylion-gui-init" <<'EOF'
 #!/bin/sh
 set -eu
@@ -195,6 +197,9 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mount -t devpts devpts /dev/pts 2>/dev/null || true
 mount -t tmpfs tmpfs /run 2>/dev/null || true
 mount -t tmpfs tmpfs /tmp 2>/dev/null || true
+mkdir -p /dev/shm /run/user/1000
+mount -t tmpfs tmpfs /dev/shm 2>/dev/null || true
+chown 1000:1000 /run/user/1000
 ip link set lo up
 iface=""
 for candidate in /sys/class/net/*; do
@@ -214,7 +219,23 @@ Xvfb :1 -screen 0 1080x2400x24 -nolisten tcp &
 sleep 1
 openbox-session &
 sleep 1
-${profile.launchCommand} &
+su -s /bin/sh sylion -c 'export DISPLAY=:1 HOME=/home/sylion XDG_RUNTIME_DIR=/run/user/1000; ${profile.launchCommand} >/tmp/sylion-app.log 2>&1' &
+app_pid="$!"
+echo "sylion-app-pid=$app_pid"
+sleep 15
+if kill -0 "$app_pid" 2>/dev/null; then
+  echo "sylion-app-running=true"
+else
+  echo "sylion-app-running=false"
+fi
+sed -n '1,160p' /tmp/sylion-app.log 2>/dev/null || true
+ps -ef | grep -Ei 'signal|electron|dbus|openbox|Xvfb' | grep -v grep || true
+DISPLAY=:1 xwininfo -root -tree 2>/dev/null | sed -n '1,80p' || true
+if DISPLAY=:1 xwininfo -root -tree 2>/dev/null | grep -Eiq 'Signal|WhatsApp|Telegram|Threema|LibreOffice|NetSurf'; then
+  echo "sylion-visible-window=true"
+else
+  echo "sylion-visible-window=false"
+fi
 x11vnc -display :1 -forever -shared -nopw -rfbport 5900 -quiet &
 ss -ltnp || true
 while true; do sleep 3600; done
@@ -230,6 +251,10 @@ ip link show "$tap" >/dev/null 2>&1 && ip link del "$tap" || true
 ip tuntap add dev "$tap" mode tap
 ip addr add "$host_tap_ip/30" dev "$tap"
 ip link set "$tap" up
+sysctl -w net.ipv4.ip_forward=1 >/dev/null
+iptables -C FORWARD -i "$tap" -j ACCEPT 2>/dev/null || iptables -A FORWARD -i "$tap" -j ACCEPT
+iptables -C FORWARD -o "$tap" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || iptables -A FORWARD -o "$tap" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+iptables -t nat -C POSTROUTING -s "$guest_ip/32" -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s "$guest_ip/32" -j MASQUERADE
 cat > "$run_dir/config.json" <<EOF
 {
   "boot-source": {
@@ -271,7 +296,13 @@ sleep 1
 host_code="$(curl -sS -o "$run_dir/host-body.html" -w "%{http_code}" --max-time 8 "http://$workload_private:$host_port/vnc.html" || true)"
 novnc_marker=false
 grep -qi 'noVNC' "$run_dir/host-body.html" && novnc_marker=true || true
-boot_markers="$(grep -Eic 'Linux version|Freeing unused kernel|sylion-gui-init|x11vnc|websockify|novnc|netsurf' "$run_dir/serial.log" || true)"
+boot_markers="$(grep -Eic 'Linux version|Freeing unused kernel|sylion-gui-init|x11vnc|websockify|novnc|netsurf|sylion-app-running=true' "$run_dir/serial.log" || true)"
+app_running=false
+grep -q 'sylion-app-running=true' "$run_dir/serial.log" && app_running=true || true
+app_crashed=false
+grep -q 'sylion-app-running=false' "$run_dir/serial.log" && app_crashed=true || true
+visible_window=false
+grep -q 'sylion-visible-window=true' "$run_dir/serial.log" && visible_window=true || true
 jq -n \
   --arg checkedAt "$(date -Is)" \
   --arg runId "$run_id" \
@@ -284,7 +315,10 @@ jq -n \
   --arg hostCode "$host_code" \
   --argjson bootMarkers "$boot_markers" \
   --argjson novncMarker "$novnc_marker" \
-  '{component:"native_firecracker_gui_workload", checkedAt:$checkedAt, runId:$runId, runDir:$runDir, appKey:$appKey, workloadPrivate:$workloadPrivate, hostPort:$hostPort, guestIp:$guestIp, tap:$tap, hostHttpCode:$hostCode, bootMarkers:$bootMarkers, noVncMarker:$novncMarker, ready:($hostCode=="200" and $novncMarker==true), terminalDataStored:false, secretsPrinted:false, productionExecutionAllowed:false}' | tee /opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json
+  --argjson appRunning "$app_running" \
+  --argjson appCrashed "$app_crashed" \
+  --argjson visibleWindow "$visible_window" \
+  '{component:"native_firecracker_gui_workload", checkedAt:$checkedAt, runId:$runId, runDir:$runDir, appKey:$appKey, workloadPrivate:$workloadPrivate, hostPort:$hostPort, guestIp:$guestIp, tap:$tap, hostHttpCode:$hostCode, bootMarkers:$bootMarkers, noVncMarker:$novncMarker, appRunning:$appRunning, appCrashed:$appCrashed, visibleWindow:$visibleWindow, ready:($hostCode=="200" and $novncMarker==true and $appRunning==true and $appCrashed==false and $visibleWindow==true), terminalDataStored:false, secretsPrinted:false, productionExecutionAllowed:false}' | tee /opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json
 `;
 }
 

@@ -16,8 +16,10 @@ const apps = [
   {
     key: "signal",
     serverName: "signal.sylion.internal",
-    upstreamScheme: "http",
-    upstreamPort: 3013
+    upstreamScheme: "https",
+    upstreamPort: 3013,
+    authInclude: "/etc/nginx/snippets/sylion-signal-auth.conf",
+    proxySslVerify: false
   },
   {
     key: "zangi",

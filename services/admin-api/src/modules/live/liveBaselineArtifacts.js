@@ -170,9 +170,17 @@ ${sshUserBlock(sshPublicKey)}write_files:
         && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main" \\
           > /etc/apt/sources.list.d/signal-xenial.list \\
         && apt-get update \\
-        && apt-get install -y --no-install-recommends signal-desktop \\
+        && apt-get install -y --no-install-recommends \\
+          dbus-x11 \\
+          signal-desktop \\
+          xdg-utils \\
+          xfce4-panel \\
+          xfce4-session \\
+          xfdesktop4 \\
+          xfwm4 \\
         && apt-get clean \\
-        && rm -rf /var/lib/apt/lists/*
+        && rm -rf /var/lib/apt/lists/* \\
+        && sed -i 's/^    width: .*/    width: 800/; s/^    height: .*/    height: 900/' /usr/share/kasmvnc/kasmvnc_defaults.yaml
 
       USER kasm-user
   - path: /usr/local/sbin/sylion-start-workloads.sh
@@ -181,16 +189,16 @@ ${sshUserBlock(sshPublicKey)}write_files:
       #!/usr/bin/env bash
       set -euo pipefail
 
-      private_ip="$(ip -4 -o addr show | awk '$4 ~ /^10\\.42\\./ { split($4, a, "/"); print a[1]; exit }')"
+      private_ip="$(ip -4 -o addr show | awk '$4 ~ /^10\\.(42|44)\\./ { split($4, a, "/"); print a[1]; exit }')"
       if [ -z "$private_ip" ]; then
-        echo "SYLION workload private 10.42.x address missing" >&2
+        echo "SYLION workload private 10.42.x or 10.44.x address missing" >&2
         exit 1
       fi
 
       install -d -m 0700 /etc/sylion/workload-secrets
       if [ ! -f /etc/sylion/workload-secrets/signal.env ]; then
         signal_vnc_pw="$(openssl rand -base64 24 | tr -d '\\n')"
-        printf 'VNC_PW=%s\\nKASM_RESOLUTION=1080x2400\\n' "$signal_vnc_pw" > /etc/sylion/workload-secrets/signal.env
+        printf 'VNC_PW=%s\\nVNC_RESOLUTION=800x900\\nKASM_RESOLUTION=800x900\\n' "$signal_vnc_pw" > /etc/sylion/workload-secrets/signal.env
         chmod 0600 /etc/sylion/workload-secrets/signal.env
       fi
 
@@ -205,6 +213,7 @@ ${sshUserBlock(sshPublicKey)}write_files:
       docker volume create sylion_zangi_config >/dev/null
       docker volume create sylion_exodus_config >/dev/null
       docker volume create sylion_signal_profile >/dev/null
+      docker run --rm -v sylion_signal_profile:/target alpine:3.20 sh -lc 'chown -R 1000:1000 /target'
 
       docker run -d --name sylion-duckduckgo --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION DuckDuckGo' -e FIREFOX_CLI='https://duckduckgo.com/' -p "$private_ip:3001:3000" -v sylion_duckduckgo_config:/config lscr.io/linuxserver/firefox:latest
       docker run -d --name sylion-libreoffice --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -p "$private_ip:3002:3000" -v sylion_libreoffice_config:/config lscr.io/linuxserver/libreoffice:latest

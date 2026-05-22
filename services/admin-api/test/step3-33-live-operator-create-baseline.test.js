@@ -160,7 +160,7 @@ test("Step 3.33 operator creation can create a gated live G1/G2/WORKLOAD baselin
     assert.doesNotMatch(providerCalls[0].userDataByRole.G2, /sylion-signal-local|a2FzbV91c2Vy/);
     assert.match(providerCalls[0].userDataByRole.WORKLOAD, /sylion-start-workloads\.sh/);
     assert.match(providerCalls[0].userDataByRole.WORKLOAD, /openssl rand -base64 24/);
-    assert.match(providerCalls[0].userDataByRole.WORKLOAD, /10\\\.42\\\./);
+    assert.match(providerCalls[0].userDataByRole.WORKLOAD, /10\\\.\(42\|44\)\\\./);
     assert.doesNotMatch(providerCalls[0].userDataByRole.WORKLOAD, /sylion-signal-local|a2FzbV91c2Vy/);
     assert.equal(created.liveBaseline.artifacts.g2WorkloadGateway.included, true);
     assert.equal(created.liveBaseline.artifacts.g2WorkloadGateway.bindAddress, "10.42.0.12");

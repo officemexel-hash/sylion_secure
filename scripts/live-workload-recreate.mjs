@@ -157,23 +157,53 @@ function remoteRecreateScript({ app, wipeVolume }) {
 sudo install -d -m 0700 /etc/sylion/workload-secrets
 if [ ! -f /etc/sylion/workload-secrets/signal.env ] || [ "$WIPE_VOLUME" = "true" ]; then
   signal_vnc_pw="$(openssl rand -base64 24 | tr -d '\\n')"
-  printf 'VNC_PW=%s\\nKASM_RESOLUTION=1080x2400\\n' "$signal_vnc_pw" | sudo tee /etc/sylion/workload-secrets/signal.env >/dev/null
+  printf 'VNC_PW=%s\\nVNC_RESOLUTION=800x900\\nKASM_RESOLUTION=800x900\\n' "$signal_vnc_pw" | sudo tee /etc/sylion/workload-secrets/signal.env >/dev/null
   sudo chmod 0600 /etc/sylion/workload-secrets/signal.env
-fi`
+fi
+sudo tee /opt/sylion-workloads/signal-workload.Dockerfile >/dev/null <<'DOCKERFILE'
+FROM kasmweb/signal:1.18.0
+
+USER root
+RUN apt-get update \\
+  && apt-get install -y --no-install-recommends ca-certificates curl gnupg \\
+  && install -d -m 0755 /etc/apt/keyrings \\
+  && curl -fsSL https://updates.signal.org/desktop/apt/keys.asc \\
+    | gpg --dearmor -o /etc/apt/keyrings/signal-desktop-keyring.gpg \\
+  && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main" \\
+    > /etc/apt/sources.list.d/signal-xenial.list \\
+  && apt-get update \\
+  && apt-get install -y --no-install-recommends \\
+    dbus-x11 \\
+    signal-desktop \\
+    xdg-utils \\
+    xfce4-panel \\
+    xfce4-session \\
+    xfdesktop4 \\
+    xfwm4 \\
+  && apt-get clean \\
+  && rm -rf /var/lib/apt/lists/* \\
+  && sed -i 's/^    width: .*/    width: 800/; s/^    height: .*/    height: 900/' /usr/share/kasmvnc/kasmvnc_defaults.yaml
+
+USER kasm-user
+DOCKERFILE
+sudo docker build -t sylion/signal-workload:prod-candidate -f /opt/sylion-workloads/signal-workload.Dockerfile /opt/sylion-workloads >/dev/null`
       : "";
     return `
 ${signalSecret}
 sudo docker rm -f ${shellSingle(cfg.container)} >/dev/null 2>&1 || true
 if [ "$WIPE_VOLUME" = "true" ]; then sudo docker volume rm -f ${shellSingle(cfg.volume)} >/dev/null 2>&1 || true; fi
 sudo docker volume create ${shellSingle(cfg.volume)} >/dev/null
+if [ ${shellSingle(key)} = 'signal' ]; then
+  sudo docker run --rm -v ${shellSingle(cfg.volume)}:/target alpine:3.20 sh -lc 'chown -R 1000:1000 /target'
+fi
 sudo docker run -d --name ${shellSingle(cfg.container)} --restart unless-stopped --shm-size 1g ${env} ${envFile} ${extra} -p "$private_ip:${cfg.port}" -v ${shellSingle(volumeMount)} ${shellSingle(cfg.image)} >/dev/null
 `;
   }).join("\n");
   return `
 set -euo pipefail
 WIPE_VOLUME="${wipeVolume ? "true" : "false"}"
-private_ip="$(ip -4 -o addr show | awk '$4 ~ /^10\\.42\\./ { split($4, a, "/"); print a[1]; exit }')"
-if [ -z "$private_ip" ]; then echo "missing_private_10_42_address" >&2; exit 2; fi
+private_ip="$(ip -4 -o addr show | awk '$4 ~ /^10\\.(42|44)\\./ { split($4, a, "/"); print a[1]; exit }')"
+if [ -z "$private_ip" ]; then echo "missing_private_10_42_or_10_44_address" >&2; exit 2; fi
 install -d -m 0755 /opt/sylion-workloads
 ${blocks}
 sudo docker ps --format '{{.Names}} {{.Status}} {{.Ports}}' | sudo tee /opt/sylion-workloads/container-status.txt >/dev/null
