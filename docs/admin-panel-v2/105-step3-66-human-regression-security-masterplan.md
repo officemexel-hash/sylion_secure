@@ -255,22 +255,20 @@ Do not mark a defect fixed because another test passed.
 | DEF-001 | FAIL | Pixel portrait stream is horizontally cropped for desktop apps. | Implement mobile viewport/scaling mode and retest screenshots. |
 | DEF-002 | FAIL | ADB text injection does not reliably type into noVNC remote apps. | Harden noVNC keyboard/input mode or provide mobile thin-client input bridge. |
 | DEF-003 | BLOCKED | Zangi runner not built. | Decide Android-native runner approach, then implement and test. |
-| DEF-004 | BLOCKED | Exodus official artifact unavailable. | Provide approved installer artifact or remove from current acceptance scope. |
+| DEF-004 | BLOCKED | Exodus official artifact unavailable. | Exodus remains in scope. Add an approved-artifact path with checksum/signature evidence instead of dropping the app. |
 | DEF-005 | BLOCKED | Router Puli AX physical validation postponed. | Test when router arrives. |
 | DEF-006 | BLOCKED | HSM/FIDO2 physical enrollment postponed. | Test UI now, physical crypto later. |
-| DEF-007 | UNKNOWN | Full communicator message send/receive not proven. | Requires test accounts/paired devices. |
+| DEF-007 | FAIL | Full communicator account creation/linking and send/receive are not proven. Web-only versions are insufficient for account bootstrap. | Add Account Bootstrap module with legal test-number provider support and Android-native/mobile bootstrap where required. |
+| DEF-008 | PLANNED | Destructive wipe/panic/inactivity tests need a sacrificial operator. | Create one explicitly labeled disposable operator, then test wipe levels only against that operator. |
 
 ## Human Gate Required
 
 HUMAN GATE REQUIRED for these decisions:
 
-1. Whether communicator acceptance means:
-   - basic login/QR page visible, or
-   - full account login and send/receive message.
+1. Which phone-number/SMS provider is approved for lawful test account bootstrap.
 2. Whether Zangi must be Android-native only or an approved desktop/web alternative is acceptable.
-3. Whether Exodus remains in the current sprint scope.
-4. Any production claim about anonymity, jurisdictional guarantees, lawful-access exposure, or PHANTOM behavior.
-5. Any real panic wipe execution beyond simulation.
+3. Any production claim about anonymity, jurisdictional guarantees, lawful-access exposure, or PHANTOM behavior.
+4. Any real panic wipe execution beyond the single disposable operator scope.
 
 Recommended owners:
 
@@ -286,14 +284,16 @@ Smallest next sprint:
 
 1. Create a machine-readable test matrix file matching this document.
 2. Implement Pixel human regression runner that records `PASS/FAIL/BLOCKED/UNKNOWN` per test id.
-3. Fix DEF-001: mobile viewport/scaling.
-4. Fix DEF-002: noVNC input.
-5. Re-run HR-005, HR-011, HR-013.
-6. Only after input works, test communicator pairing and message send/receive.
+3. Add Account Bootstrap test plan and UI requirements.
+4. Add Disposable Operator destructive lab plan and guardrails.
+5. Fix DEF-001: mobile viewport/scaling.
+6. Fix DEF-002: noVNC input.
+7. Re-run HR-005, HR-011, HR-013.
+8. Only after input works, test communicator account bootstrap, pairing, and message send/receive.
 
 ## Open Questions
 
-1. Do we accept communicator basic pass as "real login/QR page visible", or must each communicator pass full account login and send/receive?
-2. Can you provide disposable test accounts/numbers for Signal, WhatsApp, Telegram, Threema, and Zangi?
-3. Should Exodus stay in the current test scope, or move to a later crypto-wallet application sprint?
-4. For destructive functions such as panic code and inactivity wipe, do we test only simulation now, or do you want one dedicated disposable operator for real destructive testing?
+1. Which legal SMS/phone-number provider should be used for disposable communicator test accounts?
+2. Can you provide or approve disposable test numbers/accounts for Signal, WhatsApp, Telegram, Threema, and Zangi?
+3. For Exodus, do we use an admin-uploaded approved artifact with checksum/signature if direct vendor download is blocked?
+4. Confirm the disposable operator label before real destructive tests: proposed `OP-DESTRUCTIVE-001`.
