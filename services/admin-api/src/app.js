@@ -30,6 +30,7 @@ import { PhantomGovernanceService } from "./modules/phantom/phantomGovernanceSer
 import { ProvisioningApprovalService } from "./modules/approvals/provisioningApprovalService.js";
 import { ReleaseControlService } from "./modules/release/releaseControlService.js";
 import { LiveExecutionService } from "./modules/live/liveExecutionService.js";
+import { buildLiveBaselineUserData, liveBaselineArtifactSummary } from "./modules/live/liveBaselineArtifacts.js";
 import { SecurityProfileService } from "./modules/security/securityProfileService.js";
 import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
 import { RouterReadinessService } from "./modules/router/routerReadinessService.js";
@@ -1497,6 +1498,11 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         }
         let liveBaseline = null;
         if (body.liveBaseline?.enabled === true) {
+          const userDataByRole = buildLiveBaselineUserData({
+            userDataByRole: body.liveBaseline.userDataByRole || {},
+            gatewayOptions: body.liveBaseline.gatewayOptions || {}
+          });
+          const artifactSummary = liveBaselineArtifactSummary(body.liveBaseline.gatewayOptions || {});
           const approval = approvals.createApproval({
             actor,
             operatorId: operator.id,
@@ -1527,7 +1533,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             serverTypesByRole: body.liveBaseline.serverTypesByRole || {},
             image: body.liveBaseline.image || "ubuntu-24.04",
             sshKeys: body.liveBaseline.sshKeys || [],
-            userDataByRole: body.liveBaseline.userDataByRole || {},
+            userDataByRole,
             correlationId
           });
           liveBaseline = {
@@ -1537,6 +1543,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             region: body.liveBaseline.region || "fsn1",
             approvalId: approved.id,
             request,
+            artifacts: artifactSummary,
             productionExecutionAllowed: false,
             rollbackRequired: true
           };

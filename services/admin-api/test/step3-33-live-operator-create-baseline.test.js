@@ -153,6 +153,14 @@ test("Step 3.33 operator creation can create a gated live G1/G2/WORKLOAD baselin
     assert.equal(providerCalls.length, 1);
     assert.equal(providerCalls[0].operatorId, created.operator.id);
     assert.equal(providerCalls[0].region, "fsn1");
+    assert.match(providerCalls[0].userDataByRole.G2, /server_name signal\.sylion\.internal/);
+    assert.match(providerCalls[0].userDataByRole.G2, /X-Sylion-Terminal-Data-Stored/);
+    assert.match(providerCalls[0].userDataByRole.G2, /X-Sylion-CDR-Required/);
+    assert.match(providerCalls[0].userDataByRole.G2, /\/etc\/nginx\/snippets\/sylion-signal-auth\.conf/);
+    assert.doesNotMatch(providerCalls[0].userDataByRole.G2, /sylion-signal-local|a2FzbV91c2Vy/);
+    assert.equal(created.liveBaseline.artifacts.g2WorkloadGateway.included, true);
+    assert.equal(created.liveBaseline.artifacts.g2WorkloadGateway.bindAddress, "10.42.0.12");
+    assert.ok(created.liveBaseline.artifacts.g2WorkloadGateway.hostnames.includes("zangi.sylion.internal"));
     assert.equal(JSON.stringify(created).includes("test-token-only-in-env-step3-33"), false);
     assert.equal(JSON.stringify(created).includes("test-secret-never-leak-step3-33-live"), false);
     assert.ok(app.services.audit.list().some((event) => event.action === "live_cloud.vps_set_created"));

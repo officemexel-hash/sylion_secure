@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
+import { buildLiveBaselineUserData } from "../services/admin-api/src/modules/live/liveBaselineArtifacts.js";
 
 const HETZNER_API = "https://api.hetzner.cloud/v1";
 const baseUrl = process.env.SYLION_ADMIN_API_URL || "http://127.0.0.1:8099";
@@ -415,11 +416,12 @@ async function run() {
       },
       image,
       sshKeys: [],
-      userDataByRole: {
-        G1: baseCloudInit({ role: "G1", publicKey }),
-        G2: baseCloudInit({ role: "G2", publicKey }),
-        WORKLOAD: workloadCloudInit({ publicKey })
-      },
+      userDataByRole: buildLiveBaselineUserData({
+        userDataByRole: {
+          G1: baseCloudInit({ role: "G1", publicKey }),
+          WORKLOAD: workloadCloudInit({ publicKey })
+        }
+      }),
       idempotencyKey: process.env.SYLION_LIVE_IDEMPOTENCY_KEY || `live-operator-${Date.now()}`,
       liveConfirmed: true,
       evidenceRefs: ["script://hetzner-live-operator-baseline"]
