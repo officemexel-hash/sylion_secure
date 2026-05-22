@@ -196,12 +196,24 @@ for h in ${keys.map(shellSingle).join(" ")}; do
   host="$h.sylion.internal"
   if [ "$h" = "duckduckgo" ]; then host="duckduckgo.sylion.internal"; fi
   if [ "$h" = "libreoffice" ]; then host="libreoffice.sylion.internal"; fi
-  code=$(curl -k -sS -o /tmp/sylion-recreate-$h -w "%{http_code}" --resolve "$host:443:10.42.0.12" --max-time 12 "https://$host/" || true)
+  code="000"
+  for attempt in $(seq 1 12); do
+    code=$(curl -k -sS -o /tmp/sylion-recreate-$h -w "%{http_code}" --resolve "$host:443:10.42.0.12" --max-time 12 "https://$host/" || true)
+    if [ "$code" = "200" ]; then break; fi
+    sleep 5
+  done
   echo "$h=$code"
 done
 `;
-  const { stdout } = await ssh(g2Host, script, { timeout: 60_000 });
+  const { stdout } = await ssh(g2Host, script, { timeout: 120_000 });
   return Object.fromEntries(stdout.split(/\r?\n/).filter(Boolean).map((line) => line.split("=")));
+}
+
+function assertSmokePassed(smokeResult) {
+  const failed = Object.entries(smokeResult).filter(([, code]) => code !== "200");
+  if (failed.length) {
+    throw new Error(`G2 smoke failed: ${failed.map(([app, code]) => `${app}=${code}`).join(",")}`);
+  }
 }
 
 async function main() {
@@ -218,6 +230,7 @@ async function main() {
   const evidence = await ssh(workloadHost, remoteRecreateScript(args), { timeout: 180_000 });
   const handoff = await runSignalHandoffIfNeeded(args.app);
   const smokeResult = await smoke(args.app);
+  assertSmokePassed(smokeResult);
   const evidenceJson = evidence.stdout.slice(evidence.stdout.indexOf("{"), evidence.stdout.lastIndexOf("}") + 1);
   console.log(JSON.stringify({
     applied: true,
