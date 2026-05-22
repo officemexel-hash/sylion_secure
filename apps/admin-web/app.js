@@ -7,6 +7,8 @@ const state = {
   operatorProvisioningPipelines: [],
   operatorEnvironments: [],
   operatorConnectionPath: null,
+  disposableTeardownPlans: [],
+  lastDisposableTeardownPlan: null,
   routerPackages: [],
   routerPostures: [],
   providers: [],
@@ -226,6 +228,7 @@ async function refreshAll() {
     session,
     tenants,
     operators,
+    disposableTeardownPlans,
     operatorProvisioningTemplates,
     operatorProvisioningPipelines,
     operatorEnvironments,
@@ -292,6 +295,7 @@ async function refreshAll() {
     api("/auth/session"),
     api("/tenants"),
     api("/operators"),
+    api("/operators/disposable-teardown-plans").catch(() => ({ plans: [] })),
     api("/operator-provisioning/templates").catch(() => ({ templates: [] })),
     api("/operator-provisioning/pipelines").catch(() => ({ pipelines: [] })),
     api("/operator-environments").catch(() => ({ environments: [] })),
@@ -358,6 +362,7 @@ async function refreshAll() {
   state.session = session.session;
   state.tenants = tenants.tenants;
   state.operators = operators.operators;
+  state.disposableTeardownPlans = disposableTeardownPlans.plans;
   state.operatorProvisioningTemplates = operatorProvisioningTemplates.templates;
   state.operatorProvisioningPipelines = operatorProvisioningPipelines.pipelines;
   state.operatorEnvironments = operatorEnvironments.environments;
@@ -462,6 +467,9 @@ function render() {
 
   renderSelect("#operator-tenant-select", state.tenants, "No tenants");
   renderSelect("#operator-live-provider-select", state.providers.filter((provider) => provider.providerKey === "hetzner"), "No Hetzner provider", "displayName");
+  renderSelect("#disposable-teardown-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#disposable-teardown-execute-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#disposable-teardown-plan-select", state.disposableTeardownPlans, "No teardown plans", "requestedAction");
   renderSelect("#pipeline-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#local-lab-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
   renderSelect("#local-environment-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
@@ -547,8 +555,22 @@ function render() {
     ["Tier", operator.tier],
     ["Status", operator.status],
     ["Tenant", operator.tenantId],
-    ["Router", operator.baseline?.router]
+    ["Router", operator.baseline?.router],
+    ["Disposable", String(operator.disposable === true)],
+    ["Deletion protection", String(operator.destructiveTest?.deletionProtection !== false)],
+    ["Teardown", operator.teardown?.state || "-"]
   ])).join("") || empty("No operators yet.");
+
+  $("#disposable-teardown-plan-cards").innerHTML = state.disposableTeardownPlans.map((plan) => card(plan.requestedAction, [
+    ["Plan", plan.id],
+    ["Operator", plan.operatorId],
+    ["State", plan.state],
+    ["Expires", plan.expiresAt],
+    ["Provider mutation", String(plan.guardrails?.providerMutationAllowed)],
+    ["Prod exec", String(plan.guardrails?.productionExecutionAllowed)],
+    ["Audit retention", String(plan.guardrails?.auditRetentionRequired)],
+    ["Resources", String(plan.resourceDiff?.length || 0)]
+  ])).join("") || empty("No disposable teardown plans yet.");
 
   $("#operator-connection-path-cards").innerHTML = state.operatorConnectionPath ? [
     card("Terminal path", [
@@ -1499,6 +1521,11 @@ async function createOperator(event) {
     tier: data.tier,
     requestedTemplates: ["whatsapp", "signal", "telegram"]
   };
+  if (event.currentTarget.disposable.checked) {
+    body.disposable = true;
+    body.destructiveTestScope = data.destructiveTestScope || "operator_teardown_lab";
+    body.labels = splitCsv(data.labels || "DISPOSABLE");
+  }
   if (liveBaselineEnabled) {
     body.liveBaseline = {
       enabled: true,
@@ -1519,6 +1546,58 @@ async function createOperator(event) {
   toast(liveBaselineEnabled
     ? "Operator created with live baseline gate decision"
     : "Operator created with automatic G1/G2/WORKLOAD baseline");
+  await refreshAll();
+}
+
+async function createDisposableTeardownPlan(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.operatorId) {
+    toast("Select an operator before teardown plan", "warn");
+    return;
+  }
+  const result = await api(`/operators/${data.operatorId}/disposable-teardown-plan`, {
+    method: "POST",
+    body: {
+      requestedAction: data.requestedAction,
+      reason: data.reason
+    }
+  });
+  state.lastDisposableTeardownPlan = result.plan;
+  const box = $("#disposable-teardown-confirmation");
+  if (box) {
+    box.innerHTML = `
+      <strong>${escapeHtml(result.plan.requestedAction)} plan created</strong>
+      <p><span>Plan</span>${escapeHtml(result.plan.id)}</p>
+      <p><span>Operator</span>${escapeHtml(result.plan.operatorId)}</p>
+      <p><span>Confirmation</span>${escapeHtml(result.plan.confirmationPhrase || "not returned")}</p>
+      <p><span>Provider mutation</span>${escapeHtml(String(result.plan.guardrails?.providerMutationAllowed))}</p>
+    `;
+  }
+  toast("Disposable teardown plan created; confirmation phrase shown once in this browser session", "warn");
+  await refreshAll();
+  const planSelect = $("#disposable-teardown-plan-select");
+  if (planSelect) planSelect.value = result.plan.id;
+  const operatorSelect = $("#disposable-teardown-execute-operator-select");
+  if (operatorSelect) operatorSelect.value = result.plan.operatorId;
+}
+
+async function executeDisposableTeardown(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.operatorId || !data.planId) {
+    toast("Select disposable operator and teardown plan", "warn");
+    return;
+  }
+  await api(`/operators/${data.operatorId}/disposable-teardown-execute`, {
+    method: "POST",
+    body: {
+      planId: data.planId,
+      confirmation: data.confirmation,
+      reason: data.reason
+    }
+  });
+  toast("Disposable operator control-plane teardown completed; audit retained", "warn");
   await refreshAll();
 }
 
@@ -2892,6 +2971,8 @@ function bind() {
   $("#enroll-button").addEventListener("click", () => enrollSecurityKey().catch(showError));
   $("#tenant-form").addEventListener("submit", (event) => createTenant(event).catch(showError));
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
+  $("#disposable-teardown-plan-form").addEventListener("submit", (event) => createDisposableTeardownPlan(event).catch(showError));
+  $("#disposable-teardown-execute-form").addEventListener("submit", (event) => executeDisposableTeardown(event).catch(showError));
   $("#pipeline-draft-form").addEventListener("submit", (event) => createPipelineDraft(event).catch(showError));
   $("#local-lab-vps-form").addEventListener("submit", (event) => createLocalLabVpsSet(event).catch(showError));
   $("#secrets-release-check-form").addEventListener("submit", (event) => checkSecretsRelease(event).catch(showError));

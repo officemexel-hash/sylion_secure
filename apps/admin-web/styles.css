@@ -337,10 +337,45 @@ label {
   border-color: #f2d19a;
 }
 
+.pill.danger {
+  color: var(--danger);
+  background: #fff0ed;
+  border-color: #f3b8ae;
+}
+
 .pill.phantom {
   color: #075c66;
   background: #dbf8fa;
   border-color: #9edbe0;
+}
+
+.evidence-box {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfd;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.evidence-box strong {
+  color: var(--ink);
+}
+
+.evidence-box p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  word-break: break-word;
+}
+
+.evidence-box span {
+  color: var(--muted);
+  flex: 0 0 auto;
 }
 
 .flow {

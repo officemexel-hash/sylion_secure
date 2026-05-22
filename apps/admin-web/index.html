@@ -214,6 +214,9 @@
                   <option>SOVEREIGN</option>
                 </select>
               </label>
+              <label class="check-row"><input name="disposable" type="checkbox"> Disposable destructive lab operator</label>
+              <label>Destructive scope <input name="destructiveTestScope" value="operator_teardown_lab"></label>
+              <label>Labels <input name="labels" placeholder="DISPOSABLE, lab"></label>
               <label class="check-row"><input name="liveBaselineEnabled" type="checkbox"> Create live Hetzner G1/G2/WORKLOAD</label>
               <label>Live Provider <select name="liveProviderId" id="operator-live-provider-select"></select></label>
               <label>Region <input name="liveRegion" value="fsn1"></label>
@@ -222,6 +225,39 @@
               <label>Idempotency Key <input name="liveIdempotencyKey" placeholder="auto if empty"></label>
               <label class="check-row"><input name="liveConfirmed" type="checkbox"> I confirm live cost and rollback</label>
               <button type="submit">Create Operator</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Disposable Teardown Plan <span class="help-tip" tabindex="0" data-tip="Creates a plan-only destructive test for one explicitly disposable operator. It records the expected diff and keeps provider deletion disabled.">?</span></h2>
+              <span class="pill warn">Human gate</span>
+            </div>
+            <form id="disposable-teardown-plan-form">
+              <label>Operator <select name="operatorId" id="disposable-teardown-operator-select"></select></label>
+              <label>Action
+                <select name="requestedAction">
+                  <option value="data_wipe">Data wipe</option>
+                  <option value="environment_destroy">Environment destroy</option>
+                  <option value="account_revoke" selected>Account revoke</option>
+                  <option value="operator_teardown">Full disposable teardown</option>
+                </select>
+              </label>
+              <label>Reason <input name="reason" value="dashboard_disposable_operator_lab"></label>
+              <button type="submit">Create Teardown Plan</button>
+            </form>
+            <div id="disposable-teardown-confirmation" class="evidence-box">No disposable teardown plan created in this browser session.</div>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Execute Disposable Teardown <span class="help-tip" tabindex="0" data-tip="Runs only the control-plane teardown for a disposable operator after the exact confirmation phrase. Normal operators are denied before any side effect.">?</span></h2>
+              <span class="pill danger">Disposable only</span>
+            </div>
+            <form id="disposable-teardown-execute-form">
+              <label>Operator <select name="operatorId" id="disposable-teardown-execute-operator-select"></select></label>
+              <label>Plan <select name="planId" id="disposable-teardown-plan-select"></select></label>
+              <label>Confirmation <input name="confirmation" autocomplete="off" placeholder="DESTROY_DISPOSABLE_OPERATOR:op_..."></label>
+              <label>Reason <input name="reason" value="approved_dashboard_disposable_teardown"></label>
+              <button type="submit">Execute Control-plane Teardown</button>
             </form>
           </article>
           <article class="panel form-panel">
@@ -370,6 +406,10 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Operators</h2></div>
             <div class="cards" id="operator-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Disposable Teardown Plans</h2><span class="pill warn">Audit retained</span></div>
+            <div class="cards" id="disposable-teardown-plan-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Operator Connection Path</h2><span class="pill warn">No prod VPN</span></div>
