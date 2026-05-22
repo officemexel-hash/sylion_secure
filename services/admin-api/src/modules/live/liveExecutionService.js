@@ -1111,12 +1111,15 @@ export class LiveExecutionService {
     const allowedRegions = splitEnvList(this.env.SYLION_LIVE_ALLOWED_REGIONS);
     const allowedProducts = splitEnvList(this.env.SYLION_HETZNER_ROBOT_ALLOWED_PRODUCTS);
     const maxEnvPrice = Number(this.env.SYLION_HETZNER_ROBOT_MAX_MONTHLY_EUR || this.env.SYLION_DEDICATED_MAX_MONTHLY_EUR || 0);
+    const labOverrideApplied = this.env.SYLION_WORKLOAD_TENANCY_LAB_OVERRIDE === "true"
+      && workloadTenancyMode === "shared_pool"
+      && (operator.tier === "SOVEREIGN" || phantomSensitive === true);
     if (!DEDICATED_ORDER_MODES.has(orderMode)) blockers.push("unsupported_order_mode");
     if (!WORKLOAD_TENANCY_MODES.has(workloadTenancyMode)) blockers.push("unsupported_workload_tenancy_mode");
-    if (operator.tier === "SOVEREIGN" && workloadTenancyMode !== "dedicated_operator") {
+    if (operator.tier === "SOVEREIGN" && workloadTenancyMode !== "dedicated_operator" && !labOverrideApplied) {
       blockers.push("sovereign_requires_dedicated_operator_workload");
     }
-    if (phantomSensitive === true && workloadTenancyMode !== "dedicated_operator") {
+    if (phantomSensitive === true && workloadTenancyMode !== "dedicated_operator" && !labOverrideApplied) {
       blockers.push("phantom_requires_dedicated_operator_workload");
     }
     if (!liveConfirmed) blockers.push("live_confirmation_missing");
@@ -1144,6 +1147,9 @@ export class LiveExecutionService {
       orderMode,
       workloadTenancyMode,
       phantomSensitive: phantomSensitive === true,
+      labOverrideApplied,
+      labOnly: labOverrideApplied,
+      requiresRequalificationBeforeProduction: labOverrideApplied,
       mutationMode: blockers.length === 0 ? orderMode : "blocked",
       baselineUnlockState: this.#baselineUnlockState(),
       rollbackRequired: false,

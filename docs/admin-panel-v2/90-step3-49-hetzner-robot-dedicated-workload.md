@@ -39,6 +39,14 @@ SYLION_HETZNER_ROBOT_PAID_ORDER_ALLOWED=true
 
 Without the paid gate the system can still record `plan_only` and, when Robot supports it safely for the selected transaction, `robot_test` flows, but it must not place a paid order.
 
+Temporary lab override for the first shared dedicated test host:
+
+```text
+SYLION_WORKLOAD_TENANCY_LAB_OVERRIDE=true
+```
+
+This override permits one shared dedicated host to exercise STANDARD, PRO, SOVEREIGN and PHANTOM-sensitive flows during lab testing only. Any order or environment created under this override remains `productionExecutionAllowed=false` and must be requalified before production.
+
 ## Admin Panel
 
 The Providers view now includes:
@@ -90,9 +98,12 @@ flowchart TD
     C --> E{"PHANTOM-sensitive workload?"}
     E -- "yes" --> D
     E -- "no" --> F["Firecracker runtime in pool"]
+    C --> J{"Lab override enabled?"}
+    J -- "yes, lab only" --> K["shared_pool may simulate all tiers"]
     D --> G["Single operator per WORKLOAD host"]
     F --> H["Per-operator namespaces, disks, quotas, CDR, audit"]
     G --> I["No co-tenant workload on same host"]
+    K --> L["productionExecutionAllowed=false"]
 ```
 
 ## Security Position

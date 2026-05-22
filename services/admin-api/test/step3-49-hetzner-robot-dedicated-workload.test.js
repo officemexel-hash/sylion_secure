@@ -266,6 +266,44 @@ test("Step 3.49 allows STANDARD and PRO shared pools but blocks SOVEREIGN and PH
   }
 });
 
+test("Step 3.49 lab override lets one shared dedicated host test all tiers without production approval", async () => {
+  const env = {
+    SYLION_WORKLOAD_TENANCY_LAB_OVERRIDE: "true",
+    SYLION_LIVE_ALLOWLIST_OPERATORS: "*",
+    SYLION_LIVE_ALLOWED_REGIONS: "fsn1",
+    SYLION_HETZNER_ROBOT_ALLOWED_PRODUCTS: "AX102",
+    SYLION_HETZNER_ROBOT_MAX_MONTHLY_EUR: "120"
+  };
+  const { baseUrl, close } = await startTestServer({ env });
+  try {
+    const client = await loginClient(baseUrl);
+    const sovereign = await createRobotBaselineForTier(client, "SOVEREIGN");
+
+    const result = await client.createHetznerRobotDedicatedWorkloadOrder({
+      providerId: sovereign.provider.id,
+      operatorId: sovereign.operator.id,
+      approvalId: sovereign.approval.id,
+      productId: "AX102",
+      region: "fsn1",
+      orderMode: "plan_only",
+      workloadTenancyMode: "shared_pool",
+      phantomSensitive: true,
+      maxMonthlyPrice: 100,
+      liveConfirmed: true,
+      costConfirmed: true,
+      hardwareGateConfirmed: true
+    });
+
+    assert.equal(result.order.status, "plan_ready_no_provider_mutation");
+    assert.equal(result.order.gate.labOverrideApplied, true);
+    assert.equal(result.order.gate.labOnly, true);
+    assert.equal(result.order.gate.requiresRequalificationBeforeProduction, true);
+    assert.equal(result.order.productionExecutionAllowed, false);
+  } finally {
+    await close();
+  }
+});
+
 test("Step 3.49 Hetzner Robot adapter uses Basic auth and sanitizes order response", async () => {
   const calls = [];
   const adapter = new HetznerRobotAdapter({
