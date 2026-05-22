@@ -20,6 +20,10 @@ Pin-Priority: 1000
 EOF
 `;
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
 function firefoxApp(url) {
   return [
     "dbus-run-session -- env",
@@ -30,10 +34,11 @@ function firefoxApp(url) {
     "NO_AT_BRIDGE=1",
     "firefox",
     "--no-remote",
+    "--new-instance",
+    "--profile",
+    "/home/sylion/.mozilla/firefox/sylion.default",
     "--new-window",
-    "--width 1080",
-    "--height 2200",
-    url
+    shellQuote(url)
   ].join(" ");
 }
 
@@ -44,6 +49,7 @@ const profiles = {
     preAptSetup: mozillaAptSetup,
     installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
     launchCommand: firefoxApp("https://duckduckgo.com/"),
+    targetContentPattern: "DuckDuckGo",
     visibleWindowPattern: "DuckDuckGo|Mozilla Firefox|Firefox",
     processPattern: "firefox",
     hostPort: 3001,
@@ -74,6 +80,7 @@ const profiles = {
     preAptSetup: mozillaAptSetup,
     installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
     launchCommand: firefoxApp("https://web.whatsapp.com/"),
+    targetContentPattern: "WhatsApp",
     visibleWindowPattern: "WhatsApp|Mozilla Firefox|Firefox",
     processPattern: "firefox",
     hostPort: 3010,
@@ -89,6 +96,7 @@ const profiles = {
     preAptSetup: mozillaAptSetup,
     installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
     launchCommand: firefoxApp("https://web.telegram.org/"),
+    targetContentPattern: "Telegram",
     visibleWindowPattern: "Telegram|Mozilla Firefox|Firefox",
     processPattern: "firefox",
     hostPort: 3011,
@@ -104,6 +112,7 @@ const profiles = {
     preAptSetup: mozillaAptSetup,
     installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
     launchCommand: firefoxApp("https://web.threema.ch/"),
+    targetContentPattern: "Threema",
     visibleWindowPattern: "Threema|Mozilla Firefox|Firefox",
     processPattern: "firefox",
     hostPort: 3012,
@@ -243,7 +252,11 @@ mount --bind /dev "$mount_dir/dev"
 mount -t devpts devpts "$mount_dir/dev/pts"
 mount -t proc proc "$mount_dir/proc"
 mount -t sysfs sysfs "$mount_dir/sys"
-cp /etc/resolv.conf "$mount_dir/etc/resolv.conf"
+cat > "$mount_dir/etc/resolv.conf" <<'EOF'
+nameserver 1.1.1.1
+nameserver 9.9.9.9
+options timeout:2 attempts:2
+EOF
 if [ -f "$mount_dir/etc/apt/sources.list.d/ubuntu.sources" ]; then
   sed -i 's/Components: main restricted/Components: main restricted universe multiverse/g; s/Components: main/Components: main universe multiverse/g' "$mount_dir/etc/apt/sources.list.d/ubuntu.sources"
 else
@@ -254,7 +267,7 @@ deb http://security.ubuntu.com/ubuntu noble-security main universe multiverse
 EOF
 fi
 chroot "$mount_dir" apt-get update >/dev/null
-chroot "$mount_dir" apt-get install -y --no-install-recommends ca-certificates >/dev/null
+chroot "$mount_dir" apt-get install -y --no-install-recommends ca-certificates curl >/dev/null
 ${profile.preAptSetup || ""}
 chroot "$mount_dir" apt-get update >/dev/null
 chroot "$mount_dir" apt-get install -y --no-install-recommends ${profile.installPackages} >/dev/null
@@ -296,6 +309,47 @@ ip route replace default via ${profile.hostTapIp} dev "$iface" 2>/dev/null || tr
 if command -v haveged >/dev/null 2>&1; then
   haveged -F -w 1024 >/tmp/sylion-haveged.log 2>&1 &
 fi
+target_url=${shellQuote(profile.url?.startsWith("http") ? profile.url : "")}
+target_pattern=${shellQuote(profile.targetContentPattern || "")}
+target_required=${profile.targetContentPattern ? "true" : "false"}
+target_http_code="skipped"
+target_marker="false"
+if [ -n "$target_url" ] && command -v curl >/dev/null 2>&1; then
+  target_http_code="$(curl -k -L -sS -o /tmp/sylion-target-content.html -w "%{http_code}" --max-time 25 "$target_url" 2>/tmp/sylion-target-curl.err || true)"
+  if [ -n "$target_pattern" ] && grep -Eiq "$target_pattern" /tmp/sylion-target-content.html 2>/dev/null; then
+    target_marker="true"
+  fi
+fi
+echo "sylion-target-required=$target_required"
+echo "sylion-target-http-code=$target_http_code"
+echo "sylion-target-marker=$target_marker"
+if [ -n "$target_url" ]; then
+  firefox_profile="/home/sylion/.mozilla/firefox/sylion.default"
+  mkdir -p "$firefox_profile"
+  cat > /home/sylion/.mozilla/firefox/profiles.ini <<'EOF_FF_PROFILES'
+[Profile0]
+Name=sylion
+IsRelative=1
+Path=sylion.default
+Default=1
+
+[General]
+StartWithLastProfile=1
+Version=2
+EOF_FF_PROFILES
+  cat > "$firefox_profile/user.js" <<EOF_FF_USER
+user_pref("browser.startup.homepage", "$target_url");
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("browser.tabs.warnOnClose", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("datareporting.healthreport.uploadEnabled", false);
+user_pref("permissions.default.persistent-storage", 1);
+user_pref("privacy.purge_trackers.enabled", false);
+user_pref("signon.rememberSignons", false);
+user_pref("toolkit.telemetry.enabled", false);
+EOF_FF_USER
+  chown -R 1000:1000 /home/sylion/.mozilla
+fi
 export DISPLAY=:1
 export HOME=/root
 Xvfb :1 -screen 0 1080x2400x24 -ac -nolisten tcp &
@@ -321,6 +375,19 @@ if command -v xdotool >/dev/null 2>&1; then
     | while read -r win; do
         DISPLAY=:1 xdotool windowmap "$win" windowmove "$win" 0 0 windowsize "$win" 1080 2200 2>/dev/null || true
       done
+  if [ -n "$target_url" ]; then
+    firefox_win="$(DISPLAY=:1 xdotool search --onlyvisible --class firefox 2>/dev/null | head -1 || true)"
+    if [ -n "$firefox_win" ]; then
+      DISPLAY=:1 xdotool windowactivate "$firefox_win" 2>/dev/null || true
+      DISPLAY=:1 xdotool key --clearmodifiers ctrl+l 2>/dev/null || true
+      DISPLAY=:1 xdotool type --delay 1 --clearmodifiers "$target_url" 2>/dev/null || true
+      DISPLAY=:1 xdotool key --clearmodifiers Return 2>/dev/null || true
+      sleep 18
+      echo "sylion-forced-target-url=true"
+    else
+      echo "sylion-forced-target-url=false"
+    fi
+  fi
 fi
 if command -v wmctrl >/dev/null 2>&1; then
   DISPLAY=:1 wmctrl -r :ACTIVE: -e 0,0,0,1080,2200 2>/dev/null || true
@@ -420,6 +487,11 @@ app_crashed=false
 grep -q 'sylion-app-running=false' "$run_dir/serial.log" && app_crashed=true || true
 visible_window=false
 grep -q 'sylion-visible-window=true' "$run_dir/serial.log" && visible_window=true || true
+target_required=false
+grep -q 'sylion-target-required=true' "$run_dir/serial.log" && target_required=true || true
+target_marker=false
+grep -q 'sylion-target-marker=true' "$run_dir/serial.log" && target_marker=true || true
+target_http_code="$(grep -m1 '^sylion-target-http-code=' "$run_dir/serial.log" | cut -d= -f2- | tr -d '\\r' || true)"
 blockers_json="[]"
 if [ -s "$run_dir/preflight.blockers" ]; then
   blockers_json="$(jq -R -s 'split("\\n") | map(select(length > 0))' "$run_dir/preflight.blockers")"
@@ -439,9 +511,12 @@ jq -n \
   --argjson appRunning "$app_running" \
   --argjson appCrashed "$app_crashed" \
   --argjson visibleWindow "$visible_window" \
+  --arg targetHttpCode "$target_http_code" \
+  --argjson targetRequired "$target_required" \
+  --argjson targetMarker "$target_marker" \
   --argjson blockers "$blockers_json" \
-  '{component:"native_firecracker_gui_workload", checkedAt:$checkedAt, runId:$runId, runDir:$runDir, appKey:$appKey, workloadPrivate:$workloadPrivate, hostPort:$hostPort, guestIp:$guestIp, tap:$tap, hostHttpCode:$hostCode, bootMarkers:$bootMarkers, noVncMarker:$novncMarker, appRunning:$appRunning, appCrashed:$appCrashed, visibleWindow:$visibleWindow, ready:($hostCode=="200" and $novncMarker==true and $appRunning==true and $appCrashed==false and $visibleWindow==true and ($blockers|length)==0), blockers:$blockers, terminalDataStored:false, secretsPrinted:false, productionExecutionAllowed:false}' | tee /opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json
-if [ "$app_running" != "true" ] || [ "$app_crashed" = "true" ] || [ "$visible_window" != "true" ] || [ -s "$run_dir/preflight.blockers" ]; then
+  '{component:"native_firecracker_gui_workload", checkedAt:$checkedAt, runId:$runId, runDir:$runDir, appKey:$appKey, workloadPrivate:$workloadPrivate, hostPort:$hostPort, guestIp:$guestIp, tap:$tap, hostHttpCode:$hostCode, bootMarkers:$bootMarkers, noVncMarker:$novncMarker, appRunning:$appRunning, appCrashed:$appCrashed, visibleWindow:$visibleWindow, targetHttpCode:$targetHttpCode, targetContentRequired:$targetRequired, targetContentVerified:$targetMarker, ready:($hostCode=="200" and $novncMarker==true and $appRunning==true and $appCrashed==false and $visibleWindow==true and (($targetRequired==false) or ($targetMarker==true)) and ($blockers|length)==0), blockers:$blockers, terminalDataStored:false, secretsPrinted:false, productionExecutionAllowed:false}' | tee /opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json
+if [ "$app_running" != "true" ] || [ "$app_crashed" = "true" ] || [ "$visible_window" != "true" ] || { [ "$target_required" = "true" ] && [ "$target_marker" != "true" ]; } || [ -s "$run_dir/preflight.blockers" ]; then
   kill "$(cat "$run_dir/firecracker.pid")" 2>/dev/null || true
   kill "$(cat "$run_dir/websockify.pid")" 2>/dev/null || true
   ip link show "$tap" >/dev/null 2>&1 && ip link del "$tap" || true
