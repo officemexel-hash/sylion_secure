@@ -96,16 +96,21 @@ function readinessAppState(env, app) {
   const httpStatus = readinessHttpStatus(env, app);
   const evidenceReady = env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "true"
     || env[`SYLION_${app.envAlias}_NATIVE_EVIDENCE_READY`] === "true";
-  const ready = httpStatus === 200 || evidenceReady;
+  const factualStateVerified = env[`SYLION_${app.key.toUpperCase()}_FACTUAL_STATE_VERIFIED`] === "true"
+    || env[`SYLION_${app.envAlias}_FACTUAL_STATE_VERIFIED`] === "true";
+  const transportReady = httpStatus === 200 || evidenceReady;
+  const ready = transportReady && factualStateVerified;
   const notBuilt = httpStatus === 502 || env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "false";
   return {
     ...app,
     url: `https://${app.host}${app.path}`,
     httpStatus,
     evidenceReady,
+    factualStateVerified,
     state: ready ? "ready" : notBuilt ? "not_built" : "unknown_or_blocked",
     blockers: ready ? [] : [
       notBuilt ? `${app.key}_native_workload_not_built` : `${app.key}_live_route_not_verified`,
+      ...(transportReady && !factualStateVerified ? ["factual_state_not_verified"] : []),
       ...(app.expected === "android_native" ? ["android_native_runtime_required"] : [])
     ],
     cdrRequired: true,

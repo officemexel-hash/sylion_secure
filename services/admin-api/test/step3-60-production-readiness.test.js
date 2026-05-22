@@ -50,6 +50,7 @@ test("Step 3.60 production readiness exposes operator cost, route evidence and a
     SYLION_LAPTOP_G1_READY: "true",
     SYLION_DUCKDUCKGO_LIVE_HTTP_STATUS: "200",
     SYLION_DUCKDUCKGO_NATIVE_EVIDENCE_READY: "true",
+    SYLION_DUCKDUCKGO_FACTUAL_STATE_VERIFIED: "true",
     SYLION_SIGNAL_LIVE_HTTP_STATUS: "502",
     SYLION_SUBSCRIPTION_TOKEN_FLOW_READY: "false"
   };
@@ -99,6 +100,7 @@ test("Step 3.60 production readiness exposes operator cost, route evidence and a
 
     const duck = row.apps.find((app) => app.key === "duckduckgo_browser");
     assert.equal(duck.state, "ready");
+    assert.equal(duck.factualStateVerified, true);
     assert.equal(duck.url, "https://duckduckgo.sylion.internal/vnc.html");
     assert.equal(duck.cdrRequired, true);
     assert.equal(duck.terminalDataStored, false);
@@ -107,6 +109,56 @@ test("Step 3.60 production readiness exposes operator cost, route evidence and a
     const signal = row.apps.find((app) => app.key === "signal");
     assert.equal(signal.state, "not_built");
     assert.ok(row.blockers.includes("signal:signal_native_workload_not_built"));
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.60 production readiness rejects transport-only app evidence", async () => {
+  const env = {
+    SYLION_PIXEL_G1_READY: "true",
+    SYLION_G1_G2_READY: "true",
+    SYLION_G2_AX102_READY: "true",
+    SYLION_DUCKDUCKGO_LIVE_HTTP_STATUS: "200",
+    SYLION_DUCKDUCKGO_NATIVE_EVIDENCE_READY: "true"
+  };
+  const { baseUrl, close } = await startTestServer(env);
+  try {
+    const client = await loginClient(baseUrl);
+    const tenant = await client.createTenant({ name: "Step 3.60 Factual Tenant", tier: "PRO" });
+    await client.createOperator({
+      tenantId: tenant.tenant.id,
+      displayName: "Step 3.60 Factual Operator",
+      tier: "PRO"
+    });
+    await client.registerWorkloadNativeHost({
+      hostId: "AX102-U-FACTUAL",
+      serverNumber: "2983993",
+      productId: "AX102-U",
+      region: "HEL1",
+      publicIpv4: "65.109.123.72",
+      evidence: {
+        bootstrap: {
+          kvmDevice: true,
+          virtualizationFlags: 1,
+          firecrackerBinary: "present",
+          jailerBinary: "present"
+        },
+        hardware: { auditd: true, apparmor: true },
+        firecrackerSmoke: { microvmStarted: true },
+        firecrackerInstall: { firecrackerVersion: "1.8.0", jailerVersion: "1.8.0" }
+      }
+    });
+
+    const readiness = await client.getProductionReadiness();
+    const row = readiness.readiness.operators[0];
+    const duck = row.apps.find((app) => app.key === "duckduckgo_browser");
+    assert.equal(duck.httpStatus, 200);
+    assert.equal(duck.evidenceReady, true);
+    assert.equal(duck.factualStateVerified, false);
+    assert.equal(duck.state, "unknown_or_blocked");
+    assert.ok(duck.blockers.includes("factual_state_not_verified"));
+    assert.ok(row.blockers.includes("duckduckgo_browser:factual_state_not_verified"));
   } finally {
     await close();
   }
