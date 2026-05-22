@@ -48,29 +48,46 @@ async function sanitizedRobotError(response) {
   };
 }
 
+function firstPrice(prices = [], location = null) {
+  if (!Array.isArray(prices) || prices.length === 0) return null;
+  const wanted = location ? String(location).toUpperCase() : null;
+  return prices.find((price) => String(price?.location || "").toUpperCase() === wanted) || prices[0] || null;
+}
+
 function normalizeProduct(product = {}) {
+  const source = product.product && typeof product.product === "object" ? product.product : product;
+  const locations = Array.isArray(source.locations)
+    ? source.locations
+    : (Array.isArray(source.location) ? source.location : (source.location ? [source.location] : []));
+  const location = locations[0] || source.datacenter || null;
+  const price = firstPrice(source.price || source.prices, location);
+  const monthly = price?.price?.net || price?.price?.gross || source.price_monthly || source.price || null;
+  const setup = price?.price_setup?.net || price?.price_setup?.gross || source.setup_fee || source.price_setup || null;
   return {
-    productId: String(product.product_id || product.id || product.name || "unknown"),
-    name: product.name || product.product || product.description || null,
-    location: product.location || product.datacenter || null,
-    cpu: product.cpu || product.cpu_type || null,
-    memoryGb: Number(product.memory || product.ram || 0) || null,
-    hdd: product.hdd || product.storage || null,
-    priceMonthly: product.price_monthly || product.price || null,
-    setupFee: product.setup_fee || product.price_setup || null,
+    productId: String(source.product_id || source.id || source.name || "unknown"),
+    name: source.name || source.description?.[0] || null,
+    locations,
+    location,
+    cpu: source.cpu || source.cpu_type || source.description?.find?.((item) => /CPU|Ryzen|EPYC|Xeon|Intel|AMD/i.test(item)) || null,
+    memoryGb: Number(source.memory || source.ram || 0) || null,
+    hdd: source.hdd || source.storage || source.description?.find?.((item) => /NVMe|SSD|HDD|TB|GB/i.test(item)) || null,
+    priceMonthly: monthly,
+    setupFee: setup,
     rawShapeLogged: false
   };
 }
 
 function normalizeOrder(payload = {}, fallback = {}) {
   const order = payload.order || payload.transaction || payload.server || payload;
+  const product = order.product && typeof order.product === "object" ? order.product : {};
+  const price = firstPrice(product.price || product.prices, order.location || fallback.location);
   return {
     providerResourceId: String(order.id || order.transaction_id || order.server_number || fallback.productId || "robot-order-pending"),
-    productId: String(order.product_id || fallback.productId || "unknown"),
-    location: order.location || fallback.location || null,
+    productId: String(order.product_id || product.id || fallback.productId || "unknown"),
+    location: order.location || product.location || fallback.location || null,
     status: order.status || "order_requested",
-    monthlyPrice: order.price_monthly || fallback.maxMonthlyPrice || null,
-    setupFee: order.setup_fee || null,
+    monthlyPrice: order.price_monthly || price?.price?.net || fallback.maxMonthlyPrice || null,
+    setupFee: order.setup_fee || price?.price_setup?.net || null,
     terminalDataStored: false,
     robotCredentialsLogged: false
   };
@@ -107,7 +124,7 @@ export class HetznerRobotAdapter {
   async orderDedicatedServer({
     productId,
     location,
-    dist = "Ubuntu 24.04 minimal",
+    dist = "Ubuntu 24.04 LTS base",
     authorizedKey,
     addons = ["primary_ipv4"],
     test = false,
@@ -123,10 +140,10 @@ export class HetznerRobotAdapter {
       },
       body: formBody({
         product_id: productId,
-        location,
+        location: location ? String(location).toUpperCase() : location,
         dist,
-        authorized_key: authorizedKey,
-        addon: addons,
+        "authorized_key[]": Array.isArray(authorizedKey) ? authorizedKey : (authorizedKey ? [authorizedKey] : []),
+        "addon[]": addons,
         test: test ? "true" : undefined
       })
     });

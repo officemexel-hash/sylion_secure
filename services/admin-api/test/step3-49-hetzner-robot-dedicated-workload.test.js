@@ -340,5 +340,42 @@ test("Step 3.49 Hetzner Robot adapter uses Basic auth and sanitizes order respon
   assert.equal(calls.length, 1);
   assert.equal(calls[0].options.method, "POST");
   assert.match(calls[0].options.headers.authorization, /^Basic /);
+  assert.equal(calls[0].options.body.get("location"), "FSN1");
+  assert.equal(calls[0].options.body.get("authorized_key[]"), "ssh-key-ref");
+  assert.equal(calls[0].options.body.get("addon[]"), "primary_ipv4");
   assert.equal(JSON.stringify({ result, calls }).includes("robot-password-never-leak"), false);
+});
+
+test("Step 3.49 Hetzner Robot adapter normalizes nested product catalog rows", async () => {
+  const adapter = new HetznerRobotAdapter({
+    user: "robot-user",
+    password: "robot-password-never-leak",
+    transport: async () => ({
+      ok: true,
+      async json() {
+        return [
+          {
+            product: {
+              id: "AX102-U",
+              name: "AX102",
+              description: ["AMD Ryzen 9 7950X3D", "128 GB DDR5 RAM", "2 x 1.92 TB NVMe SSD Datacenter Edition"],
+              location: ["FSN1", "HEL1"],
+              price: [
+                { location: "HEL1", price: { net: "117.30" }, price_setup: { net: "500.00" } }
+              ]
+            }
+          }
+        ];
+      }
+    })
+  });
+
+  const products = await adapter.listDedicatedProducts();
+
+  assert.equal(products.length, 1);
+  assert.equal(products[0].productId, "AX102-U");
+  assert.equal(products[0].name, "AX102");
+  assert.equal(products[0].priceMonthly, "117.30");
+  assert.equal(products[0].setupFee, "500.00");
+  assert.equal(JSON.stringify(products).includes("robot-password-never-leak"), false);
 });

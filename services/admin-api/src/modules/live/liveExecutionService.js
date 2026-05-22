@@ -226,7 +226,7 @@ export class LiveExecutionService {
     approvalId,
     productId,
     region,
-    dist = "Ubuntu 24.04 minimal",
+    dist = "Ubuntu 24.04 LTS base",
     authorizedKeyRef = "admin-default-ssh-key",
     addons = ["primary_ipv4"],
     maxMonthlyPrice = null,
