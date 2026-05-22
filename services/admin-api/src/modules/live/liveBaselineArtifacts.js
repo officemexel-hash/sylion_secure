@@ -129,11 +129,114 @@ runcmd:
 `;
 }
 
+function sshUserBlock(sshPublicKey) {
+  if (!sshPublicKey) return "";
+  return `users:
+  - name: sylion
+    groups: sudo,docker
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+      - ${sshPublicKey}
+`;
+}
+
+export function renderWorkloadCloudInit({ sshPublicKey = null } = {}) {
+  return `#cloud-config
+package_update: true
+package_upgrade: false
+packages:
+  - curl
+  - ca-certificates
+  - docker.io
+  - nftables
+  - jq
+  - openssl
+${sshUserBlock(sshPublicKey)}write_files:
+  - path: /etc/sylion-role
+    permissions: "0644"
+    content: "WORKLOAD"
+  - path: /opt/sylion-workloads/signal-workload.Dockerfile
+    permissions: "0644"
+    content: |
+      FROM kasmweb/signal:1.18.0
+
+      USER root
+      RUN apt-get update \\
+        && apt-get install -y --no-install-recommends ca-certificates curl gnupg \\
+        && install -d -m 0755 /etc/apt/keyrings \\
+        && curl -fsSL https://updates.signal.org/desktop/apt/keys.asc \\
+          | gpg --dearmor -o /etc/apt/keyrings/signal-desktop-keyring.gpg \\
+        && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main" \\
+          > /etc/apt/sources.list.d/signal-xenial.list \\
+        && apt-get update \\
+        && apt-get install -y --no-install-recommends signal-desktop \\
+        && apt-get clean \\
+        && rm -rf /var/lib/apt/lists/*
+
+      USER kasm-user
+  - path: /usr/local/sbin/sylion-start-workloads.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      private_ip="$(ip -4 -o addr show | awk '$4 ~ /^10\\.42\\./ { split($4, a, "/"); print a[1]; exit }')"
+      if [ -z "$private_ip" ]; then
+        echo "SYLION workload private 10.42.x address missing" >&2
+        exit 1
+      fi
+
+      install -d -m 0700 /etc/sylion/workload-secrets
+      if [ ! -f /etc/sylion/workload-secrets/signal.env ]; then
+        signal_vnc_pw="$(openssl rand -base64 24 | tr -d '\\n')"
+        printf 'VNC_PW=%s\\nKASM_RESOLUTION=1080x2400\\n' "$signal_vnc_pw" > /etc/sylion/workload-secrets/signal.env
+        chmod 0600 /etc/sylion/workload-secrets/signal.env
+      fi
+
+      docker build -t sylion/signal-workload:prod-candidate -f /opt/sylion-workloads/signal-workload.Dockerfile /opt/sylion-workloads
+
+      docker rm -f sylion-duckduckgo sylion-libreoffice sylion-whatsapp-web sylion-telegram-web sylion-threema-web sylion-zangi-web sylion-exodus sylion-signal-desktop 2>/dev/null || true
+      docker volume create sylion_duckduckgo_config >/dev/null
+      docker volume create sylion_libreoffice_config >/dev/null
+      docker volume create sylion_whatsapp_config >/dev/null
+      docker volume create sylion_telegram_config >/dev/null
+      docker volume create sylion_threema_config >/dev/null
+      docker volume create sylion_zangi_config >/dev/null
+      docker volume create sylion_exodus_config >/dev/null
+      docker volume create sylion_signal_profile >/dev/null
+
+      docker run -d --name sylion-duckduckgo --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION DuckDuckGo' -e FIREFOX_CLI='https://duckduckgo.com/' -p "$private_ip:3001:3000" -v sylion_duckduckgo_config:/config lscr.io/linuxserver/firefox:latest
+      docker run -d --name sylion-libreoffice --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -p "$private_ip:3002:3000" -v sylion_libreoffice_config:/config lscr.io/linuxserver/libreoffice:latest
+      docker run -d --name sylion-whatsapp-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION WhatsApp Web' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://web.whatsapp.com/' -p "$private_ip:3010:3000" -v sylion_whatsapp_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-telegram-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Telegram Web' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://web.telegram.org/k/' -p "$private_ip:3011:3000" -v sylion_telegram_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-threema-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Threema Web' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://web.threema.ch/' -p "$private_ip:3012:3000" -v sylion_threema_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-zangi-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Zangi Gate' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://zangi.com/en-us/download' -p "$private_ip:3014:3000" -v sylion_zangi_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-exodus --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Exodus Gate' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://www.exodus.com/download/' -p "$private_ip:3015:3000" -v sylion_exodus_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-signal-desktop --restart unless-stopped --shm-size 1g --env-file /etc/sylion/workload-secrets/signal.env -p "$private_ip:3013:6901" -v sylion_signal_profile:/home/kasm-user/.config/Signal sylion/signal-workload:prod-candidate
+
+      docker ps --format '{{.Names}} {{.Status}} {{.Ports}}' > /opt/sylion-workloads/container-status.txt
+      jq -n --arg checkedAt "$(date -Is)" '{component:"workload_containers", privateBindOnly:true, cdrRequiredForFileTransfer:true, noTerminalOperationalData:true, checkedAt:$checkedAt}' > /opt/sylion-workloads/runtime-evidence.json
+  - path: /opt/sylion-workloads/README.txt
+    permissions: "0644"
+    content: |
+      SYLION WORKLOAD host.
+      Workload UI services bind to the operator private network address only.
+      Signal VNC password is generated at boot into /etc/sylion/workload-secrets/signal.env and must be handed to G2 through the approved root-only secret handoff flow.
+runcmd:
+  - [ bash, -lc, "install -d -m 0755 /opt/sylion-workloads" ]
+  - [ bash, -lc, "systemctl enable --now docker" ]
+  - [ bash, -lc, "/usr/local/sbin/sylion-start-workloads.sh" ]
+  - [ bash, -lc, "systemctl enable --now nftables || true" ]
+  - [ bash, -lc, "echo 'WORKLOAD ready at $(date -Is)' > /var/log/sylion-bootstrap.log" ]
+`;
+}
+
 export function buildLiveBaselineUserData({ userDataByRole = {}, gatewayOptions = {} } = {}) {
   return {
     G1: userDataByRole.G1,
     G2: userDataByRole.G2 || renderG2GatewayCloudInit(gatewayOptions),
-    WORKLOAD: userDataByRole.WORKLOAD
+    WORKLOAD: userDataByRole.WORKLOAD || renderWorkloadCloudInit({ sshPublicKey: gatewayOptions.sshPublicKey || null })
   };
 }
 
@@ -149,6 +252,15 @@ export function liveBaselineArtifactSummary({ gatewayBind = DEFAULT_GATEWAY_BIND
         ...WORKLOAD_APPS.map((app) => app.host)
       ],
       signalAuthMode: "root_only_nginx_include",
+      noTerminalOperationalData: true,
+      cdrRequiredForFileTransfer: true,
+      productionExecutionAllowed: false
+    },
+    workloadContainers: {
+      included: true,
+      bindAddress: workloadBind,
+      signalPasswordMode: "generated_on_workload_root_only",
+      apps: WORKLOAD_APPS.map((app) => app.key),
       noTerminalOperationalData: true,
       cdrRequiredForFileTransfer: true,
       productionExecutionAllowed: false

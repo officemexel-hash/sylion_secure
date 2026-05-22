@@ -158,8 +158,14 @@ test("Step 3.33 operator creation can create a gated live G1/G2/WORKLOAD baselin
     assert.match(providerCalls[0].userDataByRole.G2, /X-Sylion-CDR-Required/);
     assert.match(providerCalls[0].userDataByRole.G2, /\/etc\/nginx\/snippets\/sylion-signal-auth\.conf/);
     assert.doesNotMatch(providerCalls[0].userDataByRole.G2, /sylion-signal-local|a2FzbV91c2Vy/);
+    assert.match(providerCalls[0].userDataByRole.WORKLOAD, /sylion-start-workloads\.sh/);
+    assert.match(providerCalls[0].userDataByRole.WORKLOAD, /openssl rand -base64 24/);
+    assert.match(providerCalls[0].userDataByRole.WORKLOAD, /10\\\.42\\\./);
+    assert.doesNotMatch(providerCalls[0].userDataByRole.WORKLOAD, /sylion-signal-local|a2FzbV91c2Vy/);
     assert.equal(created.liveBaseline.artifacts.g2WorkloadGateway.included, true);
     assert.equal(created.liveBaseline.artifacts.g2WorkloadGateway.bindAddress, "10.42.0.12");
+    assert.equal(created.liveBaseline.artifacts.workloadContainers.included, true);
+    assert.equal(created.liveBaseline.artifacts.workloadContainers.signalPasswordMode, "generated_on_workload_root_only");
     assert.ok(created.liveBaseline.artifacts.g2WorkloadGateway.hostnames.includes("zangi.sylion.internal"));
     assert.equal(JSON.stringify(created).includes("test-token-only-in-env-step3-33"), false);
     assert.equal(JSON.stringify(created).includes("test-secret-never-leak-step3-33-live"), false);
