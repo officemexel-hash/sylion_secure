@@ -223,6 +223,10 @@ export class AdminApiClient {
     return this.request("/live-execution/workload-images/manifests", { method: "POST", body });
   }
 
+  getProductionReadiness() {
+    return this.request("/production-readiness/operators");
+  }
+
   createHetznerRobotDedicatedWorkloadOrder(body) {
     return this.request("/live-execution/dedicated-workload/hetzner-robot/order", { method: "POST", body });
   }

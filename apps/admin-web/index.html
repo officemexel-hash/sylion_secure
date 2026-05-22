@@ -27,6 +27,7 @@
         <button data-view="security">Security</button>
         <button data-view="phantom">PHANTOM</button>
         <button data-view="release">Release</button>
+        <button data-view="production-readiness">Production Readiness</button>
         <button data-view="audit">Audit</button>
       </nav>
     </aside>
@@ -1743,6 +1744,32 @@
               <span class="pill warn">Production false</span>
             </div>
             <div class="cards compact" id="release-build-assessment-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="production-readiness" hidden>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Production Readiness <span class="help-tip" data-tip="Single source of truth for operator cost, subscription, Pixel/Laptop path, G1/G2/workload state, app route state, CDR requirement, and production blockers.">?</span></h2>
+              <span class="pill warn">Human gate required</span>
+            </div>
+            <div class="cards compact" id="production-readiness-summary-cards"></div>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Operator Cost And Path <span class="help-tip" data-tip="Shows tier, minimum subscription length, estimated monthly infrastructure cost, operator price, G1/G2/workload host and whether Pixel/laptop routes have evidence.">?</span></h2>
+              <span class="pill">One row per operator</span>
+            </div>
+            <div class="cards" id="production-readiness-operator-cards"></div>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Workload App Routes <span class="help-tip" data-tip="Each communicator or tool must expose a private workload route, retain no terminal-side operational data, and keep CDR mandatory for ingress/egress.">?</span></h2>
+              <span class="pill danger">No mock success</span>
+            </div>
+            <div class="cards" id="production-readiness-app-cards"></div>
           </article>
         </section>
 

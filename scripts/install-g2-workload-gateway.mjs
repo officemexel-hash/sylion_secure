@@ -16,10 +16,8 @@ const apps = [
   {
     key: "signal",
     serverName: "signal.sylion.internal",
-    upstreamScheme: "https",
-    upstreamPort: 3013,
-    authInclude: "/etc/nginx/snippets/sylion-signal-auth.conf",
-    proxySslVerify: false
+    upstreamScheme: "http",
+    upstreamPort: 3013
   },
   {
     key: "zangi",
@@ -58,7 +56,7 @@ const defaultPlan = {
     noG1G2Bypass: true,
     cdrRequiredForFileTransfer: true,
     noWorkloadSecretsInGeneratedConfig: true,
-    signalAuthFromRootOnlySnippet: true
+    signalNativeNoVncUpstream: true
   },
   apps
 };

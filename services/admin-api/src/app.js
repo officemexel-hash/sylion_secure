@@ -74,6 +74,126 @@ function latestPromotableLocalBaseline(pipelines = []) {
   ));
 }
 
+const PRODUCTION_READINESS_APPS = Object.freeze([
+  { key: "duckduckgo_browser", label: "DuckDuckGo", host: "duckduckgo.sylion.internal", path: "/vnc.html", envAlias: "DUCKDUCKGO", expected: "firecracker_gui" },
+  { key: "libreoffice", label: "LibreOffice", host: "libreoffice.sylion.internal", path: "/", envAlias: "LIBREOFFICE", expected: "firecracker_gui" },
+  { key: "whatsapp", label: "WhatsApp", host: "whatsapp.sylion.internal", path: "/", envAlias: "WHATSAPP", expected: "firecracker_web" },
+  { key: "telegram", label: "Telegram", host: "telegram.sylion.internal", path: "/", envAlias: "TELEGRAM", expected: "firecracker_web" },
+  { key: "threema", label: "Threema", host: "threema.sylion.internal", path: "/", envAlias: "THREEMA", expected: "firecracker_web" },
+  { key: "signal", label: "Signal", host: "signal.sylion.internal", path: "/", envAlias: "SIGNAL", expected: "firecracker_desktop" },
+  { key: "zangi", label: "Zangi", host: "zangi.sylion.internal", path: "/", envAlias: "ZANGI", expected: "android_native" },
+  { key: "exodus", label: "Exodus", host: "exodus.sylion.internal", path: "/", envAlias: "EXODUS", expected: "dedicated_wallet_workload" }
+]);
+
+function readinessHttpStatus(env, app) {
+  const direct = env[`SYLION_${app.key.toUpperCase()}_LIVE_HTTP_STATUS`];
+  const alias = env[`SYLION_${app.envAlias}_LIVE_HTTP_STATUS`];
+  const value = direct || alias || null;
+  return value ? Number(value) : null;
+}
+
+function readinessAppState(env, app) {
+  const httpStatus = readinessHttpStatus(env, app);
+  const evidenceReady = env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "true"
+    || env[`SYLION_${app.envAlias}_NATIVE_EVIDENCE_READY`] === "true";
+  const ready = httpStatus === 200 || evidenceReady;
+  const notBuilt = httpStatus === 502 || env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "false";
+  return {
+    ...app,
+    url: `https://${app.host}${app.path}`,
+    httpStatus,
+    evidenceReady,
+    state: ready ? "ready" : notBuilt ? "not_built" : "unknown_or_blocked",
+    blockers: ready ? [] : [
+      notBuilt ? `${app.key}_native_workload_not_built` : `${app.key}_live_route_not_verified`,
+      ...(app.expected === "android_native" ? ["android_native_runtime_required"] : [])
+    ],
+    cdrRequired: true,
+    terminalDataStored: false,
+    privateRouteRequired: true,
+    productionExecutionAllowed: false
+  };
+}
+
+function tierCostModel(tier) {
+  const models = {
+    STANDARD: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 420, monthlyCustomerPricePln: 1200, workloadTenancy: "shared_dedicated_pool_allowed" },
+    PRO: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 760, monthlyCustomerPricePln: 2500, workloadTenancy: "shared_dedicated_pool_allowed" },
+    SOVEREIGN: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 1800, monthlyCustomerPricePln: 6500, workloadTenancy: "dedicated_operator_only" }
+  };
+  const model = models[tier] || models.PRO;
+  return {
+    ...model,
+    grossMarginPln: model.monthlyCustomerPricePln - model.monthlyInfraCostPln
+  };
+}
+
+function buildProductionReadiness({ actor, services, env, correlationId }) {
+  const productionOperatorId = env.SYLION_PRODUCTION_OPERATOR_ID || null;
+  const operatorsList = services.operators.list({ actor, correlationId })
+    .filter((operator) => !productionOperatorId || operator.id === productionOperatorId);
+  const hosts = services.liveExecution.listWorkloadNativeHosts({ actor, correlationId });
+  const nativeHost = hosts[0] || null;
+  const rows = operatorsList.map((operator) => {
+    const subscription = services.subscriptions.getTenantSubscription({ actor, tenantId: operator.tenantId, correlationId });
+    const cost = tierCostModel(operator.tier);
+    const apps = PRODUCTION_READINESS_APPS.map((app) => readinessAppState(env, app));
+    const criticalBlockers = [
+      ...(env.SYLION_PIXEL_G1_READY === "true" ? [] : ["pixel_to_g1_evidence_missing_or_stale"]),
+      ...(env.SYLION_G1_G2_READY === "true" ? [] : ["g1_to_g2_evidence_missing_or_stale"]),
+      ...(env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true" ? [] : ["g2_to_ax102_evidence_missing_or_stale"]),
+      ...(nativeHost ? [] : ["workload_native_host_not_registered"]),
+      ...apps.flatMap((app) => app.blockers.map((blocker) => `${app.key}:${blocker}`))
+    ];
+    return {
+      operatorId: operator.id,
+      displayName: operator.displayName,
+      tenantId: operator.tenantId,
+      tier: operator.tier,
+      operatorStatus: operator.status,
+      subscription: {
+        tier: subscription.tier,
+        planId: subscription.planId,
+        billingStatus: subscription.billingStatus,
+        minimumMonths: cost.minimumSubscriptionMonths,
+        tokenState: env.SYLION_SUBSCRIPTION_TOKEN_FLOW_READY === "true" ? "ready" : "planned"
+      },
+      cost,
+      infrastructure: {
+        g1: env.SYLION_G1_PUBLIC_IP || "178.105.200.112",
+        g2: env.SYLION_G2_PUBLIC_IP || "178.105.203.31",
+        workloadNative: nativeHost ? {
+          hostId: nativeHost.hostId,
+          serverNumber: nativeHost.serverNumber,
+          region: nativeHost.region,
+          lifecycleState: nativeHost.lifecycleState,
+          readyForLabWorkloads: nativeHost.readyForLabWorkloads === true
+        } : null
+      },
+      path: {
+        pixel: env.SYLION_PIXEL_G1_READY === "true" ? "ready" : "evidence_required",
+        laptop: env.SYLION_LAPTOP_G1_READY === "true" ? "ready" : "not_configured",
+        g1g2: env.SYLION_G1_G2_READY === "true" ? "ready" : "evidence_required",
+        g2Workload: env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true" ? "ready" : "evidence_required"
+      },
+      apps,
+      blockers: criticalBlockers,
+      status: criticalBlockers.length ? "blocked" : "ready_for_human_gate",
+      productionExecutionAllowed: false
+    };
+  });
+  return {
+    generatedAt: new Date().toISOString(),
+    operators: rows,
+    summary: {
+      operators: rows.length,
+      readyForHumanGate: rows.filter((row) => row.status === "ready_for_human_gate").length,
+      blocked: rows.filter((row) => row.status === "blocked").length,
+      productionExecutionAllowed: false
+    }
+  };
+}
+
 const WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/admin-web/", import.meta.url)));
 const OPERATOR_WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/operator-web/", import.meta.url)));
 const STATIC_TYPES = Object.freeze({
@@ -374,6 +494,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { package: operatorPortal.pixelCaProvisioning({ operatorActor, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/laptop-access-package") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { package: operatorPortal.laptopAccessPackage({ operatorActor, correlationId }) });
+      }
       if (req.method === "GET" && url.pathname.startsWith("/operator-api/workload-session-broker/")) {
         const operatorActor = operatorActorFromRequest(req);
         const templateKey = decodeURIComponent(url.pathname.split("/").at(-1) || "signal");
@@ -526,6 +650,12 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       if (req.method === "GET" && url.pathname === "/auth/session") {
         return send(res, 200, { session: auth.sessionFromActor(actor) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/production-readiness/operators") {
+        return send(res, 200, {
+          readiness: buildProductionReadiness({ actor, services, env: runtimeEnv, correlationId })
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/release/summary") {

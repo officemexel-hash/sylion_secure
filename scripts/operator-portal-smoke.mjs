@@ -131,7 +131,8 @@ async function run() {
 
     await page.getByRole("link", { name: "Jurisdiction" }).click();
     await page.locator('select[name="mode"]').selectOption("scheduled");
-    await page.getByPlaceholder("de,fi,nl").fill("de,fi,nl");
+    await page.locator('input[name="regions"]').fill("de,fi,nl");
+    await page.locator('input[name="countries"]').fill("DE,FI,NL");
     await page.getByRole("button", { name: "Save jurisdiction policy" }).click();
     await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Jurisdiction policy saved"));
     actions.push("operator_jurisdiction_policy_saved");

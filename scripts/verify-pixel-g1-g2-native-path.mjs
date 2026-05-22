@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -92,6 +93,9 @@ test -x /usr/local/bin/jailer -o -x /opt/sylion/bin/jailer && echo jailer=true |
 test -f /opt/sylion-workloads/evidence/firecracker-base-boot-smoke.json && echo boot_smoke=true || echo boot_smoke=false
 test -f /opt/sylion-workloads/evidence/native-firecracker-stream-smoke.json && grep -q '"ready": true' /opt/sylion-workloads/evidence/native-firecracker-stream-smoke.json && echo stream_smoke=true || echo stream_smoke=false
 test -f /opt/sylion-workloads/evidence/native-firecracker-gui-duckduckgo.json && grep -q '"ready": true' /opt/sylion-workloads/evidence/native-firecracker-gui-duckduckgo.json && echo duckduckgo_gui=true || echo duckduckgo_gui=false
+for app in libreoffice whatsapp telegram threema signal; do
+  test -f "/opt/sylion-workloads/evidence/native-firecracker-gui-$app.json" && grep -q '"ready": true' "/opt/sylion-workloads/evidence/native-firecracker-gui-$app.json" && echo "$app=true" || echo "$app=false"
+done
 `;
   const { stdout } = await ssh(cfg.workload, script);
   return {
@@ -101,7 +105,12 @@ test -f /opt/sylion-workloads/evidence/native-firecracker-gui-duckduckgo.json &&
     jailerPresent: parseBoolLine(stdout, "jailer"),
     baseBootSmokeEvidence: parseBoolLine(stdout, "boot_smoke"),
     nativeStreamSmokeEvidence: parseBoolLine(stdout, "stream_smoke"),
-    nativeDuckDuckGoGuiEvidence: parseBoolLine(stdout, "duckduckgo_gui")
+    nativeDuckDuckGoGuiEvidence: parseBoolLine(stdout, "duckduckgo_gui"),
+    nativeLibreOfficeGuiEvidence: parseBoolLine(stdout, "libreoffice"),
+    nativeWhatsAppGuiEvidence: parseBoolLine(stdout, "whatsapp"),
+    nativeTelegramGuiEvidence: parseBoolLine(stdout, "telegram"),
+    nativeThreemaGuiEvidence: parseBoolLine(stdout, "threema"),
+    nativeSignalGuiEvidence: parseBoolLine(stdout, "signal")
   };
 }
 
@@ -109,12 +118,37 @@ function allTrue(object) {
   return Object.values(object).every((value) => value === true);
 }
 
+async function verifyPixelHumanRegression() {
+  try {
+    const content = await readFile("docs/admin-panel-v2/test-artifacts/step3-40-pixel-live-human-regression/summary.json", "utf8");
+    const summary = JSON.parse(content);
+    return {
+      ready: ["passed", "passed_with_known_gates"].includes(summary.status),
+      status: summary.status ?? "unknown"
+    };
+  } catch {
+    return {
+      ready: false,
+      status: "missing"
+    };
+  }
+}
+
 async function main() {
-  const [g1Pixel, g2Workload, workloadHost] = await Promise.all([
+  const [g1Pixel, g2Workload, workloadHost, pixelHumanRegression] = await Promise.all([
     verifyG1Pixel(),
     verifyG2Workload(),
-    verifyWorkloadHost()
+    verifyWorkloadHost(),
+    verifyPixelHumanRegression()
   ]);
+  const remainingBlockers = [
+    "zangi_android_native_runner_not_built",
+    "exodus_dedicated_wallet_runtime_not_built",
+    "hsm_backed_ca_pending"
+  ];
+  if (!pixelHumanRegression.ready) {
+    remainingBlockers.splice(2, 0, "pixel_human_stream_click_regression_pending");
+  }
   const result = {
     component: "pixel_g1_g2_native_workload_path",
     checkedAt: new Date().toISOString(),
@@ -130,13 +164,9 @@ async function main() {
     g1Pixel,
     g2Workload,
     workloadHost,
+    pixelHumanRegression,
     readyForPrivateWorkloadStream: allTrue(g1Pixel) && allTrue(g2Workload) && allTrue(workloadHost),
-    remainingBlockers: [
-      "signal_whatsapp_telegram_threema_zangi_libreoffice_exodus_gui_rootfs_not_built",
-      "pixel_human_stream_click_regression_pending",
-      "operator_panel_workload_lifecycle_not_bound_to_native_gui_runner",
-      "hsm_backed_ca_pending"
-    ],
+    remainingBlockers,
     terminalDataStored: false,
     productionExecutionAllowed: false
   };

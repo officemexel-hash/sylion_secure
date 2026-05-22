@@ -11,19 +11,93 @@ const profiles = {
   duckduckgo: {
     title: "SYLION DuckDuckGo",
     url: "https://duckduckgo.com/",
+    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc netsurf-gtk fonts-dejavu-core",
+    launchCommand: "netsurf-gtk https://duckduckgo.com/",
     hostPort: 3001,
     guestIp: "172.16.58.2",
     hostTapIp: "172.16.58.1",
     tap: "syliongui0",
-    serverName: "duckduckgo.sylion.internal"
+    serverName: "duckduckgo.sylion.internal",
+    guestMac: "AA:FC:00:00:58:02"
+  },
+  duckduckgo_browser: {
+    aliasOf: "duckduckgo"
+  },
+  libreoffice: {
+    title: "SYLION LibreOffice",
+    url: "about:blank",
+    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc libreoffice-writer libreoffice-calc fonts-dejavu-core",
+    launchCommand: "libreoffice --writer --nologo --nofirststartwizard",
+    hostPort: 3002,
+    guestIp: "172.16.58.6",
+    hostTapIp: "172.16.58.5",
+    tap: "syliongui1",
+    serverName: "libreoffice.sylion.internal",
+    guestMac: "AA:FC:00:00:58:06"
+  },
+  whatsapp: {
+    title: "SYLION WhatsApp Web",
+    url: "https://web.whatsapp.com/",
+    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc netsurf-gtk fonts-dejavu-core",
+    launchCommand: "netsurf-gtk https://web.whatsapp.com/",
+    hostPort: 3010,
+    guestIp: "172.16.58.10",
+    hostTapIp: "172.16.58.9",
+    tap: "syliongui2",
+    serverName: "whatsapp.sylion.internal",
+    guestMac: "AA:FC:00:00:58:0A"
+  },
+  telegram: {
+    title: "SYLION Telegram Web",
+    url: "https://web.telegram.org/",
+    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc netsurf-gtk fonts-dejavu-core",
+    launchCommand: "netsurf-gtk https://web.telegram.org/",
+    hostPort: 3011,
+    guestIp: "172.16.58.14",
+    hostTapIp: "172.16.58.13",
+    tap: "syliongui3",
+    serverName: "telegram.sylion.internal",
+    guestMac: "AA:FC:00:00:58:0E"
+  },
+  threema: {
+    title: "SYLION Threema Web",
+    url: "https://web.threema.ch/",
+    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc netsurf-gtk fonts-dejavu-core",
+    launchCommand: "netsurf-gtk https://web.threema.ch/",
+    hostPort: 3012,
+    guestIp: "172.16.58.18",
+    hostTapIp: "172.16.58.17",
+    tap: "syliongui4",
+    serverName: "threema.sylion.internal",
+    guestMac: "AA:FC:00:00:58:12"
+  },
+  signal: {
+    title: "SYLION Signal Desktop",
+    url: "signal-desktop://",
+    preAptSetup: `
+mkdir -p "$mount_dir/etc/apt/keyrings"
+curl -fsSL https://updates.signal.org/desktop/apt/keys.asc -o "$mount_dir/etc/apt/keyrings/signal-desktop-keyring.asc"
+cat > "$mount_dir/etc/apt/sources.list.d/signal-xenial.list" <<'EOF'
+deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.asc] https://updates.signal.org/desktop/apt xenial main
+EOF
+`,
+    installPackages: "python3 iproute2 ca-certificates xvfb openbox x11vnc fonts-dejavu-core signal-desktop",
+    launchCommand: "signal-desktop --no-sandbox",
+    hostPort: 3013,
+    guestIp: "172.16.58.22",
+    hostTapIp: "172.16.58.21",
+    tap: "syliongui5",
+    serverName: "signal.sylion.internal",
+    guestMac: "AA:FC:00:00:58:16"
   }
 };
 
-const appKey = process.env.SYLION_GUI_APP || "duckduckgo";
-if (!profiles[appKey]) {
-  throw new Error(`Unsupported GUI app ${appKey}; supported=${Object.keys(profiles).join(",")}`);
+const requestedAppKey = process.env.SYLION_GUI_APP || "duckduckgo";
+if (!profiles[requestedAppKey]) {
+  throw new Error(`Unsupported GUI app ${requestedAppKey}; supported=${Object.keys(profiles).join(",")}`);
 }
 
+const appKey = profiles[requestedAppKey].aliasOf || requestedAppKey;
 const profile = profiles[appKey];
 const cfg = {
   sshKey: process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
@@ -104,7 +178,10 @@ deb http://security.ubuntu.com/ubuntu noble-security main universe multiverse
 EOF
 fi
 chroot "$mount_dir" apt-get update >/dev/null
-chroot "$mount_dir" apt-get install -y --no-install-recommends python3 iproute2 ca-certificates xvfb openbox x11vnc netsurf-gtk fonts-dejavu-core >/dev/null
+chroot "$mount_dir" apt-get install -y --no-install-recommends ca-certificates >/dev/null
+${profile.preAptSetup || ""}
+chroot "$mount_dir" apt-get update >/dev/null
+chroot "$mount_dir" apt-get install -y --no-install-recommends ${profile.installPackages} >/dev/null
 mkdir -p "$mount_dir/root/.config/openbox"
 cat > "$mount_dir/root/.config/openbox/autostart" <<'EOF'
 xsetroot -solid '#071014' &
@@ -137,7 +214,7 @@ Xvfb :1 -screen 0 1080x2400x24 -nolisten tcp &
 sleep 1
 openbox-session &
 sleep 1
-netsurf-gtk ${profile.url} &
+${profile.launchCommand} &
 x11vnc -display :1 -forever -shared -nopw -rfbport 5900 -quiet &
 ss -ltnp || true
 while true; do sleep 3600; done
@@ -170,7 +247,7 @@ cat > "$run_dir/config.json" <<EOF
   "network-interfaces": [
     {
       "iface_id": "eth0",
-      "guest_mac": "AA:FC:00:00:58:02",
+      "guest_mac": "${profile.guestMac}",
       "host_dev_name": "$tap"
     }
   ],

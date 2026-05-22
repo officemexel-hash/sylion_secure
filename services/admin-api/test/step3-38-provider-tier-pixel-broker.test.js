@@ -213,7 +213,62 @@ test("Step 3.38 Pixel CA provisioning and workload session broker stay reference
     assert.equal(broker.payload.broker.authMode, "kasm_session_broker_required");
     assert.equal(broker.payload.broker.handoff.storesOperationalDataOnTerminal, false);
     assert.ok(broker.payload.broker.blockers.includes("pixel_internal_ca_not_trusted"));
-    assert.equal(JSON.stringify(broker.payload).includes("private"), false);
+    assert.equal(JSON.stringify(broker.payload).includes("privateKey"), false);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.60 workload broker normalizes DuckDuckGo and reports live route truth", async () => {
+  const { baseUrl, close } = await startTestServer({
+    liveExecutionOptions: {
+      env: {
+        SYLION_DUCKDUCKGO_LIVE_HTTP_STATUS: "200",
+        SYLION_DUCKDUCKGO_NATIVE_EVIDENCE_READY: "true",
+        SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL: "true",
+        SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
+      }
+    }
+  });
+  try {
+    const { client } = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    const broker = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-session-broker/duckduckgo");
+
+    assert.equal(broker.payload.broker.templateKey, "duckduckgo_browser");
+    assert.equal(broker.payload.broker.appName, "DuckDuckGo Browser");
+    assert.equal(broker.payload.broker.url, "https://duckduckgo.sylion.internal/vnc.html");
+    assert.equal(broker.payload.broker.routeStatus.ready, true);
+    assert.equal(broker.payload.broker.routeStatus.httpStatus, 200);
+    assert.equal(broker.payload.broker.handoff.storesOperationalDataOnTerminal, false);
+    assert.equal(broker.payload.broker.routeStatus.cdrRequired, true);
+    assert.equal(broker.payload.broker.productionExecutionAllowed, false);
+    assert.equal(broker.payload.broker.blockers.includes("duckduckgo_browser_native_workload_not_built"), false);
+    assert.equal(JSON.stringify(broker.payload).includes("privateKey"), false);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.60 workload broker exposes not-built state for missing native apps", async () => {
+  const { baseUrl, close } = await startTestServer({
+    liveExecutionOptions: {
+      env: {
+        SYLION_SIGNAL_LIVE_HTTP_STATUS: "502",
+        SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL: "true",
+        SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
+      }
+    }
+  });
+  try {
+    const { client } = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    const broker = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-session-broker/signal");
+
+    assert.equal(broker.payload.broker.appName, "Signal");
+    assert.equal(broker.payload.broker.routeStatus.state, "not_built");
+    assert.ok(broker.payload.broker.blockers.includes("signal_native_workload_not_built"));
+    assert.equal(broker.payload.broker.productionExecutionAllowed, false);
   } finally {
     await close();
   }

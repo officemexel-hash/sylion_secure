@@ -61,6 +61,7 @@ const state = {
   dedicatedWorkloadOrders: [],
   workloadNativeHosts: [],
   workloadImageManifests: [],
+  productionReadiness: null,
   blueTeamDashboard: null,
   monitoringEvents: [],
   incidents: [],
@@ -268,6 +269,7 @@ async function refreshAll() {
     dedicatedWorkloadOrders,
     workloadNativeHosts,
     workloadImageManifests,
+    productionReadiness,
     blueTeamDashboard,
     monitoringEvents,
     incidents,
@@ -333,6 +335,7 @@ async function refreshAll() {
     api("/live-execution/dedicated-workload/orders").catch(() => ({ orders: [] })),
     api("/live-execution/workload-native/hosts").catch(() => ({ hosts: [] })),
     api("/live-execution/workload-images/manifests").catch(() => ({ manifests: [] })),
+    api("/production-readiness/operators").catch(() => ({ readiness: null })),
     api("/monitoring/blue-team-dashboard").catch(() => ({ dashboard: null })),
     api("/monitoring/events").catch(() => ({ events: [] })),
     api("/incidents").catch(() => ({ incidents: [] })),
@@ -398,6 +401,7 @@ async function refreshAll() {
   state.dedicatedWorkloadOrders = dedicatedWorkloadOrders.orders;
   state.workloadNativeHosts = workloadNativeHosts.hosts;
   state.workloadImageManifests = workloadImageManifests.manifests;
+  state.productionReadiness = productionReadiness.readiness;
   state.blueTeamDashboard = blueTeamDashboard.dashboard;
   state.monitoringEvents = monitoringEvents.events;
   state.incidents = incidents.incidents;
@@ -730,6 +734,8 @@ function render() {
     ["Blockers", manifest.productionBlockers?.join(", ") || "-"],
     ["Next", manifest.nextActions?.join(", ") || "-"]
   ])).join("") || empty("No workload image manifests registered.");
+
+  renderProductionReadiness();
 
   $("#live-rollback-plan-cards").innerHTML = state.liveRollbackPlans.map((plan) => card(plan.id, [
     ["Provider", plan.providerKey],
@@ -1088,6 +1094,66 @@ function render() {
       <td><code>${escapeHtml(String(event.hash || "").slice(0, 14))}</code></td>
     </tr>
   `).join("") || tableEmpty(5, "No audit events yet.");
+}
+
+function renderProductionReadiness() {
+  const readiness = state.productionReadiness;
+  const summaryTarget = $("#production-readiness-summary-cards");
+  const operatorTarget = $("#production-readiness-operator-cards");
+  const appTarget = $("#production-readiness-app-cards");
+  if (!summaryTarget || !operatorTarget || !appTarget) return;
+  if (!readiness) {
+    summaryTarget.innerHTML = empty("Production readiness unavailable.");
+    operatorTarget.innerHTML = empty("No operator readiness rows loaded.");
+    appTarget.innerHTML = empty("No app route evidence loaded.");
+    return;
+  }
+
+  summaryTarget.innerHTML = [
+    card("Operator readiness", [
+      ["Operators", String(readiness.summary?.operators || 0)],
+      ["Ready for human gate", String(readiness.summary?.readyForHumanGate || 0)],
+      ["Blocked", String(readiness.summary?.blocked || 0)],
+      ["Production exec", String(readiness.summary?.productionExecutionAllowed)]
+    ]),
+    card("Security invariants", [
+      ["Terminal data", "false"],
+      ["CDR", "mandatory"],
+      ["G1/G2 bypass", "blocked"],
+      ["HSM/FIDO2", "interface ready; physical test deferred"]
+    ])
+  ].join("");
+
+  operatorTarget.innerHTML = readiness.operators.map((operator) => card(operator.displayName, [
+    ["Tier", operator.tier],
+    ["Status", operator.status],
+    ["Subscription", `${operator.subscription?.billingStatus || "-"} / ${operator.subscription?.minimumMonths || 6} mo min`],
+    ["Token flow", operator.subscription?.tokenState],
+    ["Infra cost", `${operator.cost?.monthlyInfraCostPln || 0} PLN/mo`],
+    ["Customer price", `${operator.cost?.monthlyCustomerPricePln || 0} PLN/mo`],
+    ["Margin", `${operator.cost?.grossMarginPln || 0} PLN/mo`],
+    ["Tenancy", operator.cost?.workloadTenancy],
+    ["G1", operator.infrastructure?.g1],
+    ["G2", operator.infrastructure?.g2],
+    ["Workload", operator.infrastructure?.workloadNative?.serverNumber || "not registered"],
+    ["Pixel", operator.path?.pixel],
+    ["Laptop", operator.path?.laptop],
+    ["G1/G2", operator.path?.g1g2],
+    ["G2/workload", operator.path?.g2Workload],
+    ["Blockers", operator.blockers?.slice(0, 6).join(", ") || "none"]
+  ])).join("") || empty("No operators in readiness matrix.");
+
+  appTarget.innerHTML = readiness.operators.flatMap((operator) => operator.apps.map((app) => card(`${operator.displayName} / ${app.label}`, [
+    ["State", app.state],
+    ["Expected", app.expected],
+    ["HTTP", app.httpStatus ? String(app.httpStatus) : "-"],
+    ["URL", app.url],
+    ["CDR", String(app.cdrRequired)],
+    ["Terminal data", String(app.terminalDataStored)],
+    ["Private route", String(app.privateRouteRequired)],
+    ["Prod exec", String(app.productionExecutionAllowed)],
+    ["Blockers", app.blockers?.join(", ") || "none"]
+  ]))).join("") || empty("No workload app routes in readiness matrix.");
 }
 
 function renderRelease() {

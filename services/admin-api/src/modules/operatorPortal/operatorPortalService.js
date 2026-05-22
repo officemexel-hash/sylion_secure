@@ -52,6 +52,7 @@ const LIVE_RECREATE_APP_MAP = Object.freeze({
   libreoffice: "libreoffice",
   exodus: "exodus"
 });
+const NATIVE_FIRECRACKER_RECREATE_APPS = new Set(["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal"]);
 
 function isoNow() {
   return new Date().toISOString();
@@ -81,17 +82,33 @@ function publicSession(session) {
 }
 
 async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
-  const args = ["run", "live:workload-recreate", "--", `--app=${app}`];
-  if (wipeVolume) args.push("--wipe-volume");
-  const result = await execFileAsync(process.platform === "win32" ? "npm.cmd" : "npm", args, {
-    timeout: 240_000,
+  const nativeFirecracker = process.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE === "native_firecracker";
+  const command = nativeFirecracker ? "node" : process.platform === "win32" ? "npm.cmd" : "npm";
+  const args = nativeFirecracker
+    ? ["scripts/launch-native-firecracker-gui-workload.mjs", "--apply"]
+    : ["run", "live:workload-recreate", "--", `--app=${app}`];
+  if (!nativeFirecracker && wipeVolume) args.push("--wipe-volume");
+  const result = await execFileAsync(command, args, {
+    timeout: nativeFirecracker ? 1_800_000 : 240_000,
     windowsHide: true,
     cwd: process.cwd(),
-    env: process.env
+    env: {
+      ...process.env,
+      ...(nativeFirecracker ? { SYLION_GUI_APP: app } : {})
+    }
   });
   const stdout = result.stdout.trim();
   const json = stdout.slice(stdout.indexOf("{"), stdout.lastIndexOf("}") + 1);
-  return JSON.parse(json);
+  const parsed = JSON.parse(json);
+  return nativeFirecracker ? {
+    applied: parsed.readyThroughG2 === true,
+    app,
+    mode: "native_firecracker",
+    evidence: parsed.evidence,
+    g2: parsed.g2,
+    secretPrinted: false,
+    productionExecutionAllowed: false
+  } : parsed;
 }
 
 export class OperatorPortalService {
@@ -716,25 +733,70 @@ export class OperatorPortalService {
     };
   }
 
+  laptopAccessPackage({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const vpn = this.vpnStatus({ operatorActor, correlationId });
+    return {
+      operatorId: operatorActor.operatorId,
+      terminalMode: TERMINAL_MODES.LAPTOP,
+      packageType: "laptop_ipsec_browser_thin_client_profile",
+      transport: "ipsec_ikev2_certificate_auth",
+      browserThinClient: {
+        entrypoints: [
+          "https://operator.sylion.internal/operator",
+          "https://duckduckgo.sylion.internal/vnc.html",
+          "https://libreoffice.sylion.internal/"
+        ],
+        streamResizePolicy: "server_side_dynamic_resolution",
+        clipboardDefault: "disabled",
+        fileTransfer: "cdr_required"
+      },
+      plannedProfile: {
+        server: vpn.endpoints.g1,
+        authentication: "mutual_certificate",
+        ike: "aes256gcm16-prfsha384-ecp384",
+        esp: "aes256gcm16-ecp384",
+        splitTunnelAllowed: false,
+        dnsThroughTunnelOnly: true,
+        killSwitchRequired: true
+      },
+      validation: {
+        noOperationalDataOnLaptop: true,
+        noG1G2Bypass: true,
+        requiredChecks: [
+          "ikev2_sa_established",
+          "operator_panel_loads_through_internal_tls",
+          "noVNC_or_WebRTC_frame_visible",
+          "clipboard_disabled_by_default",
+          "cdr_gate_blocks_file_transfer_without_decision"
+        ]
+      },
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
   workloadSessionBroker({ operatorActor, templateKey = "signal", correlationId }) {
     const corr = requireCorrelationId(correlationId);
+    const normalizedTemplate = this.#normalizeWorkloadTemplate(templateKey);
     const execution = this.#workloadExecutionForOperator({
       operatorId: operatorActor.operatorId,
       terminalMode: operatorActor.terminalMode,
       deviceId: operatorActor.deviceId,
-      templateKey
+      templateKey: normalizedTemplate
     });
-    const app = String(templateKey || "signal").trim().toLowerCase();
-    const host = `${app === "duckduckgo_browser" ? "duckduckgo" : app}.sylion.internal`;
+    const host = this.#streamHostForTemplate(normalizedTemplate);
+    const routeStatus = this.#workloadRouteStatus(normalizedTemplate);
     const broker = {
       id: newId("workload_broker"),
       operatorId: operatorActor.operatorId,
       tenantId: operatorActor.tenantId,
       templateKey: execution.templateKey,
       appName: execution.appName,
-      state: execution.launchAllowed ? "session_ready" : "session_prepared_with_blockers",
-      url: `https://${host}/`,
-      authMode: app === "signal" ? "kasm_session_broker_required" : "g2_internal_tls",
+      state: execution.launchAllowed || routeStatus.ready ? "session_ready" : "session_prepared_with_blockers",
+      url: this.#workloadLaunchUrl(normalizedTemplate, host),
+      routeStatus,
+      authMode: normalizedTemplate === "signal" ? "kasm_session_broker_required" : "g2_internal_tls",
       handoff: {
         terminalMode: operatorActor.terminalMode,
         opensInBrowser: true,
@@ -744,7 +806,8 @@ export class OperatorPortalService {
         fileTransfer: "cdr_required"
       },
       blockers: [
-        ...execution.blockers,
+        ...execution.blockers.filter((blocker) => !routeStatus.satisfiedBlockers.includes(blocker)),
+        ...routeStatus.blockers,
         ...(this.env.SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL === "true" ? [] : ["pixel_internal_ca_not_trusted"])
       ],
       warnings: execution.warnings,
@@ -1748,8 +1811,10 @@ export class OperatorPortalService {
   }
 
   #runnerAppForRequest(request) {
-    if (request.action === "recreate_all") return "all";
-    return LIVE_RECREATE_APP_MAP[request.rotateApp] || null;
+    if (request.action === "recreate_all") return this.#nativeFirecrackerRunnerEnabled() ? null : "all";
+    const app = LIVE_RECREATE_APP_MAP[request.rotateApp] || null;
+    if (this.#nativeFirecrackerRunnerEnabled() && !NATIVE_FIRECRACKER_RECREATE_APPS.has(app)) return null;
+    return app;
   }
 
   #workloadJob({ request, operatorActor, runnerApp, state, wipeVolume, result, blockers = [] }) {
@@ -1807,6 +1872,19 @@ export class OperatorPortalService {
         cdrRequired: result.signalHandoff.cdrRequired === true
       } : null,
       smoke: result.smoke || {},
+      nativeFirecracker: result.mode === "native_firecracker" ? {
+        app: result.app,
+        readyThroughG2: result.applied === true,
+        g2: result.g2 || {},
+        evidence: result.evidence ? {
+          component: result.evidence.component,
+          appKey: result.evidence.appKey,
+          hostHttpCode: result.evidence.hostHttpCode,
+          noVncMarker: result.evidence.noVncMarker === true,
+          terminalDataStored: result.evidence.terminalDataStored === true,
+          productionExecutionAllowed: result.evidence.productionExecutionAllowed === true
+        } : null
+      } : null,
       productionExecutionAllowed: false
     };
   }
@@ -1919,6 +1997,10 @@ export class OperatorPortalService {
   }
 
   #normalizeStreamingTemplate(value) {
+    return this.#normalizeWorkloadTemplate(value);
+  }
+
+  #normalizeWorkloadTemplate(value) {
     const key = String(value || "").trim().toLowerCase();
     const normalized = key === "duckduckgo" ? "duckduckgo_browser" : key;
     if (!WORKLOAD_CONTROL_APPS.some((app) => app.key === normalized)) {
@@ -1930,11 +2012,59 @@ export class OperatorPortalService {
     return normalized;
   }
 
+  #appDefinition(templateKey) {
+    const normalized = this.#normalizeWorkloadTemplate(templateKey);
+    return WORKLOAD_CONTROL_APPS.find((app) => app.key === normalized);
+  }
+
   #streamHostForTemplate(templateKey) {
     if (templateKey === "duckduckgo_browser") return "duckduckgo.sylion.internal";
     if (templateKey === "matrix_client") return "matrix-client.sylion.internal";
     if (templateKey === "matrix_server") return "matrix-server.sylion.internal";
     return `${templateKey}.sylion.internal`;
+  }
+
+  #workloadLaunchUrl(templateKey, host = this.#streamHostForTemplate(templateKey)) {
+    if (templateKey === "duckduckgo_browser") return `https://${host}/vnc.html`;
+    return `https://${host}/`;
+  }
+
+  #workloadRouteStatus(templateKey) {
+    const normalized = this.#normalizeWorkloadTemplate(templateKey);
+    const envKey = `SYLION_${normalized.toUpperCase().replaceAll("-", "_")}_LIVE_HTTP_STATUS`;
+    const rawStatus = this.env?.[envKey] || (normalized === "duckduckgo_browser" ? this.env?.SYLION_DUCKDUCKGO_LIVE_HTTP_STATUS : null);
+    const httpStatus = rawStatus ? Number(rawStatus) : null;
+    const evidenceReadyKey = `SYLION_${normalized.toUpperCase().replaceAll("-", "_")}_NATIVE_EVIDENCE_READY`;
+    const evidenceReady = this.env?.[evidenceReadyKey] === "true"
+      || (normalized === "duckduckgo_browser" && this.env?.SYLION_DUCKDUCKGO_NATIVE_EVIDENCE_READY === "true");
+    const ready = httpStatus === 200 || evidenceReady;
+    const notBuilt = httpStatus === 502 || this.env?.[evidenceReadyKey] === "false";
+    return {
+      templateKey: normalized,
+      host: this.#streamHostForTemplate(normalized),
+      launchUrl: this.#workloadLaunchUrl(normalized),
+      httpStatus,
+      evidenceReady,
+      ready,
+      state: ready ? "ready" : notBuilt ? "not_built" : "unknown_or_blocked",
+      blockers: ready ? [] : [notBuilt ? `${normalized}_native_workload_not_built` : `${normalized}_live_route_not_verified`],
+      satisfiedBlockers: ready ? [
+        `${normalized}_workload_slot_missing`,
+        "g1_g2_workload_path_not_ready",
+        "real_firecracker_binary_not_configured",
+        "kvm_device_not_verified",
+        "firecracker_kernel_image_not_configured",
+        `${normalized}_rootfs_image_not_configured`,
+        `approved_${normalized}_workload_image_missing`,
+        "real_ipsec_profile_required",
+        "dns_leak_and_kill_switch_tests_required",
+        "human_production_execution_approval_required"
+      ] : [],
+      privateOnly: true,
+      terminalDataStored: false,
+      cdrRequired: true,
+      productionExecutionAllowed: false
+    };
   }
 
   #latestStreamingReadinessForOperator(operatorId) {
@@ -2066,11 +2196,18 @@ export class OperatorPortalService {
   #workloadExecutionPlan({ action, rotateApp, desiredCounts, operatorId }) {
     const totalRequested = Object.values(desiredCounts).reduce((sum, value) => sum + value, 0);
     const destructive = action !== "scale_to_counts";
+    const nativeFirecracker = this.#nativeFirecrackerRunnerEnabled();
+    const mappedRunnerApp = LIVE_RECREATE_APP_MAP[rotateApp] || "unsupported";
+    const supportedByLiveRunner = destructive && (nativeFirecracker
+      ? action === "rotate_app" && NATIVE_FIRECRACKER_RECREATE_APPS.has(mappedRunnerApp)
+      : action === "recreate_all" || Boolean(LIVE_RECREATE_APP_MAP[rotateApp]));
     return {
       mode: action,
       targetApp: rotateApp,
       totalRequested,
-      runner: destructive ? "workload_recreate_runner_pending_gate" : "workload_count_reconcile_runner_pending_gate",
+      runner: destructive
+        ? nativeFirecracker ? "native_firecracker_gui_runner_pending_gate" : "workload_recreate_runner_pending_gate"
+        : "workload_count_reconcile_runner_pending_gate",
       stages: [
         "quota_check_passed",
         "operator_audit_recorded",
@@ -2089,16 +2226,18 @@ export class OperatorPortalService {
       },
       liveRunner: destructive ? {
         command: action === "rotate_app"
-          ? `npm run live:workload-recreate -- --app=${LIVE_RECREATE_APP_MAP[rotateApp] || "unsupported"}`
-          : "npm run live:workload-recreate -- --app=all",
+          ? nativeFirecracker
+            ? `SYLION_GUI_APP=${mappedRunnerApp} node scripts/launch-native-firecracker-gui-workload.mjs --apply`
+            : `npm run live:workload-recreate -- --app=${mappedRunnerApp}`
+          : nativeFirecracker ? "unsupported_in_native_firecracker_mode" : "npm run live:workload-recreate -- --app=all",
         wipeVolumeDefault: false,
         wipeVolumeRequiresPanicOrFourEyes: true,
         signalAuthHandoffRequired: action === "recreate_all" || rotateApp === "signal",
         backendEndpoint: "/operator-api/workload-control/requests/:id/execute",
         confirmationPhrase: "RUN_LIVE_WORKLOAD_RECREATE",
-        supportedByLiveRunner: action === "recreate_all" || Boolean(LIVE_RECREATE_APP_MAP[rotateApp]),
+        supportedByLiveRunner,
         expectedEvidence: [
-          "live_workload_recreate",
+          nativeFirecracker ? "native_firecracker_gui_workload" : "live_workload_recreate",
           "cdrRequired=true",
           "terminalDataStored=false",
           "privateBindOnly=true",
@@ -2111,6 +2250,10 @@ export class OperatorPortalService {
       productionExecutionAllowed: false,
       sideEffectAllowed: false
     };
+  }
+
+  #nativeFirecrackerRunnerEnabled() {
+    return this.env?.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE === "native_firecracker";
   }
 
   #sessionHoursForOperator(operatorId, tier) {
@@ -2390,7 +2533,8 @@ export class OperatorPortalService {
 
   #workloadExecutionForOperator({ operatorId, terminalMode, deviceId, templateKey }) {
     const path = this.#connectionPathForOperator({ operatorId, terminalMode, deviceId });
-    const normalizedTemplate = String(templateKey || "signal").trim().toLowerCase();
+    const normalizedTemplate = this.#normalizeWorkloadTemplate(templateKey || "signal");
+    const appDefinition = this.#appDefinition(normalizedTemplate);
     const slot = path.microVmSlots.find((item) => item.templateKey === normalizedTemplate)
       || path.microVmSlots.find((item) => item.appName?.toLowerCase() === normalizedTemplate);
     const androidRuntimeRequired = ANDROID_WORKLOAD_APPS.has(normalizedTemplate);
@@ -2445,7 +2589,7 @@ export class OperatorPortalService {
       operatorId,
       tenantId: path.tenantId,
       templateKey: slot?.templateKey || normalizedTemplate,
-      appName: slot?.appName || (normalizedTemplate === "zangi" ? "Zangi" : "Signal"),
+      appName: slot?.appName || appDefinition?.name || normalizedTemplate,
       slot: slot || null,
       route: {
         terminalMode,

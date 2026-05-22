@@ -396,6 +396,13 @@
         steps.innerHTML = (recommended?.steps || []).map((step) => `<li><strong>${escapeHtml(step)}</strong><span>GrapheneOS user-present install step.</span></li>`).join("") || `<li class="placeholder">No CA provisioning steps available.</li>`;
       }
     }
+    const laptop = await fetchJson("/operator-api/laptop-access-package");
+    if (!laptop.error) {
+      setText("#laptop-package-type", laptop.package.packageType);
+      setText("#laptop-package-transport", laptop.package.transport);
+      setText("#laptop-package-entrypoints", (laptop.package.browserThinClient?.entrypoints || []).join(", "));
+      setText("#laptop-package-validation", (laptop.package.validation?.requiredChecks || []).join(", "));
+    }
   }
 
   async function prepareWorkloadBroker(event) {

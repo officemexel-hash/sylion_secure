@@ -34,6 +34,10 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(html.body, /id="auth-policy-cards"/);
     assert.match(html.body, /data-view="phantom"/);
     assert.match(html.body, /data-view="release"/);
+    assert.match(html.body, /data-view="production-readiness"/);
+    assert.match(html.body, /id="production-readiness-summary-cards"/);
+    assert.match(html.body, /id="production-readiness-operator-cards"/);
+    assert.match(html.body, /id="production-readiness-app-cards"/);
     assert.match(html.body, /id="phantom-capability-form"/);
     assert.match(html.body, /id="phantom-package-form"/);
     assert.match(html.body, /id="phantom-review-matrix-cards"/);
@@ -94,6 +98,8 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(js.body, /updateHumanTestStatus/);
     assert.match(js.body, /monitoring\/blue-team-dashboard/);
     assert.match(js.body, /recordBlueTeamSignal/);
+    assert.match(js.body, /production-readiness\/operators/);
+    assert.match(js.body, /renderProductionReadiness/);
 
     const css = await getText(baseUrl, "/admin/styles.css");
     assert.equal(css.status, 200);
