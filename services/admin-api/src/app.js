@@ -630,6 +630,24 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { orders: liveExecution.listDedicatedWorkloadOrders({ actor, correlationId }) });
       }
 
+      if (req.method === "GET" && url.pathname === "/live-execution/workload-native/hosts") {
+        return send(res, 200, { hosts: liveExecution.listWorkloadNativeHosts({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/workload-native/hosts") {
+        auth.requireFreshStepUp(actor, "workload_native.host.register", {
+          correlationId,
+          resourceType: "workload_native_host"
+        });
+        const body = await readJson(req);
+        const host = liveExecution.registerWorkloadNativeHost({
+          actor,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { host });
+      }
+
       if (req.method === "POST" && url.pathname === "/live-execution/dedicated-workload/hetzner-robot/order") {
         auth.requireFreshStepUp(actor, "dedicated_workload.hetzner_robot.order", {
           correlationId,

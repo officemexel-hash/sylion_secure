@@ -39,6 +39,7 @@ const PROVIDER_REHEARSAL_MODES = new Set(["gate_only", "adapter_sandbox", "live_
 const FIRECRACKER_REHEARSAL_WORKLOADS = new Set(["signal", "telegram", "whatsapp", "threema", "zangi", "matrix"]);
 const DEDICATED_ORDER_MODES = new Set(["plan_only", "robot_test", "live_order"]);
 const WORKLOAD_TENANCY_MODES = new Set(["shared_pool", "dedicated_operator"]);
+const WORKLOAD_NATIVE_LIFECYCLE = new Set(["ordered", "delivered", "bootstrapped", "lab_qualified", "degraded", "retired"]);
 
 function normalizeLower(value, field, allowed) {
   const normalized = requireText(value, field).toLowerCase();
@@ -86,6 +87,24 @@ function publicRequest(record) {
     tokenPresent: undefined,
     rawProviderResponse: undefined
   };
+}
+
+function assertNoSensitiveRuntimeData(value, path = "payload") {
+  if (!value || typeof value !== "object") return;
+  for (const [key, nested] of Object.entries(value)) {
+    const currentPath = `${path}.${key}`;
+    if (/password|secret|private.*key|key.*private|token|session|cookie|pem/i.test(key)) {
+      throw validationError("Live workload host evidence must not contain sensitive runtime data", { field: currentPath });
+    }
+    if (typeof nested === "string" && /-----BEGIN .*PRIVATE KEY-----|xox[baprs]-|ghp_|hcloud_|api[_-]?key/i.test(nested)) {
+      throw validationError("Live workload host evidence contains sensitive runtime data", { field: currentPath });
+    }
+    assertNoSensitiveRuntimeData(nested, currentPath);
+  }
+}
+
+function boolFromEvidence(value) {
+  return value === true || value === "true" || value === "present" || value === "yes" || value === "active" || value === "Running";
 }
 
 function sanitizeProviderResource(resource = {}) {
@@ -145,6 +164,7 @@ export class LiveExecutionService {
     this.hostQualifications = new PersistentMap({ store, collection: "firecracker_host_qualifications" });
     this.firecrackerRehearsals = new PersistentMap({ store, collection: "firecracker_launch_rehearsals" });
     this.dedicatedOrders = new PersistentMap({ store, collection: "dedicated_workload_orders" });
+    this.workloadNativeHosts = new PersistentMap({ store, collection: "workload_native_hosts" });
     this.cpuQualifications = new PersistentMap({ store, collection: "cpu_confidential_qualifications" });
     this.rollbackPlans = new PersistentMap({ store, collection: "live_rollback_plans" });
     this.providerRehearsals = new PersistentMap({ store, collection: "live_provider_rehearsals" });
@@ -175,6 +195,7 @@ export class LiveExecutionService {
       firecrackerQualifications: this.hostQualifications.size,
       firecrackerLaunchRehearsals: this.firecrackerRehearsals.size,
       dedicatedWorkloadOrders: this.dedicatedOrders.size,
+      workloadNativeHosts: this.workloadNativeHosts.size,
       cpuQualifications: this.cpuQualifications.size,
       confidentialReadyHosts: [...this.cpuQualifications.values()].filter((item) => item.secretsReleaseAllowed).length,
       phantomExecutionRequests: this.phantomRequests.size,
@@ -217,6 +238,90 @@ export class LiveExecutionService {
       resourceType: RESOURCE_TYPES.DEDICATED_WORKLOAD_ORDER
     });
     return [...this.dedicatedOrders.values()];
+  }
+
+  listWorkloadNativeHosts({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_NATIVE_HOST
+    });
+    return [...this.workloadNativeHosts.values()];
+  }
+
+  registerWorkloadNativeHost({
+    actor,
+    hostId = "WORKLOAD_NATIVE_LAB_01",
+    serverNumber,
+    productId,
+    region,
+    publicIpv4,
+    publicIpv6 = null,
+    orderId = null,
+    providerResourceId = null,
+    lifecycleState = "bootstrapped",
+    tenancyMode = "shared_pool",
+    evidence = {},
+    productionBlockers = [],
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "live_execution.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_NATIVE_HOST
+    });
+    assertNoSensitiveRuntimeData(evidence, "evidence");
+    const normalizedLifecycle = requireText(lifecycleState, "lifecycleState");
+    if (!WORKLOAD_NATIVE_LIFECYCLE.has(normalizedLifecycle)) {
+      throw validationError("Unsupported workload native host lifecycle state", {
+        lifecycleState: normalizedLifecycle,
+        allowed: [...WORKLOAD_NATIVE_LIFECYCLE]
+      });
+    }
+    const blockers = safeArray(productionBlockers, "productionBlockers");
+    const checks = this.#workloadNativeHostChecks(evidence, blockers);
+    const readyForLabWorkloads = checks.filter((check) => check.requiredForLab !== false).every((check) => check.status === "passed");
+    const record = {
+      id: newId("workload_native_host"),
+      hostId: requireText(hostId, "hostId"),
+      serverNumber: requireText(serverNumber, "serverNumber"),
+      productId: requireText(productId, "productId"),
+      providerKey: "hetzner_robot",
+      region: requireText(region, "region"),
+      publicIpv4: publicIpv4 ? String(publicIpv4) : null,
+      publicIpv6: publicIpv6 ? String(publicIpv6) : null,
+      orderId,
+      providerResourceId,
+      lifecycleState: normalizedLifecycle,
+      tenancyMode: normalizeLower(tenancyMode, "tenancyMode", WORKLOAD_TENANCY_MODES),
+      evidence,
+      checks,
+      readyForLabWorkloads,
+      readyForProduction: false,
+      productionExecutionAllowed: false,
+      productionBlockers: blockers,
+      nextActions: [
+        ...(readyForLabWorkloads ? ["build_first_firecracker_workload_image"] : ["resolve_lab_host_blockers"]),
+        "bind_g1_g2_private_path",
+        "bind_g2_thin_stream_broker",
+        "run_pixel_human_regression",
+        "collect_hsm_pki_evidence_before_production"
+      ],
+      createdAt: isoNow(),
+      createdBy: actor.id
+    };
+    this.workloadNativeHosts.set(record.id, record);
+    this.audit.record({
+      actorId: actor.id,
+      action: "workload_native_host.registered",
+      resourceType: RESOURCE_TYPES.WORKLOAD_NATIVE_HOST,
+      resourceId: record.id,
+      correlationId: corr,
+      policyDecision: readyForLabWorkloads ? "allow" : "deny",
+      result: readyForLabWorkloads ? "lab_ready" : "blocked",
+      newValue: record
+    });
+    return record;
   }
 
   async createDedicatedWorkloadOrder({
@@ -1155,6 +1260,63 @@ export class LiveExecutionService {
       rollbackRequired: false,
       dedicatedWorkloadRole: "WORKLOAD_NATIVE"
     };
+  }
+
+  #workloadNativeHostChecks(evidence = {}, productionBlockers = []) {
+    const bootstrap = evidence.bootstrap || evidence.bootstrapPreflight || {};
+    const hardware = evidence.hardware || evidence.hardwareQualification || {};
+    const firecracker = evidence.firecrackerSmoke || {};
+    const install = evidence.firecrackerInstall || {};
+    const container = evidence.containerRuntime || {};
+    return [
+      {
+        key: "kvm_device",
+        status: boolFromEvidence(bootstrap.kvmDevice) || boolFromEvidence(hardware.kvmDevice) ? "passed" : "blocked",
+        detail: "/dev/kvm must be present on the dedicated host"
+      },
+      {
+        key: "amd_virtualization",
+        status: Number(hardware.amdVirtualizationFlags || bootstrap.virtualizationFlags || 0) > 0 ? "passed" : "blocked",
+        detail: "AMD-V/SVM or Intel VMX must be visible"
+      },
+      {
+        key: "firecracker_binary",
+        status: install.firecrackerVersion || bootstrap.firecrackerBinary !== "missing" ? "passed" : "blocked",
+        detail: "Firecracker binary must be installed and pinned"
+      },
+      {
+        key: "jailer_binary",
+        status: install.jailerVersion || bootstrap.jailerBinary !== "missing" ? "passed" : "blocked",
+        detail: "Jailer binary must be installed and pinned"
+      },
+      {
+        key: "microvm_smoke",
+        status: firecracker.microvmStarted === true || firecracker.state === "Running" ? "passed" : "blocked",
+        detail: "A no-secret Firecracker microVM smoke test must reach Running"
+      },
+      {
+        key: "auditd",
+        status: boolFromEvidence(hardware.auditd) ? "passed" : "blocked",
+        detail: "Host auditd must be active"
+      },
+      {
+        key: "apparmor",
+        status: boolFromEvidence(hardware.apparmor) ? "passed" : "blocked",
+        detail: "AppArmor must be active"
+      },
+      {
+        key: "container_helper_runtime",
+        status: boolFromEvidence(container.dockerActive) && boolFromEvidence(container.containerdActive) ? "passed" : "blocked",
+        detail: "Container runtime is helper-only for build/lab workflows",
+        requiredForLab: false
+      },
+      {
+        key: "production_blockers_declared",
+        status: productionBlockers.length > 0 ? "passed" : "blocked",
+        detail: "Production blockers must remain explicit until all gates pass",
+        requiredForLab: false
+      }
+    ];
   }
 
   #providerRehearsalAdapter(providerKey, rehearsalMode) {

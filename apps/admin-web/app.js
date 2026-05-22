@@ -59,6 +59,7 @@ const state = {
   liveRollbackPlans: [],
   liveProviderRehearsals: [],
   dedicatedWorkloadOrders: [],
+  workloadNativeHosts: [],
   blueTeamDashboard: null,
   monitoringEvents: [],
   incidents: [],
@@ -264,6 +265,7 @@ async function refreshAll() {
     liveRollbackPlans,
     liveProviderRehearsals,
     dedicatedWorkloadOrders,
+    workloadNativeHosts,
     blueTeamDashboard,
     monitoringEvents,
     incidents,
@@ -327,6 +329,7 @@ async function refreshAll() {
     api("/live-execution/cloud/rollback-plans").catch(() => ({ plans: [] })),
     api("/live-execution/cloud/rehearsals").catch(() => ({ rehearsals: [] })),
     api("/live-execution/dedicated-workload/orders").catch(() => ({ orders: [] })),
+    api("/live-execution/workload-native/hosts").catch(() => ({ hosts: [] })),
     api("/monitoring/blue-team-dashboard").catch(() => ({ dashboard: null })),
     api("/monitoring/events").catch(() => ({ events: [] })),
     api("/incidents").catch(() => ({ incidents: [] })),
@@ -390,6 +393,7 @@ async function refreshAll() {
   state.liveRollbackPlans = liveRollbackPlans.plans;
   state.liveProviderRehearsals = liveProviderRehearsals.rehearsals;
   state.dedicatedWorkloadOrders = dedicatedWorkloadOrders.orders;
+  state.workloadNativeHosts = workloadNativeHosts.hosts;
   state.blueTeamDashboard = blueTeamDashboard.dashboard;
   state.monitoringEvents = monitoringEvents.events;
   state.incidents = incidents.incidents;
@@ -697,6 +701,18 @@ function render() {
     ["Resource", order.providerResource?.providerResourceId || "-"],
     ["Blockers", order.gate?.blockers?.join(", ") || "-"]
   ])).join("") || empty("No dedicated workload orders recorded.");
+
+  $("#workload-native-host-cards").innerHTML = state.workloadNativeHosts.map((host) => card(host.hostId, [
+    ["State", host.lifecycleState],
+    ["Server", host.serverNumber],
+    ["Product", host.productId],
+    ["Region", host.region],
+    ["Lab ready", String(host.readyForLabWorkloads)],
+    ["Production", String(host.productionExecutionAllowed)],
+    ["Checks", host.checks?.map((check) => `${check.key}:${check.status}`).join(", ") || "-"],
+    ["Blockers", host.productionBlockers?.join(", ") || "-"],
+    ["Next", host.nextActions?.join(", ") || "-"]
+  ])).join("") || empty("No workload-native hosts registered.");
 
   $("#live-rollback-plan-cards").innerHTML = state.liveRollbackPlans.map((plan) => card(plan.id, [
     ["Provider", plan.providerKey],

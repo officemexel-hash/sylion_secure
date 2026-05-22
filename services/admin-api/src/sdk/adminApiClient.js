@@ -207,6 +207,14 @@ export class AdminApiClient {
     return this.request("/live-execution/dedicated-workload/orders");
   }
 
+  listWorkloadNativeHosts() {
+    return this.request("/live-execution/workload-native/hosts");
+  }
+
+  registerWorkloadNativeHost(body) {
+    return this.request("/live-execution/workload-native/hosts", { method: "POST", body });
+  }
+
   createHetznerRobotDedicatedWorkloadOrder(body) {
     return this.request("/live-execution/dedicated-workload/hetzner-robot/order", { method: "POST", body });
   }
