@@ -43,6 +43,20 @@ It does not contain communicator accounts, workload secrets, operator data, HSM/
 
 Production execution remains blocked.
 
+## Boot Smoke
+
+A real Firecracker boot smoke was executed against a copy of the base rootfs.
+
+Result:
+
+- run dir: `/opt/sylion-firecracker/runs/base-boot-20260522162016`
+- running after 10 seconds: `true`
+- boot markers in serial log: `4`
+- evidence path: `/opt/sylion-workloads/evidence/firecracker-base-boot-smoke.json`
+- terminal data stored: `false`
+- secrets printed: `false`
+- production execution allowed: `false`
+
 ## Next Step
 
 Derive per-app rootfs artifacts from this base:
@@ -52,4 +66,3 @@ Derive per-app rootfs artifacts from this base:
 - LibreOffice
 
 Then bind the first lab stream privately through G2 and run Pixel human regression.
-
