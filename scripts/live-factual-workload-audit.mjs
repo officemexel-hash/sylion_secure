@@ -12,6 +12,11 @@ const adbPath = process.env.SYLION_ADB_PATH || "C:\\Users\\razor\\Android\\platf
 const gatewayIp = process.env.SYLION_WORKLOAD_GATEWAY_IP || "10.42.0.12";
 const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-62-factual-state-audit");
 const args = new Set(process.argv.slice(2));
+const argValue = (prefix) => process.argv.slice(2).find((arg) => arg.startsWith(`${prefix}=`))?.slice(prefix.length + 1);
+const recordApi = args.has("--record-api");
+const adminApiBaseUrl = argValue("--admin-api") || process.env.SYLION_ADMIN_API_BASE_URL || "http://127.0.0.1:8080";
+const adminApiToken = process.env.SYLION_ADMIN_API_TOKEN || "";
+const operatorId = argValue("--operator-id") || process.env.SYLION_OPERATOR_ID || "";
 
 const apps = [
   {
@@ -156,6 +161,112 @@ function evaluateText(app, text) {
     passMarkerFound: pass,
     blockerMarker: blocker ? String(blocker) : browserChromeOnly ? "browser_chrome_only" : null
   };
+}
+
+function canonicalAppKey(key) {
+  return key === "duckduckgo" ? "duckduckgo_browser" : key;
+}
+
+function envName(key, suffix) {
+  return `SYLION_${key.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_${suffix}`;
+}
+
+function boolEnv(name) {
+  return process.env[name] === "true";
+}
+
+function factualCheck(passed, evidence, note = "Not proven in this factual run") {
+  return passed ? { status: "passed", evidence } : { status: "blocked", note };
+}
+
+function factualRecordForApp(appResult) {
+  const key = canonicalAppKey(appResult.key);
+  const prefix = appResult.key === "duckduckgo" ? "DUCKDUCKGO" : key.toUpperCase();
+  const uiVisible = appResult.pixelPassMarkerFound === true && !appResult.pixelBlockerMarker;
+  const accountBootstrap = boolEnv(envName(prefix, "ACCOUNT_BOOTSTRAP_VERIFIED"));
+  const sendReceive = boolEnv(envName(prefix, "SEND_RECEIVE_VERIFIED"));
+  const browsing = boolEnv(envName(prefix, "BROWSING_VERIFIED"));
+  const documentWorkflow = boolEnv(envName(prefix, "DOCUMENT_WORKFLOW_VERIFIED"));
+  const walletWorkflow = boolEnv(envName(prefix, "WALLET_WORKFLOW_VERIFIED"));
+  const riskAcceptance = boolEnv(envName(prefix, "RISK_ACCEPTANCE_VERIFIED"));
+  const communicator = ["whatsapp", "signal", "telegram", "threema", "zangi", "matrix_client"].includes(key);
+  const passed = communicator
+    ? uiVisible && accountBootstrap && sendReceive
+    : key === "duckduckgo_browser"
+      ? uiVisible && browsing
+      : key === "libreoffice"
+        ? uiVisible && documentWorkflow
+        : key === "exodus"
+          ? uiVisible && walletWorkflow && riskAcceptance
+          : appResult.ready === true;
+  return {
+    operatorId,
+    appKey: key,
+    terminalMode: "pixel_grapheneos",
+    runtimeMode: appResult.expectedRuntime.includes("android_native") ? "android_native"
+      : appResult.expectedRuntime.includes("firecracker_gui") ? "firecracker_gui"
+        : appResult.expectedRuntime.includes("desktop") ? "desktop"
+          : appResult.expectedRuntime.includes("web") ? "web" : "unknown",
+    result: passed ? "passed" : "blocked",
+    checks: {
+      uiVisible: factualCheck(uiVisible, "Expected UI marker visible on Pixel screenshot", appResult.pixelBlockerMarker || "UI marker not visible"),
+      accountBootstrap: factualCheck(accountBootstrap, "Account bootstrap/linking verified by human", "Account bootstrap/linking not verified"),
+      sendReceive: factualCheck(sendReceive, "Send/receive verified by human", "Send/receive not verified"),
+      browsing: factualCheck(browsing, "Browsing through workload verified by human", "Browsing workflow not verified"),
+      documentWorkflow: factualCheck(documentWorkflow, "LibreOffice document workflow verified by human", "Document workflow not verified"),
+      walletWorkflow: factualCheck(walletWorkflow, "Test-only Exodus wallet workflow verified by human", "Wallet workflow not verified"),
+      riskAcceptance: factualCheck(riskAcceptance, "Operator risk acceptance recorded", "Risk acceptance not recorded")
+    },
+    evidenceArtifactIds: [
+      ...(appResult.screenshot ? [`artifact://pixel/${appResult.key}/screenshot`] : []),
+      ...(appResult.uiDump ? [`artifact://pixel/${appResult.key}/ui-dump`] : [])
+    ],
+    note: appResult.ready
+      ? "Transport and UI marker observed; functional PASS still depends on required workflow checks."
+      : `Blocked by ${appResult.blockers.join(", ")}`
+  };
+}
+
+async function postAdminApi(path, body) {
+  const response = await fetch(`${adminApiBaseUrl.replace(/\/$/, "")}${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-correlation-id": `corr_factual_audit_${Date.now()}`,
+      authorization: `Bearer ${adminApiToken}`
+    },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload?.error?.message || `Admin API ${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+async function recordFactualResults(appResults) {
+  if (!recordApi) return [];
+  if (!adminApiToken) throw new Error("SYLION_ADMIN_API_TOKEN is required with --record-api");
+  if (!operatorId) throw new Error("SYLION_OPERATOR_ID or --operator-id is required with --record-api");
+  const records = [];
+  for (const appResult of appResults) {
+    const body = factualRecordForApp(appResult);
+    try {
+      const result = await postAdminApi("/release/workload-factual-tests", body);
+      records.push({ appKey: body.appKey, status: "recorded", testId: result.test?.id, result: result.test?.result });
+    } catch (error) {
+      records.push({
+        appKey: body.appKey,
+        status: "record_failed",
+        error: error.message,
+        details: error.payload?.error?.details || null
+      });
+    }
+  }
+  return records;
 }
 
 async function workloadRuntimeAudit() {
@@ -311,7 +422,8 @@ async function main() {
     runtimeRaw: runtime,
     routes,
     pixel,
-    apps: appResults
+    apps: appResults,
+    apiRecords: await recordFactualResults(appResults)
   };
   const summaryPath = join(outputDir, "summary.json");
   await writeFile(summaryPath, JSON.stringify(summary, null, 2), "utf8");
