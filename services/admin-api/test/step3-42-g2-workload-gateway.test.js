@@ -25,6 +25,10 @@ test("Step 3.42 rendered gateway config has no embedded workload password and no
   const config = renderGatewayConfig();
 
   assert.match(config, /listen 10\.42\.0\.12:443 ssl;/);
+  assert.match(config, /server_name admin\.sylion\.internal;/);
+  assert.match(config, /server_name operator\.sylion\.internal;/);
+  assert.match(config, /location = \/ \{\n    return 302 \/operator;/);
+  assert.doesNotMatch(config, /server_name admin\.sylion\.internal operator\.sylion\.internal/);
   assert.doesNotMatch(config, /listen 0\.0\.0\.0:443/);
   assert.doesNotMatch(config, /sylion-signal-local/);
   assert.doesNotMatch(config, /a2FzbV91c2VyOnN5bGlvbi1zaWduYWwtbG9jYWw=/);

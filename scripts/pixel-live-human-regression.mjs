@@ -377,7 +377,10 @@ async function collectNetworkEvidence(serial) {
 async function probeWorkloadsFromAdmin() {
   const script = String.raw`
 for h in admin operator signal duckduckgo libreoffice zangi whatsapp telegram threema exodus; do
-  code=$(curl -k -sS -o /tmp/sylion-probe-body -w "%{http_code}" --resolve "$h.sylion.internal:443:10.42.0.12" --max-time 8 "https://$h.sylion.internal/" || true)
+  path="/"
+  if [ "$h" = "operator" ]; then path="/operator"; fi
+  if [ "$h" = "admin" ]; then path="/admin"; fi
+  code=$(curl -k -sS -o /tmp/sylion-probe-body -w "%{http_code}" --resolve "$h.sylion.internal:443:10.42.0.12" --max-time 8 "https://$h.sylion.internal$path" || true)
   title=$(tr '\n' ' ' </tmp/sylion-probe-body | sed -E 's/<[^>]+>/ /g' | tr -s ' ' | cut -c1-140)
   echo "$h|$code|$title"
 done`;
@@ -408,6 +411,9 @@ function analyze(seed, network, probes, pageResults) {
   const vpnInstall = seed.endpoints["/operator-api/vpn-install-package"]?.package;
   if (vpnInstall?.installState !== "ready") {
     issues.push(`Operator VPN install package is ${vpnInstall?.installState}; production install remains gated.`);
+  }
+  if (!/Operator Portal|Apps|Operator controls/i.test(probes.operator?.title || "")) {
+    issues.push("operator.sylion.internal/operator probe does not resolve to the operator portal shell.");
   }
   const caPackage = seed.endpoints["/operator-api/pixel-ca-provisioning"]?.package;
   if (!caPackage?.validation?.requiresUserPresence) {

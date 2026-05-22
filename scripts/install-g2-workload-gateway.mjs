@@ -90,9 +90,23 @@ function renderAdminServer(plan) {
   const { bindAddress, tlsCertificate, tlsKey } = plan.gateway;
   return `server {
   listen ${bindAddress}:443 ssl;
-  server_name admin.sylion.internal operator.sylion.internal;
+  server_name admin.sylion.internal;
   ssl_certificate ${tlsCertificate};
   ssl_certificate_key ${tlsKey};
+  location / {
+    proxy_pass ${plan.adminUpstream};
+${commonProxyHeaders()}
+  }
+}
+
+server {
+  listen ${bindAddress}:443 ssl;
+  server_name operator.sylion.internal;
+  ssl_certificate ${tlsCertificate};
+  ssl_certificate_key ${tlsKey};
+  location = / {
+    return 302 /operator;
+  }
   location / {
     proxy_pass ${plan.adminUpstream};
 ${commonProxyHeaders()}

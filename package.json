@@ -16,7 +16,8 @@
     "live:hetzner-operator-baseline": "node scripts/hetzner-live-operator-baseline.mjs",
     "live:g2-workload-gateway": "node scripts/install-g2-workload-gateway.mjs --deploy",
     "live:signal-auth-handoff": "node scripts/sync-signal-auth-handoff.mjs --apply",
-    "live:workload-recreate": "node scripts/live-workload-recreate.mjs --apply"
+    "live:workload-recreate": "node scripts/live-workload-recreate.mjs --apply",
+    "live:android-native-probe": "node scripts/android-native-workload-probe.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0"
