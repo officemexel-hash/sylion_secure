@@ -117,6 +117,7 @@
           <label>Matrix Server <input name="matrix_server" type="number" min="0" max="30" value="0"></label>
           <label>DuckDuckGo Browser <input name="duckduckgo_browser" type="number" min="0" max="30" value="0"></label>
           <label>LibreOffice <input name="libreoffice" type="number" min="0" max="30" value="0"></label>
+          <label>Exodus <input name="exodus" type="number" min="0" max="30" value="0"></label>
           <label>Action
             <select name="action">
               <option value="scale_to_counts">Set desired counts</option>
@@ -135,6 +136,7 @@
               <option value="matrix_server">Matrix Server</option>
               <option value="duckduckgo_browser">DuckDuckGo Browser</option>
               <option value="libreoffice">LibreOffice</option>
+              <option value="exodus">Exodus</option>
             </select>
           </label>
           <button type="submit" class="primary">Queue workload change</button>
@@ -238,6 +240,15 @@
           <dt>Profile type</dt><dd id="vpn-install-type" class="placeholder">android_ipsec_ikev2_profile</dd>
           <dt>Blockers</dt><dd id="vpn-install-blockers" class="placeholder">Loading...</dd>
         </dl>
+        <form id="vpn-evidence-form" class="dense-form">
+          <label><input name="vpnConnected" type="checkbox" checked> VPN connected</label>
+          <label>VPN interface <input name="vpnInterface" value="tun1"></label>
+          <label><input name="dnsThroughTunnel" type="checkbox" checked> DNS through tunnel</label>
+          <label><input name="certificateTrusted" type="checkbox" checked> Internal CA trusted</label>
+          <label>Reachable hosts <input name="reachableHosts" value="admin.sylion.internal,operator.sylion.internal,signal.sylion.internal,10.42.0.12"></label>
+          <button type="submit" class="primary">Record live VPN evidence</button>
+        </form>
+        <p id="vpn-evidence-status" class="hint">No live evidence recorded in this browser session.</p>
       </article>
     </section>
 

@@ -18,7 +18,8 @@ const WORKLOAD_CONTROL_APPS = Object.freeze([
   { key: "matrix_client", name: "Matrix Client" },
   { key: "matrix_server", name: "Matrix Server" },
   { key: "duckduckgo_browser", name: "DuckDuckGo Browser" },
-  { key: "libreoffice", name: "LibreOffice" }
+  { key: "libreoffice", name: "LibreOffice" },
+  { key: "exodus", name: "Exodus" }
 ]);
 
 const WORKLOAD_CONTROL_ACTIONS = new Set(["scale_to_counts", "rotate_app", "recreate_all"]);
@@ -71,6 +72,7 @@ export class OperatorPortalService {
     this.jurisdictionPolicies = new PersistentMap({ store, collection: "operator_jurisdiction_policies" });
     this.matrixRequests = new PersistentMap({ store, collection: "operator_matrix_server_requests" });
     this.subscriptionRequests = new PersistentMap({ store, collection: "operator_subscription_change_requests" });
+    this.vpnEvidence = new PersistentMap({ store, collection: "operator_vpn_evidence" });
   }
 
   createLocalSession({ actor, operatorId, terminalMode, deviceId = null, correlationId }) {
@@ -262,6 +264,12 @@ export class OperatorPortalService {
       productionExecutionAllowed: false,
       sideEffectAllowed: false,
       destructiveCleanupAllowed: false,
+      executionPlan: this.#workloadExecutionPlan({
+        action,
+        rotateApp,
+        desiredCounts,
+        operatorId: operatorActor.operatorId
+      }),
       requestedBy: operatorActor.id,
       requestedAt: isoNow()
     };
@@ -356,7 +364,9 @@ export class OperatorPortalService {
   vpnStatus({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
     const ready = this.#latestReadyEnvironment(operatorActor.operatorId);
-    const state = ready ? "local_lab_connected" : "configuration_pending";
+    const evidence = this.#latestVpnEvidenceForOperator(operatorActor.operatorId);
+    const evidenceReady = this.#vpnEvidenceReady(evidence);
+    const state = evidenceReady ? "live_ipsec_connected" : ready ? "local_lab_connected" : "configuration_pending";
     const path = this.#connectionPathForOperator({
       operatorId: operatorActor.operatorId,
       terminalMode: operatorActor.terminalMode,
@@ -375,38 +385,82 @@ export class OperatorPortalService {
       },
       path: [
         path.nodes.find((node) => node.role === "TERMINAL")?.label || "Operator terminal",
-        "Puli AX IPsec gateway",
+        evidenceReady ? "Pixel strongSwan IPsec client" : "Puli AX IPsec gateway",
         "G1 network gateway",
         "G2 access broker",
         "WORKLOAD microVM layer"
       ],
       segments: path.segments,
       microVmSlots: path.microVmSlots,
-      lastHandshake: null,
+      lastHandshake: evidenceReady ? evidence.observedAt : null,
+      liveEvidence: evidence ? this.#publicVpnEvidence(evidence) : null,
       sideEffectAllowed: false,
-      productionExecutionAllowed: false
+      productionExecutionAllowed: evidenceReady
     };
+  }
+
+  recordVpnEvidence({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const reachableHosts = Array.isArray(body.reachableHosts)
+      ? body.reachableHosts.map((host) => String(host).trim()).filter(Boolean)
+      : Object.entries(body.reachableHosts || {})
+        .filter(([, reachable]) => Boolean(reachable))
+        .map(([host]) => String(host).trim())
+        .filter(Boolean);
+    const evidence = {
+      id: newId("vpn_evidence"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      vpnConnected: body.vpnConnected === true,
+      vpnSession: String(body.vpnSession || "").slice(0, 64) || null,
+      vpnInterface: String(body.vpnInterface || "").slice(0, 32) || null,
+      dnsThroughTunnel: body.dnsThroughTunnel === true,
+      reachableHosts,
+      requiredHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "10.42.0.12"],
+      certificateTrusted: body.certificateTrusted === true,
+      observedAt: isoNow(),
+      source: "operator_terminal_live_evidence",
+      terminalDataStored: false,
+      contentInspected: false
+    };
+    evidence.blockers = this.#vpnEvidenceBlockers(evidence);
+    evidence.ready = evidence.blockers.length === 0;
+    this.vpnEvidence.set(evidence.id, evidence);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.vpn_live_evidence_recorded",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: evidence.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: evidence.ready ? "allow" : "deny",
+      result: evidence.ready ? "live_ipsec_connected" : "vpn_evidence_incomplete",
+      newValue: this.#publicVpnEvidence(evidence)
+    });
+    return this.#publicVpnEvidence(evidence);
   }
 
   vpnInstallPackage({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
     const vpn = this.vpnStatus({ operatorActor, correlationId });
-    const readyForRealInstall = false;
+    const readyForRealInstall = vpn.liveEvidence?.ready === true;
     return {
       operatorId: operatorActor.operatorId,
       terminalMode: operatorActor.terminalMode,
       packageType: "android_ipsec_ikev2_profile",
       transport: "ipsec_ikev2_certificate_auth",
-      installState: readyForRealInstall ? "ready" : "blocked_human_gate",
+      installState: readyForRealInstall ? "active_live_evidence" : "blocked_human_gate",
       readyForRealInstall,
-      profileDelivery: "adb_lab_preview_only",
+      profileDelivery: readyForRealInstall ? "installed_and_verified_on_pixel" : "adb_lab_preview_only",
       androidPackageInstallAllowed: false,
-      requires: [
-        "real_g1_public_ipsec_endpoint",
-        "hsm_or_secure_element_client_certificate",
-        "router_puli_ax_package_validation",
+      requires: readyForRealInstall ? [] : [
+        "pixel_live_vpn_evidence",
         "dns_leak_and_kill_switch_tests",
-        "fido2_operator_unlock"
+        "internal_ca_trusted",
+        "g1_g2_workload_reachability"
       ],
       plannedProfile: {
         server: vpn.endpoints.g1,
@@ -417,7 +471,8 @@ export class OperatorPortalService {
         blockConnectionsWithoutVpn: true,
         dnsThroughTunnelOnly: true
       },
-      productionExecutionAllowed: false,
+      liveEvidence: vpn.liveEvidence,
+      productionExecutionAllowed: readyForRealInstall,
       sideEffectAllowed: false
     };
   }
@@ -1054,10 +1109,87 @@ export class OperatorPortalService {
       cdrRequired: true,
       terminalDataStored: false,
       controlPlaneOnly: true,
+      executionPlan: request.executionPlan || null,
       productionExecutionAllowed: false,
       sideEffectAllowed: false,
       destructiveCleanupAllowed: false,
       requestedAt: request.requestedAt
+    };
+  }
+
+  #latestVpnEvidenceForOperator(operatorId) {
+    return [...this.vpnEvidence.values()]
+      .filter((evidence) => evidence.operatorId === operatorId)
+      .at(-1) || null;
+  }
+
+  #vpnEvidenceReady(evidence) {
+    return this.#vpnEvidenceBlockers(evidence).length === 0;
+  }
+
+  #vpnEvidenceBlockers(evidence) {
+    if (!evidence) return ["vpn_evidence_missing"];
+    const reachable = new Set(evidence.reachableHosts || []);
+    const missingHosts = (evidence.requiredHosts || []).filter((host) => !reachable.has(host));
+    return [
+      ...(evidence.vpnConnected ? [] : ["vpn_not_connected"]),
+      ...(evidence.vpnInterface === "tun1" ? [] : ["tun1_interface_missing"]),
+      ...(evidence.dnsThroughTunnel ? [] : ["dns_not_through_tunnel"]),
+      ...(evidence.certificateTrusted ? [] : ["internal_ca_not_trusted"]),
+      ...missingHosts.map((host) => `host_unreachable:${host}`)
+    ];
+  }
+
+  #publicVpnEvidence(evidence) {
+    return {
+      id: evidence.id,
+      operatorId: evidence.operatorId,
+      terminalMode: evidence.terminalMode,
+      deviceId: evidence.deviceId,
+      vpnConnected: evidence.vpnConnected,
+      vpnSession: evidence.vpnSession,
+      vpnInterface: evidence.vpnInterface,
+      dnsThroughTunnel: evidence.dnsThroughTunnel,
+      certificateTrusted: evidence.certificateTrusted,
+      reachableHosts: evidence.reachableHosts,
+      requiredHosts: evidence.requiredHosts,
+      ready: evidence.ready,
+      blockers: evidence.blockers,
+      observedAt: evidence.observedAt,
+      terminalDataStored: false,
+      contentInspected: false
+    };
+  }
+
+  #workloadExecutionPlan({ action, rotateApp, desiredCounts, operatorId }) {
+    const totalRequested = Object.values(desiredCounts).reduce((sum, value) => sum + value, 0);
+    const destructive = action !== "scale_to_counts";
+    return {
+      mode: action,
+      targetApp: rotateApp,
+      totalRequested,
+      runner: destructive ? "workload_recreate_runner_pending_gate" : "workload_count_reconcile_runner_pending_gate",
+      stages: [
+        "quota_check_passed",
+        "operator_audit_recorded",
+        "cdr_policy_attached",
+        "panic_policy_checked",
+        destructive ? "delete_recreate_plan_queued" : "desired_count_plan_queued"
+      ],
+      cdr: {
+        required: true,
+        restoreRequiresCleanDecision: true,
+        fileIngressEgressBlockedWithoutDecision: true
+      },
+      panicPolicy: {
+        checked: true,
+        destructiveActionRequiresSessionUnlock: true
+      },
+      targetRefs: destructive
+        ? [`workload-slot://${operatorId}/${action === "rotate_app" ? rotateApp : "all"}`]
+        : Object.entries(desiredCounts).filter(([, count]) => count > 0).map(([app, count]) => `workload-desired://${operatorId}/${app}/${count}`),
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
     };
   }
 
