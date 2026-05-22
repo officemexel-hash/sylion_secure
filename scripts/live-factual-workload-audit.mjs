@@ -12,6 +12,7 @@ const workloadHost = process.env.SYLION_WORKLOAD_SSH || "root@65.109.123.72";
 const g2Host = process.env.SYLION_G2_SSH || "sylion@178.105.203.31";
 const adbPath = process.env.SYLION_ADB_PATH || "C:\\Users\\razor\\Android\\platform-tools\\adb.exe";
 const gatewayIp = process.env.SYLION_WORKLOAD_GATEWAY_IP || "10.42.0.12";
+const workloadBind = process.env.SYLION_WORKLOAD_BIND || "10.44.0.13";
 const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-62-factual-state-audit");
 const args = new Set(process.argv.slice(2));
 const argValue = (prefix) => process.argv.slice(2).find((arg) => arg.startsWith(`${prefix}=`))?.slice(prefix.length + 1);
@@ -86,10 +87,10 @@ const allApps = [
     host: "zangi.sylion.internal",
     port: 3014,
     expectedRuntime: "android_native_required",
-    noVnc: false,
-    pixelDelayMs: 10_000,
-    pass: [/Zangi/i],
-    blockers: [/Download Zangi|zangi\.com\/.*download|New Tab|Google|Index of|vnc\.html/i]
+    noVnc: true,
+    pixelDelayMs: 16_000,
+    pass: [/Zangi|Android/i],
+    blockers: [/Download Zangi|zangi\.com\/.*download|New Tab|Google|Index of/i]
   },
   {
     key: "exodus",
@@ -271,6 +272,7 @@ function parsePngStats(buffer) {
   let sum2 = 0;
   let dark = 0;
   let white = 0;
+  let redAlert = 0;
   const buckets = new Set();
   const y0 = Math.floor(height * 0.14);
   const y1 = Math.floor(height * 0.96);
@@ -286,6 +288,7 @@ function parsePngStats(buffer) {
       sum2 += luma * luma;
       if (luma < 35) dark += 1;
       if (luma > 240) white += 1;
+      if (r > 150 && g < 90 && b < 90) redAlert += 1;
       buckets.add(`${r >> 4},${g >> 4},${b >> 4}`);
     }
   }
@@ -299,19 +302,28 @@ function parsePngStats(buffer) {
     lumaStdDev: Number(lumaStdDev.toFixed(2)),
     colorBuckets: buckets.size,
     darkRatio: Number((count ? dark / count : 0).toFixed(4)),
-    whiteRatio: Number((count ? white / count : 0).toFixed(4))
+    whiteRatio: Number((count ? white / count : 0).toFixed(4)),
+    redAlertRatio: Number((count ? redAlert / count : 0).toFixed(4))
   };
 }
 
 export function pixelVisualVerdictFromStats(stats) {
   const blankLike = stats.whiteRatio > 0.96 && stats.lumaStdDev < 16 && stats.colorBuckets < 32;
   const loadingLike = stats.darkRatio > 0.9 && stats.lumaStdDev < 28;
-  const rendered = !blankLike && !loadingLike && stats.colorBuckets >= 80 && stats.lumaStdDev >= 24;
+  const websockifyFailureLike = (stats.redAlertRatio || 0) > 0.015;
+  const rendered = !blankLike && !loadingLike && !websockifyFailureLike && stats.colorBuckets >= 80 && stats.lumaStdDev >= 24;
   return {
     rendered,
     blankLike,
     loadingLike,
-    blocker: rendered ? null : blankLike ? "pixel_stream_blank_or_gateway_error" : loadingLike ? "pixel_stream_loading_or_disconnected" : "pixel_stream_visual_not_proven",
+    websockifyFailureLike,
+    blocker: rendered ? null : blankLike
+      ? "pixel_stream_blank_or_gateway_error"
+      : loadingLike
+        ? "pixel_stream_loading_or_disconnected"
+        : websockifyFailureLike
+          ? "pixel_stream_websockify_connection_failed"
+          : "pixel_stream_visual_not_proven",
     stats
   };
 }
@@ -501,11 +513,23 @@ SYLION_APPS
 }
 
 async function workloadGuiHealthProbe() {
-  const appRows = apps.filter((app) => app.noVnc).map((app) => app.key).join("\n");
+  const appRows = apps.filter((app) => app.noVnc).map((app) => `${app.key}|${app.expectedRuntime}|${app.port}`).join("\n");
   if (!appRows) return [];
   const script = `
 set -uo pipefail
-while IFS= read -r app_key; do
+while IFS='|' read -r app_key expected_runtime app_port; do
+  if echo "$expected_runtime" | grep -q '^android_native'; then
+    body="/tmp/sylion-android-native-$app_key.html"
+    code="$(curl -sS -o "$body" -w "%{http_code}" --max-time 8 "http://${workloadBind}:$app_port/vnc.html" 2>/dev/null || true)"
+    grep -qi 'noVNC' "$body" && marker=true || marker=false
+    ss -ltn 2>/dev/null | grep -q '${workloadBind}:'"$app_port" && listener=true || listener=false
+    if [ "$code" = "200" ] && [ "$marker" = "true" ] && [ "$listener" = "true" ]; then
+      printf '%s|true|true|android_native_websockify_noVNC|0\\n' "$app_key"
+    else
+      printf '%s|false|false|android_native_websockify_not_ready:http_%s_marker_%s_listener_%s|0\\n' "$app_key" "$code" "$marker" "$listener"
+    fi
+    continue
+  fi
   evidence="/opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json"
   if [ ! -f "$evidence" ]; then
     printf '%s|missing|false|missing_evidence|0\\n' "$app_key"

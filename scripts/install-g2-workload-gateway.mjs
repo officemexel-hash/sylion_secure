@@ -25,7 +25,8 @@ const apps = [
     serverName: "zangi.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3014,
-    productionGate: "android_native_runner_required"
+    noVnc: true,
+    productionGate: "android_native_apk_provenance_required"
   },
   {
     key: "exodus",

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { promisify } from "node:util";
 import { pixelVisualVerdictFromStats, selectApps } from "../../../scripts/live-factual-workload-audit.mjs";
@@ -30,6 +31,21 @@ test("Step 3.70 Pixel visual evidence rejects noVNC loading screen", () => {
   assert.equal(verdict.loadingLike, true);
   assert.equal(verdict.blocker, "pixel_stream_loading_or_disconnected");
 });
+
+test("Step 3.70 Pixel visual evidence rejects noVNC connection failure banner", () => {
+  const verdict = pixelVisualVerdictFromStats({
+    meanLuma: 60.57,
+    lumaStdDev: 33.43,
+    colorBuckets: 91,
+    darkRatio: 0.0245,
+    whiteRatio: 0.0042,
+    redAlertRatio: 0.041
+  });
+  assert.equal(verdict.rendered, false);
+  assert.equal(verdict.websockifyFailureLike, true);
+  assert.equal(verdict.blocker, "pixel_stream_websockify_connection_failed");
+});
+
 
 test("Step 3.70 Pixel visual evidence rejects blank gateway error page", () => {
   const verdict = pixelVisualVerdictFromStats({
@@ -66,4 +82,11 @@ test("Step 3.70 live factual audit lists selected apps without remote side effec
   const payload = JSON.parse(stdout);
   assert.deepEqual(payload.selectedApps, ["signal", "duckduckgo"]);
   assert.ok(payload.supportedApps.includes("whatsapp"));
+});
+
+test("Step 3.70 live factual audit treats Zangi Android stream as noVNC but keeps workflow gated", () => {
+  const source = readFileSync("scripts/live-factual-workload-audit.mjs", "utf8");
+  assert.match(source, /key: "zangi"[\s\S]+expectedRuntime: "android_native_required"[\s\S]+noVnc: true/);
+  assert.match(source, /android_native_websockify_noVNC/);
+  assert.match(source, /functional_workflow_not_verified/);
 });

@@ -15,10 +15,24 @@ test("Step 3.77 Android native launcher is apply-gated and production-blocked", 
 });
 
 test("Step 3.77 Android native launcher enforces private TLS stream and public-interface drop", () => {
-  assert.match(source, /vnc_tls_private_g2_required/);
+  assert.match(source, /novnc_over_g2_private_websockify_vnc_vencrypt_adapter/);
+  assert.match(source, /const workloadBind = arg\("workload-bind"/);
+  assert.match(source, /const webPort = Number\(arg\("web-port", "3014"\)\)/);
+  assert.match(source, /const localVncProxyPort = Number\(arg\("local-vnc-proxy-port", "5916"\)\)/);
+  assert.match(source, /websockify_not_installed/);
+  assert.match(source, /novnc_web_assets_missing/);
+  assert.match(source, /python3_not_installed/);
   assert.match(source, /nft add rule inet filter input iifname "eno1" tcp dport/);
   assert.match(source, /--vnc-tls-cert=\/etc\/sylion\/waydroid-vnc\/tls\.crt/);
-  assert.match(source, /--vnc-tls-key=\/etc\/sylion\/waydroid-vnc\/tls\.key/);
+  assert.doesNotMatch(source, /--ssl-target/);
+  assert.match(source, /sylion-vencrypt-plain-proxy\.py/);
+  assert.match(source, /X509_NONE = 262/);
+  assert.match(source, /vnc_proxy_handshake/);
+  assert.match(source, /missing_server_init/);
+  assert.match(source, /websockify --web=\/usr\/share\/novnc/);
+  assert.match(source, /noVncWebPort: webPort/);
+  assert.match(source, /vnc_proxy_listener/);
+  assert.match(source, /web_listener/);
   assert.match(source, /waydroid app launch/);
   assert.match(source, /android_full_ui_no_app_installed/);
   assert.equal(pkg.scripts["live:android-native-launch"], "node scripts/launch-android-native-workload.mjs");

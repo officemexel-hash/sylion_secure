@@ -88,6 +88,8 @@ function parseFacts(stdout) {
     "curl",
     "waydroid",
     "weston",
+    "websockify",
+    "novnc",
     "waydroid_container",
     "images_dir"
   ]);
@@ -113,6 +115,8 @@ printf 'apt=%s\\n' "$(command -v apt-get >/dev/null 2>&1 && echo true || echo fa
 printf 'curl=%s\\n' "$(command -v curl >/dev/null 2>&1 && echo true || echo false)"
 printf 'waydroid=%s\\n' "$(command -v waydroid >/dev/null 2>&1 && echo true || echo false)"
 printf 'weston=%s\\n' "$(command -v weston >/dev/null 2>&1 && echo true || echo false)"
+printf 'websockify=%s\\n' "$(command -v websockify >/dev/null 2>&1 && echo true || echo false)"
+printf 'novnc=%s\\n' "$([ -d /usr/share/novnc ] && echo true || echo false)"
 printf 'waydroid_container=%s\\n' "$(systemctl is-active waydroid-container 2>/dev/null || true)"
 `;
   const { stdout } = await ssh(script);
@@ -132,7 +136,7 @@ printf 'waydroid_container=%s\\n' "$(systemctl is-active waydroid-container 2>/d
     plannedActions: [
       "install curl and ca-certificates if missing",
       "add official Waydroid repository script from https://repo.waydro.id",
-      "install waydroid, weston, dbus-x11 and x11vnc packages",
+      "install waydroid, weston, dbus-x11, x11vnc, novnc and websockify packages",
       "initialize Waydroid VANILLA image if not initialized",
       "enable/start waydroid-container",
       "leave app APK install and account bootstrap to separate approved artifact gate"
@@ -163,7 +167,7 @@ async function applyInstall(planResult) {
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y curl ca-certificates weston dbus-x11 x11vnc
+apt-get install -y curl ca-certificates weston dbus-x11 x11vnc novnc websockify
 if ! command -v waydroid >/dev/null 2>&1; then
   curl -fsSL https://repo.waydro.id | bash
   apt-get update
@@ -175,6 +179,8 @@ fi
 systemctl enable --now waydroid-container
 printf 'waydroid=%s\\n' "$(waydroid --version 2>/dev/null | head -n1 || true)"
 printf 'waydroid_container=%s\\n' "$(systemctl is-active waydroid-container 2>/dev/null || true)"
+printf 'websockify=%s\\n' "$(command -v websockify >/dev/null 2>&1 && echo true || echo false)"
+printf 'novnc=%s\\n' "$([ -d /usr/share/novnc ] && echo true || echo false)"
 printf 'images_dir=%s\\n' "$([ -d /var/lib/waydroid/images ] && echo true || echo false)"
 `;
   const { stdout } = await ssh(script, 1_800_000);

@@ -20,7 +20,9 @@ test("Step 3.42 G2 workload gateway plan preserves thin-client security invarian
   assert.equal(signal.upstream, "http://10.44.0.13:3013");
 
   const zangi = plan.apps.find((app) => app.key === "zangi");
-  assert.equal(zangi.productionGate, "android_native_runner_required");
+  assert.equal(zangi.noVnc, true);
+  assert.equal(zangi.upstream, "http://10.44.0.13:3014");
+  assert.equal(zangi.productionGate, "android_native_apk_provenance_required");
 });
 
 test("Step 3.42 rendered gateway config has no embedded workload password and no public workload bind", () => {
@@ -39,8 +41,10 @@ test("Step 3.42 rendered gateway config has no embedded workload password and no
   assert.doesNotMatch(config, /proxy_ssl_verify off;/);
   assert.match(config, /server_name signal\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.44\.0\.13:3013;/);
   assert.match(config, /server_name duckduckgo\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=scale&path=websockify;/);
+  assert.match(config, /server_name zangi\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=scale&path=websockify;/);
+  assert.match(config, /server_name zangi\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.44\.0\.13:3014;/);
   assert.match(config, /X-Sylion-Terminal-Data-Stored "false"/);
   assert.match(config, /X-Sylion-G1-G2-Bypass "false"/);
   assert.match(config, /X-Sylion-CDR-Required "true"/);
-  assert.match(config, /X-Sylion-Production-Gate "android_native_runner_required"/);
+  assert.match(config, /X-Sylion-Production-Gate "android_native_apk_provenance_required"/);
 });

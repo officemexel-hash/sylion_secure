@@ -16,6 +16,9 @@ test("Step 3.75 Android native runner installer is gated before host mutation", 
 test("Step 3.75 Android native runner installer follows official Waydroid flow and separates APK provenance", () => {
   assert.match(source, /https:\/\/repo\.waydro\.id/);
   assert.match(source, /apt-get install -y waydroid/);
+  assert.match(source, /novnc websockify/);
+  assert.match(source, /websockify=%s/);
+  assert.match(source, /\/usr\/share\/novnc/);
   assert.match(source, /waydroid init -s VANILLA/);
   assert.match(source, /systemctl enable --now waydroid-container/);
   assert.match(source, /leave app APK install and account bootstrap to separate approved artifact gate/);
