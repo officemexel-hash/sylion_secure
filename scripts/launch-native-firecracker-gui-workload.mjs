@@ -409,7 +409,7 @@ if DISPLAY=:1 xwininfo -root -tree 2>/dev/null | grep -Eiq '${profile.visibleWin
 else
   echo "sylion-visible-window=false"
 fi
-x11vnc -display :1 -forever -shared -nopw -rfbport 5900 -quiet &
+x11vnc -display :1 -forever -shared -nopw -rfbport 5900 -quiet -noxdamage -noxfixes -noxrecord -wait 20 -defer 20 -loop &
 ss -ltnp || true
 while true; do sleep 3600; done
 EOF

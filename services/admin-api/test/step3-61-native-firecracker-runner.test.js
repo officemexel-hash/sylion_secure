@@ -52,6 +52,7 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
 
   assert.match(source, /haveged -F -w 1024/);
   assert.match(source, /sylion-visible-window=true/);
+  assert.match(source, /x11vnc .* -noxdamage -noxfixes -noxrecord -wait 20 -defer 20 -loop/);
   assert.match(source, /vncBannerReady:\$vncBannerReady/);
   assert.match(source, /ready:\(\$hostCode=="200" and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true and \$vncBannerReady==true/);
   assert.match(source, /vcpu_count": \$\{profile\.vcpuCount \|\| 2\}/);

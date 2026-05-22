@@ -500,6 +500,61 @@ SYLION_APPS
   });
 }
 
+async function workloadGuiHealthProbe() {
+  const appRows = apps.filter((app) => app.noVnc).map((app) => app.key).join("\n");
+  if (!appRows) return [];
+  const script = `
+set -uo pipefail
+while IFS= read -r app_key; do
+  evidence="/opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json"
+  if [ ! -f "$evidence" ]; then
+    printf '%s|missing|false|missing_evidence|0\\n' "$app_key"
+    continue
+  fi
+  guest_ip="$(jq -r '.guestIp // ""' "$evidence" 2>/dev/null || true)"
+  run_dir="$(jq -r '.runDir // ""' "$evidence" 2>/dev/null || true)"
+  evidence_ready="$(jq -r '.ready // false' "$evidence" 2>/dev/null || echo false)"
+  if [ -z "$guest_ip" ]; then
+    printf '%s|%s|false|missing_guest_ip|0\\n' "$app_key" "$evidence_ready"
+    continue
+  fi
+  banner="$(GUEST_IP="$guest_ip" python3 - <<'PY'
+import os
+import socket
+
+try:
+    with socket.create_connection((os.environ["GUEST_IP"], 5900), 3) as sock:
+        print(sock.recv(12).decode("ascii", "ignore").strip())
+except Exception as exc:
+    print("ERR:" + str(exc))
+PY
+)"
+  case "$banner" in
+    RFB*) banner_ready=true ;;
+    *) banner_ready=false ;;
+  esac
+  cpu="0"
+  if [ -n "$run_dir" ] && [ -f "$run_dir/firecracker.pid" ]; then
+    cpu="$(ps -p "$(cat "$run_dir/firecracker.pid")" -o %cpu= 2>/dev/null | xargs || echo 0)"
+  fi
+  printf '%s|%s|%s|%s|%s\\n' "$app_key" "$evidence_ready" "$banner_ready" "$banner" "$cpu"
+done <<'SYLION_APPS'
+${appRows}
+SYLION_APPS
+`;
+  const { stdout } = await ssh(workloadHost, script, { timeout: 120_000 });
+  return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
+    const [key, evidenceReady, bannerReady, banner, firecrackerCpu] = line.split("|");
+    return {
+      key,
+      evidenceReady: evidenceReady === "true",
+      vncBannerReady: bannerReady === "true",
+      vncBanner: banner,
+      firecrackerCpu: Number(firecrackerCpu) || 0
+    };
+  });
+}
+
 async function pixelAudit() {
   let devices;
   try {
@@ -596,6 +651,15 @@ async function main() {
   }
   await mkdir(outputDir, { recursive: true });
   const runtime = await workloadRuntimeAudit().catch((error) => `runtime_audit_failed:${error.message}`);
+  const guiHealth = await workloadGuiHealthProbe().catch((error) => {
+    return apps.filter((app) => app.noVnc).map((app) => ({
+      key: app.key,
+      evidenceReady: false,
+      vncBannerReady: false,
+      vncBanner: `gui_health_probe_failed:${error.message}`,
+      firecrackerCpu: 0
+    }));
+  });
   const routes = await g2RouteProbe().catch((error) => {
     return apps.map((app) => ({ key: app.key, code: 0, title: `g2_probe_failed:${error.message}`, safety: "" }));
   });
@@ -603,13 +667,17 @@ async function main() {
     ? await pixelAudit()
     : { available: false, reason: "pixel_probe_not_requested" };
   const routeByKey = Object.fromEntries(routes.map((route) => [route.key, route]));
+  const guiHealthByKey = Object.fromEntries(guiHealth.map((item) => [item.key, item]));
   const pixelByKey = pixel.available
     ? Object.fromEntries(pixel.results.map((result) => [result.key, result]))
     : {};
   const appResults = apps.map((app) => {
     const route = routeByKey[app.key] || null;
+    const currentGuiHealth = guiHealthByKey[app.key] || null;
     const pixelResult = pixelByKey[app.key] || null;
-    const transportReady = route?.transportReady === true;
+    const routeReady = route?.transportReady === true;
+    const workloadVncReady = app.noVnc ? currentGuiHealth?.vncBannerReady === true : true;
+    const transportReady = routeReady && workloadVncReady;
     const pixelUiVisible = pixelResult?.factualStateVerified === true;
     const key = canonicalAppKey(app.key);
     const prefix = app.key === "duckduckgo" ? "DUCKDUCKGO" : key.toUpperCase();
@@ -636,6 +704,7 @@ async function main() {
       g2Title: route?.title || null,
       g2NoVncMarker: route?.noVncMarker ?? null,
       g2WebSocketSwitching: route?.webSocketSwitching ?? null,
+      workloadGuiHealth: currentGuiHealth,
       pixelUiVisible,
       pixelFactualStateVerified: pixelUiVisible,
       workflowVerified,
@@ -646,7 +715,8 @@ async function main() {
       ready: transportReady && pixelUiVisible,
       functionalReady,
       blockers: [
-        ...(transportReady ? [] : ["g2_route_not_ready"]),
+        ...(routeReady ? [] : ["g2_route_not_ready"]),
+        ...(workloadVncReady ? [] : ["workload_vnc_banner_not_ready"]),
         ...(pixelUiVisible ? [] : ["pixel_ui_not_visible"]),
         ...(workflowVerified ? [] : ["functional_workflow_not_verified"])
       ],
@@ -670,6 +740,7 @@ async function main() {
     readyApps: appResults.filter((app) => app.functionalReady).map((app) => app.key),
     blockedApps: appResults.filter((app) => !app.functionalReady).map((app) => app.key),
     runtimeRaw: runtime,
+    guiHealth,
     routes,
     pixel,
     apps: appResults,
