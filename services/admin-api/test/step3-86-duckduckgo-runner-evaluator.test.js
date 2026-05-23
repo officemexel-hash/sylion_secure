@@ -74,6 +74,28 @@ test("Step 3.86 DuckDuckGo evaluator blocks when stream is ready but browsing is
   assert.ok(result.blockers.includes("duckduckgo_browsing_not_factually_observed"));
 });
 
+test("Step 3.86 DuckDuckGo evaluator preserves exact stream blockers for repair", () => {
+  const result = evaluateDuckDuckGoFactualState({
+    matrixItem,
+    streamSession: {
+      state: "stream_session_blocked",
+      blockers: ["workload_vnc_unreachable"],
+      gateway: {
+        role: "G2",
+        publicInternetExposure: false
+      },
+      security: {
+        terminalDataStored: false,
+        g1G2BypassAllowed: false
+      }
+    }
+  });
+  assert.equal(result.result, "blocked");
+  assert.ok(result.blockers.includes("stream_stream_session_blocked"));
+  assert.ok(result.blockers.includes("stream_blocker:workload_vnc_unreachable"));
+  assert.ok(result.blockers.includes("stream_launch_url_missing_until_session_ready"));
+});
+
 test("Step 3.86 DuckDuckGo evaluator fails wrong-browser and public-route evidence", () => {
   const result = evaluateDuckDuckGoFactualState({
     matrixItem,

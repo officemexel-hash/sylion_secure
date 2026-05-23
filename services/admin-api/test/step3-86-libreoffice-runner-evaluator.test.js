@@ -76,6 +76,33 @@ test("Step 3.86 LibreOffice evaluator blocks without document workflow proof", (
   assert.ok(result.blockers.includes("libreoffice_document_workflow_not_factually_observed"));
 });
 
+test("Step 3.86 LibreOffice evaluator preserves exact stream blockers for repair", () => {
+  const result = evaluateLibreOfficeFactualState({
+    matrixItem,
+    streamSession: {
+      state: "stream_session_blocked",
+      blockers: ["guacamole_connection_missing"],
+      gateway: {
+        role: "G2",
+        publicInternetExposure: false
+      },
+      security: {
+        terminalDataStored: false,
+        g1G2BypassAllowed: false,
+        fileIngressEgress: "blocked_without_cdr_decision"
+      }
+    },
+    cdrProbe: {
+      cdrRequired: true,
+      ingressEgressBlockedWithoutDecision: true
+    }
+  });
+  assert.equal(result.result, "blocked");
+  assert.ok(result.blockers.includes("stream_stream_session_blocked"));
+  assert.ok(result.blockers.includes("stream_blocker:guacamole_connection_missing"));
+  assert.ok(result.blockers.includes("stream_launch_url_missing_until_session_ready"));
+});
+
 test("Step 3.86 LibreOffice evaluator fails when evidence is generic or CDR boundary is absent", () => {
   const result = evaluateLibreOfficeFactualState({
     matrixItem,

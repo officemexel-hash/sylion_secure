@@ -78,8 +78,14 @@ export function evaluateDuckDuckGoFactualState({
   }
   if (streamSession?.state !== "stream_session_ready") {
     blockers.push(streamSession?.state ? `stream_${streamSession.state}` : "stream_session_missing");
+    for (const blocker of asArray(streamSession?.blockers)) {
+      blockers.push(`stream_blocker:${blocker}`);
+    }
   }
-  if (!internalSylionLaunchUrl(streamSession?.launchUrl)) {
+  const launchUrl = value(streamSession?.launchUrl);
+  if (!launchUrl) {
+    blockers.push("stream_launch_url_missing_until_session_ready");
+  } else if (!internalSylionLaunchUrl(launchUrl)) {
     blockers.push("stream_launch_url_not_internal_sylion");
   }
   if (streamSession?.gateway?.role && streamSession.gateway.role !== "G2") {

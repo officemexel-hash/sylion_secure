@@ -90,6 +90,17 @@ async function run() {
       strictResult: evaluation?.strictResult || (execution.code === 0 ? "UNKNOWN" : "FAIL"),
       factualResult: evaluation?.result || "unknown",
       blockers: evaluation?.blockers || ["runner_summary_missing_or_unreadable"],
+      connectionPathState: summary?.connectionPathState || null,
+      connectionPathBlockers: summary?.connectionPathBlockers || [],
+      streamSessionState: summary?.streamSessionState || null,
+      streamSessionBlockers: summary?.streamSessionBlockers || [],
+      streamSessionWarnings: summary?.streamSessionWarnings || [],
+      streamSourceReadiness: summary?.streamSourceReadiness || null,
+      repairBlockers: [
+        ...(evaluation?.blockers || ["runner_summary_missing_or_unreadable"]),
+        ...(summary?.connectionPathBlockers || []).map((blocker) => `connection_path:${blocker}`),
+        ...(summary?.streamSessionBlockers || []).map((blocker) => `stream_session:${blocker}`)
+      ],
       summaryPath: repoRelativePath(summaryPath),
       humanEvidencePath: summary?.humanEvidencePath || null,
       startedAt,

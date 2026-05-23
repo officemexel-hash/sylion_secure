@@ -85,6 +85,33 @@ test("Step 3.86 communicator evaluator blocks when Signal UI is visible but boot
   assert.ok(result.blockers.includes("signal_send_receive_not_factually_observed"));
 });
 
+test("Step 3.86 communicator evaluator preserves exact stream blockers for repair", () => {
+  const result = evaluateCommunicatorFactualState({
+    appKey: "signal",
+    matrixItem: {
+      appKey: "signal",
+      mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive"]
+    },
+    streamSession: {
+      state: "stream_session_blocked",
+      blockers: ["rfb_not_reachable"],
+      gateway: {
+        role: "G2",
+        publicInternetExposure: false
+      },
+      security: {
+        terminalDataStored: false,
+        g1G2BypassAllowed: false
+      }
+    },
+    routeProbe
+  });
+  assert.equal(result.result, "blocked");
+  assert.ok(result.blockers.includes("stream_stream_session_blocked"));
+  assert.ok(result.blockers.includes("stream_blocker:rfb_not_reachable"));
+  assert.ok(result.blockers.includes("stream_launch_url_missing_until_session_ready"));
+});
+
 test("Step 3.86 communicator evaluator fails web-link-only bootstrap and localhost stream", () => {
   const result = evaluateCommunicatorFactualState({
     appKey: "whatsapp",

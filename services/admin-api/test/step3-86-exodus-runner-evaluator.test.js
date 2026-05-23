@@ -76,6 +76,28 @@ test("Step 3.86 Exodus evaluator blocks without risk acceptance", () => {
   assert.ok(result.blockers.includes("exodus_risk_acceptance_not_verified"));
 });
 
+test("Step 3.86 Exodus evaluator preserves exact stream blockers for repair", () => {
+  const result = evaluateExodusFactualState({
+    matrixItem,
+    streamSession: {
+      state: "stream_session_blocked",
+      blockers: ["exodus_risk_ack_missing"],
+      gateway: {
+        role: "G2",
+        publicInternetExposure: false
+      },
+      security: {
+        terminalDataStored: false,
+        g1G2BypassAllowed: false
+      }
+    }
+  });
+  assert.equal(result.result, "blocked");
+  assert.ok(result.blockers.includes("stream_stream_session_blocked"));
+  assert.ok(result.blockers.includes("stream_blocker:exodus_risk_ack_missing"));
+  assert.ok(result.blockers.includes("stream_launch_url_missing_until_session_ready"));
+});
+
 test("Step 3.86 Exodus evaluator fails forbidden wallet fields and public stream", () => {
   const result = evaluateExodusFactualState({
     matrixItem,
