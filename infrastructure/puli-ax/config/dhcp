@@ -1,0 +1,51 @@
+# SYLION Puli AX UCI dhcp/dnsmasq config
+# DNS through tunnel only — no DNS leak (per M3 + warunek C4)
+
+config dnsmasq
+    option domainneeded '1'
+    option boguspriv '1'
+    option filterwin2k '0'
+    option localise_queries '1'
+    option rebind_protection '1'
+    option rebind_localhost '1'
+    option local '/sylion.internal/'
+    option domain 'sylion.internal'
+    option expandhosts '1'
+    option nonegcache '0'
+    option authoritative '1'
+    option readethers '1'
+    option leasefile '/tmp/dhcp.leases'
+    option resolvfile '/tmp/resolv.conf.d/resolv.conf.auto'
+    option nonwildcard '1'
+    option localservice '1'
+    option ednspacket_max '1232'
+    # CRITICAL: do not use upstream DNS from /etc/resolv.conf
+    # DNS queries only resolved via G1 endpoint AFTER tunnel up
+    option noresolv '1'
+
+# Pre-tunnel: only resolve own LAN names
+# Post-tunnel: G1 DNS (added dynamically by strongSwan _updown hook)
+
+config dhcp 'lan'
+    option interface 'lan'
+    option start '100'
+    option limit '50'
+    option leasetime '1h'
+    option dhcpv4 'server'
+    # No DNS servers in DHCP — clients use 192.168.42.1 (us)
+    list dhcp_option '6,192.168.42.1'
+
+config dhcp 'wan'
+    option interface 'wan'
+    option ignore '1'
+
+config dhcp 'wwan'
+    option interface 'wwan'
+    option ignore '1'
+
+config odhcpd 'odhcpd'
+    option maindhcp '0'
+    # No IPv6 DHCP
+    option leasefile '/tmp/hosts/odhcpd'
+    option leasetrigger '/usr/sbin/odhcpd-update'
+    option loglevel '4'

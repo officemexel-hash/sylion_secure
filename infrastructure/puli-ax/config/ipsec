@@ -1,0 +1,59 @@
+# SYLION strongSwan IPsec IKEv2 config
+# Per ADR-router-phantom-001 §"Mandatory Gates" M2
+# Placeholders: @@G1_ENDPOINT@@, @@G1_CA_PATH@@, @@OPERATOR_CERT_PATH@@, @@OPERATOR_KEY_PATH@@
+# This file is /etc/ipsec.conf format (legacy)
+# Future: migrate to swanctl.conf (strongSwan 5.9+)
+
+config setup
+    charondebug="ike 1, knl 1, cfg 1, net 1"
+    uniqueids=yes
+    strictcrlpolicy=yes
+
+# CA cert location
+ca sylion-g1-ca
+    cacert=@@G1_CA_PATH@@
+    auto=add
+
+# Operator → G1 tunnel
+# Per ADR-router-phantom-001 §6 conditions:
+#   AES-256-GCM, SHA-384, ECDSA P-384, PFS via DH group 19 (P-256) or 20 (P-384)
+conn sylion-g1
+    # Connection type
+    type=tunnel
+    keyexchange=ikev2
+    auto=start
+    closeaction=restart
+    dpdaction=restart
+    dpddelay=30s
+    dpdtimeout=120s
+
+    # Left = local (operator)
+    left=%defaultroute
+    leftcert=@@OPERATOR_CERT_PATH@@
+    leftauth=pubkey
+    leftsendcert=always
+    leftsubnet=0.0.0.0/0
+    leftfirewall=yes
+
+    # Right = remote (G1)
+    right=@@G1_ENDPOINT@@
+    rightauth=pubkey
+    rightid="C=DE, O=SYLION, CN=g1.sylion.internal"
+    rightsubnet=0.0.0.0/0
+
+    # Crypto proposals — per ADR-router-phantom-001 §6 C5
+    # IKE: AES-256-GCM, SHA-384, ECDSA P-384, ECP-384 (group 20)
+    ike=aes256gcm16-prfsha384-ecp384!
+    # ESP: AES-256-GCM, SHA-384, PFS via ECDH P-384
+    esp=aes256gcm16-prfsha384-ecp384!
+
+    # Rekey — IKE every 4h, child SA every 1h
+    ikelifetime=4h
+    lifetime=1h
+    margintime=9m
+    rekey=yes
+    rekeyfuzz=100%
+
+    # MTU + fragment handling
+    mobike=yes
+    fragmentation=yes

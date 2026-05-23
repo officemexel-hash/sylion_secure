@@ -1,0 +1,226 @@
+---
+# SYLION G1 (Network Gateway) bootstrap playbook
+# Per ADR-router-phantom-001 + Ksiega §G1
+# Idempotent — safe to re-run
+
+- name: G1 bootstrap
+  hosts: g1
+  become: true
+  gather_facts: true
+
+  vars:
+    sylion_packages:
+      - strongswan
+      - strongswan-pki
+      - nftables
+      - htop
+      - sysstat
+      - logrotate
+      - fail2ban
+      - unattended-upgrades
+      - curl
+      - jq
+      - apt-transport-https
+    sylion_g1_endpoint: "{{ sylion_g1_endpoint | default('REPLACE') }}"
+    production_execution_allowed: false
+
+  pre_tasks:
+    - name: Sanity check — refuse to run on wrong host
+      ansible.builtin.fail:
+        msg: "Host {{ inventory_hostname }} is not G1 role (sylion_role={{ sylion_role | default('unset') }})"
+      when: sylion_role | default('') != 'g1'
+
+    - name: Sanity check — production gate
+      ansible.builtin.fail:
+        msg: "production_execution_allowed must be false in baseline (per ADR-router-phantom-001 invariant)"
+      when: production_execution_allowed | default(false) | bool
+
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name: "{{ sylion_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Disable IPv6 (sysctl)
+      ansible.posix.sysctl:
+        name: "{{ item }}"
+        value: "1"
+        state: present
+        reload: true
+      loop:
+        - net.ipv6.conf.all.disable_ipv6
+        - net.ipv6.conf.default.disable_ipv6
+
+    - name: Enable IP forwarding
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        state: present
+        reload: true
+
+    - name: Create SYLION directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: /etc/sylion, owner: root, group: root, mode: "0755" }
+        - { path: /opt/sylion, owner: sylion-deploy, group: sylion-deploy, mode: "0750" }
+        - { path: /var/log/sylion, owner: root, group: adm, mode: "0750" }
+        - { path: /etc/ipsec.d/certs, owner: root, group: root, mode: "0755" }
+        - { path: /etc/ipsec.d/private, owner: root, group: root, mode: "0700" }
+        - { path: /etc/ipsec.d/cacerts, owner: root, group: root, mode: "0755" }
+
+    - name: Write G1 metadata
+      ansible.builtin.copy:
+        dest: /etc/sylion/metadata.json
+        content: |
+          {
+            "role": "g1",
+            "zone": "1",
+            "operator_id": "{{ sylion_operator_id }}",
+            "environment": "{{ sylion_environment }}",
+            "hostname": "{{ inventory_hostname }}",
+            "production_execution_allowed": false,
+            "managed_by": "ansible",
+            "adr_refs": [
+              "ADR-router-phantom-001",
+              "ADR-cloud-provider-001-hetzner-ovh"
+            ]
+          }
+        mode: "0644"
+
+    - name: Configure nftables default-deny
+      ansible.builtin.copy:
+        dest: /etc/nftables.conf
+        mode: "0600"
+        content: |
+          #!/usr/sbin/nft -f
+          # SYLION G1 default-deny baseline
+          flush ruleset
+          table inet sylion_g1 {
+              chain input {
+                  type filter hook input priority filter; policy drop;
+                  ct state established,related accept
+                  iif "lo" accept
+                  meta l4proto icmp limit rate 4/second accept
+                  # SSH from deploy CIDR only — populated separately
+                  tcp dport 22 accept
+                  # IKE from anywhere (IPsec endpoint)
+                  udp dport { 500, 4500 } accept
+                  # ESP
+                  meta l4proto esp accept
+              }
+              chain forward {
+                  type filter hook forward priority filter; policy drop;
+                  ct state established,related accept
+                  # IPsec SA forwards handled by xfrm
+              }
+              chain output {
+                  type filter hook output priority filter; policy accept;
+              }
+          }
+      notify: reload nftables
+
+    - name: Enable nftables service
+      ansible.builtin.systemd:
+        name: nftables
+        enabled: true
+        state: started
+
+    - name: Configure strongSwan (template — operator certs provisioned separately)
+      ansible.builtin.copy:
+        dest: /etc/ipsec.conf
+        mode: "0600"
+        content: |
+          # SYLION G1 IPsec config (server side)
+          # Per ADR-router-phantom-001 §6 conditions C5
+          config setup
+              charondebug="ike 1, knl 1"
+              uniqueids=yes
+              strictcrlpolicy=yes
+
+          conn %default
+              keyexchange=ikev2
+              ike=aes256gcm16-prfsha384-ecp384!
+              esp=aes256gcm16-prfsha384-ecp384!
+              dpdaction=clear
+              dpddelay=30s
+              dpdtimeout=120s
+              authby=pubkey
+              leftauth=pubkey
+              rightauth=pubkey
+              leftsendcert=always
+              rightsendcert=ifasked
+
+          conn sylion-operators
+              left=%any
+              leftcert=/etc/ipsec.d/certs/g1-server.crt
+              leftsubnet=10.42.0.0/16
+              right=%any
+              rightsourceip=10.42.100.0/24
+              auto=add
+      notify: restart strongswan
+
+    - name: Enable strongSwan
+      ansible.builtin.systemd:
+        name: strongswan
+        enabled: true
+        state: started
+
+    - name: Configure unattended-upgrades (security only)
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/50sylion-auto-upgrades
+        mode: "0644"
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+          Unattended-Upgrade::Origins-Pattern {
+              "origin=Debian,codename=${distro_codename},label=Debian-Security";
+          };
+          Unattended-Upgrade::Remove-Unused-Dependencies "true";
+          Unattended-Upgrade::Automatic-Reboot "false";
+
+    - name: Configure SSH hardening
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?{{ item.key }}"
+        line: "{{ item.key }} {{ item.value }}"
+        state: present
+      loop:
+        - { key: "PasswordAuthentication", value: "no" }
+        - { key: "PermitRootLogin", value: "no" }
+        - { key: "PubkeyAuthentication", value: "yes" }
+        - { key: "PermitEmptyPasswords", value: "no" }
+        - { key: "X11Forwarding", value: "no" }
+        - { key: "AllowTcpForwarding", value: "no" }
+        - { key: "ClientAliveInterval", value: "300" }
+        - { key: "ClientAliveCountMax", value: "2" }
+      notify: restart sshd
+
+    - name: Mark readiness
+      ansible.builtin.copy:
+        dest: /var/log/sylion-readiness.log
+        content: |
+          {{ ansible_date_time.iso8601 }} g1 bootstrap-complete operator_id={{ sylion_operator_id }} env={{ sylion_environment }}
+        mode: "0644"
+
+  handlers:
+    - name: reload nftables
+      ansible.builtin.systemd:
+        name: nftables
+        state: reloaded
+
+    - name: restart strongswan
+      ansible.builtin.systemd:
+        name: strongswan
+        state: restarted
+
+    - name: restart sshd
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted
