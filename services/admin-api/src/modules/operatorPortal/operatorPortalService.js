@@ -2085,21 +2085,37 @@ export class OperatorPortalService {
     const mode = normalizeTerminalMode(terminalMode);
     const ready = this.#latestReadyEnvironment(operatorId);
     const latestEnvironment = ready || this.#latestEnvironment(operatorId);
-    const routeState = ready ? "local_lab_connected" : "configuration_pending";
+    const vpnEvidence = this.#latestVpnEvidenceForOperator(operatorId);
+    const vpnReady = this.#vpnEvidenceReady(vpnEvidence);
+    const streamingReadiness = this.#latestStreamingReadinessForOperator(operatorId);
+    const streamingRuntime = this.#latestStreamingRuntimeManifestForOperator(operatorId);
+    const streamGatewayReady = streamingReadiness?.ready === true || streamingRuntime?.ready === true;
+    const routeState = vpnReady && streamGatewayReady
+      ? "live_private_path_ready"
+      : ready ? "local_lab_connected" : "configuration_pending";
     const routerReadiness = this.routerReadiness?.readinessForOperator(operatorId) || {
       packageStatus: "not_generated",
       postureStatus: "not_validated",
       blockers: ["router_package_required", "router_posture_validation_required"],
       readyForPhysicalSmoke: false
     };
+    const hsmFidoDeferred = this.env?.SYLION_DEFER_PHYSICAL_HSM_FIDO2 === "true";
+    const routerDeferred = this.env?.SYLION_PULI_AX_PHYSICAL_READY !== "true";
+    const terminalCertReady = vpnEvidence?.certificateTrusted === true;
+    const dnsReady = vpnEvidence?.dnsThroughTunnel === true;
+    const liveFirecrackerReady = streamGatewayReady || streamingRuntime?.ready === true;
     const blockers = [
-      "real_ipsec_profile_not_deployed",
-      "hsm_or_secure_element_client_certificate_required",
-      "dns_leak_and_kill_switch_tests_required",
-      "firecracker_host_qualification_required_for_real_launch",
-      "fido2_operator_unlock_required",
-      ...(routerReadiness.readyForPhysicalSmoke ? [] : ["puli_ax_physical_package_validation_pending"]),
-      ...routerReadiness.blockers
+      ...(vpnReady ? [] : ["real_ipsec_profile_not_deployed"]),
+      ...(terminalCertReady || hsmFidoDeferred ? [] : ["hsm_or_secure_element_client_certificate_required"]),
+      ...(dnsReady ? [] : ["dns_leak_and_kill_switch_tests_required"]),
+      ...(liveFirecrackerReady ? [] : ["firecracker_host_qualification_required_for_real_launch"]),
+      ...(hsmFidoDeferred ? [] : ["fido2_operator_unlock_required"]),
+      ...(routerDeferred || routerReadiness.readyForPhysicalSmoke ? [] : ["puli_ax_physical_package_validation_pending"]),
+      ...(routerDeferred ? [] : routerReadiness.blockers)
+    ];
+    const deferredBlockers = [
+      ...(hsmFidoDeferred ? ["hsm_or_secure_element_client_certificate_required", "fido2_operator_unlock_required"] : []),
+      ...(routerDeferred ? ["puli_ax_physical_package_validation_pending", "router_package_required", "router_posture_validation_required"] : [])
     ];
     const terminalLabel = mode === TERMINAL_MODES.PIXEL ? "Pixel GrapheneOS terminal" : "Laptop web terminal";
     const nodes = [
@@ -2119,7 +2135,7 @@ export class OperatorPortalService {
         label: "G1 ingress VPN gateway",
         zone: "G1",
         providerResourceId: this.#resourceRef(latestEnvironment, "G1", operatorId),
-        status: ready ? "reachable_local_lab" : "planned"
+        status: vpnReady ? "reachable_live_ipsec" : ready ? "reachable_local_lab" : "planned"
       },
       {
         id: "g2",
@@ -2127,7 +2143,7 @@ export class OperatorPortalService {
         label: "G2 access broker",
         zone: "G2",
         providerResourceId: this.#resourceRef(latestEnvironment, "G2", operatorId),
-        status: ready ? "reachable_local_lab" : "planned"
+        status: vpnReady ? "reachable_live_ipsec" : ready ? "reachable_local_lab" : "planned"
       },
       {
         id: "workload",
@@ -2135,7 +2151,7 @@ export class OperatorPortalService {
         label: "WORKLOAD Firecracker host",
         zone: "WORKLOAD",
         providerResourceId: this.#resourceRef(latestEnvironment, "WORKLOAD", operatorId),
-        status: ready ? "reachable_local_lab" : "planned"
+        status: streamGatewayReady ? "reachable_live_stream_gateway" : ready ? "reachable_local_lab" : "planned"
       }
     ];
     const segments = [
@@ -2153,7 +2169,7 @@ export class OperatorPortalService {
         id: "T1",
         from: "g1",
         to: "g2",
-        state: ready ? "local_lab_linked" : "configuration_pending",
+        state: vpnReady ? "live_ipsec_linked" : ready ? "local_lab_linked" : "configuration_pending",
         routePolicy: "g1_allows_only_g2_broker_routes",
         dnsPolicy: "no_terminal_dns_visibility",
         killSwitch: "g1_default_drop_until_ipsec_up",
@@ -2163,7 +2179,7 @@ export class OperatorPortalService {
         id: "T2",
         from: "g2",
         to: "workload",
-        state: ready ? "local_lab_linked" : "configuration_pending",
+        state: streamGatewayReady ? "live_private_workload_stream_linked" : ready ? "local_lab_linked" : "configuration_pending",
         routePolicy: "g2_broker_to_workload_microvm_only",
         dnsPolicy: "workload_dns_policy_cdr_aware",
         killSwitch: "g2_default_drop_until_workload_path_up",
@@ -2187,6 +2203,15 @@ export class OperatorPortalService {
         baselineRole: "access_router",
         openWrtHardeningRequired: true
       },
+      liveEvidence: {
+        vpnEvidenceReady: vpnReady,
+        streamGatewayReady,
+        streamingReadinessId: streamingReadiness?.id || null,
+        streamingRuntimeManifestId: streamingRuntime?.id || null,
+        terminalCertificateTrusted: terminalCertReady,
+        dnsThroughTunnel: dnsReady,
+        deferredPhysicalGates: deferredBlockers
+      },
       baseline: {
         vpsRoles: ["G1", "G2", "WORKLOAD"],
         transport: "ipsec_ikev2",
@@ -2198,6 +2223,7 @@ export class OperatorPortalService {
       segments,
       microVmSlots,
       blockers,
+      deferredBlockers,
       terminalOperationalDataStored: false,
       secretsReleaseAllowed: false,
       sideEffectAllowed: false,

@@ -3,8 +3,8 @@ import test from "node:test";
 import { createApp } from "../src/app.js";
 import { AdminApiClient } from "../src/sdk/adminApiClient.js";
 
-async function startTestServer() {
-  const app = createApp();
+async function startTestServer(envOverrides = {}) {
+  const app = createApp({ liveExecutionOptions: { env: { ...process.env, ...envOverrides } } });
   const server = await app.listen(0);
   const { port } = server.address();
   return {
@@ -53,6 +53,26 @@ async function operatorRequest(baseUrl, token, path) {
   const payload = await response.json();
   if (!response.ok) {
     const error = new Error(payload?.error?.message || "operator request failed");
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+async function operatorPost(baseUrl, token, path, body) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-correlation-id": `corr_step3_29_operator_${crypto.randomUUID()}`,
+      authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    const error = new Error(payload?.error?.message || "operator post failed");
     error.status = response.status;
     error.payload = payload;
     throw error;
@@ -124,7 +144,10 @@ test("Step 3.29 exposes Pixel -> G1 -> G2 -> WORKLOAD -> communicator microVM pa
     assert.equal(operatorPath.path.deviceId, pixel.id);
     assert.equal(operatorPath.path.nodes[0].label, "Pixel GrapheneOS terminal");
     assert.equal(operatorPath.path.microVmSlots.length, 3);
-    assert.ok(operatorPath.path.blockers.includes("puli_ax_physical_package_validation_pending"));
+    assert.ok([
+      ...operatorPath.path.blockers,
+      ...(operatorPath.path.deferredBlockers || [])
+    ].includes("puli_ax_physical_package_validation_pending"));
 
     const vpn = await operatorRequest(baseUrl, session.session.token, "/operator-api/vpn-status");
     assert.deepEqual(vpn.vpn.path, [
@@ -136,6 +159,76 @@ test("Step 3.29 exposes Pixel -> G1 -> G2 -> WORKLOAD -> communicator microVM pa
     ]);
     assert.equal(vpn.vpn.segments.length, 3);
     assert.equal(vpn.vpn.microVmSlots.length, 3);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.29 live evidence clears current path blockers while physical gates stay deferred", async () => {
+  const { baseUrl, close } = await startTestServer({
+    SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true",
+    SYLION_PULI_AX_PHYSICAL_READY: "false"
+  });
+  try {
+    const client = await loginClient(baseUrl);
+    const { operator, pixel } = await seedReadyOperator(client);
+    const session = await client.request("/operator-api/sessions/local-simulator", {
+      method: "POST",
+      body: {
+        operatorId: operator.id,
+        terminalMode: "pixel_grapheneos",
+        deviceId: pixel.id
+      }
+    });
+    const token = session.session.token;
+    await operatorPost(baseUrl, token, "/operator-api/vpn-evidence", {
+      vpnConnected: true,
+      vpnSession: "test-live-path",
+      vpnInterface: "tun1",
+      dnsThroughTunnel: true,
+      certificateTrusted: true,
+      reachableHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "10.42.0.12"]
+    });
+    await operatorPost(baseUrl, token, "/operator-api/streaming-readiness", {
+      protocol: "guacamole",
+      g2StreamGatewayReady: true,
+      publicInternetExposure: false,
+      tlsInternalOnly: true,
+      inputProxyReady: true,
+      sources: {
+        whatsapp: true,
+        signal: true,
+        telegram: true,
+        duckduckgo_browser: true,
+        libreoffice: true
+      }
+    });
+    await operatorPost(baseUrl, token, "/operator-api/streaming-runtime-manifest", {
+      gateway: {
+        process: "sylion-g2-guacamole-session-broker",
+        bindAddress: "10.42.0.12",
+        port: 443,
+        protocol: "guacamole",
+        tlsMode: "internal_tls_only",
+        publicInternetExposure: false
+      },
+      sources: {
+        signal: { bindAddress: "10.44.0.13", port: 5913, cdrRequired: true },
+        duckduckgo_browser: { bindAddress: "10.44.0.13", port: 5901, cdrRequired: true }
+      }
+    });
+    const operatorPath = await operatorRequest(baseUrl, token, "/operator-api/connection-path");
+    assert.equal(operatorPath.path.state, "live_private_path_ready");
+    assert.equal(operatorPath.path.liveEvidence.vpnEvidenceReady, true);
+    assert.equal(operatorPath.path.liveEvidence.streamGatewayReady, true);
+    assert.equal(operatorPath.path.liveEvidence.terminalCertificateTrusted, true);
+    assert.equal(operatorPath.path.liveEvidence.dnsThroughTunnel, true);
+    assert.ok(!operatorPath.path.blockers.includes("real_ipsec_profile_not_deployed"));
+    assert.ok(!operatorPath.path.blockers.includes("dns_leak_and_kill_switch_tests_required"));
+    assert.ok(!operatorPath.path.blockers.includes("firecracker_host_qualification_required_for_real_launch"));
+    assert.ok(operatorPath.path.deferredBlockers.includes("puli_ax_physical_package_validation_pending"));
+    assert.ok(operatorPath.path.deferredBlockers.includes("fido2_operator_unlock_required"));
+    assert.equal(operatorPath.path.productionExecutionAllowed, false);
   } finally {
     await close();
   }
