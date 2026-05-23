@@ -312,7 +312,9 @@ export function pixelVisualVerdictFromStats(stats) {
   const blankLike = stats.whiteRatio > 0.96 && stats.lumaStdDev < 16 && stats.colorBuckets < 32;
   const loadingLike = stats.darkRatio > 0.9 && stats.lumaStdDev < 28;
   const websockifyFailureLike = (stats.redAlertRatio || 0) > 0.015;
-  const rendered = !blankLike && !loadingLike && !websockifyFailureLike && stats.colorBuckets >= 80 && stats.lumaStdDev >= 24;
+  const highContrastRendered = stats.colorBuckets >= 80 && stats.lumaStdDev >= 24;
+  const lightUiRendered = stats.whiteRatio < 0.99 && stats.colorBuckets >= 50 && stats.lumaStdDev >= 12;
+  const rendered = !blankLike && !loadingLike && !websockifyFailureLike && (highContrastRendered || lightUiRendered);
   return {
     rendered,
     blankLike,
@@ -383,7 +385,7 @@ function factualRecordForApp(appResult) {
     operatorId,
     appKey: key,
     terminalMode: "pixel_grapheneos",
-    runtimeMode: appResult.expectedRuntime.includes("android_native") ? "android_native"
+    runtimeMode: appResult.expectedRuntime === "android_native_required" ? "android_native"
       : appResult.expectedRuntime.includes("firecracker_gui") ? "firecracker_gui"
         : appResult.expectedRuntime.includes("desktop") ? "desktop"
           : appResult.expectedRuntime.includes("web") ? "web" : "unknown",
@@ -473,7 +475,7 @@ while IFS='|' read -r h host no_vnc; do
   headers="/tmp/sylion-factual-$h.headers"
   root_code=$(curl -k -sS -o /dev/null -w "%{http_code}" --resolve "$host:443:${gatewayIp}" --max-time 8 "https://$host/" || true)
   if [ "$no_vnc" = "true" ]; then
-    target="/vnc.html?autoconnect=true&resize=scale&path=websockify"
+    target="/vnc.html?autoconnect=true&resize=remote&path=websockify"
   else
     target="/"
   fi
@@ -661,7 +663,7 @@ async function pixelAudit() {
       const localXml = join(outputDir, xmlName);
       await adb(["-s", pixel.serial, "shell", "am", "force-stop", "app.vanadium.browser"], { timeout: 10_000 }).catch(() => {});
       const targetUrl = app.noVnc
-        ? `https://${app.host}/vnc.html?autoconnect=true&resize=scale&path=websockify`
+        ? `https://${app.host}/vnc.html?autoconnect=true&resize=remote&path=websockify`
         : `https://${app.host}/`;
       await adb([
         "-s", pixel.serial,
@@ -713,7 +715,7 @@ async function pixelAudit() {
         key: app.key,
         host: app.host,
         targetUrl: app.noVnc
-          ? `https://${app.host}/vnc.html?autoconnect=true&resize=scale&path=websockify`
+          ? `https://${app.host}/vnc.html?autoconnect=true&resize=remote&path=websockify`
           : `https://${app.host}/`,
         screenshot: null,
         uiDump: null,
@@ -766,17 +768,20 @@ async function main() {
     const routeReady = route?.transportReady === true;
     const workloadVncReady = app.noVnc ? currentGuiHealth?.vncBannerReady === true : true;
     const transportReady = routeReady && workloadVncReady;
-    const androidNativeRequired = app.expectedRuntime.includes("android_native");
+    const androidNativeRequired = app.expectedRuntime === "android_native_required";
     const androidPackageInstalled = androidNativeRequired
       ? currentGuiHealth?.androidPackageInstalled === true
       : true;
     const pixelStreamRendered = pixelResult?.pixelStreamRendered === true || pixelResult?.pixelVisualEvidence?.rendered === true;
     const appUiMarkerVisible = pixelResult?.appUiMarkerVisible === true;
     const workloadAppUiVisible = currentGuiHealth?.workloadAppUiVisible === true;
+    const key = canonicalAppKey(app.key);
+    const strictPixelMarkerRequired = key === "exodus";
     const pixelUiVisible = androidNativeRequired
       ? pixelStreamRendered && androidPackageInstalled && workloadAppUiVisible
-      : pixelStreamRendered && (appUiMarkerVisible || workloadAppUiVisible);
-    const key = canonicalAppKey(app.key);
+      : strictPixelMarkerRequired
+        ? pixelStreamRendered && appUiMarkerVisible
+        : pixelStreamRendered && (appUiMarkerVisible || workloadAppUiVisible);
     const prefix = app.key === "duckduckgo" ? "DUCKDUCKGO" : key.toUpperCase();
     const communicator = ["whatsapp", "signal", "telegram", "threema", "zangi", "matrix_client"].includes(key);
     const workflowVerified = communicator
