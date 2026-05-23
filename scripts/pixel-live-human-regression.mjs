@@ -13,6 +13,7 @@ const adminInternalBaseUrl = process.env.SYLION_ADMIN_INTERNAL_BASE_URL || "http
 const operatorInternalBaseUrl = process.env.SYLION_OPERATOR_INTERNAL_BASE_URL || "https://operator.sylion.internal";
 const workloadGatewayIp = process.env.SYLION_WORKLOAD_GATEWAY_IP || "10.42.0.12";
 const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-40-pixel-live-human-regression");
+const indexHumanEvidence = process.env.SYLION_INDEX_HUMAN_EVIDENCE === "true";
 
 const workloadHosts = [
   "signal",
@@ -101,6 +102,12 @@ async function ssh(script, options = {}) {
     adminSsh,
     script
   ], { timeout: options.timeout ?? 60_000 });
+}
+
+function repoRelativePath(path) {
+  return path.startsWith(process.cwd())
+    ? path.slice(process.cwd().length + 1).replace(/\\/g, "/")
+    : path.replace(/\\/g, "/");
 }
 
 function parseDeviceList(output) {
@@ -286,6 +293,64 @@ console.log(JSON.stringify({
 }, null, 2));
 NODE`;
   const result = await ssh(script, { timeout: 90_000 });
+  return JSON.parse(result.stdout);
+}
+
+async function maybeIndexHumanEvidenceOnAdmin(humanEvidence) {
+  if (!indexHumanEvidence) {
+    return {
+      skipped: true,
+      reason: "Set SYLION_INDEX_HUMAN_EVIDENCE=true to POST human-evidence.json into Release inventory."
+    };
+  }
+  const payload = Buffer.from(JSON.stringify({
+    summary: humanEvidence.summary,
+    evidenceArtifactPath: repoRelativePath(humanEvidence.path),
+    linkedModule: "pixel_live_path",
+    ksiegaControlRefs: ["thin_client_terminal", "pixel_g1_g2_workload_path", "metadata_only_monitoring"],
+    phantomBoundaryImpact: "none"
+  }), "utf8").toString("base64");
+  const script = `
+SYLION_HUMAN_EVIDENCE_B64='${payload}' node --input-type=module <<'NODE'
+import { AdminApiClient } from "/opt/sylion-secure/services/admin-api/src/sdk/adminApiClient.js";
+const payload = JSON.parse(Buffer.from(process.env.SYLION_HUMAN_EVIDENCE_B64, "base64").toString("utf8"));
+const baseUrl = "http://127.0.0.1:8099";
+const anon = new AdminApiClient({
+  baseUrl,
+  correlationIdFactory: () => "corr_step3_86_human_evidence_index_" + crypto.randomUUID()
+});
+const credentialId = "cred-step3-86-human-evidence-index-" + crypto.randomUUID();
+try {
+  const enrollment = await anon.createEnrollmentOptions({
+    email: "admin@sylion.local",
+    password: "ChangeMe-LocalOnly-1!"
+  });
+  await anon.verifyEnrollment({
+    challengeId: enrollment.challenge.id,
+    credential: { id: credentialId, publicKey: "simulated-public-key:" + credentialId, transports: ["usb"] }
+  });
+} catch {}
+const loginOptions = await anon.createWebAuthnLoginOptions({
+  email: "admin@sylion.local",
+  password: "ChangeMe-LocalOnly-1!"
+});
+const loginCredentialId = loginOptions.challenge.publicKey.allowCredentials?.at(-1)?.id || credentialId;
+const session = await anon.verifyWebAuthnLogin({
+  challengeId: loginOptions.challenge.id,
+  credentialId: loginCredentialId,
+  assertion: {
+    signature: "simulated:" + loginOptions.challenge.id + ":" + loginCredentialId,
+    signCounter: 1
+  }
+});
+const indexed = await anon.withToken(session.token).recordHumanEvidenceRun(payload);
+console.log(JSON.stringify({
+  runId: indexed.run.id,
+  strictResult: indexed.run.humanEvidence.strictResult,
+  artifactIds: indexed.run.humanEvidence.evidenceArtifactIds
+}));
+NODE`;
+  const result = await ssh(script, { timeout: 60_000 });
   return JSON.parse(result.stdout);
 }
 
@@ -550,6 +615,7 @@ async function run() {
         : "Freeze evidence and continue with laptop-terminal parity regression."
   }, { fileName: "human-evidence.json" });
   summary.humanEvidencePath = humanEvidence.path;
+  summary.humanEvidenceIndexed = await maybeIndexHumanEvidenceOnAdmin(humanEvidence);
   await writeFile(join(outputDir, "summary.json"), JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
   if (analysis.issues.length) {

@@ -2,12 +2,13 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01, Prompt A/T86-02 and Prompt A/T86-03 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-04 implemented.
 
 ## Implemented
 
 1. Shared human evidence contract:
    - `scripts/lib/human-evidence.mjs`
+   - `services/admin-api/src/lib/humanEvidence.js`
    - strict result states: `PASS`, `SIMULATION_PASS`, `LAB_PASS`, `FAIL`, `FAIL_CRITICAL`, `BLOCKED`, `UNKNOWN`, `FLAKY`
    - metadata-only validator
    - forbidden evidence key/value detector
@@ -45,6 +46,14 @@ Status: Prompt A/T86-01, Prompt A/T86-02 and Prompt A/T86-03 implemented.
      - build-assessment latest run metadata.
    - admin Release view now shows strict result, blockers and next required action for strict evidence runs.
 
+6. Optional harness upload:
+   - `scripts/pixel-adb-operator-lab.mjs`
+   - `scripts/pixel-live-human-regression.mjs`
+   - both always write local `human-evidence.json`
+   - both POST to `/release/human-evidence-runs` only when:
+     - `SYLION_INDEX_HUMAN_EVIDENCE=true`
+   - default mode is no API mutation, so dry-runs stay safe.
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -71,6 +80,9 @@ flowchart TD
   D --> G["human-evidence.json strict bundle"]
   E --> H["summary.json compatibility"]
   E --> I["human-evidence.json strict bundle"]
+  G --> P["Optional POST when SYLION_INDEX_HUMAN_EVIDENCE=true"]
+  I --> P
+  P --> L
   L --> M["Human test run inventory"]
   L --> N["Evidence artifact index"]
   L --> O["Problem registry for failed/blocked strict results"]
@@ -79,7 +91,7 @@ flowchart TD
   M --> J
   N --> J
   O --> J
-  J --> K["Next prompt: evidence upload from harnesses into API"]
+  J --> K["Next prompt: laptop terminal parity evidence"]
 ```
 
 ## Verification
@@ -103,17 +115,14 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-04:
+Prompt A/T86-05:
 
-Make the Pixel ADB lab and live human regression harnesses optionally POST their generated `human-evidence.json` to `/release/human-evidence-runs` after writing the local artifact, so every Pixel/laptop/live repair run is visible in the admin panel automatically with:
+Add laptop terminal parity evidence using the same strict schema and release indexing path, so Pixel and laptop terminal behavior can be compared without changing production readiness gates:
 
-- test id,
-- strict result,
-- evidence refs,
-- blockers,
-- repair commit,
-- retest status,
-- Ksiegi 3.4 alignment,
-- PHANTOM boundary impact.
+- laptop browser opens operator panel through the approved path,
+- laptop browser opens workload stream selector,
+- no local app data or secrets land on laptop,
+- strict `human-evidence.json` is written,
+- optional `SYLION_INDEX_HUMAN_EVIDENCE=true` upload indexes it in Release view.
 
 No live production claim can advance until the evidence index shows a reproducible `PASS` for the exact required path.

@@ -12,6 +12,13 @@ const basePort = baseUrlParsed.port || (baseUrlParsed.protocol === "https:" ? "4
 const operatorView = process.env.SYLION_OPERATOR_VIEW || "signal-preview";
 const adbPath = process.env.SYLION_ADB_PATH || join(process.cwd(), ".deploy", "platform-tools", "adb.exe");
 const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-24-pixel-adb-operator-lab");
+const indexHumanEvidence = process.env.SYLION_INDEX_HUMAN_EVIDENCE === "true";
+
+function repoRelativePath(path) {
+  return path.startsWith(process.cwd())
+    ? path.slice(process.cwd().length + 1).replace(/\\/g, "/")
+    : path.replace(/\\/g, "/");
+}
 
 async function ensureAdb() {
   try {
@@ -331,6 +338,25 @@ async function run() {
     nextRequiredAction: "Run step3-40 live Pixel human regression and compare with live path evidence."
   }, { fileName: "human-evidence.json" });
   summary.humanEvidencePath = humanEvidence.path;
+  if (indexHumanEvidence) {
+    const indexed = await client.recordHumanEvidenceRun({
+      summary: humanEvidence.summary,
+      evidenceArtifactPath: repoRelativePath(humanEvidence.path),
+      linkedModule: "pixel_adb_operator_lab",
+      ksiegaControlRefs: ["thin_client_terminal", "operator_panel_bootstrap", "g1_g2_workload_path"],
+      phantomBoundaryImpact: "none"
+    });
+    summary.humanEvidenceIndexed = {
+      runId: indexed.run.id,
+      strictResult: indexed.run.humanEvidence.strictResult,
+      artifactIds: indexed.run.humanEvidence.evidenceArtifactIds
+    };
+  } else {
+    summary.humanEvidenceIndexed = {
+      skipped: true,
+      reason: "Set SYLION_INDEX_HUMAN_EVIDENCE=true to POST human-evidence.json into Release inventory."
+    };
+  }
   await writeFile(join(outputDir, "summary.json"), JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
 }
