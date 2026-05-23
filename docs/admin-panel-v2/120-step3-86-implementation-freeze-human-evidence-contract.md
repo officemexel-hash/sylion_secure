@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01 through Prompt A/T86-10 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-11 implemented.
 
 ## Implemented
 
@@ -120,6 +120,31 @@ Status: Prompt A/T86-01 through Prompt A/T86-10 implemented.
      - terminal data storage is false
    - sends blocked/failed app-specific evidence into the repair loop when `SYLION_INDEX_HUMAN_EVIDENCE=true`
 
+13. Communicator app-specific factual runner:
+   - `scripts/lib/communicator-factual-evaluator.mjs`
+   - `scripts/workload-communicator-human-runner.mjs`
+   - npm scripts:
+     - `test:communicator-human-runner`
+     - `test:signal-human-runner`
+     - `test:whatsapp-human-runner`
+     - `test:telegram-human-runner`
+     - `test:threema-human-runner`
+     - `test:zangi-human-runner`
+   - covers Signal, WhatsApp, Telegram, Threema and Zangi
+   - reads `/release/workload-factual-matrix?appKey=<communicator>`
+   - requests app streaming session through the operator API
+   - refuses factual PASS unless all of these are true:
+     - stream session is ready,
+     - launch URL is internal `*.sylion.internal`,
+     - broker is G2,
+     - app-specific UI marker has safe evidence reference,
+     - non-secret account bootstrap metadata passes,
+     - send/receive metadata-only check passes,
+     - G1/G2/workload route probe passes,
+     - terminal and communication data storage are false,
+     - Zangi APK provenance passes when app is Zangi
+   - fails fast on web-link-only bootstrap, generic browser/download page, public/localhost stream URLs or forbidden probe fields
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -145,6 +170,7 @@ flowchart TD
   B --> Y["App factual human runner scaffold"]
   B --> Z["DuckDuckGo app-specific runner"]
   B --> AB["LibreOffice app-specific runner"]
+  B --> AD["Communicator app-specific runner"]
   B --> L["Release API: strict evidence indexing"]
   D --> F["summary.json compatibility"]
   D --> G["human-evidence.json strict bundle"]
@@ -182,6 +208,12 @@ flowchart TD
   AB --> X
   AB --> AC["LibreOffice evaluator: stream + UI + document + CDR gates"]
   AC --> J
+  AD --> X
+  AD --> AE["Signal/WhatsApp/Telegram/Threema/Zangi evaluator"]
+  AE --> AF["UI + bootstrap + send/receive + route gates"]
+  AE --> AG["Zangi APK provenance gate"]
+  AF --> J
+  AG --> J
   J --> K["Next prompt: exact test-runner repair loop"]
 ```
 
@@ -199,6 +231,8 @@ node --check scripts/lib/duckduckgo-factual-evaluator.mjs
 node --check scripts/workload-duckduckgo-human-runner.mjs
 node --check scripts/lib/libreoffice-factual-evaluator.mjs
 node --check scripts/workload-libreoffice-human-runner.mjs
+node --check scripts/lib/communicator-factual-evaluator.mjs
+node --check scripts/workload-communicator-human-runner.mjs
 node --check services/admin-api/src/lib/humanEvidence.js
 node --check services/admin-api/src/modules/release/releaseControlService.js
 node --check services/admin-api/src/app.js
@@ -207,6 +241,7 @@ node --test services/admin-api/test/step3-86-human-evidence-release-index.test.j
 node --test services/admin-api/test/step3-86-workload-factual-matrix.test.js
 node --test services/admin-api/test/step3-86-duckduckgo-runner-evaluator.test.js
 node --test services/admin-api/test/step3-86-libreoffice-runner-evaluator.test.js
+node --test services/admin-api/test/step3-86-communicator-runner-evaluator.test.js
 node --test services/admin-api/test/step3-21-human-test-inventory.test.js services/admin-api/test/step3-11-release-control.test.js
 node --test services/admin-api/test/admin-web-static.test.js
 ```
@@ -215,15 +250,10 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-11:
+Prompt A/T86-12:
 
 Continue turning the scaffold into app-specific executable runners, one app at a time:
 
-- Signal,
-- WhatsApp,
-- Telegram,
-- Threema,
-- Zangi,
 - Exodus.
 
 For each app runner:
