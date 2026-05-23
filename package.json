@@ -15,6 +15,7 @@
     "test:live-factual-workload-audit": "node scripts/live-factual-workload-audit.mjs",
     "test:hetzner-live-smoke": "node scripts/hetzner-live-smoke.mjs",
     "live:hetzner-operator-baseline": "node scripts/hetzner-live-operator-baseline.mjs",
+    "live:g1-internal-dns": "node scripts/install-g1-internal-dns.mjs",
     "live:g2-workload-gateway": "node scripts/install-g2-workload-gateway.mjs --deploy",
     "live:g2-guacamole-broker": "node scripts/install-g2-guacamole-broker.mjs --deploy",
     "live:workload-guacamole-vnc-forwards": "node scripts/install-workload-guacamole-vnc-forwards.mjs --apply",

@@ -106,6 +106,7 @@ function parseFacts(stdout) {
     "websockify",
     "novnc",
     "python3",
+    "dbus_run_session",
     "vnc_listener",
     "vnc_proxy_listener",
     "vnc_proxy_handshake",
@@ -115,7 +116,11 @@ function parseFacts(stdout) {
     "package_installed",
     "session",
     "container",
-    "wayland_display"
+    "wayland_display",
+    "weston_service",
+    "vnc_proxy_service",
+    "websockify_service",
+    "waydroid_session_service"
   ]);
   return Object.fromEntries(stdout.split(/\r?\n/).filter(Boolean).flatMap((line) => {
     const [key, ...rest] = line.split("=");
@@ -135,6 +140,7 @@ printf 'weston=%s\\n' "$(command -v weston >/dev/null 2>&1 && echo true || echo 
 printf 'websockify=%s\\n' "$(command -v websockify >/dev/null 2>&1 && echo true || echo false)"
 printf 'novnc=%s\\n' "$([ -d /usr/share/novnc ] && echo true || echo false)"
 printf 'python3=%s\\n' "$(command -v python3 >/dev/null 2>&1 && echo true || echo false)"
+printf 'dbus_run_session=%s\\n' "$(command -v dbus-run-session >/dev/null 2>&1 && echo true || echo false)"
 printf 'waydroid_container=%s\\n' "$(systemctl is-active waydroid-container 2>/dev/null || true)"
 printf 'package_installed=%s\\n' "$(waydroid app list 2>/dev/null | grep -q '^${packageName}[[:space:]]' && echo true || echo false)"
 printf 'public_drop_rule=%s\\n' "$(nft list chain inet filter input 2>/dev/null | grep -q 'tcp dport ${port} drop' && echo true || echo false)"
@@ -151,6 +157,7 @@ printf 'web_listener=%s\\n' "$(ss -ltn 2>/dev/null | grep -q '${workloadBind}:${
     ...(facts.websockify ? [] : ["websockify_not_installed"]),
     ...(facts.novnc ? [] : ["novnc_web_assets_missing"]),
     ...(facts.python3 ? [] : ["python3_not_installed"]),
+    ...(facts.dbus_run_session ? [] : ["dbus_run_session_not_installed"]),
     ...(facts.waydroid_container === "active" ? [] : ["waydroid_container_not_active"])
   ];
   return {
@@ -409,22 +416,144 @@ if __name__ == "__main__":
     main()
 SYLION_PROXY
 chmod 0755 /usr/local/sbin/sylion-vencrypt-plain-proxy.py
-nohup python3 /usr/local/sbin/sylion-vencrypt-plain-proxy.py --listen-host 127.0.0.1 --listen-port ${localVncProxyPort} --target-host 127.0.0.1 --target-port ${port} --auth-file /etc/sylion/waydroid-vnc/plain-auth.env >/var/log/sylion-${app}-vencrypt-proxy.log 2>&1 &
+cat > /usr/local/sbin/sylion-${app}-android-session-keepalive.sh <<'SYLION_SESSION_KEEPALIVE'
+#!/usr/bin/env bash
+set -uo pipefail
+
+APP="${app}"
+PACKAGE_NAME="${packageName}"
+RUNTIME_DIR="/run/sylion-waydroid-${app}"
+WAYLAND_NAME="sylion-${app}-wayland"
+SESSION_LOG="/var/log/sylion-${app}-waydroid-session.log"
+UI_LOG="/var/log/sylion-${app}-waydroid-ui.log"
+
+export XDG_RUNTIME_DIR="$RUNTIME_DIR"
+export WAYLAND_DISPLAY="$WAYLAND_NAME"
+export XDG_SESSION_TYPE=wayland
+export HOME=/root
+
+launch_ui() {
+  if waydroid app list 2>/dev/null | grep -q "^$PACKAGE_NAME[[:space:]]"; then
+    nohup waydroid app launch "$PACKAGE_NAME" >>"$UI_LOG" 2>&1 &
+  else
+    nohup waydroid show-full-ui >>"$UI_LOG" 2>&1 &
+  fi
+}
+
+install -d -m 0700 "$RUNTIME_DIR" "$RUNTIME_DIR/pulse"
+: > "$RUNTIME_DIR/pulse/native"
+last_launch=0
+
+while true; do
+  systemctl is-active --quiet waydroid-container || systemctl start waydroid-container || true
+  status="$(waydroid status 2>/dev/null | awk -F: '/Session:/{gsub(/[[:space:]]/,"",$2); print $2}' || true)"
+  if [ "$status" != "RUNNING" ]; then
+    nohup waydroid session start >>"$SESSION_LOG" 2>&1 &
+    sleep 20
+    last_launch=0
+  fi
+  now="$(date +%s)"
+  if [ "$last_launch" -eq 0 ] || [ $((now - last_launch)) -ge 120 ]; then
+    launch_ui
+    last_launch="$now"
+  fi
+  sleep 15
+done
+SYLION_SESSION_KEEPALIVE
+chmod 0755 /usr/local/sbin/sylion-${app}-android-session-keepalive.sh
+
+pkill -f 'sylion-${app}-wayland|weston.*${port}|websockify.*${workloadBind}:${webPort}|sylion-vencrypt-plain-proxy.*${localVncProxyPort}|stunnel.*sylion-waydroid-${app}' 2>/dev/null || true
+cat > /etc/systemd/system/sylion-${app}-weston-vnc.service <<'SYLION_WESTON_UNIT'
+[Unit]
+Description=SYLION ${app} Android Weston VNC stream
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+RuntimeDirectory=sylion-waydroid-${app}
+RuntimeDirectoryMode=0700
+Environment=XDG_RUNTIME_DIR=/run/sylion-waydroid-${app}
+Environment=WAYLAND_DISPLAY=sylion-${app}-wayland
+Environment=XDG_SESSION_TYPE=wayland
+ExecStartPre=/usr/bin/install -d -m 0700 /run/sylion-waydroid-${app}/pulse
+ExecStartPre=/usr/bin/touch /run/sylion-waydroid-${app}/pulse/native
+ExecStart=/usr/bin/weston --backend=vnc-backend.so --socket=sylion-${app}-wayland --port=${port} --width=${width} --height=${height} --vnc-tls-cert=/etc/sylion/waydroid-vnc/tls.crt --vnc-tls-key=/etc/sylion/waydroid-vnc/tls.key --no-config --idle-time=0 --renderer=pixman --log=/var/log/sylion-${app}-weston-vnc.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SYLION_WESTON_UNIT
+
+cat > /etc/systemd/system/sylion-${app}-vnc-proxy.service <<'SYLION_PROXY_UNIT'
+[Unit]
+Description=SYLION ${app} VNC VeNCrypt to RFB adapter
+After=sylion-${app}-weston-vnc.service
+Requires=sylion-${app}-weston-vnc.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/sbin/sylion-vencrypt-plain-proxy.py --listen-host 127.0.0.1 --listen-port ${localVncProxyPort} --target-host 127.0.0.1 --target-port ${port} --auth-file /etc/sylion/waydroid-vnc/plain-auth.env
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SYLION_PROXY_UNIT
+
+cat > /etc/systemd/system/sylion-${app}-websockify.service <<'SYLION_WEBSOCKIFY_UNIT'
+[Unit]
+Description=SYLION ${app} private noVNC bridge
+After=sylion-${app}-vnc-proxy.service
+Requires=sylion-${app}-vnc-proxy.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/websockify --web=/usr/share/novnc ${workloadBind}:${webPort} 127.0.0.1:${localVncProxyPort}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SYLION_WEBSOCKIFY_UNIT
+
+cat > /etc/systemd/system/sylion-${app}-android-session.service <<'SYLION_SESSION_UNIT'
+[Unit]
+Description=SYLION ${app} Android Waydroid session keepalive
+After=waydroid-container.service sylion-${app}-weston-vnc.service
+Requires=waydroid-container.service sylion-${app}-weston-vnc.service
+
+[Service]
+Type=simple
+Environment=XDG_RUNTIME_DIR=/run/sylion-waydroid-${app}
+Environment=WAYLAND_DISPLAY=sylion-${app}-wayland
+Environment=XDG_SESSION_TYPE=wayland
+ExecStart=/usr/bin/dbus-run-session -- /usr/local/sbin/sylion-${app}-android-session-keepalive.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SYLION_SESSION_UNIT
+
+systemctl daemon-reload
+systemctl enable sylion-${app}-weston-vnc.service sylion-${app}-vnc-proxy.service sylion-${app}-websockify.service sylion-${app}-android-session.service >/dev/null
+systemctl restart sylion-${app}-weston-vnc.service
+sleep 4
+systemctl restart sylion-${app}-vnc-proxy.service
 sleep 2
-nohup waydroid session start >/var/log/sylion-${app}-waydroid-session.log 2>&1 &
-sleep 20
-if waydroid app list 2>/dev/null | grep -q '^${packageName}[[:space:]]'; then
-  nohup waydroid app launch ${packageName} >/var/log/sylion-${app}-waydroid-ui.log 2>&1 &
-else
-  nohup waydroid show-full-ui >/var/log/sylion-${app}-waydroid-ui.log 2>&1 &
-fi
-sleep 5
-nohup websockify --web=/usr/share/novnc ${workloadBind}:${webPort} 127.0.0.1:${localVncProxyPort} >/var/log/sylion-${app}-websockify.log 2>&1 &
-sleep 2
+systemctl restart sylion-${app}-websockify.service
+systemctl restart sylion-${app}-android-session.service
+sleep 35
 printf 'session=%s\\n' "$(waydroid status | awk -F: '/Session:/{gsub(/[[:space:]]/,"",$2); print $2}')"
 printf 'container=%s\\n' "$(waydroid status | awk -F: '/Container:/{gsub(/[[:space:]]/,"",$2); print $2}')"
 printf 'wayland_display=%s\\n' "$(waydroid status | awk -F: '/Wayland display:/{gsub(/^[[:space:]]+/,"",$2); print $2}')"
 printf 'package_installed=%s\\n' "$(waydroid app list 2>/dev/null | grep -q '^${packageName}[[:space:]]' && echo true || echo false)"
+printf 'weston_service=%s\\n' "$(systemctl is-active sylion-${app}-weston-vnc.service 2>/dev/null || true)"
+printf 'vnc_proxy_service=%s\\n' "$(systemctl is-active sylion-${app}-vnc-proxy.service 2>/dev/null || true)"
+printf 'websockify_service=%s\\n' "$(systemctl is-active sylion-${app}-websockify.service 2>/dev/null || true)"
+printf 'waydroid_session_service=%s\\n' "$(systemctl is-active sylion-${app}-android-session.service 2>/dev/null || true)"
 printf 'vnc_listener=%s\\n' "$(ss -ltn 2>/dev/null | grep -q ':${port} ' && echo true || echo false)"
 printf 'vnc_proxy_listener=%s\\n' "$(ss -ltn 2>/dev/null | grep -q '127.0.0.1:${localVncProxyPort}' && echo true || echo false)"
 printf 'pam_auth_configured=%s\\n' "$([ -f /etc/pam.d/weston-remote-access ] && [ -f /usr/local/lib/sylion-weston-vnc-pam-auth.py ] && [ -f /etc/sylion/waydroid-vnc/plain-auth.env ] && echo true || echo false)"
@@ -468,7 +597,7 @@ printf 'public_drop_rule=%s\\n' "$(nft list chain inet filter input 2>/dev/null 
     mode: "applied",
     applied: true,
     applyFacts: facts,
-    streamReady: facts.session === "RUNNING" && facts.container === "RUNNING" && facts.pam_auth_configured === true && facts.vnc_listener === true && facts.vnc_proxy_listener === true && facts.vnc_proxy_handshake === true && facts.web_listener === true,
+    streamReady: facts.session === "RUNNING" && facts.container === "RUNNING" && facts.weston_service === "active" && facts.vnc_proxy_service === "active" && facts.websockify_service === "active" && facts.waydroid_session_service === "active" && facts.pam_auth_configured === true && facts.vnc_listener === true && facts.vnc_proxy_listener === true && facts.vnc_proxy_handshake === true && facts.web_listener === true,
     appLaunchMode: facts.package_installed === true ? "package_launch" : "android_full_ui_no_app_installed",
     productionExecutionAllowed: false
   };

@@ -22,6 +22,7 @@ test("Step 3.77 Android native launcher enforces private TLS stream and public-i
   assert.match(source, /websockify_not_installed/);
   assert.match(source, /novnc_web_assets_missing/);
   assert.match(source, /python3_not_installed/);
+  assert.match(source, /dbus_run_session_not_installed/);
   assert.match(source, /nft add rule inet filter input iifname "eno1" tcp dport/);
   assert.match(source, /--vnc-tls-cert=\/etc\/sylion\/waydroid-vnc\/tls\.crt/);
   assert.doesNotMatch(source, /--ssl-target/);
@@ -37,6 +38,14 @@ test("Step 3.77 Android native launcher enforces private TLS stream and public-i
   assert.match(source, /noVncWebPort: webPort/);
   assert.match(source, /vnc_proxy_listener/);
   assert.match(source, /web_listener/);
+  assert.match(source, /sylion-\$\{app\}-weston-vnc\.service/);
+  assert.match(source, /sylion-\$\{app\}-vnc-proxy\.service/);
+  assert.match(source, /sylion-\$\{app\}-websockify\.service/);
+  assert.match(source, /sylion-\$\{app\}-android-session\.service/);
+  assert.match(source, /Restart=always/);
+  assert.match(source, /dbus-run-session -- \/usr\/local\/sbin\/sylion-\$\{app\}-android-session-keepalive\.sh/);
+  assert.match(source, /waydroid_session_service/);
+  assert.match(source, /android-session-keepalive/);
   assert.match(source, /waydroid app launch/);
   assert.match(source, /android_full_ui_no_app_installed/);
   assert.equal(pkg.scripts["live:android-native-launch"], "node scripts/launch-android-native-workload.mjs");

@@ -63,22 +63,21 @@ test("Step 3.80 Guacamole connection seed uses raw VNC ports and rotates default
   assert.equal(plan.limits.maxConnectionsPerUser, 10);
   assert.equal(plan.g2.adminPasswordPrinted, false);
   assert.equal(plan.g2.dockerBridgeAddress, "172.18.0.1");
-  assert.equal(plan.connections.length, 7);
-  assert.equal(plan.blockedConnections[0].key, "exodus");
-  assert.equal(plan.blockedConnections[0].notSeededUntilReady, true);
+  assert.equal(plan.connections.length, 8);
+  assert.deepEqual(plan.blockedConnections, []);
 
   assert.match(sql, /INSERT INTO guacamole_connection \(connection_name, protocol, max_connections_per_user\)/);
   assert.match(sql, /'SYLION Signal', 'vnc', 10/);
   assert.match(sql, /'SYLION Zangi Android Native', 'vnc', 10/);
+  assert.match(sql, /'SYLION Exodus', 'vnc', 10/);
   assert.match(sql, /'hostname', '172\.18\.0\.1'/);
   assert.match(sql, /'port', '15913'/);
   assert.match(sql, /'port', '15916'/);
+  assert.match(sql, /'port', '15915'/);
   assert.match(sql, /'disable-copy', 'true'/);
   assert.match(sql, /'disable-paste', 'true'/);
   assert.match(sql, /'enable-sftp', 'false'/);
   assert.doesNotMatch(sql, /0\.0\.0\.0/);
-  assert.doesNotMatch(sql, /SYLION Exodus/);
-
   assert.match(remoteScript, /openssl rand -hex 24/);
   assert.match(remoteScript, /sudo bash -c 'nohup socat "\$1" "\$2"/);
   assert.match(remoteScript, /TCP-LISTEN:\$listen_port,bind=\$listen_host,fork,reuseaddr/);

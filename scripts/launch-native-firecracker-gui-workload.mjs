@@ -7,6 +7,16 @@ const defaultSshKey = process.platform === "win32"
   ? ".deploy\\sylion_hetzner_admin_ed25519"
   : ".deploy/sylion_hetzner_admin_ed25519";
 
+const defaultExodusVersion = process.env.SYLION_EXODUS_VERSION || "26.5.7";
+const defaultExodusDebUrl = `https://downloads.exodus.com/releases/exodus-linux-x64-${defaultExodusVersion}.deb`;
+const defaultExodusHashUrl = `https://downloads.exodus.com/releases/hashes-exodus-${defaultExodusVersion}.txt`;
+const defaultExodusDebSha256 = defaultExodusVersion === "26.5.7"
+  ? "59d94608c3eca0d8682c73de7ee2e18d212a09cff54699e084d7015aa0f9ba43"
+  : "";
+const exodusDebUrl = process.env.SYLION_EXODUS_DEB_URL || defaultExodusDebUrl;
+const exodusHashUrl = process.env.SYLION_EXODUS_HASH_URL || defaultExodusHashUrl;
+const exodusDebSha256 = process.env.SYLION_EXODUS_DEB_SHA256 || defaultExodusDebSha256;
+
 const mozillaAptSetup = `
 mkdir -p "$mount_dir/etc/apt/keyrings"
 curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg -o "$mount_dir/etc/apt/keyrings/packages.mozilla.org.asc"
@@ -150,16 +160,23 @@ EOF
     url: "exodus://",
     preAptSetup: `
 mkdir -p "$mount_dir/tmp"
-exodus_url="$(curl -fsSL https://www.exodus.com/download/ | grep -Eo 'https://downloads.exodus.com/[^"]+linux[^"]+\\.deb' | head -1 || true)"
-if [ -z "$exodus_url" ]; then
-  exodus_url="https://downloads.exodus.com/releases/exodus-linux-x64-latest.deb"
+exodus_url=${shellQuote(exodusDebUrl)}
+exodus_hash_url=${shellQuote(exodusHashUrl)}
+exodus_sha256=${shellQuote(exodusDebSha256)}
+if [ -z "$exodus_sha256" ]; then
+  echo "exodus_sha256_required_for_wallet_artifact" >> "$run_dir/preflight.blockers"
 fi
+curl -fsSL "$exodus_hash_url" -o "$mount_dir/tmp/exodus.hashes.asc" || echo "exodus_hash_file_unavailable" >> "$run_dir/preflight.blockers"
 if ! curl -fL "$exodus_url" -o "$mount_dir/tmp/exodus.deb"; then
   echo "exodus_official_download_blocked_or_unavailable" >> "$run_dir/preflight.blockers"
   rm -f "$mount_dir/tmp/exodus.deb"
 fi
+if [ -n "$exodus_sha256" ] && [ -s "$mount_dir/tmp/exodus.deb" ]; then
+  printf '%s  %s\\n' "$exodus_sha256" "$mount_dir/tmp/exodus.deb" | sha256sum -c - >/dev/null \
+    || echo "exodus_sha256_mismatch" >> "$run_dir/preflight.blockers"
+fi
 `,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libgtk-3-0 libnss3 libxss1 libasound2t64",
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1 libdrm2 libxkbcommon0 libatspi2.0-0 libatk-bridge2.0-0 libxdamage1 libxrandr2 libxcomposite1 libxext6 libxfixes3 libx11-xcb1 libxcb-dri3-0 libsecret-1-0 libnotify4 libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 mesa-vulkan-drivers",
     postAptInstall: `
 if [ -s "$mount_dir/tmp/exodus.deb" ]; then
   chroot "$mount_dir" apt-get install -y --no-install-recommends /tmp/exodus.deb >/dev/null
@@ -167,7 +184,7 @@ else
   echo "exodus_deb_artifact_missing" >> "$run_dir/preflight.blockers"
 fi
 `,
-    launchCommand: "dbus-run-session -- exodus --no-sandbox --disable-gpu --disable-dev-shm-usage",
+    launchCommand: "dbus-run-session -- /usr/lib/exodus/Exodus",
     visibleWindowPattern: "Exodus|exodus",
     processPattern: "exodus",
     hostPort: 3015,
@@ -175,7 +192,11 @@ fi
     hostTapIp: "172.16.58.29",
     tap: "syliongui7",
     serverName: "exodus.sylion.internal",
-    guestMac: "AA:FC:00:00:58:1E"
+    guestMac: "AA:FC:00:00:58:1E",
+    displayWidth: 1440,
+    displayHeight: 2400,
+    windowWidth: 1440,
+    windowHeight: 2200
   }
 };
 
@@ -354,7 +375,7 @@ EOF_FF_USER
 fi
 export DISPLAY=:1
 export HOME=/root
-Xvfb :1 -screen 0 1080x2400x24 -ac -nolisten tcp &
+Xvfb :1 -screen 0 ${profile.displayWidth || 1080}x${profile.displayHeight || 2400}x24 -ac -nolisten tcp &
 sleep 1
 openbox-session &
 sleep 1
@@ -370,12 +391,12 @@ app_pid="$!"
 echo "sylion-app-pid=$app_pid"
 sleep 35
 if command -v xdotool >/dev/null 2>&1; then
-  DISPLAY=:1 xdotool search --name '.' windowmove %@ 0 0 windowsize %@ 1080 2200 2>/dev/null || true
-  DISPLAY=:1 xdotool search --class 'firefox|navigator|chrome|signal|libreoffice|soffice|exodus' windowmove %@ 0 0 windowsize %@ 1080 2200 2>/dev/null || true
+  DISPLAY=:1 xdotool search --name '.' windowmove %@ 0 0 windowsize %@ ${profile.windowWidth || 1080} ${profile.windowHeight || 2200} 2>/dev/null || true
+  DISPLAY=:1 xdotool search --class 'firefox|navigator|chrome|signal|libreoffice|soffice|exodus' windowmove %@ 0 0 windowsize %@ ${profile.windowWidth || 1080} ${profile.windowHeight || 2200} 2>/dev/null || true
   DISPLAY=:1 xwininfo -root -children 2>/dev/null \
     | awk '/^     0x[0-9a-f]+/ && $1 != "0x20011f" { print $1 }' \
     | while read -r win; do
-        DISPLAY=:1 xdotool windowmap "$win" windowmove "$win" 0 0 windowsize "$win" 1080 2200 2>/dev/null || true
+        DISPLAY=:1 xdotool windowmap "$win" windowmove "$win" 0 0 windowsize "$win" ${profile.windowWidth || 1080} ${profile.windowHeight || 2200} 2>/dev/null || true
       done
   if [ -n "$target_url" ]; then
     firefox_win="$(DISPLAY=:1 xdotool search --onlyvisible --class firefox 2>/dev/null | head -1 || true)"
@@ -392,7 +413,7 @@ if command -v xdotool >/dev/null 2>&1; then
   fi
 fi
 if command -v wmctrl >/dev/null 2>&1; then
-  DISPLAY=:1 wmctrl -r :ACTIVE: -e 0,0,0,1080,2200 2>/dev/null || true
+  DISPLAY=:1 wmctrl -r :ACTIVE: -e 0,0,0,${profile.windowWidth || 1080},${profile.windowHeight || 2200} 2>/dev/null || true
   DISPLAY=:1 wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz 2>/dev/null || true
 fi
 sleep 5

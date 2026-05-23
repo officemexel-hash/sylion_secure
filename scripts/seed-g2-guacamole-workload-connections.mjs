@@ -34,7 +34,6 @@ const connectionPlan = {
     maxConnectionsPerUser: configuredMaxConnectionsPerUser()
   },
   connections: forwardPlan.forwards
-    .filter((forward) => forward.key !== "exodus")
     .map((forward) => ({
       key: forward.key,
       name: forward.label,
@@ -49,14 +48,7 @@ const connectionPlan = {
       },
       required: forward.required
     })),
-  blockedConnections: forwardPlan.forwards
-    .filter((forward) => forward.key === "exodus")
-    .map((forward) => ({
-      key: forward.key,
-      name: forward.label,
-      blocker: forward.blockerIfMissing || "vnc_target_not_live",
-      notSeededUntilReady: true
-    })),
+  blockedConnections: [],
   invariants: {
     privateAddressOnly: true,
     publicInternetExposure: false,

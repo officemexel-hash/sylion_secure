@@ -354,7 +354,7 @@ async function collectNetworkEvidence(serial) {
   const route = (await adb(["-s", serial, "shell", "ip", "route"])).stdout;
   const tun = (await adb(["-s", serial, "shell", "ip", "addr", "show", "tun1"]).catch((error) => ({ stdout: "", stderr: String(error) }))).stdout;
   const pings = {};
-  for (const host of ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "duckduckgo.sylion.internal", "libreoffice.sylion.internal", "zangi.sylion.internal", "10.42.0.10", "10.42.0.12"]) {
+  for (const host of ["admin.sylion.internal", "operator.sylion.internal", "session.sylion.internal", "signal.sylion.internal", "duckduckgo.sylion.internal", "libreoffice.sylion.internal", "zangi.sylion.internal", "10.42.0.10", "10.42.0.12"]) {
     const ping = await adb(["-s", serial, "shell", "ping", "-c", "1", "-W", "3", host]).catch((error) => ({ stdout: "", stderr: String(error) }));
     pings[host] = {
       ok: /1 received|bytes from/i.test(ping.stdout),

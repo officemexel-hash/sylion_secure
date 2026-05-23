@@ -57,6 +57,9 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /ready:\(\$hostCode=="200" and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true and \$vncBannerReady==true/);
   assert.match(source, /vcpu_count": \$\{profile\.vcpuCount \|\| 2\}/);
   assert.match(source, /mem_size_mib": \$\{profile\.memSizeMib \|\| 4096\}/);
+  assert.match(source, /defaultExodusDebSha256/);
+  assert.match(source, /exodus_sha256_required_for_wallet_artifact/);
+  assert.match(source, /sha256sum -c/);
   assert.match(source, /exodus_official_download_blocked_or_unavailable/);
   assert.match(source, /blockers:\$blockers/);
 });

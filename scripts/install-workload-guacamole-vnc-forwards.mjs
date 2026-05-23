@@ -245,8 +245,7 @@ cat ${shellQuote(evidencePath)}
 }
 
 function renderG2VerificationScript(input = forwardPlan) {
-  const activeForwards = input.forwards.filter((forward) => forward.required !== false);
-  const forwardsB64 = encodeJson(activeForwards);
+  const forwardsB64 = encodeJson(input.forwards);
   return `
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
