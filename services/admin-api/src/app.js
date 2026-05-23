@@ -45,8 +45,8 @@ async function readJson(req) {
   return raw ? JSON.parse(raw) : {};
 }
 
-function send(res, status, payload) {
-  res.writeHead(status, { "content-type": "application/json" });
+function send(res, status, payload, headers = {}) {
+  res.writeHead(status, { "content-type": "application/json", ...headers });
   res.end(JSON.stringify(payload));
 }
 
@@ -62,7 +62,69 @@ function bearerToken(req) {
 
 function operatorBearerToken(req) {
   const header = req.headers.authorization || "";
-  return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
+  if (header.startsWith("Bearer ")) return header.slice("Bearer ".length);
+  return parseCookies(req).sylion_operator_session || null;
+}
+
+function operatorTokenSource(req) {
+  const header = req.headers.authorization || "";
+  if (header.startsWith("Bearer ")) {
+    return { token: header.slice("Bearer ".length), source: "bearer" };
+  }
+  const token = parseCookies(req).sylion_operator_session || null;
+  return { token, source: token ? "cookie" : "missing" };
+}
+
+function parseCookies(req) {
+  const raw = req.headers.cookie || "";
+  return Object.fromEntries(raw.split(";").map((part) => {
+    const [key, ...rest] = part.trim().split("=");
+    if (!key) return null;
+    try {
+      return [key, decodeURIComponent(rest.join("=") || "")];
+    } catch {
+      return [key, ""];
+    }
+  }).filter(Boolean));
+}
+
+function isSecureRequest(req) {
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const host = String(req.headers.host || "");
+  return req.socket?.encrypted === true
+    || forwardedProto === "https"
+    || host.endsWith(".sylion.internal");
+}
+
+function operatorSessionCookie(req, session) {
+  const seconds = Math.max(0, Math.floor((Date.parse(session.expiresAt) - Date.now()) / 1000));
+  const secure = isSecureRequest(req) ? "; Secure" : "";
+  return [
+    `sylion_operator_session=${encodeURIComponent(session.token)}`,
+    "Path=/operator-api",
+    "HttpOnly",
+    "SameSite=Strict",
+    `Max-Age=${seconds}`,
+    secure.trim()
+  ].filter(Boolean).join("; ");
+}
+
+function clearOperatorSessionCookie(req) {
+  const secure = isSecureRequest(req) ? "; Secure" : "";
+  return [
+    "sylion_operator_session=",
+    "Path=/operator-api",
+    "HttpOnly",
+    "SameSite=Strict",
+    "Max-Age=0",
+    secure.trim()
+  ].filter(Boolean).join("; ");
+}
+
+function assertCookieMutationCsrf(req, source) {
+  if (source !== "cookie" || ["GET", "HEAD", "OPTIONS"].includes(req.method)) return;
+  if (req.headers["x-sylion-operator-csrf"] === "same-origin-ui") return;
+  throw new AppError("csrf_required", "Cookie-bound operator session requires same-origin CSRF header for mutations", 403);
 }
 
 function latestPromotableLocalBaseline(pipelines = []) {
@@ -446,7 +508,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
   };
 
   function operatorActorFromRequest(req) {
-    return operatorPortal.actorFromToken(operatorBearerToken(req));
+    const source = operatorTokenSource(req);
+    assertCookieMutationCsrf(req, source.source);
+    return operatorPortal.actorFromToken(source.token);
   }
 
   async function handle(req, res) {
@@ -485,6 +549,28 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         const session = operatorPortal.createLocalSession({ actor, ...body, correlationId });
         return send(res, 201, { session });
+      }
+
+      if (req.method === "POST" && url.pathname === "/operator-api/sessions/attach") {
+        const token = bearerToken(req);
+        const session = operatorPortal.sessionFromToken(token, { includeToken: true });
+        return send(res, 200, {
+          session: operatorPortal.sessionFromToken(token, { includeToken: false }),
+          cookieBound: true
+        }, {
+          "set-cookie": operatorSessionCookie(req, session)
+        });
+      }
+
+      if (req.method === "GET" && url.pathname === "/operator-api/sessions/current") {
+        const { token } = operatorTokenSource(req);
+        return send(res, 200, { session: operatorPortal.sessionFromToken(token, { includeToken: false }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/operator-api/sessions/detach") {
+        return send(res, 200, { detached: true }, {
+          "set-cookie": clearOperatorSessionCookie(req)
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/operator-api/me") {

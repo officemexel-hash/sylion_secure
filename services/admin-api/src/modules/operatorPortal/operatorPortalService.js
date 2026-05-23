@@ -108,6 +108,12 @@ function publicSession(session) {
   };
 }
 
+function publicSessionMetadata(session) {
+  const view = publicSession(session);
+  delete view.token;
+  return view;
+}
+
 async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
   const nativeFirecracker = process.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE === "native_firecracker";
   const command = nativeFirecracker ? "node" : process.platform === "win32" ? "npm.cmd" : "npm";
@@ -238,6 +244,12 @@ export class OperatorPortalService {
       terminalMode: session.terminalMode,
       deviceId: session.deviceId
     };
+  }
+
+  sessionFromToken(token, { includeToken = false } = {}) {
+    this.actorFromToken(token);
+    const session = this.sessions.get(token);
+    return includeToken ? publicSession(session) : publicSessionMetadata(session);
   }
 
   me({ operatorActor, correlationId }) {

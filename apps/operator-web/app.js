@@ -10,27 +10,39 @@
 
   const state = {
     operatorToken: sessionStorage.getItem("sylion.operator.token") || null,
-    session: JSON.parse(sessionStorage.getItem("sylion.operator.session") || "null")
+    session: JSON.parse(sessionStorage.getItem("sylion.operator.session") || "null"),
+    cookieBound: false
   };
 
-  function bootstrapOperatorToken() {
+  async function bootstrapOperatorToken() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("op_token");
     const localhost = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname);
     const internalHost = window.location.protocol === "https:" && window.location.hostname.endsWith(".sylion.internal");
-    if (!token || (!localhost && !internalHost) || !token.startsWith("op_")) return;
-    state.operatorToken = token;
-    sessionStorage.setItem("sylion.operator.token", token);
-    params.delete("op_token");
-    const cleanSearch = params.toString();
-    window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${window.location.hash}`);
-    setText("#session-status", internalHost ? "Operator session received through internal VPN link." : "Operator session received through local lab link.");
+    if (token && (localhost || internalHost) && token.startsWith("op_")) {
+      state.operatorToken = token;
+      params.delete("op_token");
+      const cleanSearch = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${window.location.hash}`);
+      const attached = await attachOperatorSessionCookie();
+      if (!attached) {
+        sessionStorage.setItem("sylion.operator.token", token);
+        setText("#session-status", internalHost ? "Operator session received through internal VPN link." : "Operator session received through local lab link.");
+      }
+      return;
+    }
+    if (state.operatorToken) {
+      await attachOperatorSessionCookie();
+      return;
+    }
+    await recoverOperatorCookieSession();
   }
 
   function headers(extra = {}) {
     return {
       "content-type": "application/json",
       "x-correlation-id": `corr_operator_web_${crypto.randomUUID()}`,
+      "x-sylion-operator-csrf": "same-origin-ui",
       ...(state.operatorToken ? { authorization: `Bearer ${state.operatorToken}` } : {}),
       ...extra
     };
@@ -52,6 +64,40 @@
     } catch (err) {
       return { error: String(err) };
     }
+  }
+
+  async function attachOperatorSessionCookie() {
+    if (!state.operatorToken) return false;
+    const res = await fetch("/operator-api/sessions/attach", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_operator_web_attach_${crypto.randomUUID()}`,
+        authorization: `Bearer ${state.operatorToken}`
+      }
+    });
+    const payload = await res.json();
+    if (!res.ok) return false;
+    state.session = payload.session;
+    state.operatorToken = null;
+    state.cookieBound = true;
+    sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
+    sessionStorage.removeItem("sylion.operator.token");
+    setText("#session-status", `Session bound to this operator browser context (${payload.session.terminalMode}).`);
+    return true;
+  }
+
+  async function recoverOperatorCookieSession() {
+    const payload = await fetchJson("/operator-api/sessions/current");
+    if (payload.error || !payload.session) return false;
+    state.session = payload.session;
+    state.operatorToken = null;
+    state.cookieBound = true;
+    sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
+    sessionStorage.removeItem("sylion.operator.token");
+    setText("#session-status", `Session restored for ${payload.session.operatorId} (${payload.session.terminalMode}).`);
+    return true;
   }
 
   function setActiveView(viewId) {
@@ -113,14 +159,17 @@
     state.session = payload.session;
     state.operatorToken = payload.session.token;
     sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
-    sessionStorage.setItem("sylion.operator.token", payload.session.token);
-    setText("#session-status", `Session active for ${payload.session.operatorId} (${payload.session.terminalMode})`);
+    const attached = await attachOperatorSessionCookie();
+    if (!attached) {
+      sessionStorage.setItem("sylion.operator.token", payload.session.token);
+      setText("#session-status", `Session active for ${payload.session.operatorId} (${payload.session.terminalMode})`);
+    }
     await loadOverview();
   }
 
   async function loadOverview() {
     setText("#terminal-mode", detectTerminalMode());
-    if (!state.operatorToken) {
+    if (!state.operatorToken && !state.session) {
       setText("#operator-session", "Not connected");
       setText("#vpn-overview", "Configuration pending");
       return;
@@ -1071,7 +1120,10 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
-    bootstrapOperatorToken();
+    void initOperatorPortal();
+  });
+
+  async function initOperatorPortal() {
     $(".sidebar").addEventListener("click", handleNav);
     $("#app-switcher").addEventListener("click", handleInternalSwitcher);
     $("#session-form").addEventListener("submit", createLocalSession);
@@ -1092,8 +1144,10 @@
     $("#subscription-form").addEventListener("submit", requestSubscriptionChange);
     $("#fido2-form").addEventListener("submit", saveFido2);
     $("#hsm-form").addEventListener("submit", saveHsm);
+    await bootstrapOperatorToken();
     if (state.session) {
-      setText("#session-status", `Session active for ${state.session.operatorId} (${state.session.terminalMode})`);
+      const source = state.cookieBound ? "cookie-bound" : "active";
+      setText("#session-status", `Session ${source} for ${state.session.operatorId} (${state.session.terminalMode})`);
     }
     const initialView = (location.hash || "#overview").replace("#", "");
     setActiveView(initialView);
@@ -1103,5 +1157,5 @@
     window.addEventListener("resize", () => {
       if ($("#streaming")?.classList.contains("active")) loadStreaming();
     });
-  });
+  }
 })();

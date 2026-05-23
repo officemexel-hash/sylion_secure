@@ -63,6 +63,27 @@ async function operatorRequest(baseUrl, token, path, { method = "GET", body } = 
   return payload;
 }
 
+async function operatorCookieRequest(baseUrl, cookie, path, { method = "GET", body, csrf = true } = {}) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: {
+      "content-type": "application/json",
+      "x-correlation-id": `corr_step3_17_operator_cookie_${crypto.randomUUID()}`,
+      ...(csrf ? { "x-sylion-operator-csrf": "same-origin-ui" } : {}),
+      cookie
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    const error = new Error(payload?.error?.message || "operator cookie request failed");
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
 test("Step 3.17 exposes admin and operator-layer FIDO2/HSM configuration without physical enrollment", async () => {
   const { app, baseUrl, close } = await startTestServer();
   try {
@@ -234,6 +255,85 @@ test("Step 3.17 scopes operator portal sessions to Pixel or laptop terminal VPN 
     assert.equal(profiles.profiles.length, 2);
     assert.ok(profiles.profiles.some((profile) => profile.mode === "laptop_web_terminal" && profile.browserThinClientSupported));
     assert.ok(profiles.profiles.some((profile) => profile.mode === "pixel_grapheneos" && profile.adbSupportedForLab));
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.17 binds operator session to HttpOnly cookie for new-tab handoff and keeps CSRF on mutations", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const client = await loginClient(baseUrl);
+    const tenant = await client.createTenant({ name: "Step 3.17 Cookie Handoff Tenant", tier: "PRO" });
+    const created = await client.createOperator({
+      tenantId: tenant.tenant.id,
+      displayName: "Step 3.17 Cookie Handoff Operator",
+      tier: "PRO"
+    });
+    const pixel = await client.registerDevice({
+      type: "pixel_grapheneos",
+      serial: `pixel-cookie-handoff-${crypto.randomUUID()}`,
+      model: "Pixel GrapheneOS ADB unlocked lab",
+      assignedOperatorId: created.operator.id,
+      posture: { state: "adb_lab_ready", os: "GrapheneOS" }
+    });
+    const sessionPayload = await client.request("/operator-api/sessions/local-simulator", {
+      method: "POST",
+      body: {
+        operatorId: created.operator.id,
+        terminalMode: "pixel_grapheneos",
+        deviceId: pixel.device.id
+      }
+    });
+
+    const attach = await fetch(`${baseUrl}/operator-api/sessions/attach`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_step3_17_attach_${crypto.randomUUID()}`,
+        authorization: `Bearer ${sessionPayload.session.token}`
+      }
+    });
+    const attached = await attach.json();
+    assert.equal(attach.status, 200);
+    assert.equal(attached.cookieBound, true);
+    assert.equal(attached.session.operatorId, created.operator.id);
+    assert.equal(Object.hasOwn(attached.session, "token"), false);
+    const setCookie = attach.headers.get("set-cookie");
+    assert.match(setCookie, /sylion_operator_session=/);
+    assert.match(setCookie, /HttpOnly/);
+    assert.match(setCookie, /SameSite=Strict/);
+    assert.match(setCookie, /Path=\/operator-api/);
+
+    const cookie = setCookie.split(";")[0];
+    const restored = await operatorCookieRequest(baseUrl, cookie, "/operator-api/sessions/current");
+    assert.equal(restored.session.operatorId, created.operator.id);
+    assert.equal(Object.hasOwn(restored.session, "token"), false);
+
+    const me = await operatorCookieRequest(baseUrl, cookie, "/operator-api/me");
+    assert.equal(me.me.operatorId, created.operator.id);
+
+    await assert.rejects(
+      () => operatorCookieRequest(baseUrl, cookie, "/operator-api/workload-control/requests", {
+        method: "POST",
+        csrf: false,
+        body: {
+          action: "scale_to_counts",
+          desiredCounts: { signal: 1 }
+        }
+      }),
+      (error) => error.status === 403 && error.payload.error.code === "csrf_required"
+    );
+
+    const queued = await operatorCookieRequest(baseUrl, cookie, "/operator-api/workload-control/requests", {
+      method: "POST",
+      body: {
+        action: "scale_to_counts",
+        desiredCounts: { signal: 1, whatsapp: 1 }
+      }
+    });
+    assert.equal(queued.request.operatorId, created.operator.id);
+    assert.equal(queued.request.state, "queued_control_plane_update");
   } finally {
     await close();
   }
