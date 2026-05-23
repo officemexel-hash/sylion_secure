@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: implemented, pushed and partially applied live.
+Status: implemented, partially applied live, repair pass in progress.
 
 ## Scope
 
@@ -21,6 +21,17 @@ This step turns the current "10 things that do not work" list into hard producti
   - Guacamole connections: `8`
   - max connections per user: `10`
   - raw VNC reachability from G2 to AX102: all 8 app routes have `RFB 003.008`
+- The live factual audit no longer depends on `jq` on AX102. It parses workload evidence with Python so missing `jq` cannot turn `appCrashed=false` into a false blocker.
+- Operator self-service recreate/rotate was exercised live:
+  - request without confirmation -> `blocked_before_live_runner`
+  - request with `RUN_LIVE_WORKLOAD_RECREATE` -> `completed_live_workload_recreate`
+  - observed controls: `cdrRequired=true`, `terminalDataStored=false`, `privateBindOnlyRequired=true`
+- DuckDuckGo has a live factual PASS from Pixel/workload metadata:
+  - transport ready through G2
+  - Pixel stream rendered
+  - workload app UI visible
+  - target DuckDuckGo content verified
+  - no terminal-side operational data
 
 ## Live State
 
@@ -28,12 +39,12 @@ This step turns the current "10 things that do not work" list into hard producti
 | --- | --- | --- | --- |
 | 1. Zangi Android-native functional | blocked | Pixel stream renders Android/Waydroid, but `androidPackageInstalled=false`. | Provide approved Zangi APK provenance and checksum, install package, relaunch, then record account bootstrap evidence. |
 | 2. Exodus Pixel visual and workflow | blocked | Firecracker/G2/VNC are ready, but Pixel screenshot is still blank/white. | Continue Electron rendering fix or replace runtime profile; then run wallet workflow evidence without secrets. |
-| 3. G2 Guacamole broker | partially repaired | Broker is live, connections seeded, raw VNC reachable. | Keep production execution blocked until human approval and broker audit policy are reviewed. |
+| 3. G2 Guacamole broker | ready for human gate | Broker is live, connections seeded, raw VNC reachable, per-user cap is recorded. | Keep production execution blocked until human approval and broker audit policy are reviewed. |
 | 4. Communicator functional tests | blocked | Transport exists for several apps, but account bootstrap/send-receive evidence is not recorded. | Test one app at a time with safe metadata-only workflow records. |
 | 5. Native Android workload mode | blocked | Waydroid stream exists; app install/provenance is missing. | Finish approved APK install flow and operator panel app-mode lifecycle. |
-| 6. CDR ingress/egress | control-plane present | CDR decisions/transfers are implemented and tested in API. | Run live operator file ingress/egress regression with deny and allow evidence. |
+| 6. CDR ingress/egress | ready for human gate | Live metadata-only regression recorded ingress allow-reconstructed, egress quarantine, allowed transfer and denied transfer. | Add workload-file UI regression next; keep content out of logs. |
 | 7. Tor/jurisdiction routing | blocked | Policy model exists; end-to-end route evidence is not present. | Add route probes and tier-gated evidence without anonymity claims. |
-| 8. Self-service recreate/rotate | partial | Operator panel can queue requests and native runner is gated. | Complete execution/rollback states for allowed actions; keep destructive operations human-gated. |
+| 8. Self-service recreate/rotate | ready for human gate | Disposable-style DuckDuckGo rotation exercised through operator API; missing confirmation blocked before runner, confirmed request completed live. | Add UI click regression and rollback drill; keep destructive operations human-gated. |
 | 9. Confidential compute | blocked | AX102 KVM/Firecracker is not SEV-SNP/TDX attested. | Add provider capability and attestation records before tier claims. |
 | 10. Payment token provisioning | blocked | Admin subscription model exists; public payment/token redemption is not live. | Implement payment sandbox, token issue/redeem, and provisioning handoff. |
 
@@ -71,5 +82,12 @@ node scripts/install-workload-guacamole-vnc-forwards.mjs --apply
 node scripts/seed-g2-guacamole-workload-connections.mjs --apply
 ```
 
-The live Pixel factual audit intentionally exits non-zero because Zangi and Exodus are still blocked. That is expected and correct.
+The full live Pixel factual audit intentionally exits non-zero because several apps are still blocked. Current factual state:
 
+- `duckduckgo_browser`: passed.
+- `libreoffice`: blocked on document workflow proof.
+- `whatsapp`, `telegram`, `threema`, `signal`: blocked on account bootstrap plus send/receive proof.
+- `zangi`: blocked on approved Android APK provenance/install, UI visibility, account bootstrap and send/receive.
+- `exodus`: blocked on wallet workflow and operator risk acceptance; wallet data and seed material must never be logged.
+
+Current live production gate summary: `3/10` ready for human gate, `7/10` blocked, `productionExecutionAllowed=false`.

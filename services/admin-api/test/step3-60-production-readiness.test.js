@@ -3,11 +3,12 @@ import test from "node:test";
 import { createApp } from "../src/app.js";
 import { AdminApiClient } from "../src/sdk/adminApiClient.js";
 
-async function startTestServer(env = {}) {
-  const app = createApp({ liveExecutionOptions: { env } });
+async function startTestServer(env = {}, liveWorkloadRunner = undefined) {
+  const app = createApp({ liveExecutionOptions: { env, liveWorkloadRunner } });
   const server = await app.listen(0);
   const { port } = server.address();
   return {
+    app,
     baseUrl: `http://127.0.0.1:${port}`,
     close: () => new Promise((resolve) => server.close(resolve))
   };
@@ -226,8 +227,116 @@ test("Step 3.60 production readiness rejects env-only factual claims for communi
     assert.equal(signal.evidenceReady, true);
     assert.equal(signal.factualStateVerified, false);
     assert.ok(signal.blockers.includes("factual_state_not_verified"));
+    assert.equal(signal.blockers.includes("signal_live_route_not_verified"), false);
     assert.equal(exodus.factualStateVerified, false);
     assert.ok(exodus.blockers.includes("factual_state_not_verified"));
+    assert.equal(exodus.blockers.includes("exodus_live_route_not_verified"), false);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.60 Guacamole broker can be technically ready while still human gated", async () => {
+  const env = {
+    SYLION_G2_SESSION_BROKER: "guacamole",
+    SYLION_GUACAMOLE_BROKER_READY: "true",
+    SYLION_G2_SESSION_BROKER_APPROVED: "false"
+  };
+  const { baseUrl, close } = await startTestServer(env);
+  try {
+    const client = await loginClient(baseUrl);
+    const tenant = await client.createTenant({ name: "Step 3.60 Broker Tenant", tier: "PRO" });
+    await client.createOperator({
+      tenantId: tenant.tenant.id,
+      displayName: "Step 3.60 Broker Operator",
+      tier: "PRO"
+    });
+
+    const readiness = await client.getProductionReadiness();
+    assert.equal(readiness.readiness.sessionBroker.selectedProtocol, "guacamole");
+    assert.equal(readiness.readiness.sessionBroker.state, "ready_for_human_gate");
+    assert.equal(readiness.readiness.sessionBroker.readyForHumanGate, true);
+    assert.equal(readiness.readiness.sessionBroker.humanApprovalRequired, true);
+    assert.ok(readiness.readiness.sessionBroker.approvalBlockers.includes("g2_session_broker_human_approval_missing"));
+    const guacamoleGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_03_guacamole_broker");
+    assert.equal(guacamoleGate.state, "ready_for_human_gate");
+    assert.equal(guacamoleGate.blockers.length, 0);
+    assert.equal(guacamoleGate.productionExecutionAllowed, false);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.60 self-service rotate gate uses real operator workload-control evidence", async () => {
+  const liveRunner = async () => ({
+    applied: true,
+    mode: "native_firecracker",
+    app: "signal",
+    g2: { code: "200", marker: true, g2_header: true, terminal_header: true },
+    evidence: {
+      component: "native_firecracker_gui_workload",
+      appKey: "signal",
+      hostHttpCode: "200",
+      noVncMarker: true,
+      terminalDataStored: false,
+      productionExecutionAllowed: false
+    },
+    productionExecutionAllowed: false
+  });
+  const { app, baseUrl, close } = await startTestServer({
+    SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED: "true",
+    SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE: "native_firecracker"
+  }, liveRunner);
+  try {
+    const client = await loginClient(baseUrl);
+    const tenant = await client.createTenant({ name: "Step 3.60 Rotate Tenant", tier: "PRO" });
+    const operator = await client.createOperator({
+      tenantId: tenant.tenant.id,
+      displayName: "Step 3.60 Rotate Operator",
+      tier: "PRO"
+    });
+    const operatorActor = {
+      id: "operator_session_step3_60",
+      operatorId: operator.operator.id,
+      tenantId: operator.operator.tenantId,
+      terminalMode: "pixel_grapheneos",
+      deviceId: null
+    };
+    const blockedRequest = app.services.operatorPortal.requestWorkloadControl({
+      operatorActor,
+      body: { action: "rotate_app", rotateApp: "signal", desiredCounts: { signal: 1 } },
+      correlationId: "corr_step3_60_rotate_blocked"
+    });
+    const blocked = await app.services.operatorPortal.executeWorkloadControlRequest({
+      operatorActor,
+      requestId: blockedRequest.id,
+      body: {},
+      correlationId: "corr_step3_60_rotate_blocked_execute"
+    });
+    assert.equal(blocked.state, "blocked_before_live_runner");
+    assert.ok(blocked.blockers.includes("confirmation_phrase_missing"));
+
+    const request = app.services.operatorPortal.requestWorkloadControl({
+      operatorActor,
+      body: { action: "rotate_app", rotateApp: "signal", desiredCounts: { signal: 1 } },
+      correlationId: "corr_step3_60_rotate"
+    });
+    const completed = await app.services.operatorPortal.executeWorkloadControlRequest({
+      operatorActor,
+      requestId: request.id,
+      body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" },
+      correlationId: "corr_step3_60_rotate_execute"
+    });
+    assert.equal(completed.state, "completed_live_workload_recreate");
+    assert.equal(completed.cdrRequired, true);
+    assert.equal(completed.terminalDataStored, false);
+    assert.equal(completed.privateBindOnlyRequired, true);
+
+    const readiness = await client.getProductionReadiness();
+    const rotateGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_08_self_service_recreate_rotate");
+    assert.equal(rotateGate.state, "ready_for_human_gate");
+    assert.equal(rotateGate.evidence.workloadControlEvidence.ready, true);
+    assert.equal(rotateGate.productionExecutionAllowed, false);
   } finally {
     await close();
   }

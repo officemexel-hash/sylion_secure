@@ -518,6 +518,28 @@ async function workloadGuiHealthProbe() {
   if (!appRows) return [];
   const script = `
 set -uo pipefail
+json_field() {
+  file="$1"
+  field="$2"
+  default="$3"
+  python3 - "$file" "$field" "$default" <<'PY'
+import json
+import sys
+
+path, field, default = sys.argv[1:4]
+try:
+    with open(path, "r", encoding="utf-8") as handle:
+        value = json.load(handle).get(field, default)
+except Exception:
+    value = default
+if isinstance(value, bool):
+    print("true" if value else "false")
+elif value is None:
+    print(default)
+else:
+    print(value)
+PY
+}
 while IFS='|' read -r app_key expected_runtime app_port android_package; do
   if echo "$expected_runtime" | grep -q '^android_native'; then
     body="/tmp/sylion-android-native-$app_key.html"
@@ -526,26 +548,37 @@ while IFS='|' read -r app_key expected_runtime app_port android_package; do
     ss -ltn 2>/dev/null | grep -q '${workloadBind}:'"$app_port" && listener=true || listener=false
     if [ -n "$android_package" ]; then
       waydroid app list 2>/dev/null | grep -q "^$android_package[[:space:]]" && package_installed=true || package_installed=false
+      if [ "$package_installed" = "true" ]; then
+        waydroid shell pidof "$android_package" >/dev/null 2>&1 && app_running=true || app_running=false
+      else
+        app_running=false
+      fi
     else
       package_installed=false
+      app_running=false
     fi
     if [ "$code" = "200" ] && [ "$marker" = "true" ] && [ "$listener" = "true" ]; then
-      printf '%s|true|true|android_native_websockify_noVNC|0|%s\\n' "$app_key" "$package_installed"
+      printf '%s|true|true|android_native_websockify_noVNC|0|%s|%s|false|%s|false|false\\n' "$app_key" "$package_installed" "$app_running" "$app_running"
     else
-      printf '%s|false|false|android_native_websockify_not_ready:http_%s_marker_%s_listener_%s|0|%s\\n' "$app_key" "$code" "$marker" "$listener" "$package_installed"
+      printf '%s|false|false|android_native_websockify_not_ready:http_%s_marker_%s_listener_%s|0|%s|%s|false|%s|false|false\\n' "$app_key" "$code" "$marker" "$listener" "$package_installed" "$app_running" "$app_running"
     fi
     continue
   fi
   evidence="/opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json"
   if [ ! -f "$evidence" ]; then
-    printf '%s|missing|false|missing_evidence|0|na\\n' "$app_key"
+    printf '%s|missing|false|missing_evidence|0|na|false|true|false|false|false\\n' "$app_key"
     continue
   fi
-  guest_ip="$(jq -r '.guestIp // ""' "$evidence" 2>/dev/null || true)"
-  run_dir="$(jq -r '.runDir // ""' "$evidence" 2>/dev/null || true)"
-  evidence_ready="$(jq -r '.ready // false' "$evidence" 2>/dev/null || echo false)"
+  guest_ip="$(json_field "$evidence" guestIp "")"
+  run_dir="$(json_field "$evidence" runDir "")"
+  evidence_ready="$(json_field "$evidence" ready false)"
+  app_running="$(json_field "$evidence" appRunning false)"
+  app_crashed="$(json_field "$evidence" appCrashed true)"
+  visible_window="$(json_field "$evidence" visibleWindow false)"
+  target_required="$(json_field "$evidence" targetContentRequired false)"
+  target_verified="$(json_field "$evidence" targetContentVerified false)"
   if [ -z "$guest_ip" ]; then
-    printf '%s|%s|false|missing_guest_ip|0|na\\n' "$app_key" "$evidence_ready"
+    printf '%s|%s|false|missing_guest_ip|0|na|%s|%s|%s|%s|%s\\n' "$app_key" "$evidence_ready" "$app_running" "$app_crashed" "$visible_window" "$target_required" "$target_verified"
     continue
   fi
   banner="$(GUEST_IP="$guest_ip" python3 - <<'PY'
@@ -567,21 +600,42 @@ PY
   if [ -n "$run_dir" ] && [ -f "$run_dir/firecracker.pid" ]; then
     cpu="$(ps -p "$(cat "$run_dir/firecracker.pid")" -o %cpu= 2>/dev/null | xargs || echo 0)"
   fi
-  printf '%s|%s|%s|%s|%s|na\\n' "$app_key" "$evidence_ready" "$banner_ready" "$banner" "$cpu"
+  printf '%s|%s|%s|%s|%s|na|%s|%s|%s|%s|%s\\n' "$app_key" "$evidence_ready" "$banner_ready" "$banner" "$cpu" "$app_running" "$app_crashed" "$visible_window" "$target_required" "$target_verified"
 done <<'SYLION_APPS'
 ${appRows}
 SYLION_APPS
 `;
   const { stdout } = await ssh(workloadHost, script, { timeout: 120_000 });
   return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
-    const [key, evidenceReady, bannerReady, banner, firecrackerCpu, packageInstalled] = line.split("|");
+    const [
+      key,
+      evidenceReady,
+      bannerReady,
+      banner,
+      firecrackerCpu,
+      packageInstalled,
+      appRunning,
+      appCrashed,
+      visibleWindow,
+      targetContentRequired,
+      targetContentVerified
+    ] = line.split("|");
     return {
       key,
       evidenceReady: evidenceReady === "true",
       vncBannerReady: bannerReady === "true",
       vncBanner: banner,
       firecrackerCpu: Number(firecrackerCpu) || 0,
-      androidPackageInstalled: packageInstalled === "true" ? true : packageInstalled === "false" ? false : null
+      androidPackageInstalled: packageInstalled === "true" ? true : packageInstalled === "false" ? false : null,
+      appRunning: appRunning === "true",
+      appCrashed: appCrashed === "true",
+      visibleWindow: visibleWindow === "true",
+      targetContentRequired: targetContentRequired === "true",
+      targetContentVerified: targetContentVerified === "true",
+      workloadAppUiVisible: appRunning === "true"
+        && appCrashed !== "true"
+        && visibleWindow === "true"
+        && (targetContentRequired !== "true" || targetContentVerified === "true")
     };
   });
 }
@@ -639,7 +693,6 @@ async function pixelAudit() {
       }
       const pixelStreamRendered = visualEvidence.rendered === true;
       const appUiMarkerVisible = verdict.factualStateVerified === true;
-      const pixelUiVisible = appUiMarkerVisible || pixelStreamRendered;
       results.push({
         key: app.key,
         host: app.host,
@@ -651,9 +704,9 @@ async function pixelAudit() {
         pixelVisualEvidence: visualEvidence,
         pixelStreamRendered,
         appUiMarkerVisible,
-        factualStateVerified: pixelUiVisible,
-        passMarkerFound: verdict.passMarkerFound || visualEvidence.rendered,
-        blockerMarker: pixelUiVisible ? null : verdict.blockerMarker || visualEvidence.blocker
+        factualStateVerified: appUiMarkerVisible,
+        passMarkerFound: verdict.passMarkerFound,
+        blockerMarker: appUiMarkerVisible ? null : verdict.blockerMarker || visualEvidence.blocker
       });
     } catch (error) {
       results.push({
@@ -719,9 +772,10 @@ async function main() {
       : true;
     const pixelStreamRendered = pixelResult?.pixelStreamRendered === true || pixelResult?.pixelVisualEvidence?.rendered === true;
     const appUiMarkerVisible = pixelResult?.appUiMarkerVisible === true;
+    const workloadAppUiVisible = currentGuiHealth?.workloadAppUiVisible === true;
     const pixelUiVisible = androidNativeRequired
-      ? pixelStreamRendered && androidPackageInstalled
-      : pixelResult?.factualStateVerified === true;
+      ? pixelStreamRendered && androidPackageInstalled && workloadAppUiVisible
+      : pixelStreamRendered && (appUiMarkerVisible || workloadAppUiVisible);
     const key = canonicalAppKey(app.key);
     const prefix = app.key === "duckduckgo" ? "DUCKDUCKGO" : key.toUpperCase();
     const communicator = ["whatsapp", "signal", "telegram", "threema", "zangi", "matrix_client"].includes(key);
@@ -751,6 +805,7 @@ async function main() {
       androidPackageInstalled,
       pixelStreamRendered,
       appUiMarkerVisible,
+      workloadAppUiVisible,
       pixelUiVisible,
       pixelFactualStateVerified: pixelUiVisible,
       workflowVerified,

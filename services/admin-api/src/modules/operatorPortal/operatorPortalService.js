@@ -348,6 +348,42 @@ export class OperatorPortalService {
     };
   }
 
+  workloadControlEvidenceSummary({ operatorIds = [] } = {}) {
+    const operatorSet = new Set(operatorIds.filter(Boolean));
+    const includesOperator = (item) => operatorSet.size === 0 || operatorSet.has(item.operatorId);
+    const requests = [...this.workloadControlRequests.values()].filter(includesOperator);
+    const jobs = [...this.workloadControlJobs.values()].filter(includesOperator);
+    const completedLiveRecreate = jobs.filter((job) => {
+      const publicJob = this.#publicWorkloadControlJob(job);
+      const result = job.result || {};
+      const nativeReady = result.nativeFirecracker?.readyThroughG2 === true
+        || result.applied === true
+        || result.workloadEvidence?.privateBindOnly === true;
+      return publicJob.state === "completed_live_workload_recreate"
+        && publicJob.cdrRequired === true
+        && publicJob.terminalDataStored === false
+        && publicJob.privateBindOnlyRequired === true
+        && nativeReady;
+    });
+    const blockedBeforeRunner = jobs.filter((job) => job.state === "blocked_before_live_runner");
+    const failedLiveRecreate = jobs.filter((job) => job.state === "failed_live_workload_recreate");
+    const destructiveRequests = requests.filter((request) => request.action === "rotate_app" || request.action === "recreate_all");
+    const ready = completedLiveRecreate.length > 0 && blockedBeforeRunner.length > 0 && failedLiveRecreate.length === 0;
+    return {
+      requests: requests.length,
+      destructiveRequests: destructiveRequests.length,
+      jobs: jobs.length,
+      completedLiveRecreate: completedLiveRecreate.length,
+      blockedBeforeRunner: blockedBeforeRunner.length,
+      failedLiveRecreate: failedLiveRecreate.length,
+      cdrRequiredObserved: completedLiveRecreate.some((job) => job.cdrRequired === true),
+      terminalDataStoredFalseObserved: completedLiveRecreate.some((job) => job.terminalDataStored === false),
+      privateBindOnlyObserved: completedLiveRecreate.some((job) => job.privateBindOnlyRequired === true),
+      ready,
+      productionExecutionAllowed: false
+    };
+  }
+
   requestWorkloadControl({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const action = String(body.action || "scale_to_counts").trim();

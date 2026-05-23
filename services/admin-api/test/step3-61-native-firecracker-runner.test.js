@@ -63,5 +63,8 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /exodus_official_download_blocked_or_unavailable/);
   assert.match(source, /ELECTRON_DISABLE_GPU=1/);
   assert.match(source, /MESA_LOADER_DRIVER_OVERRIDE=llvmpipe/);
+  assert.match(source, /--enable-unsafe-swiftshader/);
+  assert.match(source, /--use-gl=swiftshader/);
+  assert.match(source, /--disable-features=UseOzonePlatform,VizDisplayCompositor/);
   assert.match(source, /blockers:\$blockers/);
 });

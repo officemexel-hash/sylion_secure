@@ -190,6 +190,7 @@ fi
       "MESA_LOADER_DRIVER_OVERRIDE=llvmpipe",
       "QT_XCB_GL_INTEGRATION=none",
       "ELECTRON_DISABLE_GPU=1",
+      "ELECTRON_OZONE_PLATFORM_HINT=x11",
       "/usr/lib/exodus/Exodus"
     ].join(" "),
     visibleWindowPattern: "Exodus|exodus",
@@ -379,6 +380,20 @@ user_pref("signon.rememberSignons", false);
 user_pref("toolkit.telemetry.enabled", false);
 EOF_FF_USER
   chown -R 1000:1000 /home/sylion/.mozilla
+fi
+if [ "${appKey}" = "exodus" ]; then
+  mkdir -p /home/sylion/.config
+  cat > /home/sylion/.config/electron-flags.conf <<'EOF_ELECTRON_FLAGS'
+--disable-gpu
+--disable-gpu-compositing
+--disable-dev-shm-usage
+--ignore-gpu-blocklist
+--enable-unsafe-swiftshader
+--use-gl=swiftshader
+--ozone-platform=x11
+--disable-features=UseOzonePlatform,VizDisplayCompositor
+EOF_ELECTRON_FLAGS
+  chown -R 1000:1000 /home/sylion/.config
 fi
 export DISPLAY=:1
 export HOME=/root

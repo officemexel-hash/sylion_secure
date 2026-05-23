@@ -89,6 +89,25 @@ test("Step 3.70 live factual audit treats Zangi Android stream as noVNC but keep
   assert.match(source, /key: "zangi"[\s\S]+expectedRuntime: "android_native_required"[\s\S]+androidPackage: "com\.beint\.zangi"[\s\S]+noVnc: true/);
   assert.match(source, /android_native_websockify_noVNC/);
   assert.match(source, /androidPackageInstalled/);
+  assert.match(source, /waydroid shell pidof "\$android_package"/);
+  assert.match(source, /workloadAppUiVisible/);
   assert.match(source, /android_app_package_not_installed/);
   assert.match(source, /functional_workflow_not_verified/);
+});
+
+test("Step 3.70 workload evidence parsing does not require jq on AX102", () => {
+  const source = readFileSync("scripts/live-factual-workload-audit.mjs", "utf8");
+  assert.match(source, /json_field\(\) \{/);
+  assert.match(source, /python3 - "\$file" "\$field" "\$default"/);
+  assert.match(source, /guest_ip="\$\(json_field "\$evidence" guestIp ""\)"/);
+  assert.match(source, /app_crashed="\$\(json_field "\$evidence" appCrashed true\)"/);
+  assert.doesNotMatch(source, /jq -r '\.appCrashed/);
+});
+
+test("Step 3.70 live factual audit does not promote rendered noVNC pixels into app UI markers", () => {
+  const source = readFileSync("scripts/live-factual-workload-audit.mjs", "utf8");
+  assert.match(source, /factualStateVerified: appUiMarkerVisible/);
+  assert.match(source, /passMarkerFound: verdict\.passMarkerFound/);
+  assert.doesNotMatch(source, /passMarkerFound: verdict\.passMarkerFound \|\| visualEvidence\.rendered/);
+  assert.match(source, /pixelStreamRendered && \(appUiMarkerVisible \|\| workloadAppUiVisible\)/);
 });

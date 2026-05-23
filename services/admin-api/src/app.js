@@ -271,6 +271,9 @@ function readinessAppState(env, app, factualRecord = null) {
   const transportReady = httpStatus === 200 || evidenceReady;
   const ready = transportReady && factualStateVerified;
   const notBuilt = httpStatus === 502 || env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "false";
+  const androidRuntimeSatisfied = app.expected !== "android_native"
+    || evidenceReady
+    || factualRecord?.runtimeMode === "android_native";
   const factualBlockers = factualRecord && factualRecord.factualStateVerified !== true
     ? factualRecord.blockers || ["factual_state_not_verified"]
     : [];
@@ -292,9 +295,10 @@ function readinessAppState(env, app, factualRecord = null) {
     } : null,
     state: ready ? "ready" : notBuilt ? "not_built" : "unknown_or_blocked",
     blockers: ready ? [] : [
-      notBuilt ? `${app.key}_native_workload_not_built` : `${app.key}_live_route_not_verified`,
+      ...(notBuilt ? [`${app.key}_native_workload_not_built`] : []),
+      ...(!notBuilt && !transportReady ? [`${app.key}_live_route_not_verified`] : []),
       ...(transportReady && !factualStateVerified ? ["factual_state_not_verified", ...factualBlockers] : []),
-      ...(app.expected === "android_native" ? ["android_native_runtime_required"] : [])
+      ...(androidRuntimeSatisfied ? [] : ["android_native_runtime_required"])
     ],
     cdrRequired: true,
     terminalDataStored: false,
@@ -333,13 +337,16 @@ function sessionBrokerReadiness(env) {
     : normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies"
       ? webrtcReady
       : false;
-  const blockers = [
+  const technicalBlockers = [
     ...(normalized === "adr_pending" ? ["g2_session_broker_adr_pending"] : []),
     ...(normalized === "novnc_lab" ? ["novnc_lab_only_not_approved_for_production_broker"] : []),
     ...(normalized === "guacamole" && !guacamoleReady ? ["guacamole_broker_poc_not_ready"] : []),
-    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") && !webrtcReady ? ["webrtc_selkies_broker_poc_not_ready"] : []),
+    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") && !webrtcReady ? ["webrtc_selkies_broker_poc_not_ready"] : [])
+  ];
+  const approvalBlockers = [
     ...(env.SYLION_G2_SESSION_BROKER_APPROVED === "true" ? [] : ["g2_session_broker_human_approval_missing"])
   ];
+  const technicalReadyForHumanGate = technicalBlockers.length === 0 && productionCandidateReady;
   return {
     selectedProtocol: normalized,
     candidates: [
@@ -347,9 +354,11 @@ function sessionBrokerReadiness(env) {
       { protocol: "webrtc_selkies", ready: webrtcReady, productionCandidate: true, labOnly: false },
       { protocol: "novnc_lab", ready: novncLabReady, productionCandidate: false, labOnly: true }
     ],
-    state: blockers.length ? "blocked" : "ready_for_human_gate",
-    readyForHumanGate: blockers.length === 0 && productionCandidateReady,
-    blockers,
+    state: technicalReadyForHumanGate ? "ready_for_human_gate" : "blocked",
+    readyForHumanGate: technicalReadyForHumanGate,
+    blockers: technicalBlockers,
+    approvalBlockers,
+    humanApprovalRequired: approvalBlockers.length > 0,
     noVncProductionApproved: false,
     productionExecutionAllowed: false
   };
@@ -398,7 +407,7 @@ function cdrEvidenceSummary(cdr) {
   };
 }
 
-function buildProductionGates({ env, rows, sessionBroker, cdrEvidence }) {
+function buildProductionGates({ env, rows, sessionBroker, cdrEvidence, workloadControlEvidence }) {
   const facts = {
     zangiReady: appReady(rows, "zangi"),
     exodusReady: appReady(rows, "exodus") && envFlag(env, "SYLION_EXODUS_PIXEL_VISUAL_VERIFIED"),
@@ -407,7 +416,7 @@ function buildProductionGates({ env, rows, sessionBroker, cdrEvidence }) {
     androidNativeReady: envFlag(env, "SYLION_ANDROID_NATIVE_MODE_READY"),
     cdrReady: envFlag(env, "SYLION_CDR_END_TO_END_READY") || cdrEvidence?.ready === true,
     torJurisdictionReady: envFlag(env, "SYLION_TOR_JURISDICTION_READY"),
-    recreateRotateReady: envFlag(env, "SYLION_SELF_SERVICE_ROTATE_READY"),
+    recreateRotateReady: envFlag(env, "SYLION_SELF_SERVICE_ROTATE_READY") || workloadControlEvidence?.ready === true,
     confidentialComputeReady: envFlag(env, "SYLION_CONFIDENTIAL_COMPUTE_ATTESTED"),
     paymentTokenReady: envFlag(env, "SYLION_PAYMENT_TOKEN_PROVISIONING_READY")
   };
@@ -441,6 +450,7 @@ function buildProductionGates({ env, rows, sessionBroker, cdrEvidence }) {
         source: "production_readiness_control_plane",
         factualStateRequired: true,
         ...(definition.id === "gate_06_cdr_end_to_end" ? { cdrEvidence } : {}),
+        ...(definition.id === "gate_08_self_service_recreate_rotate" ? { workloadControlEvidence } : {}),
         terminalDataStored: false,
         contentInspected: false
       }
@@ -507,7 +517,10 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
     };
   });
   const cdrEvidence = cdrEvidenceSummary(services.cdr);
-  const productionGates = buildProductionGates({ env, rows, sessionBroker, cdrEvidence });
+  const workloadControlEvidence = services.operatorPortal.workloadControlEvidenceSummary({
+    operatorIds: operatorsList.map((operator) => operator.id)
+  });
+  const productionGates = buildProductionGates({ env, rows, sessionBroker, cdrEvidence, workloadControlEvidence });
   return {
     generatedAt: new Date().toISOString(),
     sessionBroker,
