@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { writeHumanEvidenceSummary } from "./lib/human-evidence.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -471,6 +472,7 @@ async function run() {
   const probes = await probeWorkloadsFromAdmin();
   const networkAfter = await collectNetworkEvidence(pixel.serial);
   const analysis = analyze(seed, networkAfter, probes, pageResults);
+  const screenshots = Object.fromEntries(Object.entries(pageResults).map(([key, value]) => [key, value.screenshot]));
   const summary = {
     status: analysis.issues.length ? "failed_with_findings" : analysis.knownGates.length ? "passed_with_known_gates" : "passed",
     adbSerial: pixel.serial,
@@ -487,11 +489,67 @@ async function run() {
     networkBefore,
     networkAfter,
     probes,
-    screenshots: Object.fromEntries(Object.entries(pageResults).map(([key, value]) => [key, value.screenshot])),
+    screenshots,
     issues: analysis.issues,
     knownGates: analysis.knownGates,
     checkedAt: new Date().toISOString()
   };
+  const strictResult = analysis.issues.length ? "FAIL" : analysis.knownGates.length ? "BLOCKED" : "PASS";
+  const humanEvidence = await writeHumanEvidenceSummary(outputDir, {
+    testId: "step3-40-pixel-live-human-regression",
+    testVersion: "step3.86",
+    tester: "Codex Pixel ADB live harness",
+    environment: {
+      mode: "live_metadata_and_human_ui",
+      adminVps: "sylion-admin-api",
+      g1g2WorkloadPath: "Pixel -> VPN -> G1 -> VPN -> G2 -> VPN -> WORKLOAD",
+      workloadGateway: workloadGatewayIp,
+      productionMutationAllowed: false
+    },
+    terminal: {
+      type: "pixel_grapheneos",
+      adbAuthorized: true,
+      caInstallRequiresUserPresence: caDelivery.requiresUserPresence,
+      operationalDataOnTerminal: false
+    },
+    pathTested: "Pixel GrapheneOS -> VPN -> G1 -> VPN -> G2 -> VPN -> WORKLOAD -> app workloads",
+    expectedBehavior: "The Pixel opens the admin panel, operator panel and each workload stream only through the live G1/G2 path, with metadata-only evidence and no terminal-side operational data.",
+    preconditions: [
+      "Pixel is attached over authorized ADB.",
+      "Admin VPS can seed a live operator session.",
+      "Internal SYLION CA package is delivered for user-present installation.",
+      "Live workload hostnames resolve through the G2 workload gateway."
+    ],
+    actions: [
+      "Collect Pixel network metadata before live app traversal.",
+      "Deliver internal CA package and open GrapheneOS certificate settings.",
+      "Open admin panel on Pixel.",
+      "Open operator app switcher on Pixel.",
+      "Open each workload hostname on Pixel.",
+      "Probe workload hostnames from the admin side.",
+      "Collect Pixel network metadata after traversal."
+    ],
+    evidenceRefs: [
+      "summary.json",
+      ...Object.entries(screenshots).map(([name, path]) => `screenshot:${name}:${path}`),
+      "metadata:networkBefore",
+      "metadata:networkAfter",
+      "metadata:serverSideWorkloadProbes"
+    ],
+    result: strictResult,
+    blockers: [...analysis.issues, ...analysis.knownGates],
+    residualRisk: [
+      "Puli AX physical router path remains blocked until hardware arrives.",
+      "HSM/FIDO2 physical enrollment remains blocked until hardware/backend is present.",
+      "A screenshot or HTTP 200 is not sufficient by itself to prove a communicator is usable."
+    ],
+    nextRequiredAction: analysis.issues.length
+      ? "Repair the first failed blocker, then rerun this exact live Pixel regression."
+      : analysis.knownGates.length
+        ? "Resolve known gates, then rerun this exact live Pixel regression."
+        : "Freeze evidence and continue with laptop-terminal parity regression."
+  }, { fileName: "human-evidence.json" });
+  summary.humanEvidencePath = humanEvidence.path;
   await writeFile(join(outputDir, "summary.json"), JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
   if (analysis.issues.length) {
