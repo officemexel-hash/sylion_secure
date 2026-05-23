@@ -1,0 +1,115 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infrastructure/terraform/**'
+      - '.github/workflows/terraform-apply.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to apply (lab|staging|production)'
+        required: true
+        default: 'lab'
+        type: choice
+        options: [lab, staging, production]
+      confirm:
+        description: 'Type APPLY to confirm production'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tf-apply-${{ github.event.inputs.environment || 'lab' }}
+  cancel-in-progress: false  # never cancel apply mid-flight
+
+jobs:
+  apply:
+    name: Apply (${{ inputs.environment || 'lab' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment || 'lab' }}
+    # GitHub environment must be configured w/ required reviewers
+    # for 'production' to gate apply behind manual approval
+
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/${{ inputs.environment || 'lab' }}
+
+    steps:
+      - name: Verify production confirmation
+        if: inputs.environment == 'production'
+        run: |
+          if [ "${{ inputs.confirm }}" != "APPLY" ]; then
+            echo "::error::Production apply requires confirm=APPLY input"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.7.0"
+
+      - name: Terraform init
+        env:
+          # State backend credentials (Hetzner Object Storage or similar)
+          # Configure in repo secrets
+          TF_BACKEND_HCLOUD_TOKEN: ${{ secrets.TF_BACKEND_HCLOUD_TOKEN }}
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HETZNER_API_TOKEN }}
+          OVH_APPLICATION_KEY: ${{ secrets.OVH_APPLICATION_KEY }}
+          OVH_APPLICATION_SECRET: ${{ secrets.OVH_APPLICATION_SECRET }}
+          OVH_CONSUMER_KEY: ${{ secrets.OVH_CONSUMER_KEY }}
+          TF_VAR_environment: ${{ inputs.environment || 'lab' }}
+        run: |
+          terraform plan -input=false -out=tfplan -no-color
+
+      - name: Terraform apply
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HETZNER_API_TOKEN }}
+          OVH_APPLICATION_KEY: ${{ secrets.OVH_APPLICATION_KEY }}
+          OVH_APPLICATION_SECRET: ${{ secrets.OVH_APPLICATION_SECRET }}
+          OVH_CONSUMER_KEY: ${{ secrets.OVH_CONSUMER_KEY }}
+        run: |
+          terraform apply -input=false -no-color tfplan
+
+      - name: Capture outputs
+        id: outputs
+        run: |
+          terraform output -json > tf-outputs.json
+          echo "outputs<<EOF" >> $GITHUB_OUTPUT
+          terraform output >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Upload tfplan + outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-${{ inputs.environment || 'lab' }}-${{ github.run_id }}
+          path: |
+            infrastructure/terraform/environments/${{ inputs.environment || 'lab' }}/tfplan
+            infrastructure/terraform/environments/${{ inputs.environment || 'lab' }}/tf-outputs.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Audit trail
+        if: success()
+        run: |
+          echo "Terraform apply completed for ${{ inputs.environment || 'lab' }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Run ID: ${{ github.run_id }}"
+          # Future: POST to admin-api audit endpoint via secret token
