@@ -37,6 +37,7 @@ test("V2 admin web shell is served from Admin API under /admin", async () => {
     assert.match(html.body, /data-view="production-readiness"/);
     assert.match(html.body, /id="production-readiness-summary-cards"/);
     assert.match(html.body, /id="production-readiness-operator-cards"/);
+    assert.match(html.body, /id="production-readiness-production-gates-cards"/);
     assert.match(html.body, /id="production-readiness-app-cards"/);
     assert.match(html.body, /id="disposable-teardown-plan-form"/);
     assert.match(html.body, /id="disposable-teardown-execute-form"/);

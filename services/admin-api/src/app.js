@@ -147,6 +147,111 @@ const PRODUCTION_READINESS_APPS = Object.freeze([
   { key: "exodus", label: "Exodus", host: "exodus.sylion.internal", path: "/", envAlias: "EXODUS", expected: "dedicated_wallet_workload" }
 ]);
 
+const FACTUAL_RECORD_REQUIRED_APPS = new Set(["whatsapp", "telegram", "threema", "signal", "zangi", "exodus"]);
+
+const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
+  {
+    id: "gate_01_zangi_android_native_functional",
+    title: "1. Zangi Android-native functional",
+    area: "workload-app",
+    severity: "critical",
+    blockers: ["zangi_android_native_account_flow_not_proven"],
+    acceptance: "Zangi opens from Pixel and laptop thin client, reaches its own Android-native workload, and has a recorded account bootstrap or functional-app test without storing operational data on the terminal.",
+    verifyHow: "Run Pixel/laptop human regression, record approved APK provenance, then promote a Zangi factual workload test only after UI plus account bootstrap evidence passes.",
+    repairAction: "Finish approved Zangi APK provenance, install into the Android-native workload, launch it through the broker, and capture a content-safe factual test record."
+  },
+  {
+    id: "gate_02_exodus_pixel_functional",
+    title: "2. Exodus Pixel visual and workflow",
+    area: "workload-app",
+    severity: "critical",
+    blockers: ["exodus_pixel_visual_not_proven"],
+    acceptance: "Exodus renders through the Pixel thin client and laptop thin client, its wallet workflow is verified with non-secret evidence, and no seed, wallet data, or file contents are logged.",
+    verifyHow: "Run Exodus human regression with screenshot metadata only, confirm visible nonblank stream and wallet-risk checks, and record a factual test without secrets.",
+    repairAction: "Fix the blank/white Pixel stream path for Exodus, re-run the visual stats probe, then record the wallet workflow factual test."
+  },
+  {
+    id: "gate_03_guacamole_broker",
+    title: "3. G2 Guacamole production broker",
+    area: "g2-broker",
+    severity: "critical",
+    blockers: ["guacamole_not_active_as_production_broker"],
+    acceptance: "G2 runs the selected production broker with per-user limits, connection inventory, audit events, and no noVNC-only production claim.",
+    verifyHow: "Check guacd/Tomcat or approved broker services, count configured connections, confirm max sessions per user, and verify broker audit entries.",
+    repairAction: "Install and configure Apache Guacamole on G2 or record a formal ADR for an approved alternative; keep noVNC labeled lab-only until approved."
+  },
+  {
+    id: "gate_04_communicator_functional_tests",
+    title: "4. Communicators prove account workflow",
+    area: "workload-app",
+    severity: "critical",
+    blockers: ["communicator_account_send_receive_not_proven"],
+    acceptance: "WhatsApp, Telegram, Threema, Signal and Zangi each have factual records showing UI, account bootstrap, and send/receive or equivalent safe functional proof.",
+    verifyHow: "Run communicator factual tests that reject transport-only evidence and require bootstrap plus send/receive metadata without message content.",
+    repairAction: "Complete one communicator at a time, starting with Signal, and do not mark ready from HTTP 200 or RFB reachability alone."
+  },
+  {
+    id: "gate_05_android_native_workloads",
+    title: "5. Native Android workload mode",
+    area: "workload-runtime",
+    severity: "high",
+    blockers: ["android_native_mode_incomplete"],
+    acceptance: "Operator can select desktop/web or Android-native per communicator, and Android-native launch/install/status is controlled from the operator panel.",
+    verifyHow: "Use operator panel app settings, launch Android-native session, confirm workload status, and verify Pixel display scaling.",
+    repairAction: "Wire Android-native app mode into workload lifecycle controls and add per-app install, launch, stop, reset and evidence collection."
+  },
+  {
+    id: "gate_06_cdr_end_to_end",
+    title: "6. CDR ingress and egress",
+    area: "cdr",
+    severity: "critical",
+    blockers: ["cdr_file_workflow_not_end_to_end_proven"],
+    acceptance: "Every file ingress/egress path for operator workloads requires CDR, records non-content audit metadata, and blocks bypass paths.",
+    verifyHow: "Run file upload/download tests through the operator portal and workload broker, confirm CDR decision, audit hash, and denied bypass attempt.",
+    repairAction: "Complete CDR broker integration for workload file transfer and add negative tests for direct file movement."
+  },
+  {
+    id: "gate_07_tor_jurisdiction_routing",
+    title: "7. Tor and jurisdiction routing",
+    area: "routing",
+    severity: "high",
+    blockers: ["tor_jurisdiction_route_not_end_to_end_proven"],
+    acceptance: "Operator tier controls whether Tor/jurisdiction routing is available; selected routes show evidence without claiming anonymity.",
+    verifyHow: "Run route probes from workload apps, record egress class/country metadata, and verify blocked access when the tier lacks entitlement.",
+    repairAction: "Implement route policy enforcement, evidence capture, and tier-gated operator controls for Tor/jurisdiction profiles."
+  },
+  {
+    id: "gate_08_self_service_recreate_rotate",
+    title: "8. Self-service recreate and rotate",
+    area: "operator-lifecycle",
+    severity: "high",
+    blockers: ["environment_recreate_rotate_still_human_gated"],
+    acceptance: "Operator can request allowed reset/recreate/rotation actions from the panel, with tier policy, audit, and destructive human gates where required.",
+    verifyHow: "Create a disposable operator, trigger allowed reset/rotation, verify audit events and that forbidden/destructive actions require approval.",
+    repairAction: "Connect operator panel lifecycle actions to the provisioning pipeline with dry-run, approval, execution and rollback states."
+  },
+  {
+    id: "gate_09_confidential_compute",
+    title: "9. Confidential compute readiness",
+    area: "hardware-security",
+    severity: "high",
+    blockers: ["amd_sev_snp_or_intel_tdx_not_active"],
+    acceptance: "Higher tiers can require AMD SEV-SNP or Intel TDX provider capability, with attestation evidence before production claim.",
+    verifyHow: "Record provider/server capability, kernel support, attestation evidence, and tier placement decision.",
+    repairAction: "Add provider capability checks and attestation records; keep current AX102 KVM/Firecracker separate from confidential-compute claims."
+  },
+  {
+    id: "gate_10_payment_token_provisioning",
+    title: "10. Payment token provisioning",
+    area: "subscription",
+    severity: "high",
+    blockers: ["public_payment_token_provisioning_not_live"],
+    acceptance: "Public subscription payment issues a token, token redemption creates an operator package, and admin panel shows cost, tier and minimum 6-month subscription state.",
+    verifyHow: "Run payment sandbox, token redemption, operator creation, package generation and subscription ledger checks.",
+    repairAction: "Implement payment provider sandbox, token lifecycle, redemption endpoint, and package-generation handoff into admin provisioning."
+  }
+]);
+
 function readinessHttpStatus(env, app) {
   const direct = env[`SYLION_${app.key.toUpperCase()}_LIVE_HTTP_STATUS`];
   const alias = env[`SYLION_${app.envAlias}_LIVE_HTTP_STATUS`];
@@ -162,7 +267,7 @@ function readinessAppState(env, app, factualRecord = null) {
     || env[`SYLION_${app.envAlias}_FACTUAL_STATE_VERIFIED`] === "true";
   const factualStateVerified = factualRecord
     ? factualRecord.factualStateVerified === true
-    : envFactualStateVerified;
+    : FACTUAL_RECORD_REQUIRED_APPS.has(app.key) ? false : envFactualStateVerified;
   const transportReady = httpStatus === 200 || evidenceReady;
   const ready = transportReady && factualStateVerified;
   const notBuilt = httpStatus === 502 || env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "false";
@@ -250,6 +355,99 @@ function sessionBrokerReadiness(env) {
   };
 }
 
+function envFlag(env, key) {
+  return env[key] === "true";
+}
+
+function productionGateState(isReady, blockers) {
+  return isReady && blockers.length === 0 ? "ready_for_human_gate" : "blocked";
+}
+
+function appReady(rows, appKey) {
+  return rows.some((row) => row.apps?.some((app) => app.key === appKey && app.state === "ready"));
+}
+
+function appsReady(rows, appKeys) {
+  return appKeys.every((appKey) => appReady(rows, appKey));
+}
+
+function cdrEvidenceSummary(cdr) {
+  const decisions = cdr?.listDecisions?.() || [];
+  const events = cdr?.listMonitoringEvents?.() || [];
+  const directions = new Set(decisions.map((decision) => decision.direction));
+  const decisionValues = new Set(decisions.map((decision) => decision.decision));
+  const transferEvents = events.filter((event) => event.eventType === "cdr.file_transfer");
+  const hasAllowedTransfer = transferEvents.some((event) => event.labels?.allowed === "true");
+  const hasDeniedTransfer = transferEvents.some((event) => event.labels?.allowed === "false");
+  const hasDenyDecision = decisionValues.has("block") || decisionValues.has("quarantine");
+  return {
+    decisions: decisions.length,
+    monitoringEvents: events.length,
+    ingressObserved: directions.has("ingress"),
+    egressObserved: directions.has("egress"),
+    allowReconstructedObserved: decisionValues.has("allow_reconstructed"),
+    denyOrQuarantineObserved: hasDenyDecision,
+    allowedTransferObserved: hasAllowedTransfer,
+    deniedTransferObserved: hasDeniedTransfer,
+    ready: directions.has("ingress")
+      && directions.has("egress")
+      && decisionValues.has("allow_reconstructed")
+      && hasDenyDecision
+      && hasAllowedTransfer
+      && hasDeniedTransfer
+  };
+}
+
+function buildProductionGates({ env, rows, sessionBroker, cdrEvidence }) {
+  const facts = {
+    zangiReady: appReady(rows, "zangi"),
+    exodusReady: appReady(rows, "exodus") && envFlag(env, "SYLION_EXODUS_PIXEL_VISUAL_VERIFIED"),
+    guacamoleReady: sessionBroker.selectedProtocol === "guacamole" && sessionBroker.readyForHumanGate === true,
+    communicatorsReady: appsReady(rows, ["whatsapp", "telegram", "threema", "signal", "zangi"]),
+    androidNativeReady: envFlag(env, "SYLION_ANDROID_NATIVE_MODE_READY"),
+    cdrReady: envFlag(env, "SYLION_CDR_END_TO_END_READY") || cdrEvidence?.ready === true,
+    torJurisdictionReady: envFlag(env, "SYLION_TOR_JURISDICTION_READY"),
+    recreateRotateReady: envFlag(env, "SYLION_SELF_SERVICE_ROTATE_READY"),
+    confidentialComputeReady: envFlag(env, "SYLION_CONFIDENTIAL_COMPUTE_ATTESTED"),
+    paymentTokenReady: envFlag(env, "SYLION_PAYMENT_TOKEN_PROVISIONING_READY")
+  };
+  const readinessByGate = {
+    gate_01_zangi_android_native_functional: facts.zangiReady,
+    gate_02_exodus_pixel_functional: facts.exodusReady,
+    gate_03_guacamole_broker: facts.guacamoleReady,
+    gate_04_communicator_functional_tests: facts.communicatorsReady,
+    gate_05_android_native_workloads: facts.androidNativeReady,
+    gate_06_cdr_end_to_end: facts.cdrReady,
+    gate_07_tor_jurisdiction_routing: facts.torJurisdictionReady,
+    gate_08_self_service_recreate_rotate: facts.recreateRotateReady,
+    gate_09_confidential_compute: facts.confidentialComputeReady,
+    gate_10_payment_token_provisioning: facts.paymentTokenReady
+  };
+  const blockersByGate = {
+    gate_03_guacamole_broker: facts.guacamoleReady ? [] : sessionBroker.blockers.length
+      ? sessionBroker.blockers
+      : ["guacamole_not_active_as_production_broker"]
+  };
+  return PRODUCTION_GATE_DEFINITIONS.map((definition) => {
+    const isReady = readinessByGate[definition.id] === true;
+    const blockers = isReady ? [] : blockersByGate[definition.id] || definition.blockers;
+    return {
+      ...definition,
+      state: productionGateState(isReady, blockers),
+      blockers,
+      humanGateRequired: true,
+      productionExecutionAllowed: false,
+      evidence: {
+        source: "production_readiness_control_plane",
+        factualStateRequired: true,
+        ...(definition.id === "gate_06_cdr_end_to_end" ? { cdrEvidence } : {}),
+        terminalDataStored: false,
+        contentInspected: false
+      }
+    };
+  });
+}
+
 function buildProductionReadiness({ actor, services, env, correlationId }) {
   const productionOperatorId = env.SYLION_PRODUCTION_OPERATOR_ID || null;
   const sessionBroker = sessionBrokerReadiness(env);
@@ -308,14 +506,20 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
       productionExecutionAllowed: false
     };
   });
+  const cdrEvidence = cdrEvidenceSummary(services.cdr);
+  const productionGates = buildProductionGates({ env, rows, sessionBroker, cdrEvidence });
   return {
     generatedAt: new Date().toISOString(),
     sessionBroker,
     operators: rows,
+    productionGates,
     summary: {
       operators: rows.length,
       readyForHumanGate: rows.filter((row) => row.status === "ready_for_human_gate").length,
       blocked: rows.filter((row) => row.status === "blocked").length,
+      productionGates: productionGates.length,
+      productionGatesReadyForHumanGate: productionGates.filter((gate) => gate.state === "ready_for_human_gate").length,
+      productionGatesBlocked: productionGates.filter((gate) => gate.state === "blocked").length,
       productionExecutionAllowed: false
     }
   };

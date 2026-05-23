@@ -86,7 +86,9 @@ test("Step 3.70 live factual audit lists selected apps without remote side effec
 
 test("Step 3.70 live factual audit treats Zangi Android stream as noVNC but keeps workflow gated", () => {
   const source = readFileSync("scripts/live-factual-workload-audit.mjs", "utf8");
-  assert.match(source, /key: "zangi"[\s\S]+expectedRuntime: "android_native_required"[\s\S]+noVnc: true/);
+  assert.match(source, /key: "zangi"[\s\S]+expectedRuntime: "android_native_required"[\s\S]+androidPackage: "com\.beint\.zangi"[\s\S]+noVnc: true/);
   assert.match(source, /android_native_websockify_noVNC/);
+  assert.match(source, /androidPackageInstalled/);
+  assert.match(source, /android_app_package_not_installed/);
   assert.match(source, /functional_workflow_not_verified/);
 });

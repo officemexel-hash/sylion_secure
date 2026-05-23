@@ -87,9 +87,10 @@ const allApps = [
     host: "zangi.sylion.internal",
     port: 3014,
     expectedRuntime: "android_native_required",
+    androidPackage: "com.beint.zangi",
     noVnc: true,
     pixelDelayMs: 16_000,
-    pass: [/Zangi|Android/i],
+    pass: [/Zangi/i],
     blockers: [/Download Zangi|zangi\.com\/.*download|New Tab|Google|Index of/i]
   },
   {
@@ -513,33 +514,38 @@ SYLION_APPS
 }
 
 async function workloadGuiHealthProbe() {
-  const appRows = apps.filter((app) => app.noVnc).map((app) => `${app.key}|${app.expectedRuntime}|${app.port}`).join("\n");
+  const appRows = apps.filter((app) => app.noVnc).map((app) => `${app.key}|${app.expectedRuntime}|${app.port}|${app.androidPackage || ""}`).join("\n");
   if (!appRows) return [];
   const script = `
 set -uo pipefail
-while IFS='|' read -r app_key expected_runtime app_port; do
+while IFS='|' read -r app_key expected_runtime app_port android_package; do
   if echo "$expected_runtime" | grep -q '^android_native'; then
     body="/tmp/sylion-android-native-$app_key.html"
     code="$(curl -sS -o "$body" -w "%{http_code}" --max-time 8 "http://${workloadBind}:$app_port/vnc.html" 2>/dev/null || true)"
     grep -qi 'noVNC' "$body" && marker=true || marker=false
     ss -ltn 2>/dev/null | grep -q '${workloadBind}:'"$app_port" && listener=true || listener=false
-    if [ "$code" = "200" ] && [ "$marker" = "true" ] && [ "$listener" = "true" ]; then
-      printf '%s|true|true|android_native_websockify_noVNC|0\\n' "$app_key"
+    if [ -n "$android_package" ]; then
+      waydroid app list 2>/dev/null | grep -q "^$android_package[[:space:]]" && package_installed=true || package_installed=false
     else
-      printf '%s|false|false|android_native_websockify_not_ready:http_%s_marker_%s_listener_%s|0\\n' "$app_key" "$code" "$marker" "$listener"
+      package_installed=false
+    fi
+    if [ "$code" = "200" ] && [ "$marker" = "true" ] && [ "$listener" = "true" ]; then
+      printf '%s|true|true|android_native_websockify_noVNC|0|%s\\n' "$app_key" "$package_installed"
+    else
+      printf '%s|false|false|android_native_websockify_not_ready:http_%s_marker_%s_listener_%s|0|%s\\n' "$app_key" "$code" "$marker" "$listener" "$package_installed"
     fi
     continue
   fi
   evidence="/opt/sylion-workloads/evidence/native-firecracker-gui-$app_key.json"
   if [ ! -f "$evidence" ]; then
-    printf '%s|missing|false|missing_evidence|0\\n' "$app_key"
+    printf '%s|missing|false|missing_evidence|0|na\\n' "$app_key"
     continue
   fi
   guest_ip="$(jq -r '.guestIp // ""' "$evidence" 2>/dev/null || true)"
   run_dir="$(jq -r '.runDir // ""' "$evidence" 2>/dev/null || true)"
   evidence_ready="$(jq -r '.ready // false' "$evidence" 2>/dev/null || echo false)"
   if [ -z "$guest_ip" ]; then
-    printf '%s|%s|false|missing_guest_ip|0\\n' "$app_key" "$evidence_ready"
+    printf '%s|%s|false|missing_guest_ip|0|na\\n' "$app_key" "$evidence_ready"
     continue
   fi
   banner="$(GUEST_IP="$guest_ip" python3 - <<'PY'
@@ -561,20 +567,21 @@ PY
   if [ -n "$run_dir" ] && [ -f "$run_dir/firecracker.pid" ]; then
     cpu="$(ps -p "$(cat "$run_dir/firecracker.pid")" -o %cpu= 2>/dev/null | xargs || echo 0)"
   fi
-  printf '%s|%s|%s|%s|%s\\n' "$app_key" "$evidence_ready" "$banner_ready" "$banner" "$cpu"
+  printf '%s|%s|%s|%s|%s|na\\n' "$app_key" "$evidence_ready" "$banner_ready" "$banner" "$cpu"
 done <<'SYLION_APPS'
 ${appRows}
 SYLION_APPS
 `;
   const { stdout } = await ssh(workloadHost, script, { timeout: 120_000 });
   return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
-    const [key, evidenceReady, bannerReady, banner, firecrackerCpu] = line.split("|");
+    const [key, evidenceReady, bannerReady, banner, firecrackerCpu, packageInstalled] = line.split("|");
     return {
       key,
       evidenceReady: evidenceReady === "true",
       vncBannerReady: bannerReady === "true",
       vncBanner: banner,
-      firecrackerCpu: Number(firecrackerCpu) || 0
+      firecrackerCpu: Number(firecrackerCpu) || 0,
+      androidPackageInstalled: packageInstalled === "true" ? true : packageInstalled === "false" ? false : null
     };
   });
 }
@@ -630,7 +637,9 @@ async function pixelAudit() {
         await adb(["-s", pixel.serial, "pull", remotePng, localPng], { timeout: 10_000 });
         visualEvidence = await analyzeScreenshot(localPng);
       }
-      const pixelUiVisible = verdict.factualStateVerified || visualEvidence.rendered;
+      const pixelStreamRendered = visualEvidence.rendered === true;
+      const appUiMarkerVisible = verdict.factualStateVerified === true;
+      const pixelUiVisible = appUiMarkerVisible || pixelStreamRendered;
       results.push({
         key: app.key,
         host: app.host,
@@ -640,6 +649,8 @@ async function pixelAudit() {
         visibleTextSample: uiText.slice(0, 600),
         textEvidence: verdict,
         pixelVisualEvidence: visualEvidence,
+        pixelStreamRendered,
+        appUiMarkerVisible,
         factualStateVerified: pixelUiVisible,
         passMarkerFound: verdict.passMarkerFound || visualEvidence.rendered,
         blockerMarker: pixelUiVisible ? null : verdict.blockerMarker || visualEvidence.blocker
@@ -702,7 +713,15 @@ async function main() {
     const routeReady = route?.transportReady === true;
     const workloadVncReady = app.noVnc ? currentGuiHealth?.vncBannerReady === true : true;
     const transportReady = routeReady && workloadVncReady;
-    const pixelUiVisible = pixelResult?.factualStateVerified === true;
+    const androidNativeRequired = app.expectedRuntime.includes("android_native");
+    const androidPackageInstalled = androidNativeRequired
+      ? currentGuiHealth?.androidPackageInstalled === true
+      : true;
+    const pixelStreamRendered = pixelResult?.pixelStreamRendered === true || pixelResult?.pixelVisualEvidence?.rendered === true;
+    const appUiMarkerVisible = pixelResult?.appUiMarkerVisible === true;
+    const pixelUiVisible = androidNativeRequired
+      ? pixelStreamRendered && androidPackageInstalled
+      : pixelResult?.factualStateVerified === true;
     const key = canonicalAppKey(app.key);
     const prefix = app.key === "duckduckgo" ? "DUCKDUCKGO" : key.toUpperCase();
     const communicator = ["whatsapp", "signal", "telegram", "threema", "zangi", "matrix_client"].includes(key);
@@ -715,7 +734,7 @@ async function main() {
           : key === "exodus"
             ? boolEnv(envName(prefix, "WALLET_WORKFLOW_VERIFIED")) && boolEnv(envName(prefix, "RISK_ACCEPTANCE_VERIFIED"))
             : pixelUiVisible;
-    const functionalReady = transportReady && pixelUiVisible && workflowVerified;
+    const functionalReady = transportReady && pixelUiVisible && androidPackageInstalled && workflowVerified;
     return {
       key: app.key,
       host: app.host,
@@ -729,6 +748,9 @@ async function main() {
       g2NoVncMarker: route?.noVncMarker ?? null,
       g2WebSocketSwitching: route?.webSocketSwitching ?? null,
       workloadGuiHealth: currentGuiHealth,
+      androidPackageInstalled,
+      pixelStreamRendered,
+      appUiMarkerVisible,
       pixelUiVisible,
       pixelFactualStateVerified: pixelUiVisible,
       workflowVerified,
@@ -741,6 +763,7 @@ async function main() {
       blockers: [
         ...(routeReady ? [] : ["g2_route_not_ready"]),
         ...(workloadVncReady ? [] : ["workload_vnc_banner_not_ready"]),
+        ...(androidPackageInstalled ? [] : ["android_app_package_not_installed"]),
         ...(pixelUiVisible ? [] : ["pixel_ui_not_visible"]),
         ...(workflowVerified ? [] : ["functional_workflow_not_verified"])
       ],

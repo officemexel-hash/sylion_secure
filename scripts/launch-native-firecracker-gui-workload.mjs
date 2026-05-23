@@ -184,7 +184,14 @@ else
   echo "exodus_deb_artifact_missing" >> "$run_dir/preflight.blockers"
 fi
 `,
-    launchCommand: "dbus-run-session -- /usr/lib/exodus/Exodus",
+    launchCommand: [
+      "dbus-run-session -- env",
+      "LIBGL_ALWAYS_SOFTWARE=1",
+      "MESA_LOADER_DRIVER_OVERRIDE=llvmpipe",
+      "QT_XCB_GL_INTEGRATION=none",
+      "ELECTRON_DISABLE_GPU=1",
+      "/usr/lib/exodus/Exodus"
+    ].join(" "),
     visibleWindowPattern: "Exodus|exodus",
     processPattern: "exodus",
     hostPort: 3015,

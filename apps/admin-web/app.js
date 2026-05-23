@@ -1131,11 +1131,13 @@ function renderProductionReadiness() {
   const readiness = state.productionReadiness;
   const summaryTarget = $("#production-readiness-summary-cards");
   const operatorTarget = $("#production-readiness-operator-cards");
+  const gateTarget = $("#production-readiness-production-gates-cards");
   const appTarget = $("#production-readiness-app-cards");
-  if (!summaryTarget || !operatorTarget || !appTarget) return;
+  if (!summaryTarget || !operatorTarget || !gateTarget || !appTarget) return;
   if (!readiness) {
     summaryTarget.innerHTML = empty("Production readiness unavailable.");
     operatorTarget.innerHTML = empty("No operator readiness rows loaded.");
+    gateTarget.innerHTML = empty("No production gate matrix loaded.");
     appTarget.innerHTML = empty("No app route evidence loaded.");
     return;
   }
@@ -1146,6 +1148,12 @@ function renderProductionReadiness() {
       ["Ready for human gate", String(readiness.summary?.readyForHumanGate || 0)],
       ["Blocked", String(readiness.summary?.blocked || 0)],
       ["Production exec", String(readiness.summary?.productionExecutionAllowed)]
+    ]),
+    card("10 production gates", [
+      ["Total", String(readiness.summary?.productionGates || 0)],
+      ["Ready for human gate", String(readiness.summary?.productionGatesReadyForHumanGate || 0)],
+      ["Blocked", String(readiness.summary?.productionGatesBlocked || 0)],
+      ["Prod exec", String(readiness.summary?.productionExecutionAllowed)]
     ]),
     card("Security invariants", [
       ["Terminal data", "false"],
@@ -1182,6 +1190,18 @@ function renderProductionReadiness() {
     ["Broker", `${operator.sessionBroker?.selectedProtocol || "-"} / ${operator.sessionBroker?.state || "-"}`],
     ["Blockers", operator.blockers?.slice(0, 6).join(", ") || "none"]
   ])).join("") || empty("No operators in readiness matrix.");
+
+  gateTarget.innerHTML = (readiness.productionGates || []).map((gate) => card(gate.title, [
+    ["State", gate.state],
+    ["Area", gate.area],
+    ["Severity", gate.severity],
+    ["Human gate", String(gate.humanGateRequired)],
+    ["Prod exec", String(gate.productionExecutionAllowed)],
+    ["Acceptance", gate.acceptance],
+    ["Verify", gate.verifyHow],
+    ["Repair", gate.repairAction],
+    ["Blockers", gate.blockers?.join(", ") || "none"]
+  ])).join("") || empty("No hard production gates recorded.");
 
   appTarget.innerHTML = readiness.operators.flatMap((operator) => operator.apps.map((app) => card(`${operator.displayName} / ${app.label}`, [
     ["State", app.state],

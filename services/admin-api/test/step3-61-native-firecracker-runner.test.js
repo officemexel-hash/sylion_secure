@@ -61,5 +61,7 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /exodus_sha256_required_for_wallet_artifact/);
   assert.match(source, /sha256sum -c/);
   assert.match(source, /exodus_official_download_blocked_or_unavailable/);
+  assert.match(source, /ELECTRON_DISABLE_GPU=1/);
+  assert.match(source, /MESA_LOADER_DRIVER_OVERRIDE=llvmpipe/);
   assert.match(source, /blockers:\$blockers/);
 });
