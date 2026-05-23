@@ -8,6 +8,10 @@ To jest lekki kontrakt HTTP dla pierwszego integration spine. Docelowo zostanie 
 
 Indexes a strict Step 3.86 `human-evidence.json` summary into the release human-test inventory and evidence artifact index. The API validates metadata-only guardrails, rejects forbidden keys/values, maps strict results (`PASS`, `LAB_PASS`, `SIMULATION_PASS`, `FAIL`, `FAIL_CRITICAL`, `BLOCKED`, `UNKNOWN`, `FLAKY`) into release run status, and never turns `LAB_PASS` or `SIMULATION_PASS` into production readiness.
 
+### POST /release/human-evidence-repair-loop
+
+Indexes the same strict summary and additionally creates one release problem per blocker, stores the optional repair commit, names the exact test id that must be rerun, and refuses production readiness for every result except strict `PASS`.
+
 ```json
 {
   "summary": {

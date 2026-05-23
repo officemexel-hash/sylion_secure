@@ -257,6 +257,18 @@ function strictResultToScenarioStatus(result) {
   return "needs_human_review";
 }
 
+function strictResultSeverity(result) {
+  const normalized = normalizeResultStatus(result);
+  if (normalized === "FAIL_CRITICAL") return "critical";
+  if (["FAIL", "FLAKY"].includes(normalized)) return "high";
+  if (["BLOCKED", "UNKNOWN"].includes(normalized)) return "medium";
+  return "low";
+}
+
+function strictResultCategory(result) {
+  return normalizeResultStatus(result) === "FAIL_CRITICAL" ? "security_gap" : "test_gap";
+}
+
 function requiredFactualChecks(appKey) {
   if (COMMUNICATOR_APP_KEYS.has(appKey)) return ["uiVisible", "accountBootstrap", "sendReceive"];
   if (appKey === "duckduckgo_browser") return ["uiVisible", "browsing"];
@@ -783,6 +795,77 @@ export class ReleaseControlService {
       resourceId: indexedRun.id,
       correlationId: corr,
       policyDecision: humanEvidence.productionSatisfyingResult ? "allow" : "deny",
+      result: strictResult,
+      newValue: indexedRun
+    });
+    return indexedRun;
+  }
+
+  recordHumanEvidenceRepairLoop({
+    actor,
+    summary,
+    evidenceArtifactPath = null,
+    linkedModule = "human_regression",
+    repairCommit = null,
+    retestOfRunId = null,
+    ksiegaControlRefs = [],
+    phantomBoundaryImpact = "none",
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    const run = this.recordHumanEvidenceRun({
+      actor,
+      summary,
+      evidenceArtifactPath,
+      linkedModule,
+      repairCommit,
+      ksiegaControlRefs,
+      phantomBoundaryImpact,
+      correlationId: corr
+    });
+    const strictResult = run.humanEvidence.strictResult;
+    const productionSatisfying = isProductionSatisfyingResult(strictResult);
+    const blockers = run.humanEvidence.blockers.length
+      ? run.humanEvidence.blockers
+      : productionSatisfying
+        ? []
+        : [`strict_result_${strictResult.toLowerCase()}_requires_exact_retest`];
+    const blockerProblemIds = blockers.map((blocker, index) => this.createProblem({
+      actor,
+      title: `${summary.testId} blocker ${index + 1}: ${blocker}`,
+      severity: strictResultSeverity(strictResult),
+      category: strictResultCategory(strictResult),
+      moduleKey: linkedModule,
+      status: "open",
+      evidenceArtifactIds: run.humanEvidence.evidenceArtifactIds,
+      owner: "qa",
+      correlationId: corr
+    }).id);
+    const repairLoop = {
+      exactRetestTestId: summary.testId,
+      retestOfRunId: optionalText(retestOfRunId, "retestOfRunId"),
+      retestRequired: !productionSatisfying,
+      repairCommit: optionalText(repairCommit, "repairCommit"),
+      latestStrictResult: strictResult,
+      blockerProblemIds,
+      productionReadinessRefused: !productionSatisfying,
+      allowedNextAction: productionSatisfying
+        ? "freeze_evidence_and_move_to_next_test"
+        : "repair_smallest_scope_then_rerun_exact_test_id"
+    };
+    const indexedRun = {
+      ...run,
+      repairLoop,
+      productionExecutionAllowed: false
+    };
+    this.testRuns.set(indexedRun.id, indexedRun);
+    this.audit.record({
+      actorId: actor.id,
+      action: "release.human_evidence_repair_loop_recorded",
+      resourceType: RESOURCE_TYPES.RELEASE_TEST_RUN,
+      resourceId: indexedRun.id,
+      correlationId: corr,
+      policyDecision: productionSatisfying ? "allow" : "deny",
       result: strictResult,
       newValue: indexedRun
     });

@@ -129,3 +129,67 @@ test("Step 3.86 strict evidence indexing rejects forbidden metadata", async () =
     await close();
   }
 });
+
+test("Step 3.86 repair loop creates per-blocker problems and forces exact retest", async () => {
+  const { app, baseUrl, close } = await startTestServer();
+  try {
+    const client = await loginClient(baseUrl);
+    const summary = await strictSummary({
+      result: "FAIL_CRITICAL",
+      blockers: ["terminal_data_storage_forbidden", "packet_capture_storage_forbidden"],
+      residualRisk: ["Security review required before retest."],
+      nextRequiredAction: "Stop related work, repair evidence handling, then rerun exact test id."
+    });
+    const repaired = await client.recordHumanEvidenceRepairLoop({
+      summary,
+      evidenceArtifactPath: "docs/admin-panel-v2/test-artifacts/step3-86/human-evidence.json",
+      linkedModule: "pixel_live_path",
+      repairCommit: "abc1234",
+      retestOfRunId: "test_run_previous",
+      ksiegaControlRefs: ["metadata_only_monitoring"],
+      phantomBoundaryImpact: "none"
+    });
+    assert.equal(repaired.run.humanEvidence.strictResult, "FAIL_CRITICAL");
+    assert.equal(repaired.run.repairLoop.retestRequired, true);
+    assert.equal(repaired.run.repairLoop.exactRetestTestId, "step3-86-pixel-live-strict-index");
+    assert.equal(repaired.run.repairLoop.repairCommit, "abc1234");
+    assert.equal(repaired.run.repairLoop.productionReadinessRefused, true);
+    assert.equal(repaired.run.repairLoop.allowedNextAction, "repair_smallest_scope_then_rerun_exact_test_id");
+    assert.equal(repaired.run.repairLoop.blockerProblemIds.length, 2);
+
+    const problems = await client.listReleaseProblems();
+    const blockerProblems = problems.problems.filter((problem) => repaired.run.repairLoop.blockerProblemIds.includes(problem.id));
+    assert.equal(blockerProblems.length, 2);
+    assert.ok(blockerProblems.every((problem) => problem.severity === "critical"));
+    assert.ok(blockerProblems.every((problem) => problem.category === "security_gap"));
+    assert.ok(app.services.audit.list().some((event) => event.action === "release.human_evidence_repair_loop_recorded"));
+  } finally {
+    app.close();
+    await close();
+  }
+});
+
+test("Step 3.86 repair loop does not demand retest after strict PASS", async () => {
+  const { app, baseUrl, close } = await startTestServer();
+  try {
+    const client = await loginClient(baseUrl);
+    const summary = await strictSummary({
+      result: "PASS",
+      blockers: [],
+      residualRisk: ["Residual physical-router and HSM/FIDO2 checks remain outside this exact test."]
+    });
+    const run = await client.recordHumanEvidenceRepairLoop({
+      summary,
+      linkedModule: "admin_release_evidence",
+      phantomBoundaryImpact: "none"
+    });
+    assert.equal(run.run.status, "passed");
+    assert.equal(run.run.repairLoop.retestRequired, false);
+    assert.equal(run.run.repairLoop.blockerProblemIds.length, 0);
+    assert.equal(run.run.repairLoop.productionReadinessRefused, false);
+    assert.equal(run.run.repairLoop.allowedNextAction, "freeze_evidence_and_move_to_next_test");
+  } finally {
+    app.close();
+    await close();
+  }
+});

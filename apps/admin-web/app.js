@@ -1254,7 +1254,9 @@ function renderRelease() {
     ["Evidence", String(run.evidenceArtifactIds?.length || 0)],
     ["Prod exec", String(run.productionExecutionAllowed)],
     ["Blockers", run.humanEvidence?.blockers?.join(", ") || "-"],
-    ["Next", run.humanEvidence?.nextRequiredAction || "-"]
+    ["Retest", run.repairLoop?.exactRetestTestId || "-"],
+    ["Repair", run.repairLoop?.repairCommit || "-"],
+    ["Next", run.repairLoop?.allowedNextAction || run.humanEvidence?.nextRequiredAction || "-"]
   ])).join("") || empty("No full human test runs recorded.");
 
   $("#workload-factual-test-cards").innerHTML = state.workloadFactualTests.map((item) => card(`${item.appKey} / ${item.result}`, [

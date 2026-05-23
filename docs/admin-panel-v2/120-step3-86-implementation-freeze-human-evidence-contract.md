@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01 through Prompt A/T86-05 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-06 implemented.
 
 ## Implemented
 
@@ -62,6 +62,14 @@ Status: Prompt A/T86-01 through Prompt A/T86-05 implemented.
    - supports the same optional Release API indexing flag:
      - `SYLION_INDEX_HUMAN_EVIDENCE=true`
 
+8. Exact repair loop:
+   - `POST /release/human-evidence-repair-loop`
+   - SDK helper: `recordHumanEvidenceRepairLoop`
+   - creates one release problem per strict blocker
+   - stores optional repair commit and previous run id
+   - records the exact `testId` that must be rerun
+   - refuses production readiness for every result except strict `PASS`
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -98,12 +106,19 @@ flowchart TD
   L --> M["Human test run inventory"]
   L --> N["Evidence artifact index"]
   L --> O["Problem registry for failed/blocked strict results"]
+  L --> T["Repair loop endpoint"]
+  T --> U["Per-blocker problems"]
+  T --> V["Exact retest id"]
+  T --> W["Repair commit metadata"]
   G --> J["Repair loop: smallest fix then retest exact blocker"]
   I --> J
   S --> J
   M --> J
   N --> J
   O --> J
+  U --> J
+  V --> J
+  W --> J
   J --> K["Next prompt: exact test-runner repair loop"]
 ```
 
@@ -129,14 +144,19 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-06:
+Prompt A/T86-07:
 
-Add the exact failed-test repair loop runner:
+Add application factual-state repair matrix for each required workload:
 
-- reads a strict `human-evidence.json`,
-- opens/updates a release problem for each blocker,
-- records the repair commit after a fix,
-- forces retest of the exact failed test id,
-- refuses production readiness when the latest result is `LAB_PASS`, `SIMULATION_PASS`, `BLOCKED`, `UNKNOWN`, `FLAKY`, `FAIL`, or `FAIL_CRITICAL`.
+- Signal,
+- WhatsApp,
+- Telegram,
+- Threema,
+- Zangi,
+- DuckDuckGo,
+- LibreOffice,
+- Exodus.
+
+Each app must have expected behavior, exact human test steps, factual evidence criteria, strict PASS/FAIL/BLOCKED mapping and repair prompt.
 
 No live production claim can advance until the evidence index shows a reproducible `PASS` for the exact required path.

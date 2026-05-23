@@ -1212,6 +1212,12 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { run });
       }
 
+      if (req.method === "POST" && url.pathname === "/release/human-evidence-repair-loop") {
+        const body = await readJson(req);
+        const run = release.recordHumanEvidenceRepairLoop({ actor, ...body, correlationId });
+        return send(res, 201, { run });
+      }
+
       if (req.method === "GET" && url.pathname === "/release/workload-factual-tests") {
         return send(res, 200, {
           tests: release.listWorkloadFactualTests({

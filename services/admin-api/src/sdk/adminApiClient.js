@@ -179,6 +179,10 @@ export class AdminApiClient {
     return this.request("/release/human-evidence-runs", { method: "POST", body });
   }
 
+  recordHumanEvidenceRepairLoop(body) {
+    return this.request("/release/human-evidence-repair-loop", { method: "POST", body });
+  }
+
   listWorkloadFactualTests({ operatorId = null, appKey = null } = {}) {
     const params = new URLSearchParams();
     if (operatorId) params.set("operatorId", operatorId);
