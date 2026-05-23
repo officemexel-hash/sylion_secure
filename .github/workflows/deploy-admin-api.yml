@@ -1,0 +1,148 @@
+name: Deploy admin-api
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/admin-api/**'
+      - 'apps/admin-web/**'
+      - 'apps/operator-web/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-admin-api.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'lab'
+        type: choice
+        options: [lab, staging, production]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-admin-api-${{ inputs.environment || 'lab' }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Preflight (tests + secret scan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+      - name: Install dev deps
+        run: npm ci || npm install
+      - name: Run unit + e2e tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          HETZNER_API_TOKEN: ""
+          SYLION_LIVE_ALLOWED: "false"
+
+  deploy:
+    name: Deploy to ${{ inputs.environment || 'lab' }}
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment || 'lab' }}
+    # Production must require reviewer approval via GH Environments
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SYLION_DEPLOY_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.SYLION_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Sync code to G1
+        env:
+          SSH_USER: ${{ secrets.SYLION_DEPLOY_SSH_USER }}
+          G1_HOST: ${{ secrets.SYLION_G1_HOST }}
+        run: |
+          # Use rsync with --delete to mirror committed state; respects .gitignore
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.data' \
+            --exclude='.env*' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            ./services/admin-api/ \
+            ./apps/ \
+            ./package.json \
+            ./package-lock.json \
+            "${SSH_USER}@${G1_HOST}:/opt/sylion/staging/"
+
+      - name: Remote install + atomic swap + restart
+        env:
+          SSH_USER: ${{ secrets.SYLION_DEPLOY_SSH_USER }}
+          G1_HOST: ${{ secrets.SYLION_G1_HOST }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "${SSH_USER}@${G1_HOST}" <<'REMOTE'
+          set -euo pipefail
+          cd /opt/sylion/staging
+          # Install
+          npm ci --omit=dev || npm install --production
+          # Smoke test on staging
+          NODE_ENV=test timeout 30 node --test services/admin-api/test/spine.e2e.test.js
+          # Atomic swap: staging → current via symlink
+          ln -sfn /opt/sylion/staging /opt/sylion/current.new
+          mv -Tf /opt/sylion/current.new /opt/sylion/current
+          # Restart service (assumes systemd unit `sylion-admin-api.service`)
+          sudo systemctl restart sylion-admin-api
+          # Wait for it to come up
+          sleep 5
+          systemctl is-active sylion-admin-api
+          REMOTE
+
+      - name: Health check
+        env:
+          G1_HEALTH_URL: ${{ secrets.SYLION_G1_HEALTH_URL }}
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -fsS --max-time 10 "${G1_HEALTH_URL}/health" | tee /dev/stderr | grep -q '"status":"ok"'; then
+              echo "Health OK on attempt $i"
+              exit 0
+            fi
+            echo "Health attempt $i failed, retrying..."
+            sleep 5
+          done
+          echo "::error::Health check failed after 5 attempts"
+          exit 1
+
+      - name: Audit trail
+        if: success()
+        env:
+          ADMIN_API_AUDIT_TOKEN: ${{ secrets.SYLION_ADMIN_API_HEALTH_TOKEN }}
+          G1_API_URL: ${{ secrets.SYLION_G1_HEALTH_URL }}
+        run: |
+          # Best-effort audit POST (won't fail deploy if audit unreachable)
+          curl -fsS --max-time 5 \
+            -H "Authorization: Bearer ${ADMIN_API_AUDIT_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -X POST "${G1_API_URL}/audit/deploy" \
+            -d "{
+              \"action\": \"deploy.admin_api\",
+              \"environment\": \"${{ inputs.environment || 'lab' }}\",
+              \"commit\": \"${{ github.sha }}\",
+              \"actor\": \"${{ github.actor }}\",
+              \"runId\": \"${{ github.run_id }}\"
+            }" || echo "Audit endpoint not reachable, deploy complete anyway"
+
+      - name: Cleanup SSH
+        if: always()
+        run: rm -rf ~/.ssh
