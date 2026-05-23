@@ -106,8 +106,8 @@ test("Step 3.79 Guacamole deploy plan stays private and does not print secrets",
   assert.match(compose, /guacamole\/guacd:1\.6\.0/);
   assert.match(compose, /POSTGRES_PASSWORD: \$\{GUACAMOLE_POSTGRES_PASSWORD\}/);
   assert.doesNotMatch(compose, /guacadmin/);
-  assert.match(nginx, /listen 10\.42\.0\.12:443 ssl;/);
-  assert.match(nginx, /server_name session\.sylion\.internal;/);
+  assert.match(nginx, /listen 10\.42\.0\.12:443 ssl default_server;/);
+  assert.match(nginx, /server_name session\.sylion\.internal 10\.42\.0\.12;/);
   assert.match(nginx, /X-Sylion-Session-Broker "guacamole"/);
   assert.match(nginx, /X-Sylion-File-Transfer "disabled_until_cdr_gate"/);
   assert.doesNotMatch(nginx, /listen 0\.0\.0\.0/);

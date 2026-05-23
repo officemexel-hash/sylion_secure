@@ -94,6 +94,7 @@ npm run live:g2-guacamole-broker
 Expected evidence:
 
 - `session.sylion.internal` terminates on G2 private TLS.
+- `10.42.0.12` is accepted as a temporary G2 broker host alias/default on the private listener for Pixel testing before internal DNS is fully provisioned.
 - `/guacamole/` loads through internal route only.
 - generated database password is stored on G2 in `/etc/sylion/guacamole.env` and is not printed.
 - no workload password or account secret appears in generated config.

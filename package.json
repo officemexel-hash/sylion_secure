@@ -17,6 +17,8 @@
     "live:hetzner-operator-baseline": "node scripts/hetzner-live-operator-baseline.mjs",
     "live:g2-workload-gateway": "node scripts/install-g2-workload-gateway.mjs --deploy",
     "live:g2-guacamole-broker": "node scripts/install-g2-guacamole-broker.mjs --deploy",
+    "live:workload-guacamole-vnc-forwards": "node scripts/install-workload-guacamole-vnc-forwards.mjs --apply",
+    "live:g2-guacamole-connections": "node scripts/seed-g2-guacamole-workload-connections.mjs --apply",
     "live:signal-auth-handoff": "node scripts/sync-signal-auth-handoff.mjs --apply",
     "live:workload-recreate": "node scripts/live-workload-recreate.mjs --apply",
     "live:android-native-probe": "node scripts/android-native-workload-probe.mjs",

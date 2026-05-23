@@ -111,6 +111,7 @@ function parseFacts(stdout) {
     "vnc_proxy_handshake",
     "web_listener",
     "public_drop_rule",
+    "pam_auth_configured",
     "package_installed",
     "session",
     "container",
@@ -137,6 +138,7 @@ printf 'python3=%s\\n' "$(command -v python3 >/dev/null 2>&1 && echo true || ech
 printf 'waydroid_container=%s\\n' "$(systemctl is-active waydroid-container 2>/dev/null || true)"
 printf 'package_installed=%s\\n' "$(waydroid app list 2>/dev/null | grep -q '^${packageName}[[:space:]]' && echo true || echo false)"
 printf 'public_drop_rule=%s\\n' "$(nft list chain inet filter input 2>/dev/null | grep -q 'tcp dport ${port} drop' && echo true || echo false)"
+printf 'pam_auth_configured=%s\\n' "$([ -f /etc/pam.d/weston-remote-access ] && [ -f /usr/local/lib/sylion-weston-vnc-pam-auth.py ] && [ -f /etc/sylion/waydroid-vnc/plain-auth.env ] && echo true || echo false)"
 printf 'vnc_listener=%s\\n' "$(ss -ltn 2>/dev/null | grep -q ':${port} ' && echo true || echo false)"
 printf 'vnc_proxy_listener=%s\\n' "$(ss -ltn 2>/dev/null | grep -q '127.0.0.1:${localVncProxyPort}' && echo true || echo false)"
 printf 'vnc_proxy_handshake=false\\n'
@@ -205,6 +207,49 @@ if [ ! -f /etc/sylion/waydroid-vnc/tls.key ]; then
   chmod 0600 /etc/sylion/waydroid-vnc/tls.key
   chmod 0644 /etc/sylion/waydroid-vnc/tls.crt
 fi
+if [ ! -f /etc/sylion/waydroid-vnc/plain-auth.env ]; then
+  auth_password="$(openssl rand -base64 36 | tr -d '\\n')"
+  umask 077
+  printf 'WESTON_REMOTE_USER=root\\nWESTON_REMOTE_PASSWORD=%s\\n' "$auth_password" > /etc/sylion/waydroid-vnc/plain-auth.env
+  chmod 0600 /etc/sylion/waydroid-vnc/plain-auth.env
+fi
+cat > /usr/local/lib/sylion-weston-vnc-pam-auth.py <<'SYLION_PAM_AUTH'
+#!/usr/bin/env python3
+import hmac
+import os
+import sys
+
+def read_env(path):
+    values = {}
+    with open(path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            values[key] = value
+    return values
+
+try:
+    env = read_env("/etc/sylion/waydroid-vnc/plain-auth.env")
+    expected_user = env.get("WESTON_REMOTE_USER", "root")
+    expected_password = env["WESTON_REMOTE_PASSWORD"]
+    pam_user = os.environ.get("PAM_USER", "")
+    provided = sys.stdin.buffer.read().decode("utf-8", errors="ignore").rstrip("\\x00\\r\\n")
+    if pam_user != expected_user:
+        sys.exit(1)
+    if not hmac.compare_digest(provided, expected_password):
+        sys.exit(1)
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+SYLION_PAM_AUTH
+chmod 0755 /usr/local/lib/sylion-weston-vnc-pam-auth.py
+cat > /etc/pam.d/weston-remote-access <<'SYLION_WESTON_PAM'
+auth requisite pam_exec.so expose_authtok quiet /usr/local/lib/sylion-weston-vnc-pam-auth.py
+account required pam_permit.so
+SYLION_WESTON_PAM
+chmod 0644 /etc/pam.d/weston-remote-access
 waydroid session stop >/dev/null 2>&1 || true
 pkill -f 'sylion-${app}-wayland|weston.*${port}|websockify.*${workloadBind}:${webPort}|sylion-vencrypt-plain-proxy.*${localVncProxyPort}|stunnel.*sylion-waydroid-${app}' 2>/dev/null || true
 install -d -m 0700 /run/sylion-waydroid-${app}
@@ -228,7 +273,7 @@ import threading
 
 RFB_VERSION = b"RFB 003.008\\n"
 VENCRYPT = 19
-X509_NONE = 262
+X509_PLAIN = 262
 
 def recvn(sock, count):
     data = b""
@@ -239,7 +284,34 @@ def recvn(sock, count):
         data += chunk
     return data
 
-def connect_weston(target_host, target_port):
+def read_auth(path):
+    values = {}
+    with open(path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            values[key] = value
+    return values.get("WESTON_REMOTE_USER", "root"), values["WESTON_REMOTE_PASSWORD"]
+
+def authenticate_plain(tls, auth_file):
+    username, password = read_auth(auth_file)
+    username_bytes = username.encode("utf-8")
+    password_bytes = password.encode("utf-8")
+    tls.sendall(struct.pack(">II", len(username_bytes), len(password_bytes)) + username_bytes + password_bytes)
+    result = recvn(tls, 4)
+    if result != b"\\x00\\x00\\x00\\x00":
+        reason = b""
+        try:
+            reason_len = struct.unpack(">I", recvn(tls, 4))[0]
+            if 0 < reason_len < 4096:
+                reason = recvn(tls, reason_len)
+        except Exception:
+            pass
+        raise RuntimeError("weston_plain_auth_failed" + (":" + reason.decode("utf-8", "ignore") if reason else ""))
+
+def connect_weston(target_host, target_port, auth_file):
     raw = socket.create_connection((target_host, target_port), timeout=8)
     raw.settimeout(8)
     banner = recvn(raw, 12)
@@ -262,16 +334,18 @@ def connect_weston(target_host, target_port):
         struct.unpack(">I", subtype_raw[index:index + 4])[0]
         for index in range(0, len(subtype_raw), 4)
     ]
-    if X509_NONE not in subtypes:
-        raise RuntimeError("weston_x509_none_not_offered")
-    raw.sendall(struct.pack(">I", X509_NONE))
+    if X509_PLAIN not in subtypes:
+        raise RuntimeError("weston_x509_plain_not_offered")
+    raw.sendall(struct.pack(">I", X509_PLAIN))
     subtype_status = recvn(raw, 1)
     if subtype_status != b"\\x01":
-        raise RuntimeError("weston_x509_none_rejected")
+        raise RuntimeError("weston_x509_plain_rejected")
     context = ssl.create_default_context()
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     tls = context.wrap_socket(raw, server_hostname="weston-vnc")
+    tls.settimeout(8)
+    authenticate_plain(tls, auth_file)
     tls.settimeout(None)
     return tls
 
@@ -297,7 +371,7 @@ def bridge(left, right):
 
 def handle_client(client, args):
     try:
-        weston = connect_weston(args.target_host, args.target_port)
+        weston = connect_weston(args.target_host, args.target_port, args.auth_file)
         client.sendall(RFB_VERSION)
         _client_version = recvn(client, 12)
         client.sendall(b"\\x01\\x01")
@@ -319,6 +393,7 @@ def main():
     parser.add_argument("--listen-port", type=int, required=True)
     parser.add_argument("--target-host", default="127.0.0.1")
     parser.add_argument("--target-port", type=int, required=True)
+    parser.add_argument("--auth-file", default="/etc/sylion/waydroid-vnc/plain-auth.env")
     args = parser.parse_args()
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -334,7 +409,7 @@ if __name__ == "__main__":
     main()
 SYLION_PROXY
 chmod 0755 /usr/local/sbin/sylion-vencrypt-plain-proxy.py
-nohup python3 /usr/local/sbin/sylion-vencrypt-plain-proxy.py --listen-host 127.0.0.1 --listen-port ${localVncProxyPort} --target-host 127.0.0.1 --target-port ${port} >/var/log/sylion-${app}-vencrypt-proxy.log 2>&1 &
+nohup python3 /usr/local/sbin/sylion-vencrypt-plain-proxy.py --listen-host 127.0.0.1 --listen-port ${localVncProxyPort} --target-host 127.0.0.1 --target-port ${port} --auth-file /etc/sylion/waydroid-vnc/plain-auth.env >/var/log/sylion-${app}-vencrypt-proxy.log 2>&1 &
 sleep 2
 nohup waydroid session start >/var/log/sylion-${app}-waydroid-session.log 2>&1 &
 sleep 20
@@ -352,6 +427,7 @@ printf 'wayland_display=%s\\n' "$(waydroid status | awk -F: '/Wayland display:/{
 printf 'package_installed=%s\\n' "$(waydroid app list 2>/dev/null | grep -q '^${packageName}[[:space:]]' && echo true || echo false)"
 printf 'vnc_listener=%s\\n' "$(ss -ltn 2>/dev/null | grep -q ':${port} ' && echo true || echo false)"
 printf 'vnc_proxy_listener=%s\\n' "$(ss -ltn 2>/dev/null | grep -q '127.0.0.1:${localVncProxyPort}' && echo true || echo false)"
+printf 'pam_auth_configured=%s\\n' "$([ -f /etc/pam.d/weston-remote-access ] && [ -f /usr/local/lib/sylion-weston-vnc-pam-auth.py ] && [ -f /etc/sylion/waydroid-vnc/plain-auth.env ] && echo true || echo false)"
 printf 'vnc_proxy_handshake=%s\\n' "$(python3 - <<'PY' >/dev/null 2>&1 && echo true || echo false
 import socket
 
@@ -392,7 +468,7 @@ printf 'public_drop_rule=%s\\n' "$(nft list chain inet filter input 2>/dev/null 
     mode: "applied",
     applied: true,
     applyFacts: facts,
-    streamReady: facts.session === "RUNNING" && facts.container === "RUNNING" && facts.vnc_listener === true && facts.vnc_proxy_listener === true && facts.vnc_proxy_handshake === true && facts.web_listener === true,
+    streamReady: facts.session === "RUNNING" && facts.container === "RUNNING" && facts.pam_auth_configured === true && facts.vnc_listener === true && facts.vnc_proxy_listener === true && facts.vnc_proxy_handshake === true && facts.web_listener === true,
     appLaunchMode: facts.package_installed === true ? "package_launch" : "android_full_ui_no_app_installed",
     productionExecutionAllowed: false
   };

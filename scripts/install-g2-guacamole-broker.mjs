@@ -110,8 +110,8 @@ function renderNginx(input = plan) {
 }
 
 server {
-  listen ${gateway.bindAddress}:443 ssl;
-  server_name ${gateway.serverName};
+  listen ${gateway.bindAddress}:443 ssl default_server;
+  server_name ${gateway.serverName} ${gateway.bindAddress};
   ssl_certificate ${gateway.tlsCertificate};
   ssl_certificate_key ${gateway.tlsKey};
   client_max_body_size 1m;
@@ -206,7 +206,7 @@ sudo install -o root -g root -m 0644 /tmp/sylion-g2-guacamole-broker ${input.gat
 sudo ln -sf ${input.gateway.nginxConfigPath} /etc/nginx/sites-enabled/sylion-g2-guacamole-broker
 cd ${input.runtime.baseDir}
 $compose_cmd --env-file ${input.runtime.envPath} pull >/dev/null
-$compose_cmd --env-file ${input.runtime.envPath} up -d >/dev/null
+$compose_cmd --env-file ${input.runtime.envPath} up -d --no-recreate >/dev/null
 sudo nginx -t
 sudo systemctl reload nginx
 sleep 8

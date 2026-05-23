@@ -26,7 +26,11 @@ test("Step 3.77 Android native launcher enforces private TLS stream and public-i
   assert.match(source, /--vnc-tls-cert=\/etc\/sylion\/waydroid-vnc\/tls\.crt/);
   assert.doesNotMatch(source, /--ssl-target/);
   assert.match(source, /sylion-vencrypt-plain-proxy\.py/);
-  assert.match(source, /X509_NONE = 262/);
+  assert.match(source, /X509_PLAIN = 262/);
+  assert.match(source, /pam_exec\.so expose_authtok quiet \/usr\/local\/lib\/sylion-weston-vnc-pam-auth\.py/);
+  assert.match(source, /plain-auth\.env/);
+  assert.match(source, /pam_auth_configured/);
+  assert.match(source, /authenticate_plain\(tls, auth_file\)/);
   assert.match(source, /vnc_proxy_handshake/);
   assert.match(source, /missing_server_init/);
   assert.match(source, /websockify --web=\/usr\/share\/novnc/);
