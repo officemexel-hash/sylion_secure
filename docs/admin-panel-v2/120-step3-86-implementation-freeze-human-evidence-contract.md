@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01 through Prompt A/T86-11 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-12 implemented.
 
 ## Implemented
 
@@ -145,6 +145,22 @@ Status: Prompt A/T86-01 through Prompt A/T86-11 implemented.
      - Zangi APK provenance passes when app is Zangi
    - fails fast on web-link-only bootstrap, generic browser/download page, public/localhost stream URLs or forbidden probe fields
 
+14. Exodus app-specific factual runner:
+   - `scripts/lib/exodus-factual-evaluator.mjs`
+   - `scripts/workload-exodus-human-runner.mjs`
+   - npm script: `test:exodus-human-runner`
+   - reads `/release/workload-factual-matrix?appKey=exodus`
+   - requests Exodus streaming session through the operator API
+   - refuses factual PASS unless all of these are true:
+     - stream session is ready,
+     - launch URL is internal `*.sylion.internal`,
+     - broker is G2,
+     - Exodus UI marker has safe evidence reference,
+     - test-only wallet workflow metadata passes,
+     - operator risk acceptance metadata passes,
+     - terminal and wallet data storage are false
+   - fails fast on download/generic browser markers, public/localhost stream URLs, wallet data storage or any seed/mnemonic/private-key probe fields
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -171,6 +187,7 @@ flowchart TD
   B --> Z["DuckDuckGo app-specific runner"]
   B --> AB["LibreOffice app-specific runner"]
   B --> AD["Communicator app-specific runner"]
+  B --> AH["Exodus app-specific runner"]
   B --> L["Release API: strict evidence indexing"]
   D --> F["summary.json compatibility"]
   D --> G["human-evidence.json strict bundle"]
@@ -214,6 +231,9 @@ flowchart TD
   AE --> AG["Zangi APK provenance gate"]
   AF --> J
   AG --> J
+  AH --> X
+  AH --> AI["Exodus evaluator: UI + wallet workflow + risk gates"]
+  AI --> J
   J --> K["Next prompt: exact test-runner repair loop"]
 ```
 
@@ -233,6 +253,8 @@ node --check scripts/lib/libreoffice-factual-evaluator.mjs
 node --check scripts/workload-libreoffice-human-runner.mjs
 node --check scripts/lib/communicator-factual-evaluator.mjs
 node --check scripts/workload-communicator-human-runner.mjs
+node --check scripts/lib/exodus-factual-evaluator.mjs
+node --check scripts/workload-exodus-human-runner.mjs
 node --check services/admin-api/src/lib/humanEvidence.js
 node --check services/admin-api/src/modules/release/releaseControlService.js
 node --check services/admin-api/src/app.js
@@ -242,6 +264,7 @@ node --test services/admin-api/test/step3-86-workload-factual-matrix.test.js
 node --test services/admin-api/test/step3-86-duckduckgo-runner-evaluator.test.js
 node --test services/admin-api/test/step3-86-libreoffice-runner-evaluator.test.js
 node --test services/admin-api/test/step3-86-communicator-runner-evaluator.test.js
+node --test services/admin-api/test/step3-86-exodus-runner-evaluator.test.js
 node --test services/admin-api/test/step3-21-human-test-inventory.test.js services/admin-api/test/step3-11-release-control.test.js
 node --test services/admin-api/test/admin-web-static.test.js
 ```
@@ -250,13 +273,20 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-12:
+Prompt A/T86-13:
 
-Continue turning the scaffold into app-specific executable runners, one app at a time:
+Execute the app-specific runner chain against the selected live operator path and repair exact blockers:
 
+- DuckDuckGo,
+- LibreOffice,
+- Signal,
+- WhatsApp,
+- Telegram,
+- Threema,
+- Zangi,
 - Exodus.
 
-For each app runner:
+For each app runner execution:
 
 - read expected behavior from `/release/workload-factual-matrix`,
 - execute the exact human test steps through Pixel or laptop harness,
