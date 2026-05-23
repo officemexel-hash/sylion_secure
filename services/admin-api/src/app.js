@@ -1229,6 +1229,16 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
+      if (req.method === "GET" && url.pathname === "/release/workload-factual-matrix") {
+        return send(res, 200, {
+          matrix: release.listWorkloadFactualMatrix({
+            actor,
+            appKey: url.searchParams.get("appKey"),
+            correlationId
+          })
+        });
+      }
+
       if (req.method === "GET" && url.pathname === "/release/account-bootstrap-evidence") {
         return send(res, 200, {
           sessions: operatorPortal.listAccountBootstrapEvidenceForAdmin({

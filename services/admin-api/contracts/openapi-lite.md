@@ -12,6 +12,10 @@ Indexes a strict Step 3.86 `human-evidence.json` summary into the release human-
 
 Indexes the same strict summary and additionally creates one release problem per blocker, stores the optional repair commit, names the exact test id that must be rerun, and refuses production readiness for every result except strict `PASS`.
 
+### GET /release/workload-factual-matrix
+
+Returns strict factual-state criteria for Signal, WhatsApp, Telegram, Threema, Zangi, DuckDuckGo, LibreOffice and Exodus. This endpoint defines what must be proven by human tests; transport-only signals such as HTTP 200, VNC banners, nonblank canvas, generic browser tabs or process existence are never sufficient for factual `passed`.
+
 ```json
 {
   "summary": {

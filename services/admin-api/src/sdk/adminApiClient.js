@@ -190,6 +190,12 @@ export class AdminApiClient {
     return this.request(`/release/workload-factual-tests${params.toString() ? `?${params}` : ""}`);
   }
 
+  listWorkloadFactualMatrix({ appKey = null } = {}) {
+    const params = new URLSearchParams();
+    if (appKey) params.set("appKey", appKey);
+    return this.request(`/release/workload-factual-matrix${params.toString() ? `?${params}` : ""}`);
+  }
+
   recordWorkloadFactualTest(body) {
     return this.request("/release/workload-factual-tests", { method: "POST", body });
   }

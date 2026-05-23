@@ -55,6 +55,7 @@ const state = {
   releaseProblems: [],
   humanTests: [],
   humanTestRuns: [],
+  workloadFactualMatrix: [],
   workloadFactualTests: [],
   accountBootstrapEvidence: [],
   evidenceArtifacts: [],
@@ -266,6 +267,7 @@ async function refreshAll() {
     releaseProblems,
     humanTests,
     humanTestRuns,
+    workloadFactualMatrix,
     workloadFactualTests,
     accountBootstrapEvidence,
     evidenceArtifacts,
@@ -335,6 +337,7 @@ async function refreshAll() {
     api("/release/problems").catch(() => ({ problems: [] })),
     api("/release/human-tests").catch(() => ({ scenarios: [] })),
     api("/release/human-test-runs").catch(() => ({ runs: [] })),
+    api("/release/workload-factual-matrix").catch(() => ({ matrix: [] })),
     api("/release/workload-factual-tests").catch(() => ({ tests: [] })),
     api("/release/account-bootstrap-evidence").catch(() => ({ sessions: [] })),
     api("/release/evidence-artifacts").catch(() => ({ artifacts: [] })),
@@ -404,6 +407,7 @@ async function refreshAll() {
   state.releaseProblems = releaseProblems.problems;
   state.humanTests = humanTests.scenarios;
   state.humanTestRuns = humanTestRuns.runs;
+  state.workloadFactualMatrix = workloadFactualMatrix.matrix;
   state.workloadFactualTests = workloadFactualTests.tests;
   state.accountBootstrapEvidence = accountBootstrapEvidence.sessions;
   state.evidenceArtifacts = evidenceArtifacts.artifacts;
@@ -1259,7 +1263,16 @@ function renderRelease() {
     ["Next", run.repairLoop?.allowedNextAction || run.humanEvidence?.nextRequiredAction || "-"]
   ])).join("") || empty("No full human test runs recorded.");
 
-  $("#workload-factual-test-cards").innerHTML = state.workloadFactualTests.map((item) => card(`${item.appKey} / ${item.result}`, [
+  $("#workload-factual-test-cards").innerHTML = [
+    ...state.workloadFactualMatrix.map((item) => card(`${item.label} factual criteria`, [
+      ["Class", item.appClass],
+      ["Runtime", item.allowedRuntimeModes?.join(", ") || "-"],
+      ["Required", item.mandatoryChecks?.join(", ") || "-"],
+      ["CDR", String(item.cdrRequired)],
+      ["Terminal data", String(item.terminalDataStored)],
+      ["Prompt", item.repairPrompt]
+    ])),
+    ...state.workloadFactualTests.map((item) => card(`${item.appKey} / ${item.result}`, [
     ["Operator", item.operatorId],
     ["Terminal", item.terminalMode],
     ["Runtime", item.runtimeMode],
@@ -1267,7 +1280,8 @@ function renderRelease() {
     ["Required", item.requiredChecks?.join(", ") || "-"],
     ["Blockers", item.blockers?.join(", ") || "none"],
     ["Problem", item.linkedProblemId || "-"]
-  ])).join("") || empty("No factual workload app tests recorded.");
+    ]))
+  ].join("") || empty("No factual workload app tests recorded.");
 
   $("#account-bootstrap-evidence-cards").innerHTML = state.accountBootstrapEvidence.map((item) => `
     <article class="mini-card" data-account-bootstrap-id="${escapeHtml(item.id)}">

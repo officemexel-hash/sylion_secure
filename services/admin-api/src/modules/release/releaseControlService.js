@@ -32,6 +32,97 @@ const COMMUNICATOR_APP_KEYS = new Set(["whatsapp", "signal", "telegram", "threem
 const SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|panic.*code|seed|mnemonic|private[_-]?key)/i;
 const PROHIBITED_TERMS = ["imei", "imsi", "spoof", "evasion", "evade", "bypass lawful", "destroy evidence", "unauthorized access"];
 
+const WORKLOAD_FACTUAL_MATRIX = Object.freeze({
+  signal: {
+    label: "Signal",
+    appClass: "communicator",
+    allowedRuntimeModes: ["desktop", "android_native", "firecracker_gui", "container"],
+    expectedBehavior: "Signal UI opens inside an isolated workload, account bootstrap is completed without web-link-only evidence, and send/receive is proven by metadata-only checks.",
+    mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive"],
+    humanSteps: ["Open Signal workload", "Confirm Signal UI is visible", "Complete non-secret account bootstrap", "Perform metadata-only send/receive check", "Return to operator panel"],
+    passCriteria: ["Signal-branded UI visible", "accountBootstrap passed", "sendReceive passed", "no message content stored", "terminalDataStored=false"],
+    failIf: ["only HTTP 200", "only VNC banner", "only generic browser tab", "web-link-only account bootstrap", "message content captured"],
+    repairPrompt: "Repair Signal workload until UI, bootstrap and send/receive metadata pass without storing communication content."
+  },
+  whatsapp: {
+    label: "WhatsApp",
+    appClass: "communicator",
+    allowedRuntimeModes: ["desktop", "android_native", "firecracker_gui", "container"],
+    expectedBehavior: "WhatsApp UI opens inside an isolated workload and bootstrap plus send/receive are proven without message content.",
+    mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive"],
+    humanSteps: ["Open WhatsApp workload", "Confirm WhatsApp UI", "Complete non-secret account bootstrap", "Perform metadata-only send/receive check", "Return to operator panel"],
+    passCriteria: ["WhatsApp-branded UI visible", "accountBootstrap passed", "sendReceive passed", "no contact list or message content stored"],
+    failIf: ["web.whatsapp.com login page only", "generic Chromium tab", "transport-only evidence", "QR/phone/OTP stored in evidence"],
+    repairPrompt: "Repair WhatsApp workload with approved desktop/android-native mode and non-secret bootstrap evidence."
+  },
+  telegram: {
+    label: "Telegram",
+    appClass: "communicator",
+    allowedRuntimeModes: ["desktop", "android_native", "firecracker_gui", "container"],
+    expectedBehavior: "Telegram UI opens inside an isolated workload and account bootstrap plus send/receive metadata pass.",
+    mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive"],
+    humanSteps: ["Open Telegram workload", "Confirm Telegram UI", "Complete non-secret account bootstrap", "Perform metadata-only send/receive check", "Return to operator panel"],
+    passCriteria: ["Telegram-branded UI visible", "accountBootstrap passed", "sendReceive passed", "OTP/phone/message content absent from evidence"],
+    failIf: ["public download page", "generic browser tab", "phone number or OTP stored", "transport-only evidence"],
+    repairPrompt: "Repair Telegram workload until factual app state passes with metadata-only evidence."
+  },
+  threema: {
+    label: "Threema",
+    appClass: "communicator",
+    allowedRuntimeModes: ["desktop", "android_native", "firecracker_gui", "container"],
+    expectedBehavior: "Threema UI opens inside an isolated workload and messaging readiness is proven without secret or message capture.",
+    mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive"],
+    humanSteps: ["Open Threema workload", "Confirm Threema UI", "Complete non-secret account bootstrap", "Perform metadata-only send/receive check", "Return to operator panel"],
+    passCriteria: ["Threema-branded UI visible", "accountBootstrap passed", "sendReceive passed", "no message or contact data stored"],
+    failIf: ["public website/download page", "generic stream shell only", "message content captured", "only process or port evidence"],
+    repairPrompt: "Repair Threema workload until UI and metadata-only messaging checks pass."
+  },
+  zangi: {
+    label: "Zangi",
+    appClass: "communicator",
+    allowedRuntimeModes: ["android_native", "firecracker_gui", "container"],
+    expectedBehavior: "Zangi Android-native or approved desktop-compatible UI opens with APK provenance and non-secret account bootstrap evidence.",
+    mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive", "apkProvenance"],
+    humanSteps: ["Verify APK/source provenance", "Open Zangi workload", "Confirm Zangi UI", "Complete non-secret account bootstrap", "Perform metadata-only send/receive check"],
+    passCriteria: ["Zangi-branded UI visible", "APK provenance approved", "accountBootstrap passed", "sendReceive passed"],
+    failIf: ["zangi.com download page only", "unknown APK provenance", "generic noVNC/Guacamole shell", "phone/OTP/message content stored"],
+    repairPrompt: "Repair Zangi workload by proving APK provenance and Android-native UI before any factual PASS."
+  },
+  duckduckgo_browser: {
+    label: "DuckDuckGo",
+    appClass: "browser",
+    allowedRuntimeModes: ["desktop", "firecracker_gui", "container"],
+    expectedBehavior: "DuckDuckGo browser opens and can browse a public site through the configured workload route without DNS or terminal-data leaks.",
+    mandatoryChecks: ["uiVisible", "browsing"],
+    humanSteps: ["Open DuckDuckGo workload", "Search or open a non-sensitive public page", "Confirm page renders", "Return to operator panel"],
+    passCriteria: ["DuckDuckGo UI visible", "browsing passed", "DNS route evidence present", "terminalDataStored=false"],
+    failIf: ["Google/new tab only", "browser cannot load public page", "direct terminal browser outside workload", "content capture stored"],
+    repairPrompt: "Repair DuckDuckGo workload routing and UI until browsing passes through workload with metadata-only evidence."
+  },
+  libreoffice: {
+    label: "LibreOffice",
+    appClass: "productivity",
+    allowedRuntimeModes: ["desktop", "firecracker_gui", "container"],
+    expectedBehavior: "LibreOffice opens inside the workload and a non-sensitive document workflow can be created and closed without file contents in evidence.",
+    mandatoryChecks: ["uiVisible", "documentWorkflow"],
+    humanSteps: ["Open LibreOffice workload", "Create or open a non-sensitive test document", "Confirm editing UI", "Close document without storing file contents in evidence"],
+    passCriteria: ["LibreOffice UI visible", "documentWorkflow passed", "file contents absent from evidence", "CDR policy acknowledged for file ingress/egress"],
+    failIf: ["generic browser tab", "only process evidence", "file contents captured", "CDR missing for file flow"],
+    repairPrompt: "Repair LibreOffice workload and CDR-adjacent controls until document workflow passes with no file-content evidence."
+  },
+  exodus: {
+    label: "Exodus",
+    appClass: "wallet_tool",
+    allowedRuntimeModes: ["desktop", "firecracker_gui", "container"],
+    expectedBehavior: "Exodus UI opens as a workload tool and wallet workflow is proven with non-secret evidence only; no seed, private key or wallet data is captured.",
+    mandatoryChecks: ["uiVisible", "walletWorkflow", "riskAcceptance"],
+    humanSteps: ["Open Exodus workload", "Confirm Exodus UI", "Verify non-secret wallet workflow screen", "Record risk acceptance metadata", "Return to operator panel"],
+    passCriteria: ["Exodus UI visible", "walletWorkflow passed without secrets", "riskAcceptance passed", "seed/private key/wallet data absent"],
+    failIf: ["download page only", "browser shell only", "seed/private key/wallet data captured", "risk acceptance missing"],
+    repairPrompt: "Repair Exodus workload with explicit non-secret wallet workflow and risk acceptance before factual PASS."
+  }
+});
+
 const DEFAULT_RELEASE_GATES = Object.freeze([
   {
     id: "gate_admin_api",
@@ -555,6 +646,26 @@ export class ReleaseControlService {
       .filter((record) => !operatorId || record.operatorId === operatorId)
       .filter((record) => !appKey || record.appKey === appKey)
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  }
+
+  listWorkloadFactualMatrix({ actor, appKey = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.read", { correlationId: corr, resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST });
+    return Object.entries(WORKLOAD_FACTUAL_MATRIX)
+      .filter(([key]) => !appKey || key === appKey)
+      .map(([key, definition]) => ({
+        appKey: key,
+        ...definition,
+        cdrRequired: true,
+        terminalDataStored: false,
+        contentInspectionAllowed: false,
+        packetCaptureStored: false,
+        productionExecutionAllowed: false,
+        strictPassRequiresFactualState: true,
+        requiredChecks: requiredFactualChecks(key),
+        missingEvidenceResult: "FAIL",
+        physicalPrerequisiteResult: "BLOCKED"
+      }));
   }
 
   latestWorkloadFactualTestsByApp({ actor, operatorId, correlationId }) {

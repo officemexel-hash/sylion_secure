@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01 through Prompt A/T86-06 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-07 implemented.
 
 ## Implemented
 
@@ -70,6 +70,13 @@ Status: Prompt A/T86-01 through Prompt A/T86-06 implemented.
    - records the exact `testId` that must be rerun
    - refuses production readiness for every result except strict `PASS`
 
+9. Workload factual-state matrix:
+   - `GET /release/workload-factual-matrix`
+   - SDK helper: `listWorkloadFactualMatrix`
+   - admin Release view renders factual criteria cards before factual test results
+   - covers Signal, WhatsApp, Telegram, Threema, Zangi, DuckDuckGo, LibreOffice and Exodus
+   - defines expected behavior, human steps, pass criteria, fail criteria and repair prompt per app
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -107,6 +114,7 @@ flowchart TD
   L --> N["Evidence artifact index"]
   L --> O["Problem registry for failed/blocked strict results"]
   L --> T["Repair loop endpoint"]
+  L --> X["Workload factual matrix"]
   T --> U["Per-blocker problems"]
   T --> V["Exact retest id"]
   T --> W["Repair commit metadata"]
@@ -119,6 +127,7 @@ flowchart TD
   U --> J
   V --> J
   W --> J
+  X --> J
   J --> K["Next prompt: exact test-runner repair loop"]
 ```
 
@@ -136,6 +145,7 @@ node --check services/admin-api/src/modules/release/releaseControlService.js
 node --check services/admin-api/src/app.js
 node --test services/admin-api/test/step3-86-human-evidence-schema.test.js
 node --test services/admin-api/test/step3-86-human-evidence-release-index.test.js
+node --test services/admin-api/test/step3-86-workload-factual-matrix.test.js
 node --test services/admin-api/test/step3-21-human-test-inventory.test.js services/admin-api/test/step3-11-release-control.test.js
 node --test services/admin-api/test/admin-web-static.test.js
 ```
@@ -144,9 +154,9 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-07:
+Prompt A/T86-08:
 
-Add application factual-state repair matrix for each required workload:
+Add the app-specific human runner scaffold that consumes the workload factual-state matrix:
 
 - Signal,
 - WhatsApp,
@@ -157,6 +167,12 @@ Add application factual-state repair matrix for each required workload:
 - LibreOffice,
 - Exodus.
 
-Each app must have expected behavior, exact human test steps, factual evidence criteria, strict PASS/FAIL/BLOCKED mapping and repair prompt.
+For each app, the runner must:
+
+- read expected behavior from `/release/workload-factual-matrix`,
+- execute the exact human test steps through Pixel or laptop harness,
+- write strict `human-evidence.json`,
+- record factual test result only when mandatory checks pass,
+- send failed/blocking results into `/release/human-evidence-repair-loop`.
 
 No live production claim can advance until the evidence index shows a reproducible `PASS` for the exact required path.
