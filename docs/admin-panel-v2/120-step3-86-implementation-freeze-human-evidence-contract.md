@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01 through Prompt A/T86-09 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-10 implemented.
 
 ## Implemented
 
@@ -102,6 +102,24 @@ Status: Prompt A/T86-01 through Prompt A/T86-09 implemented.
      - terminal data storage is false
    - sends blocked/failed app-specific evidence into the repair loop when `SYLION_INDEX_HUMAN_EVIDENCE=true`
 
+12. LibreOffice app-specific factual runner:
+   - `scripts/lib/libreoffice-factual-evaluator.mjs`
+   - `scripts/workload-libreoffice-human-runner.mjs`
+   - npm script: `test:libreoffice-human-runner`
+   - reads `/release/workload-factual-matrix?appKey=libreoffice`
+   - requests a LibreOffice streaming session through the operator API
+   - opens the operator panel in a Pixel-sized Playwright viewport
+   - can optionally open the internal stream URL only when `SYLION_LIBREOFFICE_OPEN_STREAM=true`
+   - refuses factual PASS unless all of these are true:
+     - stream session is ready,
+     - launch URL is internal `*.sylion.internal`,
+     - broker is G2,
+     - LibreOffice UI marker has safe evidence reference,
+     - non-sensitive document workflow metadata passes,
+     - CDR boundary is present,
+     - terminal data storage is false
+   - sends blocked/failed app-specific evidence into the repair loop when `SYLION_INDEX_HUMAN_EVIDENCE=true`
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -126,6 +144,7 @@ flowchart TD
   B --> Q["Laptop terminal human regression"]
   B --> Y["App factual human runner scaffold"]
   B --> Z["DuckDuckGo app-specific runner"]
+  B --> AB["LibreOffice app-specific runner"]
   B --> L["Release API: strict evidence indexing"]
   D --> F["summary.json compatibility"]
   D --> G["human-evidence.json strict bundle"]
@@ -160,6 +179,9 @@ flowchart TD
   Z --> X
   Z --> AA["DuckDuckGo evaluator: stream + UI + browse gates"]
   AA --> J
+  AB --> X
+  AB --> AC["LibreOffice evaluator: stream + UI + document + CDR gates"]
+  AC --> J
   J --> K["Next prompt: exact test-runner repair loop"]
 ```
 
@@ -175,6 +197,8 @@ node --check scripts/laptop-terminal-human-regression.mjs
 node --check scripts/workload-factual-human-runner.mjs
 node --check scripts/lib/duckduckgo-factual-evaluator.mjs
 node --check scripts/workload-duckduckgo-human-runner.mjs
+node --check scripts/lib/libreoffice-factual-evaluator.mjs
+node --check scripts/workload-libreoffice-human-runner.mjs
 node --check services/admin-api/src/lib/humanEvidence.js
 node --check services/admin-api/src/modules/release/releaseControlService.js
 node --check services/admin-api/src/app.js
@@ -182,6 +206,7 @@ node --test services/admin-api/test/step3-86-human-evidence-schema.test.js
 node --test services/admin-api/test/step3-86-human-evidence-release-index.test.js
 node --test services/admin-api/test/step3-86-workload-factual-matrix.test.js
 node --test services/admin-api/test/step3-86-duckduckgo-runner-evaluator.test.js
+node --test services/admin-api/test/step3-86-libreoffice-runner-evaluator.test.js
 node --test services/admin-api/test/step3-21-human-test-inventory.test.js services/admin-api/test/step3-11-release-control.test.js
 node --test services/admin-api/test/admin-web-static.test.js
 ```
@@ -190,7 +215,7 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-10:
+Prompt A/T86-11:
 
 Continue turning the scaffold into app-specific executable runners, one app at a time:
 
@@ -199,7 +224,6 @@ Continue turning the scaffold into app-specific executable runners, one app at a
 - Telegram,
 - Threema,
 - Zangi,
-- LibreOffice,
 - Exodus.
 
 For each app runner:

@@ -15,6 +15,7 @@
     "test:laptop-terminal-human-regression": "node scripts/laptop-terminal-human-regression.mjs",
     "test:workload-factual-human-runner": "node scripts/workload-factual-human-runner.mjs",
     "test:duckduckgo-human-runner": "node scripts/workload-duckduckgo-human-runner.mjs",
+    "test:libreoffice-human-runner": "node scripts/workload-libreoffice-human-runner.mjs",
     "test:live-factual-workload-audit": "node scripts/live-factual-workload-audit.mjs",
     "test:hetzner-live-smoke": "node scripts/hetzner-live-smoke.mjs",
     "live:hetzner-operator-baseline": "node scripts/hetzner-live-operator-baseline.mjs",
