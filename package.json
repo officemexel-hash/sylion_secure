@@ -23,6 +23,7 @@
     "test:threema-human-runner": "node scripts/workload-communicator-human-runner.mjs --app=threema",
     "test:zangi-human-runner": "node scripts/workload-communicator-human-runner.mjs --app=zangi",
     "test:exodus-human-runner": "node scripts/workload-exodus-human-runner.mjs",
+    "test:workload-app-human-runner-chain": "node scripts/workload-app-human-runner-chain.mjs",
     "test:live-factual-workload-audit": "node scripts/live-factual-workload-audit.mjs",
     "test:hetzner-live-smoke": "node scripts/hetzner-live-smoke.mjs",
     "live:hetzner-operator-baseline": "node scripts/hetzner-live-operator-baseline.mjs",

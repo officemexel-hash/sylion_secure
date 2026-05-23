@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01 through Prompt A/T86-12 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-13 implemented.
 
 ## Implemented
 
@@ -161,6 +161,16 @@ Status: Prompt A/T86-01 through Prompt A/T86-12 implemented.
      - terminal and wallet data storage are false
    - fails fast on download/generic browser markers, public/localhost stream URLs, wallet data storage or any seed/mnemonic/private-key probe fields
 
+15. Full app runner chain:
+   - `scripts/workload-app-human-runner-chain.mjs`
+   - npm script: `test:workload-app-human-runner-chain`
+   - executes DuckDuckGo, LibreOffice, Signal, WhatsApp, Telegram, Threema, Zangi and Exodus runners in order
+   - continues after blocked/failed apps by default so the report shows all current blockers, not only the first one
+   - writes aggregate report:
+     - `docs/admin-panel-v2/test-artifacts/step3-86-app-runner-chain/summary.json`
+   - exits non-zero when any app result is not strict `PASS`
+   - can be changed to fail-fast with `SYLION_CHAIN_STOP_ON_FIRST_FAILURE=true`
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -188,6 +198,7 @@ flowchart TD
   B --> AB["LibreOffice app-specific runner"]
   B --> AD["Communicator app-specific runner"]
   B --> AH["Exodus app-specific runner"]
+  B --> AJ["Full app runner chain"]
   B --> L["Release API: strict evidence indexing"]
   D --> F["summary.json compatibility"]
   D --> G["human-evidence.json strict bundle"]
@@ -234,6 +245,12 @@ flowchart TD
   AH --> X
   AH --> AI["Exodus evaluator: UI + wallet workflow + risk gates"]
   AI --> J
+  AJ --> Z
+  AJ --> AB
+  AJ --> AD
+  AJ --> AH
+  AJ --> AK["Aggregate blocker report"]
+  AK --> J
   J --> K["Next prompt: exact test-runner repair loop"]
 ```
 
@@ -255,6 +272,7 @@ node --check scripts/lib/communicator-factual-evaluator.mjs
 node --check scripts/workload-communicator-human-runner.mjs
 node --check scripts/lib/exodus-factual-evaluator.mjs
 node --check scripts/workload-exodus-human-runner.mjs
+node --check scripts/workload-app-human-runner-chain.mjs
 node --check services/admin-api/src/lib/humanEvidence.js
 node --check services/admin-api/src/modules/release/releaseControlService.js
 node --check services/admin-api/src/app.js
@@ -273,9 +291,9 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-13:
+Prompt A/T86-14:
 
-Execute the app-specific runner chain against the selected live operator path and repair exact blockers:
+Run the app-specific runner chain against the selected live operator path and repair exact blockers:
 
 - DuckDuckGo,
 - LibreOffice,
