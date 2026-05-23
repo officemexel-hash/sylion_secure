@@ -52,8 +52,8 @@ test("Step 3.61 AX102 Firecracker GUI runner exposes separate app profiles witho
   const exodus = await planFor("exodus");
   assert.equal(exodus.hostEndpoint, "10.44.0.13:3015");
   assert.equal(exodus.serverName, "exodus.sylion.internal");
-  assert.equal(exodus.display.width, 1440);
-  assert.equal(exodus.display.height, 2400);
+  assert.equal(exodus.display.width, 960);
+  assert.equal(exodus.display.height, 1800);
 });
 
 test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible windows before readiness", async () => {
@@ -67,12 +67,18 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /SYLION_GUI_SELF_TEST_TEXT/);
   assert.match(source, /Unsupported GUI VNC backend/);
   assert.doesNotMatch(source, /MOZ_DISABLE_CONTENT_SANDBOX/);
+  assert.doesNotMatch(source, /signal-desktop --no-sandbox/);
+  assert.match(source, /signal-desktop-keyring\.gpg/);
   assert.match(source, /kasmvncserver_noble_1\.4\.0_amd64\.deb/);
   assert.match(source, /vncBackend === "kasmvnc" \? 6901 : 5900/);
   assert.match(source, /KASMVNC_HTTP/);
   assert.match(source, /stream-secrets/);
   assert.match(source, /install -m 0600 "\$stream_secret_file" "\$stream_credential_ref"/);
   assert.match(source, /allow_client_to_override_kasm_server_settings: false/);
+  assert.match(source, /xhost \+SI:localuser:root/);
+  assert.match(source, /Signal\|signal\|LibreOffice\|libreoffice/);
+  assert.doesNotMatch(source, /search --name '\\.'/);
+  assert.doesNotMatch(source, /xwininfo -root -children/);
   assert.match(source, /stream-credentials\.env/);
   assert.match(source, /streamCredentialRef:\$streamCredentialRef/);
   assert.match(source, /weston --backend=vnc-backend\.so/);
@@ -96,6 +102,9 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /sha256sum -c/);
   assert.match(source, /exodus_official_download_blocked_or_unavailable/);
   assert.match(source, /ELECTRON_DISABLE_GPU=1/);
+  assert.doesNotMatch(source, /ELECTRON_FORCE_DEVICE_SCALE_FACTOR/);
+  assert.doesNotMatch(source, /--force-device-scale-factor/);
+  assert.doesNotMatch(source, /ctrl\+minus/);
   assert.match(source, /MESA_LOADER_DRIVER_OVERRIDE=llvmpipe/);
   assert.match(source, /--enable-unsafe-swiftshader/);
   assert.match(source, /--use-gl=swiftshader/);

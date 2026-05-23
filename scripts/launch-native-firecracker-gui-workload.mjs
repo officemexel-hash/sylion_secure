@@ -162,13 +162,15 @@ const profiles = {
     url: "signal-desktop://",
     preAptSetup: `
 mkdir -p "$mount_dir/etc/apt/keyrings"
-curl -fsSL https://updates.signal.org/desktop/apt/keys.asc -o "$mount_dir/etc/apt/keyrings/signal-desktop-keyring.asc"
+curl -fsSL https://updates.signal.org/desktop/apt/keys.asc \
+  | gpg --dearmor -o "$mount_dir/etc/apt/keyrings/signal-desktop-keyring.gpg"
+chmod 0644 "$mount_dir/etc/apt/keyrings/signal-desktop-keyring.gpg"
 cat > "$mount_dir/etc/apt/sources.list.d/signal-xenial.list" <<'EOF'
-deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.asc] https://updates.signal.org/desktop/apt xenial main
+deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main
 EOF
 `,
     installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libasound2t64 libgtk-3-0 libnss3 libxss1 libgbm1 libdrm2 libxkbcommon0 libatspi2.0-0 libxdamage1 libxrandr2 libxcomposite1 libxext6 libxfixes3 libx11-xcb1 libxcb-dri3-0 signal-desktop",
-    launchCommand: "dbus-run-session -- signal-desktop --no-sandbox --password-store=basic --ozone-platform=x11 --disable-features=UseOzonePlatform --disable-gpu --disable-gpu-compositing --disable-dev-shm-usage --enable-logging=stderr",
+    launchCommand: "dbus-run-session -- signal-desktop --password-store=basic --ozone-platform=x11 --disable-features=UseOzonePlatform --disable-gpu --disable-gpu-compositing --disable-dev-shm-usage --enable-logging=stderr",
     visibleWindowPattern: "Signal|signal",
     processPattern: "signal-desktop|electron",
     hostPort: 3013,
@@ -225,11 +227,7 @@ fi
     hostTapIp: "172.16.58.29",
     tap: "syliongui7",
     serverName: "exodus.sylion.internal",
-    guestMac: "AA:FC:00:00:58:1E",
-    displayWidth: 1440,
-    displayHeight: 2400,
-    windowWidth: 1440,
-    windowHeight: 2200
+    guestMac: "AA:FC:00:00:58:1E"
   }
 };
 
@@ -787,6 +785,7 @@ EOF_KASM_YAML
     if timeout 2 bash -lc "</dev/tcp/127.0.0.1/6901" 2>/dev/null; then break; fi
     sleep 1
   done
+  su -s /bin/sh sylion -c 'DISPLAY=:1 XAUTHORITY=/home/sylion/.Xauthority xhost +SI:localuser:root' >/tmp/sylion-xhost.log 2>&1 || true
   sed -n '1,120p' /tmp/sylion-kasmvncserver.log 2>/dev/null || true
 elif [ "$vnc_backend" = "xorg-x11vnc" ] && command -v Xorg >/dev/null 2>&1; then
   mkdir -p /etc/X11
@@ -864,13 +863,8 @@ app_pid="$!"
 echo "sylion-app-pid=$app_pid"
 sleep 35
 if [ "$vnc_backend" != "weston-vnc" ] && command -v xdotool >/dev/null 2>&1; then
-  DISPLAY=:1 xdotool search --name '.' windowmove %@ 0 0 windowsize %@ ${display.windowWidth} ${display.windowHeight} 2>/dev/null || true
-  DISPLAY=:1 xdotool search --class 'firefox|navigator|chrome|signal|libreoffice|soffice|exodus' windowmove %@ 0 0 windowsize %@ ${display.windowWidth} ${display.windowHeight} 2>/dev/null || true
-  DISPLAY=:1 xwininfo -root -children 2>/dev/null \
-    | awk '/^     0x[0-9a-f]+/ && $1 != "0x20011f" { print $1 }' \
-    | while read -r win; do
-        DISPLAY=:1 xdotool windowmap "$win" windowmove "$win" 0 0 windowsize "$win" ${display.windowWidth} ${display.windowHeight} 2>/dev/null || true
-      done
+  export XAUTHORITY=/home/sylion/.Xauthority
+  DISPLAY=:1 xdotool search --class 'Firefox|firefox|Navigator|navigator|Chrome|chrome|Signal|signal|LibreOffice|libreoffice|soffice|Exodus|exodus' windowmove %@ 0 0 windowsize %@ ${display.windowWidth} ${display.windowHeight} 2>/dev/null || true
   if [ -n "$target_url" ]; then
     firefox_win="$(DISPLAY=:1 xdotool search --onlyvisible --class firefox 2>/dev/null | head -1 || true)"
     if [ -n "$firefox_win" ]; then
