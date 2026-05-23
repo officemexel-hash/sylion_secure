@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { validationError, notFound } from "../../lib/errors.js";
+import { HUMAN_EVIDENCE_SCHEMA_VERSION, isProductionSatisfyingResult, normalizeResultStatus, validateHumanEvidenceSummary } from "../../lib/humanEvidence.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const GATE_STATUSES = new Set(["implemented", "partial", "blocked", "blocked_human_gate", "dry_run_ready", "review_required", "verified"]);
@@ -9,8 +10,8 @@ const PROBLEM_STATUSES = new Set(["open", "triaged", "in_progress", "fixed_pendi
 const PROBLEM_CATEGORIES = new Set(["defect", "ux_issue", "test_gap", "compliance_gap", "architecture_gap", "security_gap"]);
 const SEVERITIES = new Set(["low", "medium", "high", "critical"]);
 const TEST_STATUSES = new Set(["not_run", "running", "passed", "failed", "blocked", "needs_human_review"]);
-const TEST_RUN_MODES = new Set(["playwright_dashboard", "operator_portal", "manual_human", "mixed_human_playwright"]);
-const ARTIFACT_TYPES = new Set(["screenshot", "test_log", "json_summary", "release_note", "coverage_report", "manual_note"]);
+const TEST_RUN_MODES = new Set(["playwright_dashboard", "operator_portal", "manual_human", "mixed_human_playwright", "strict_human_evidence", "pixel_adb_human", "laptop_human"]);
+const ARTIFACT_TYPES = new Set(["screenshot", "test_log", "json_summary", "human_evidence_summary", "release_note", "coverage_report", "manual_note"]);
 const FACTUAL_TEST_RESULTS = new Set(["passed", "failed", "blocked", "unknown"]);
 const FACTUAL_CHECK_STATUSES = new Set(["passed", "failed", "blocked", "not_run", "not_applicable"]);
 const FACTUAL_TERMINAL_MODES = new Set(["pixel_grapheneos", "laptop_web_terminal"]);
@@ -246,6 +247,14 @@ function assertNoSecretFields(value) {
       allowed: "Store only evidence artifact ids and write-only secret references."
     });
   }
+}
+
+function strictResultToScenarioStatus(result) {
+  const normalized = normalizeResultStatus(result);
+  if (normalized === "PASS") return "passed";
+  if (normalized === "BLOCKED") return "blocked";
+  if (["FAIL", "FAIL_CRITICAL", "FLAKY"].includes(normalized)) return "failed";
+  return "needs_human_review";
 }
 
 function requiredFactualChecks(appKey) {
@@ -694,6 +703,90 @@ export class ReleaseControlService {
       newValue: run
     });
     return run;
+  }
+
+  recordHumanEvidenceRun({
+    actor,
+    summary,
+    evidenceArtifactPath = null,
+    linkedModule = "human_regression",
+    repairCommit = null,
+    ksiegaControlRefs = [],
+    phantomBoundaryImpact = "none",
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.manage", { correlationId: corr, resourceType: RESOURCE_TYPES.RELEASE_TEST_RUN });
+    try {
+      validateHumanEvidenceSummary(summary);
+    } catch (error) {
+      throw validationError("Strict human evidence validation failed", {
+        reason: error.message,
+        schemaVersion: HUMAN_EVIDENCE_SCHEMA_VERSION
+      });
+    }
+    const strictResult = normalizeResultStatus(summary.result);
+    const scenarioStatus = strictResultToScenarioStatus(strictResult);
+    const artifact = this.createArtifact({
+      actor,
+      type: "human_evidence_summary",
+      path: evidenceArtifactPath || `human-evidence://${summary.testId}/${summary.gitCommit}`,
+      source: "strict_human_evidence",
+      linkedModule,
+      correlationId: corr
+    });
+    const evidenceIds = [artifact.id];
+    const run = this.recordHumanTestRun({
+      actor,
+      mode: "strict_human_evidence",
+      title: `${summary.testId} strict evidence ${strictResult}`,
+      environment: summary.environment?.mode || "strict_human_evidence",
+      evidenceArtifactIds: evidenceIds,
+      results: [{
+        scenarioId: summary.testId,
+        view: linkedModule,
+        status: scenarioStatus,
+        note: `Strict human evidence result ${strictResult}`,
+        evidenceArtifactIds: evidenceIds
+      }],
+      correlationId: corr
+    });
+    const humanEvidence = {
+      schemaVersion: HUMAN_EVIDENCE_SCHEMA_VERSION,
+      testId: summary.testId,
+      testVersion: summary.testVersion,
+      strictResult,
+      productionSatisfyingResult: isProductionSatisfyingResult(strictResult),
+      evidenceArtifactIds: evidenceIds,
+      evidenceRefs: safeArray(summary.evidenceRefs || [], "summary.evidenceRefs"),
+      blockers: safeArray(summary.blockers || [], "summary.blockers"),
+      residualRisk: safeArray(summary.residualRisk || [], "summary.residualRisk"),
+      nextRequiredAction: optionalText(summary.nextRequiredAction, "summary.nextRequiredAction"),
+      repairCommit: optionalText(repairCommit, "repairCommit"),
+      ksiegaControlRefs: safeArray(ksiegaControlRefs, "ksiegaControlRefs"),
+      phantomBoundaryImpact: safeText(phantomBoundaryImpact, "phantomBoundaryImpact"),
+      metadataOnly: summary.forbiddenDataPolicy?.metadataOnly === true,
+      terminalDataStored: summary.forbiddenDataPolicy?.terminalDataStored === true,
+      contentInspected: summary.forbiddenDataPolicy?.contentInspected === true,
+      packetCaptureStored: summary.forbiddenDataPolicy?.packetCaptureStored === true
+    };
+    const indexedRun = {
+      ...run,
+      humanEvidence,
+      productionExecutionAllowed: false
+    };
+    this.testRuns.set(indexedRun.id, indexedRun);
+    this.audit.record({
+      actorId: actor.id,
+      action: "release.human_evidence_run_indexed",
+      resourceType: RESOURCE_TYPES.RELEASE_TEST_RUN,
+      resourceId: indexedRun.id,
+      correlationId: corr,
+      policyDecision: humanEvidence.productionSatisfyingResult ? "allow" : "deny",
+      result: strictResult,
+      newValue: indexedRun
+    });
+    return indexedRun;
   }
 
   listArtifacts({ actor, correlationId }) {

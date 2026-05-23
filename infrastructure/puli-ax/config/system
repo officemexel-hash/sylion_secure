@@ -1,0 +1,42 @@
+# SYLION Puli AX UCI system config
+# Hardening per ADR-router-phantom-001 §"Recommended Gates" R5 + warunek C6
+
+config system
+    option hostname 'sylion-puli-ax'
+    option timezone 'UTC'
+    option zonename 'UTC'
+    option ttylogin '0'
+    option log_size '256'
+    option log_file '/tmp/sylion.log'
+    option urandom_seed '0'
+    option compat_version '1.1'
+
+config timeserver 'ntp'
+    list server 'pool.ntp.org'
+    list server 'time.cloudflare.com'
+    option enabled '1'
+    option enable_server '0'
+
+# Disable dropbear password auth (R5)
+config dropbear
+    option PasswordAuth 'off'
+    option RootPasswordAuth 'off'
+    option Port '22'
+    option Interface 'lan'
+    # NEVER on WAN
+    option mdns '0'
+
+# Disable LuCI on WAN
+config luci_main
+    option mediaurlbase '/luci-static/bootstrap'
+    option resourcebase '/luci-static/resources'
+    option ubuspath '/ubus/'
+    option lang 'auto'
+
+# Watchdog
+config watchcat 'wancheck'
+    option period '300'
+    option mode 'ping'
+    option pinghosts '@@G1_ENDPOINT@@'
+    option pingsize '20'
+    option forcedelay '60'

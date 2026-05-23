@@ -1,0 +1,35 @@
+# SYLION lab inventory — copy to lab.yml (gitignored)
+# Fill in IPs from `terraform output` in infrastructure/terraform/environments/lab
+
+all:
+  vars:
+    ansible_user: sylion-deploy
+    ansible_ssh_private_key_file: ~/.ssh/sylion-deploy-key
+    ansible_python_interpreter: /usr/bin/python3
+    sylion_environment: lab
+    sylion_operator_id: op_lab_demo_0001
+    # G1 endpoint (operator-facing)
+    sylion_g1_endpoint: REPLACE_G1_FQDN_OR_IP
+    # Production execution gate — always false in lab
+    production_execution_allowed: false
+
+g1:
+  hosts:
+    g1-lab.sylion.internal:
+      ansible_host: REPLACE_G1_IPV4   # from terraform output demo_g1_ipv4
+      sylion_role: g1
+      sylion_zone: 1
+
+g2:
+  hosts:
+    g2-lab.sylion.internal:
+      ansible_host: REPLACE_G2_IPV4
+      sylion_role: g2
+      sylion_zone: 2
+
+workload:
+  hosts:
+    workload-lab.sylion.internal:
+      ansible_host: REPLACE_WORKLOAD_IPV4
+      sylion_role: workload
+      sylion_zone: 3

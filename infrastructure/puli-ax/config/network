@@ -1,0 +1,45 @@
+# SYLION Puli AX UCI network config
+# Per ADR-router-phantom-001 §"Mandatory Gates" M7 (separate WAN/LAN)
+# Placeholder substitution: @@G1_ENDPOINT@@
+
+config interface 'loopback'
+    option device 'lo'
+    option proto 'static'
+    option ipaddr '127.0.0.1'
+    option netmask '255.0.0.0'
+
+config interface 'lan'
+    option device 'br-lan'
+    option proto 'static'
+    option ipaddr '192.168.42.1'
+    option netmask '255.255.255.0'
+    # No IPv6 LAN — reduce attack surface
+    option ip6assign ''
+
+config interface 'wan'
+    option device 'wan'
+    option proto 'dhcp'
+    # No IPv6 WAN — reduce IPv6 leak surface
+    option ipv6 '0'
+    # No PEER DNS — we tunnel DNS through IPsec
+    option peerdns '0'
+
+config interface 'wwan'
+    # Cellular interface (Quectel modem via QMI/MBIM)
+    option proto 'qmi'
+    option device '/dev/cdc-wdm0'
+    option apn 'internet'
+    option pdptype 'IPv4'
+    option ipv6 '0'
+    option peerdns '0'
+    option auto '0'
+    # Manual bring-up to control kill-switch order
+
+config device
+    option name 'br-lan'
+    option type 'bridge'
+    list ports 'lan1'
+    list ports 'lan2'
+
+# DNS — no resolver until tunnel established
+# Tunneled DNS only via /etc/config/dhcp

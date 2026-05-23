@@ -1,6 +1,33 @@
 # Admin API Contract V0
 
-To jest lekki kontrakt HTTP dla pierwszego integration spine. Docelowo zostanie zastąpiony pełnym OpenAPI.
+To jest lekki kontrakt HTTP dla pierwszego integration spine. Docelowo zostanie zastapiony pelnym OpenAPI.
+
+## Step 3.86 Strict Human Evidence
+
+### POST /release/human-evidence-runs
+
+Indexes a strict Step 3.86 `human-evidence.json` summary into the release human-test inventory and evidence artifact index. The API validates metadata-only guardrails, rejects forbidden keys/values, maps strict results (`PASS`, `LAB_PASS`, `SIMULATION_PASS`, `FAIL`, `FAIL_CRITICAL`, `BLOCKED`, `UNKNOWN`, `FLAKY`) into release run status, and never turns `LAB_PASS` or `SIMULATION_PASS` into production readiness.
+
+```json
+{
+  "summary": {
+    "schemaVersion": "sylion-human-evidence/v1",
+    "testId": "step3-40-pixel-live-human-regression",
+    "result": "BLOCKED",
+    "evidenceRefs": ["summary.json", "screenshot:operator-panel"],
+    "forbiddenDataPolicy": {
+      "metadataOnly": true,
+      "terminalDataStored": false,
+      "contentInspected": false,
+      "packetCaptureStored": false
+    }
+  },
+  "evidenceArtifactPath": "docs/admin-panel-v2/test-artifacts/step3-40-pixel-live-human-regression/human-evidence.json",
+  "linkedModule": "pixel_live_path",
+  "ksiegaControlRefs": ["thin_client_terminal", "g1_g2_workload_path"],
+  "phantomBoundaryImpact": "none"
+}
+```
 
 ## Auth
 

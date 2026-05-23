@@ -1,0 +1,18 @@
+# SYLION lab environment — example tfvars
+# Copy to terraform.tfvars and fill in (terraform.tfvars is .gitignored)
+# NEVER commit secrets
+
+# Public SSH key for CI deploy (private part stays in GH Secrets)
+# Generate with: ssh-keygen -t ed25519 -f deploy_key -C "sylion-deploy"
+deploy_ssh_public_key = "ssh-ed25519 AAAA... sylion-deploy"
+
+# CIDR allowlist for SSH access — restrict to CI runner egress IPs in production
+# GitHub Actions runner IPs: see https://api.github.com/meta
+deploy_allowlist_cidrs = [
+  "0.0.0.0/0",  # lab only — restrict per environment
+]
+
+# CIDR allowlist for admin API HTTPS — operator network or VPN egress
+admin_api_allowlist_cidrs = [
+  "0.0.0.0/0",  # lab only
+]

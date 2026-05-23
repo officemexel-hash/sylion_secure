@@ -8,3 +8,33 @@ coverage/
 .deploy/
 .tools/
 docs/admin-panel-v2/test-artifacts/
+
+# Terraform — state + plans + local var files
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/terraform.tfvars
+!**/terraform.tfvars.example
+**/.terraform/
+**/.terraform.lock.hcl
+**/tfplan
+**/tf-outputs.json
+**/plan-output.txt
+
+# Ansible
+**/ansible/inventory/production.yml
+**/ansible/inventory/staging.yml
+!**/ansible/inventory/*.example
+**/ansible/*.retry
+**/ansible/vault/*.key
+
+# SSH keys (NEVER commit)
+**/*.pem
+**/*deploy_key*
+**/id_rsa
+**/id_ed25519
+!**/*.pub
+
+# Puli AX logs/inventory (locally generated)
+infrastructure/puli-ax/logs/
+infrastructure/puli-ax/inventory-*.txt
+

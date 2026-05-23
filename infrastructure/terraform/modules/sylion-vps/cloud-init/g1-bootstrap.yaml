@@ -1,0 +1,100 @@
+#cloud-config
+# SYLION G1 (Network Gateway) bootstrap
+# Per ADR-router-phantom-001 + Ksiega §G1
+# This installs minimal packages; full configuration via Ansible post-boot.
+
+hostname: ${g1_hostname}
+fqdn: ${g1_hostname}.sylion.internal
+manage_etc_hosts: true
+
+timezone: UTC
+locale: en_US.UTF-8
+
+users:
+  - name: ${deploy_user}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [sudo]
+    shell: /bin/bash
+    ssh_authorized_keys:
+      # Public key injected via Terraform variable, pre-deployed via hcloud_ssh_key
+
+package_update: true
+package_upgrade: true
+
+packages:
+  # Core
+  - curl
+  - wget
+  - git
+  - gnupg
+  - ca-certificates
+  - apt-transport-https
+  - software-properties-common
+  # Networking
+  - strongswan
+  - strongswan-pki
+  - nftables
+  - iproute2
+  - tcpdump
+  # Monitoring
+  - htop
+  - sysstat
+  - logrotate
+  # Security
+  - fail2ban
+  - unattended-upgrades
+  - apt-listchanges
+
+write_files:
+  - path: /etc/systemd/system/sylion-readiness.service
+    content: |
+      [Unit]
+      Description=SYLION readiness marker (cloud-init bootstrap)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/sh -c 'echo "$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ) sylion-g1 ready ${operator_id} ${environment}" > /var/log/sylion-readiness.log'
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/sylion/metadata.json
+    content: |
+      {
+        "role": "g1",
+        "zone": "1",
+        "operator_id": "${operator_id}",
+        "environment": "${environment}",
+        "hostname": "${g1_hostname}",
+        "production_execution_allowed": false,
+        "managed_by": "terraform+ansible",
+        "adr_refs": [
+          "ADR-router-phantom-001",
+          "ADR-cloud-provider-001-hetzner-ovh"
+        ]
+      }
+    permissions: '0644'
+
+runcmd:
+  # Disable IPv6 (per Ksiega §G1 attack surface reduction)
+  - sysctl -w net.ipv6.conf.all.disable_ipv6=1
+  - sysctl -w net.ipv6.conf.default.disable_ipv6=1
+  - echo "net.ipv6.conf.all.disable_ipv6=1" >> /etc/sysctl.conf
+  - echo "net.ipv6.conf.default.disable_ipv6=1" >> /etc/sysctl.conf
+  # Enable IP forwarding for IPsec
+  - sysctl -w net.ipv4.ip_forward=1
+  - echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+  # Unattended upgrades
+  - dpkg-reconfigure -plow unattended-upgrades
+  # Enable readiness marker
+  - systemctl daemon-reload
+  - systemctl enable --now sylion-readiness.service
+  # Set up SYLION directories
+  - mkdir -p /opt/sylion /etc/sylion /var/log/sylion
+  - chown -R ${deploy_user}:${deploy_user} /opt/sylion
+  - chmod 750 /opt/sylion
+
+final_message: "SYLION G1 bootstrap complete. Next: Ansible playbook g1-strongswan.yml"

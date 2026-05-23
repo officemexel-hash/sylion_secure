@@ -1,0 +1,56 @@
+#cloud-config
+# SYLION G2 (Session Broker) bootstrap
+# Per Ksiega §SL-03 — Guacamole session broker (status [E] Experimental per Ksiega §64.6)
+
+hostname: ${g2_hostname}
+fqdn: ${g2_hostname}.sylion.internal
+manage_etc_hosts: true
+timezone: UTC
+
+users:
+  - name: ${deploy_user}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [sudo, docker]
+    shell: /bin/bash
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - gnupg
+  - ca-certificates
+  - apt-transport-https
+  - strongswan
+  - nftables
+  - fail2ban
+  - unattended-upgrades
+
+write_files:
+  - path: /etc/sylion/metadata.json
+    content: |
+      {
+        "role": "g2",
+        "zone": "2",
+        "operator_id": "${operator_id}",
+        "environment": "${environment}",
+        "hostname": "${g2_hostname}",
+        "component": "session_broker_guacamole",
+        "status_flag": "experimental_E_per_ksiega_64_6",
+        "cve_track": "CVE-2024-35164 — Apache Guacamole RCE",
+        "mitigation": "Firecracker microVM + SEV-SNP + eBPF anomaly detection",
+        "production_execution_allowed": false,
+        "human_gate_required": true
+      }
+    permissions: '0644'
+
+runcmd:
+  - sysctl -w net.ipv6.conf.all.disable_ipv6=1
+  - sysctl -w net.ipv4.ip_forward=1
+  - mkdir -p /opt/sylion /etc/sylion /var/log/sylion
+  - chown -R ${deploy_user}:${deploy_user} /opt/sylion
+  - chmod 750 /opt/sylion
+
+final_message: "SYLION G2 bootstrap complete. Next: Ansible playbook g2-broker.yml (Guacamole status [E])"

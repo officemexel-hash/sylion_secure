@@ -1,0 +1,58 @@
+#cloud-config
+# SYLION WORKLOAD bootstrap (Firecracker microVM host)
+# Per Step 3.20 Firecracker launch rehearsal + Step 3.51 native lab host
+
+hostname: ${hostname}
+fqdn: ${hostname}.sylion.internal
+manage_etc_hosts: true
+timezone: UTC
+
+users:
+  - name: ${deploy_user}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: [sudo, kvm]
+    shell: /bin/bash
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - wget
+  - git
+  - ca-certificates
+  - qemu-utils
+  - qemu-system-x86
+  - bridge-utils
+  - iproute2
+  - jq
+  # Firecracker installed manually post-cloud-init (binary from GitHub releases)
+  - fail2ban
+  - unattended-upgrades
+
+write_files:
+  - path: /etc/sylion/metadata.json
+    content: |
+      {
+        "role": "workload",
+        "zone": "3",
+        "operator_id": "${operator_id}",
+        "environment": "${environment}",
+        "hostname": "${hostname}",
+        "kvm_capable_check_required": true,
+        "binderfs_required_for_android_native": true,
+        "production_execution_allowed": false,
+        "note": "Hetzner cloud VPS may lack nested KVM — for Android native use Hetzner Robot bare-metal per ADR-cloud-provider-001"
+      }
+    permissions: '0644'
+
+runcmd:
+  # KVM capability probe — log warning if not present
+  - sh -c 'if [ ! -e /dev/kvm ]; then echo "WARN /dev/kvm missing — workload Firecracker may not run" >> /var/log/sylion-readiness.log; fi'
+  - sysctl -w net.ipv6.conf.all.disable_ipv6=1
+  - sysctl -w net.ipv4.ip_forward=1
+  - mkdir -p /opt/sylion /etc/sylion /var/log/sylion /var/lib/firecracker
+  - chown -R ${deploy_user}:${deploy_user} /opt/sylion /var/lib/firecracker
+  - chmod 750 /opt/sylion
+
+final_message: "SYLION WORKLOAD bootstrap complete. Next: Ansible playbook workload-firecracker.yml"

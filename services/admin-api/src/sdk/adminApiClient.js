@@ -175,6 +175,10 @@ export class AdminApiClient {
     return this.request("/release/human-test-runs", { method: "POST", body });
   }
 
+  recordHumanEvidenceRun(body) {
+    return this.request("/release/human-evidence-runs", { method: "POST", body });
+  }
+
   listWorkloadFactualTests({ operatorId = null, appKey = null } = {}) {
     const params = new URLSearchParams();
     if (operatorId) params.set("operatorId", operatorId);

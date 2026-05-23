@@ -1249,9 +1249,12 @@ function renderRelease() {
   $("#human-test-run-cards").innerHTML = state.humanTestRuns.map((run) => card(run.title, [
     ["Status", run.status],
     ["Mode", run.mode],
+    ["Strict", run.humanEvidence?.strictResult || "-"],
     ["Results", String(run.results?.length || 0)],
     ["Evidence", String(run.evidenceArtifactIds?.length || 0)],
-    ["Prod exec", String(run.productionExecutionAllowed)]
+    ["Prod exec", String(run.productionExecutionAllowed)],
+    ["Blockers", run.humanEvidence?.blockers?.join(", ") || "-"],
+    ["Next", run.humanEvidence?.nextRequiredAction || "-"]
   ])).join("") || empty("No full human test runs recorded.");
 
   $("#workload-factual-test-cards").innerHTML = state.workloadFactualTests.map((item) => card(`${item.appKey} / ${item.result}`, [
