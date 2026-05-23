@@ -521,6 +521,68 @@
     }
   }
 
+  async function loadTrafficMonitoring() {
+    const data = await fetchJson("/operator-api/traffic-monitoring");
+    if (data.error) {
+      setText("#traffic-state", data.error);
+      return;
+    }
+    const monitoring = data.monitoring || {};
+    const summary = monitoring.summary || {};
+    setText("#traffic-state", summary.state || "-");
+    setText("#traffic-healthy", String(summary.healthy ?? "-"));
+    setText("#traffic-degraded", String(summary.degraded ?? "-"));
+    setText("#traffic-blocked", String(summary.blocked ?? "-"));
+    setText("#traffic-alert-count", String(summary.alerts ?? "-"));
+    const segments = $("#traffic-segments");
+    if (segments) {
+      segments.innerHTML = (monitoring.segments || []).map((segment) => `
+        <li>
+          <strong>${escapeHtml(segment.from)} -> ${escapeHtml(segment.to)}: ${escapeHtml(segment.status)}</strong>
+          <span>${escapeHtml(segment.observedTransport || segment.expectedTransport)} | encrypted ${escapeHtml(segment.encrypted)} | latency ${escapeHtml(segment.latencyMs ?? "-")} ms</span>
+          <span>blockers: ${escapeHtml((segment.blockers || []).join(", ") || "-")}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No traffic segments available.</li>`;
+    }
+    const alerts = $("#traffic-alerts");
+    if (alerts) {
+      alerts.innerHTML = (monitoring.alerts || []).map((alert) => `
+        <li>
+          <strong>${escapeHtml(alert.severity)}: ${escapeHtml(alert.code)}</strong>
+          <span>${escapeHtml(alert.message)}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No active traffic alerts.</li>`;
+    }
+    const guardrails = $("#traffic-guardrails");
+    if (guardrails) {
+      guardrails.innerHTML = Object.entries(monitoring.guardrails || {}).map(([key, value]) => `
+        <li><strong>${escapeHtml(key)}</strong><span>${escapeHtml(value)}</span></li>
+      `).join("") || `<li class="placeholder">No guardrails reported.</li>`;
+    }
+  }
+
+  async function recordTrafficEvidence(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/traffic-monitoring/evidence", {
+      method: "POST",
+      body: {
+        segmentId: data.segmentId,
+        status: data.status,
+        encrypted: data.encrypted === "on",
+        transport: data.transport || undefined,
+        latencyMs: data.latencyMs ? Number(data.latencyMs) : null,
+        packetLossPct: data.packetLossPct ? Number(data.packetLossPct) : null,
+        bytesIn: data.bytesIn ? Number(data.bytesIn) : null,
+        bytesOut: data.bytesOut ? Number(data.bytesOut) : null,
+        evidenceRefs: splitCsv(data.evidenceRefs)
+      }
+    });
+    setText("#traffic-evidence-status", result.error || `Traffic metadata recorded: ${result.evidence.segmentId} ${result.evidence.status}`);
+    await loadTrafficMonitoring();
+    await loadAudit();
+  }
+
   async function loadLiveAccess() {
     const data = await fetchJson("/operator-api/live-access-foundation");
     if (data.error) {
@@ -1103,6 +1165,7 @@
     if (viewId === "workloads") loadWorkloads();
     if (viewId === "workload-control") loadWorkloadControl();
     if (viewId === "connection-path") loadConnectionPath();
+    if (viewId === "traffic-monitoring") loadTrafficMonitoring();
     if (viewId === "live-access") loadLiveAccess();
     if (viewId === "signal-preview") loadSignalPreview();
     if (viewId === "runtime-gate") loadRuntimeGate();
@@ -1133,6 +1196,7 @@
     $("#account-bootstrap-form").addEventListener("submit", requestAccountBootstrap);
     $("#account-bootstrap-evidence-form").addEventListener("submit", recordAccountBootstrapEvidence);
     $("#vpn-evidence-form").addEventListener("submit", recordVpnEvidence);
+    $("#traffic-evidence-form").addEventListener("submit", recordTrafficEvidence);
     $("#stream-session-form").addEventListener("submit", requestStreamSession);
     $("#stream-readiness-form").addEventListener("submit", recordStreamReadiness);
     $("#stream-runtime-form").addEventListener("submit", recordStreamRuntimeManifest);

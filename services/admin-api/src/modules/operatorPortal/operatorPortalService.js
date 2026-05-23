@@ -80,6 +80,56 @@ const LIVE_RECREATE_APP_MAP = Object.freeze({
   exodus: "exodus"
 });
 const NATIVE_FIRECRACKER_RECREATE_APPS = new Set(["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal"]);
+const TRAFFIC_MONITOR_SEGMENTS = Object.freeze([
+  {
+    id: "pixel_router",
+    order: 1,
+    from: "Pixel/laptop terminal",
+    to: "Puli AX router",
+    zone: "ZONE_0_TO_ACCESS_ROUTER",
+    transport: "local_access_link_with_device_posture",
+    expectedControls: ["terminal_no_operational_data", "router_kill_switch", "dns_leak_prevention"]
+  },
+  {
+    id: "router_g1",
+    order: 2,
+    from: "Puli AX router",
+    to: "G1 ingress gateway",
+    zone: "ACCESS_ROUTER_TO_G1",
+    transport: "ipsec_ikev2_mutual_certificate",
+    expectedControls: ["ikev2_sa_established", "terminal_default_route_to_g1_only", "internal_dns_only"]
+  },
+  {
+    id: "g1_g2",
+    order: 3,
+    from: "G1 ingress gateway",
+    to: "G2 access broker",
+    zone: "G1_TO_G2",
+    transport: "ipsec_ikev2_policy_path",
+    expectedControls: ["default_deny_except_g2", "mutual_service_identity", "route_policy_audited"]
+  },
+  {
+    id: "g2_workload",
+    order: 4,
+    from: "G2 access broker",
+    to: "WORKLOAD host",
+    zone: "G2_TO_WORKLOAD",
+    transport: "ipsec_ikev2_or_private_policy_link",
+    expectedControls: ["g2_broker_only", "private_bind_only", "cdr_file_gate"]
+  },
+  {
+    id: "workload_microvm",
+    order: 5,
+    from: "WORKLOAD host",
+    to: "Firecracker/container app environment",
+    zone: "WORKLOAD_TO_MICROVM",
+    transport: "firecracker_jailer_private_tap_or_vsock",
+    expectedControls: ["per_app_isolation", "no_terminal_storage", "cdr_file_gate"]
+  }
+]);
+const TRAFFIC_SEGMENT_IDS = new Set(TRAFFIC_MONITOR_SEGMENTS.map((segment) => segment.id));
+const TRAFFIC_STATUSES = new Set(["healthy", "degraded", "blocked", "missing", "observed"]);
+const TRAFFIC_FORBIDDEN_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms|seed|mnemonic|private[_-]?key|payload|message|chat|packet[_-]?capture|pcap|capture[_-]?file|file[_-]?content|wallet[_-]?secret|cookie|body)/i;
 
 function isoNow() {
   return new Date().toISOString();
@@ -179,6 +229,7 @@ export class OperatorPortalService {
     this.streamingSessions = new PersistentMap({ store, collection: "operator_streaming_sessions" });
     this.streamingReadinessEvidence = new PersistentMap({ store, collection: "operator_streaming_readiness_evidence" });
     this.streamingRuntimeManifests = new PersistentMap({ store, collection: "operator_streaming_runtime_manifests" });
+    this.trafficEvidence = new PersistentMap({ store, collection: "operator_traffic_monitoring_evidence" });
     this.workloadControlJobs = new PersistentMap({ store, collection: "operator_workload_control_jobs" });
     this.accountBootstrapSessions = new PersistentMap({ store, collection: "operator_account_bootstrap_sessions" });
     this.liveWorkloadRunner = liveWorkloadRunner;
@@ -743,6 +794,135 @@ export class OperatorPortalService {
       newValue: this.#publicVpnEvidence(evidence)
     });
     return this.#publicVpnEvidence(evidence);
+  }
+
+  trafficMonitoring({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const path = this.#connectionPathForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId
+    });
+    const vpnEvidence = this.#latestVpnEvidenceForOperator(operatorActor.operatorId);
+    const streamingReadiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
+    const streamingRuntime = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const latestEvidence = this.#latestTrafficEvidenceBySegment(operatorActor.operatorId);
+    const segments = TRAFFIC_MONITOR_SEGMENTS.map((definition) => this.#trafficSegmentView({
+      definition,
+      operatorActor,
+      path,
+      vpnEvidence,
+      streamingReadiness,
+      streamingRuntime,
+      evidence: latestEvidence.get(definition.id) || null
+    }));
+    const alerts = this.#trafficAlerts({
+      segments,
+      path,
+      vpnEvidence,
+      streamingReadiness,
+      streamingRuntime
+    });
+    const summary = {
+      segments: segments.length,
+      healthy: segments.filter((segment) => segment.status === "healthy").length,
+      degraded: segments.filter((segment) => segment.status === "degraded").length,
+      blocked: segments.filter((segment) => segment.status === "blocked").length,
+      missing: segments.filter((segment) => segment.status === "missing").length,
+      alerts: alerts.length,
+      state: segments.every((segment) => segment.status === "healthy")
+        ? "blue_team_path_healthy"
+        : segments.some((segment) => segment.status === "blocked")
+          ? "blue_team_path_blocked"
+          : "blue_team_path_degraded",
+      productionExecutionAllowed: false
+    };
+    return {
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      mode: "metadata_only_blue_team_monitoring",
+      route: ["Pixel/laptop", "Puli AX", "G1", "G2", "WORKLOAD", "microVM/container"],
+      summary,
+      segments,
+      alerts,
+      guardrails: {
+        metadataOnly: true,
+        contentInspected: false,
+        packetCaptureStored: false,
+        messageContentStored: false,
+        terminalDataStored: false,
+        noTerminalOperationalData: true,
+        g1G2BypassAllowed: false,
+        baselineTransport: "ipsec_ikev2",
+        cdrRequiredForFiles: true,
+        routerPhysicalGateDeferred: path.router?.readyForPhysicalSmoke !== true,
+        hsmFido2PhysicalGateDeferred: this.env?.SYLION_DEFER_PHYSICAL_HSM_FIDO2 === "true"
+      },
+      evidence: {
+        vpnEvidenceId: vpnEvidence?.id || null,
+        streamingReadinessId: streamingReadiness?.id || null,
+        streamingRuntimeManifestId: streamingRuntime?.id || null,
+        trafficEvidenceIds: [...latestEvidence.values()].map((evidence) => evidence.id)
+      },
+      generatedAt: isoNow(),
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  recordTrafficEvidence({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.#assertNoTrafficSecrets(body);
+    const segmentId = String(body.segmentId || body.segment || "").trim();
+    if (!TRAFFIC_SEGMENT_IDS.has(segmentId)) {
+      throw validationError("Unsupported traffic segment", {
+        segmentId,
+        supported: [...TRAFFIC_SEGMENT_IDS]
+      });
+    }
+    const status = this.#normalizeTrafficStatus(body.status || (body.healthy === true ? "healthy" : "observed"));
+    const encrypted = body.encrypted === undefined ? status !== "blocked" : body.encrypted === true;
+    const evidence = {
+      id: newId("traffic_evidence"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      segmentId,
+      status,
+      encrypted,
+      transport: String(body.transport || this.#trafficSegmentDefinition(segmentId).transport).slice(0, 96),
+      latencyMs: this.#optionalNumber(body.latencyMs, "latencyMs", 0, 600000),
+      jitterMs: this.#optionalNumber(body.jitterMs, "jitterMs", 0, 600000),
+      packetLossPct: this.#optionalNumber(body.packetLossPct, "packetLossPct", 0, 100),
+      bytesIn: this.#optionalNumber(body.bytesIn, "bytesIn", 0, Number.MAX_SAFE_INTEGER),
+      bytesOut: this.#optionalNumber(body.bytesOut, "bytesOut", 0, Number.MAX_SAFE_INTEGER),
+      policyDecision: String(body.policyDecision || (status === "healthy" ? "allow" : "review")).slice(0, 48),
+      evidenceRefs: this.#safeTrafficEvidenceRefs(body.evidenceRefs || []),
+      source: "operator_blue_team_metadata_evidence",
+      contentInspected: false,
+      packetCaptureStored: false,
+      terminalDataStored: false,
+      observedAt: isoNow(),
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+    evidence.blockers = this.#trafficEvidenceBlockers(evidence);
+    this.trafficEvidence.set(evidence.id, evidence);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.traffic_monitoring_evidence_recorded",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: evidence.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: evidence.blockers.length ? "deny" : "allow",
+      result: evidence.blockers.length ? "traffic_evidence_incomplete" : "traffic_evidence_recorded",
+      newValue: this.#publicTrafficEvidence(evidence)
+    });
+    return this.#publicTrafficEvidence(evidence);
   }
 
   vpnInstallPackage({ operatorActor, correlationId }) {
@@ -2288,6 +2468,248 @@ export class OperatorPortalService {
       terminalDataStored: false,
       contentInspected: false
     };
+  }
+
+  #latestTrafficEvidenceBySegment(operatorId) {
+    const latest = new Map();
+    for (const evidence of [...this.trafficEvidence.values()].filter((item) => item.operatorId === operatorId)) {
+      const previous = latest.get(evidence.segmentId);
+      if (!previous || Date.parse(evidence.observedAt) >= Date.parse(previous.observedAt)) {
+        latest.set(evidence.segmentId, evidence);
+      }
+    }
+    return latest;
+  }
+
+  #trafficSegmentDefinition(segmentId) {
+    return TRAFFIC_MONITOR_SEGMENTS.find((segment) => segment.id === segmentId);
+  }
+
+  #trafficSegmentView({ definition, operatorActor, path, vpnEvidence, streamingReadiness, streamingRuntime, evidence }) {
+    const inferred = this.#inferredTrafficSegment({
+      definition,
+      path,
+      vpnEvidence,
+      streamingReadiness,
+      streamingRuntime
+    });
+    const status = evidence ? this.#normalizeTrafficStatus(evidence.status) : inferred.status;
+    const blockers = [
+      ...(evidence ? evidence.blockers || [] : inferred.blockers),
+      ...(evidence?.encrypted === false && definition.id !== "pixel_router" ? ["encryption_not_evidenced"] : [])
+    ];
+    const finalStatus = blockers.length && status === "healthy" ? "degraded" : status;
+    return {
+      id: definition.id,
+      order: definition.order,
+      operatorId: operatorActor.operatorId,
+      from: definition.from,
+      to: definition.to,
+      zone: definition.zone,
+      expectedTransport: definition.transport,
+      observedTransport: evidence?.transport || inferred.observedTransport || definition.transport,
+      status: finalStatus,
+      encrypted: evidence ? evidence.encrypted === true : inferred.encrypted,
+      latencyMs: evidence?.latencyMs ?? inferred.latencyMs,
+      jitterMs: evidence?.jitterMs ?? null,
+      packetLossPct: evidence?.packetLossPct ?? null,
+      bytesIn: evidence?.bytesIn ?? null,
+      bytesOut: evidence?.bytesOut ?? null,
+      lastObservedAt: evidence?.observedAt || inferred.lastObservedAt || null,
+      policyDecision: evidence?.policyDecision || inferred.policyDecision,
+      expectedControls: definition.expectedControls,
+      blockers,
+      evidenceId: evidence?.id || null,
+      contentInspected: false,
+      packetCaptureStored: false,
+      terminalDataStored: false,
+      productionExecutionAllowed: false
+    };
+  }
+
+  #inferredTrafficSegment({ definition, path, vpnEvidence, streamingReadiness, streamingRuntime }) {
+    const vpnReady = vpnEvidence?.ready === true || this.#vpnEvidenceReady(vpnEvidence);
+    const routerReady = path.router?.readyForPhysicalSmoke === true || this.env?.SYLION_PULI_AX_PHYSICAL_READY === "true";
+    const g1G2Ready = this.env?.SYLION_G1_G2_POLICY_READY === "true"
+      || vpnEvidence?.reachableHosts?.includes("10.42.0.12") === true;
+    const g2WorkloadReady = this.env?.SYLION_G2_WORKLOAD_POLICY_READY === "true"
+      || this.env?.SYLION_G2_WORKLOAD_GATEWAY_READY === "true"
+      || streamingReadiness?.gateway?.g2StreamGatewayReady === true
+      || streamingRuntime?.ready === true;
+    const streamSourcesReady = streamingReadiness?.ready === true
+      || streamingRuntime?.ready === true
+      || this.env?.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true";
+    if (definition.id === "pixel_router") {
+      return {
+        status: routerReady ? "degraded" : "blocked",
+        encrypted: false,
+        observedTransport: routerReady ? "puli_ax_local_link_posture_pending" : "router_physical_gate_pending",
+        policyDecision: routerReady ? "review" : "deny",
+        blockers: routerReady ? ["router_packet_metadata_agent_not_reporting_yet"] : ["puli_ax_physical_router_pending"],
+        lastObservedAt: null,
+        latencyMs: null
+      };
+    }
+    if (definition.id === "router_g1") {
+      return {
+        status: vpnReady ? routerReady ? "healthy" : "degraded" : "blocked",
+        encrypted: vpnReady,
+        observedTransport: vpnReady ? "pixel_direct_or_router_ipsec_ikev2_evidenced" : "ipsec_ikev2_not_evidenced",
+        policyDecision: vpnReady ? "allow" : "deny",
+        blockers: [
+          ...(vpnReady ? [] : ["vpn_evidence_missing_or_incomplete"]),
+          ...(routerReady ? [] : ["puli_ax_physical_router_pending"])
+        ],
+        lastObservedAt: vpnEvidence?.observedAt || null,
+        latencyMs: null
+      };
+    }
+    if (definition.id === "g1_g2") {
+      return {
+        status: g1G2Ready ? "healthy" : "blocked",
+        encrypted: g1G2Ready,
+        observedTransport: g1G2Ready ? "g1_g2_policy_path_evidenced" : "g1_g2_policy_path_missing",
+        policyDecision: g1G2Ready ? "allow" : "deny",
+        blockers: g1G2Ready ? [] : ["g1_to_g2_evidence_missing"],
+        lastObservedAt: vpnEvidence?.observedAt || null,
+        latencyMs: null
+      };
+    }
+    if (definition.id === "g2_workload") {
+      return {
+        status: g2WorkloadReady ? "healthy" : "blocked",
+        encrypted: g2WorkloadReady,
+        observedTransport: g2WorkloadReady ? "g2_workload_private_gateway_evidenced" : "g2_workload_gateway_missing",
+        policyDecision: g2WorkloadReady ? "allow" : "deny",
+        blockers: g2WorkloadReady ? [] : ["g2_to_workload_evidence_missing"],
+        lastObservedAt: streamingRuntime?.createdAt || streamingReadiness?.observedAt || null,
+        latencyMs: null
+      };
+    }
+    return {
+      status: streamSourcesReady ? "degraded" : "blocked",
+      encrypted: streamSourcesReady,
+      observedTransport: streamSourcesReady ? "workload_stream_source_evidenced" : "microvm_stream_source_missing",
+      policyDecision: streamSourcesReady ? "review" : "deny",
+      blockers: streamSourcesReady ? ["per_app_firecracker_runtime_factual_test_required"] : ["workload_microvm_evidence_missing"],
+      lastObservedAt: streamingRuntime?.createdAt || streamingReadiness?.observedAt || null,
+      latencyMs: null
+    };
+  }
+
+  #trafficAlerts({ segments, path, vpnEvidence, streamingReadiness, streamingRuntime }) {
+    const alerts = [];
+    const add = (severity, code, message, segmentId = null) => {
+      alerts.push({
+        id: `${code}_${alerts.length + 1}`,
+        severity,
+        code,
+        segmentId,
+        message,
+        contentInspected: false,
+        terminalDataStored: false,
+        productionExecutionAllowed: false
+      });
+    };
+    for (const segment of segments) {
+      if (segment.status === "blocked") add("critical", "segment_blocked", `${segment.from} -> ${segment.to} is blocked: ${(segment.blockers || []).join(", ") || "no evidence"}`, segment.id);
+      if (segment.status === "missing") add("warning", "segment_missing", `${segment.from} -> ${segment.to} has no fresh metadata evidence.`, segment.id);
+      if (segment.status === "degraded") add("warning", "segment_degraded", `${segment.from} -> ${segment.to} is degraded: ${(segment.blockers || []).join(", ") || "review required"}`, segment.id);
+      if (segment.encrypted === false && segment.id !== "pixel_router") add("critical", "encryption_not_evidenced", `${segment.from} -> ${segment.to} lacks encryption evidence.`, segment.id);
+    }
+    if (path.router?.readyForPhysicalSmoke !== true) {
+      add("warning", "puli_ax_pending", "Puli AX physical router package/posture is still pending, so router telemetry is not factual yet.", "pixel_router");
+    }
+    if (!vpnEvidence) {
+      add("critical", "vpn_evidence_missing", "No operator-scoped VPN/IPsec evidence has been recorded for this terminal session.", "router_g1");
+    } else {
+      if (vpnEvidence.dnsThroughTunnel !== true) add("critical", "dns_leak_risk", "DNS-through-tunnel evidence is missing or false.", "router_g1");
+      if (vpnEvidence.certificateTrusted !== true) add("warning", "internal_ca_not_trusted", "SYLION Internal CA trust is not evidenced on the terminal.", "router_g1");
+    }
+    if (streamingReadiness?.gateway?.publicInternetExposure === true || streamingRuntime?.gateway?.publicInternetExposure === true) {
+      add("critical", "public_stream_exposure", "G2 stream gateway evidence reports public exposure, which is forbidden.", "g2_workload");
+    }
+    return alerts;
+  }
+
+  #trafficEvidenceBlockers(evidence) {
+    return [
+      ...(evidence.status === "blocked" ? ["segment_reported_blocked"] : []),
+      ...(evidence.status === "missing" ? ["segment_reported_missing"] : []),
+      ...(evidence.encrypted ? [] : evidence.segmentId === "pixel_router" ? [] : ["encryption_not_evidenced"]),
+      ...(evidence.packetCaptureStored === false ? [] : ["packet_capture_storage_forbidden"]),
+      ...(evidence.contentInspected === false ? [] : ["content_inspection_forbidden"]),
+      ...(evidence.terminalDataStored === false ? [] : ["terminal_data_storage_forbidden"])
+    ];
+  }
+
+  #publicTrafficEvidence(evidence) {
+    return {
+      id: evidence.id,
+      operatorId: evidence.operatorId,
+      terminalMode: evidence.terminalMode,
+      deviceId: evidence.deviceId,
+      segmentId: evidence.segmentId,
+      status: evidence.status,
+      encrypted: evidence.encrypted,
+      transport: evidence.transport,
+      latencyMs: evidence.latencyMs,
+      jitterMs: evidence.jitterMs,
+      packetLossPct: evidence.packetLossPct,
+      bytesIn: evidence.bytesIn,
+      bytesOut: evidence.bytesOut,
+      policyDecision: evidence.policyDecision,
+      evidenceRefs: evidence.evidenceRefs,
+      blockers: evidence.blockers,
+      observedAt: evidence.observedAt,
+      contentInspected: false,
+      packetCaptureStored: false,
+      terminalDataStored: false,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #normalizeTrafficStatus(value) {
+    const status = String(value || "observed").trim().toLowerCase();
+    if (!TRAFFIC_STATUSES.has(status)) {
+      throw validationError("Unsupported traffic evidence status", {
+        status: value,
+        supported: [...TRAFFIC_STATUSES]
+      });
+    }
+    return status === "observed" ? "degraded" : status;
+  }
+
+  #optionalNumber(value, field, min, max) {
+    if (value === undefined || value === null || value === "") return null;
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < min || number > max) {
+      throw validationError(`${field} must be a finite number in range`, { field, value, min, max });
+    }
+    return number;
+  }
+
+  #safeTrafficEvidenceRefs(value) {
+    const items = Array.isArray(value) ? value : String(value || "").split(",");
+    return items.map((item) => String(item).trim().slice(0, 160)).filter(Boolean).slice(0, 12);
+  }
+
+  #assertNoTrafficSecrets(value, path = "body") {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => this.#assertNoTrafficSecrets(item, `${path}[${index}]`));
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    for (const [key, nested] of Object.entries(value)) {
+      if (TRAFFIC_FORBIDDEN_FIELD_PATTERN.test(key)) {
+        throw validationError("Traffic monitoring evidence must be metadata-only", {
+          field: `${path}.${key}`,
+          forbidden: "secrets_payloads_messages_packet_captures_and_file_contents"
+        });
+      }
+      this.#assertNoTrafficSecrets(nested, `${path}.${key}`);
+    }
   }
 
   #liveAccessCheck(key, passed, detail, statusOverride = null) {

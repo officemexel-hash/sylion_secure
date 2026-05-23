@@ -921,6 +921,15 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         return send(res, 201, { evidence: operatorPortal.recordVpnEvidence({ operatorActor, body, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/traffic-monitoring") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { monitoring: operatorPortal.trafficMonitoring({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/traffic-monitoring/evidence") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { evidence: operatorPortal.recordTrafficEvidence({ operatorActor, body, correlationId }) });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/connection-path") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { path: operatorPortal.connectionPath({ operatorActor, correlationId }) });

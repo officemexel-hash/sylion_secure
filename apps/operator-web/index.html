@@ -29,6 +29,7 @@
       <li><a href="#workloads" data-view="workloads">Workloads</a></li>
       <li><a href="#workload-control" data-view="workload-control">Workload Control</a></li>
       <li><a href="#connection-path" data-view="connection-path">Connection Path</a></li>
+      <li><a href="#traffic-monitoring" data-view="traffic-monitoring">Traffic Monitor</a></li>
       <li><a href="#live-access" data-view="live-access">Live Access</a></li>
       <li><a href="#signal-preview" data-view="signal-preview">Signal Preview</a></li>
       <li><a href="#runtime-gate" data-view="runtime-gate">Runtime Gate</a></li>
@@ -93,6 +94,7 @@
         <h2>Operator controls</h2>
         <div class="quick-grid">
           <a class="quick-tile" href="#workload-control" data-view="workload-control"><strong>Workload Control</strong><span>counts, recreate requests, tier quota</span></a>
+          <a class="quick-tile" href="#traffic-monitoring" data-view="traffic-monitoring"><strong>Traffic Monitor</strong><span>blue-team path metadata</span></a>
           <a class="quick-tile" href="#runtime-gate" data-view="runtime-gate"><strong>Runtime Gate</strong><span>Signal/Zangi launch blockers</span></a>
           <a class="quick-tile" href="#settings-unlock" data-view="settings-unlock"><strong>Security Unlock</strong><span>G1/G2/WORKLOAD session policy</span></a>
           <a class="quick-tile" href="#settings-safety" data-view="settings-safety"><strong>Backup & Panic</strong><span>backup, inactivity wipe, panic levels</span></a>
@@ -211,7 +213,7 @@
 
     <section id="connection-path" class="view">
       <h1>Connection Path</h1>
-      <p class="hint">Pixel/laptop terminal path: terminal -> G1 -> G2 -> WORKLOAD -> isolated communicator microVMs. The terminal remains display/input only.</p>
+      <p class="hint">Pixel/laptop terminal path: terminal -> Puli AX -> G1 -> G2 -> WORKLOAD -> isolated communicator microVMs. The terminal remains display/input only.</p>
       <article class="card">
         <h2>Path state</h2>
         <dl>
@@ -231,6 +233,63 @@
       <article class="card">
         <h2>Communicator microVMs</h2>
         <ul id="path-microvms" class="path-list"><li class="placeholder">Loading...</li></ul>
+      </article>
+    </section>
+
+    <section id="traffic-monitoring" class="view">
+      <h1>Traffic Monitor</h1>
+      <p class="hint">Operator blue-team view for Pixel/laptop -> Puli AX -> G1 -> G2 -> WORKLOAD -> app microVM/container. This is metadata-only monitoring: no messages, payloads, packet captures, files, wallet data or secrets.</p>
+      <article class="card">
+        <h2>Path summary <span class="help-tip" tabindex="0" data-tip="Shows segment health, encryption evidence, latency counters and alert metadata. It never inspects communicator content or stores terminal operational data.">?</span></h2>
+        <dl class="compact-metrics">
+          <dt>State</dt><dd id="traffic-state" class="placeholder">Loading...</dd>
+          <dt>Healthy</dt><dd id="traffic-healthy">-</dd>
+          <dt>Degraded</dt><dd id="traffic-degraded">-</dd>
+          <dt>Blocked</dt><dd id="traffic-blocked">-</dd>
+          <dt>Alerts</dt><dd id="traffic-alert-count">-</dd>
+        </dl>
+      </article>
+      <article class="card">
+        <h2>Segments</h2>
+        <ul id="traffic-segments" class="path-list"><li class="placeholder">Loading path metadata...</li></ul>
+      </article>
+      <article class="card">
+        <h2>Alerts</h2>
+        <ul id="traffic-alerts" class="path-list"><li class="placeholder">Loading alerts...</li></ul>
+      </article>
+      <article class="card">
+        <h2>Record metadata evidence</h2>
+        <form id="traffic-evidence-form" class="dense-form">
+          <label>Segment
+            <select name="segmentId">
+              <option value="pixel_router">Pixel/laptop -> Puli AX</option>
+              <option value="router_g1">Puli AX -> G1</option>
+              <option value="g1_g2">G1 -> G2</option>
+              <option value="g2_workload">G2 -> WORKLOAD</option>
+              <option value="workload_microvm">WORKLOAD -> app microVM/container</option>
+            </select>
+          </label>
+          <label>Status
+            <select name="status">
+              <option value="healthy">Healthy</option>
+              <option value="degraded">Degraded</option>
+              <option value="blocked">Blocked</option>
+            </select>
+          </label>
+          <label class="check-row"><input name="encrypted" type="checkbox" checked> Encryption/control evidence present</label>
+          <label>Transport <input name="transport" placeholder="ipsec_ikev2_mutual_certificate"></label>
+          <label>Latency ms <input name="latencyMs" type="number" min="0" max="600000" placeholder="optional"></label>
+          <label>Packet loss % <input name="packetLossPct" type="number" min="0" max="100" step="0.01" placeholder="optional"></label>
+          <label>Bytes in <input name="bytesIn" type="number" min="0" placeholder="optional"></label>
+          <label>Bytes out <input name="bytesOut" type="number" min="0" placeholder="optional"></label>
+          <label>Evidence refs <input name="evidenceRefs" placeholder="probe://..., audit://..." autocomplete="off"></label>
+          <button type="submit" class="primary">Record metadata</button>
+        </form>
+        <p id="traffic-evidence-status" class="hint">No blue-team metadata evidence recorded in this browser session.</p>
+      </article>
+      <article class="card">
+        <h2>Guardrails</h2>
+        <ul id="traffic-guardrails" class="key-list"><li class="placeholder">Loading guardrails...</li></ul>
       </article>
     </section>
 
