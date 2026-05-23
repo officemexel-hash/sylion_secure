@@ -1197,6 +1197,10 @@ function renderProductionReadiness() {
     ["Severity", gate.severity],
     ["Human gate", String(gate.humanGateRequired)],
     ["Prod exec", String(gate.productionExecutionAllowed)],
+    ["Evidence", Object.entries(gate.evidence || {})
+      .filter(([key, value]) => key.endsWith("Evidence") && value && typeof value === "object")
+      .map(([key, value]) => `${key}: ready=${String(value.ready)} records=${value.records ?? value.tokens ?? value.androidManifests ?? "-"}`)
+      .join("; ") || "-"],
     ["Acceptance", gate.acceptance],
     ["Verify", gate.verifyHow],
     ["Repair", gate.repairAction],

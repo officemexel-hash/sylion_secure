@@ -407,18 +407,63 @@ function cdrEvidenceSummary(cdr) {
   };
 }
 
-function buildProductionGates({ env, rows, sessionBroker, cdrEvidence, workloadControlEvidence }) {
+function androidNativeEvidenceSummary({ rows = [], hosts = [], manifests = [] } = {}) {
+  const androidManifests = manifests.filter((manifest) => manifest.runtimeKind === "android_native_workload");
+  const passedAndroidFactualTests = rows.flatMap((row) => row.apps || [])
+    .filter((app) => app.latestFactualTest?.runtimeMode === "android_native" && app.factualStateVerified === true);
+  const androidHostObserved = hosts.some((host) => host.readyForLabWorkloads === true);
+  const androidManifestReadyObserved = androidManifests.some((manifest) => manifest.readyForLabLaunch === true);
+  const androidFactualObserved = passedAndroidFactualTests.length > 0;
+  const operatorModeSelectableObserved = androidManifests.some((manifest) => (
+    manifest.appKey === "zangi"
+    || manifest.launchManifest?.operatorSelectableMode === true
+    || manifest.buildEvidence?.operatorSelectableMode === true
+  ));
+  const ready = androidHostObserved
+    && androidManifestReadyObserved
+    && androidFactualObserved
+    && operatorModeSelectableObserved;
+  return {
+    androidHosts: hosts.length,
+    androidManifests: androidManifests.length,
+    passedAndroidFactualTests: passedAndroidFactualTests.length,
+    androidHostObserved,
+    androidManifestReadyObserved,
+    androidFactualObserved,
+    operatorModeSelectableObserved,
+    ready,
+    blockers: ready ? [] : [
+      ...(androidHostObserved ? [] : ["android_workload_host_missing"]),
+      ...(androidManifestReadyObserved ? [] : ["android_native_manifest_missing"]),
+      ...(androidFactualObserved ? [] : ["android_native_factual_test_missing"]),
+      ...(operatorModeSelectableObserved ? [] : ["operator_app_mode_selection_missing"])
+    ],
+    productionExecutionAllowed: false
+  };
+}
+
+function buildProductionGates({
+  env,
+  rows,
+  sessionBroker,
+  cdrEvidence,
+  workloadControlEvidence,
+  androidNativeEvidence,
+  routeEvidence,
+  cpuConfidentialEvidence,
+  paymentTokenEvidence
+}) {
   const facts = {
     zangiReady: appReady(rows, "zangi"),
     exodusReady: appReady(rows, "exodus") && envFlag(env, "SYLION_EXODUS_PIXEL_VISUAL_VERIFIED"),
     guacamoleReady: sessionBroker.selectedProtocol === "guacamole" && sessionBroker.readyForHumanGate === true,
     communicatorsReady: appsReady(rows, ["whatsapp", "telegram", "threema", "signal", "zangi"]),
-    androidNativeReady: envFlag(env, "SYLION_ANDROID_NATIVE_MODE_READY"),
+    androidNativeReady: envFlag(env, "SYLION_ANDROID_NATIVE_MODE_READY") || androidNativeEvidence?.ready === true,
     cdrReady: envFlag(env, "SYLION_CDR_END_TO_END_READY") || cdrEvidence?.ready === true,
-    torJurisdictionReady: envFlag(env, "SYLION_TOR_JURISDICTION_READY"),
+    torJurisdictionReady: envFlag(env, "SYLION_TOR_JURISDICTION_READY") || routeEvidence?.ready === true,
     recreateRotateReady: envFlag(env, "SYLION_SELF_SERVICE_ROTATE_READY") || workloadControlEvidence?.ready === true,
-    confidentialComputeReady: envFlag(env, "SYLION_CONFIDENTIAL_COMPUTE_ATTESTED"),
-    paymentTokenReady: envFlag(env, "SYLION_PAYMENT_TOKEN_PROVISIONING_READY")
+    confidentialComputeReady: envFlag(env, "SYLION_CONFIDENTIAL_COMPUTE_ATTESTED") || cpuConfidentialEvidence?.ready === true,
+    paymentTokenReady: envFlag(env, "SYLION_PAYMENT_TOKEN_PROVISIONING_READY") || paymentTokenEvidence?.ready === true
   };
   const readinessByGate = {
     gate_01_zangi_android_native_functional: facts.zangiReady,
@@ -435,7 +480,19 @@ function buildProductionGates({ env, rows, sessionBroker, cdrEvidence, workloadC
   const blockersByGate = {
     gate_03_guacamole_broker: facts.guacamoleReady ? [] : sessionBroker.blockers.length
       ? sessionBroker.blockers
-      : ["guacamole_not_active_as_production_broker"]
+      : ["guacamole_not_active_as_production_broker"],
+    gate_05_android_native_workloads: facts.androidNativeReady ? [] : androidNativeEvidence?.blockers?.length
+      ? androidNativeEvidence.blockers
+      : ["android_native_mode_incomplete"],
+    gate_07_tor_jurisdiction_routing: facts.torJurisdictionReady ? [] : routeEvidence?.blockers?.length
+      ? routeEvidence.blockers
+      : ["tor_jurisdiction_route_not_end_to_end_proven"],
+    gate_09_confidential_compute: facts.confidentialComputeReady ? [] : cpuConfidentialEvidence?.blockers?.length
+      ? cpuConfidentialEvidence.blockers
+      : ["amd_sev_snp_or_intel_tdx_not_active"],
+    gate_10_payment_token_provisioning: facts.paymentTokenReady ? [] : paymentTokenEvidence?.blockers?.length
+      ? paymentTokenEvidence.blockers
+      : ["public_payment_token_provisioning_not_live"]
   };
   return PRODUCTION_GATE_DEFINITIONS.map((definition) => {
     const isReady = readinessByGate[definition.id] === true;
@@ -449,8 +506,12 @@ function buildProductionGates({ env, rows, sessionBroker, cdrEvidence, workloadC
       evidence: {
         source: "production_readiness_control_plane",
         factualStateRequired: true,
+        ...(definition.id === "gate_05_android_native_workloads" ? { androidNativeEvidence } : {}),
         ...(definition.id === "gate_06_cdr_end_to_end" ? { cdrEvidence } : {}),
+        ...(definition.id === "gate_07_tor_jurisdiction_routing" ? { routeEvidence } : {}),
         ...(definition.id === "gate_08_self_service_recreate_rotate" ? { workloadControlEvidence } : {}),
+        ...(definition.id === "gate_09_confidential_compute" ? { cpuConfidentialEvidence } : {}),
+        ...(definition.id === "gate_10_payment_token_provisioning" ? { paymentTokenEvidence } : {}),
         terminalDataStored: false,
         contentInspected: false
       }
@@ -464,6 +525,7 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
   const operatorsList = services.operators.list({ actor, correlationId })
     .filter((operator) => !productionOperatorId || operator.id === productionOperatorId);
   const hosts = services.liveExecution.listWorkloadNativeHosts({ actor, correlationId });
+  const manifests = services.liveExecution.listWorkloadImageManifests({ actor, correlationId });
   const nativeHost = hosts[0] || null;
   const rows = operatorsList.map((operator) => {
     const subscription = services.subscriptions.getTenantSubscription({ actor, tenantId: operator.tenantId, correlationId });
@@ -520,10 +582,36 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
   const workloadControlEvidence = services.operatorPortal.workloadControlEvidenceSummary({
     operatorIds: operatorsList.map((operator) => operator.id)
   });
-  const productionGates = buildProductionGates({ env, rows, sessionBroker, cdrEvidence, workloadControlEvidence });
+  const androidNativeEvidence = androidNativeEvidenceSummary({ rows, hosts, manifests });
+  const routeEvidence = services.jurisdiction.routeEvidenceSummary({
+    operatorIds: operatorsList.map((operator) => operator.id)
+  });
+  const cpuConfidentialEvidence = services.liveExecution.cpuConfidentialEvidenceSummary();
+  const paymentTokenEvidence = services.subscriptions.paymentTokenEvidenceSummary({
+    operatorIds: operatorsList.map((operator) => operator.id)
+  });
+  const productionGates = buildProductionGates({
+    env,
+    rows,
+    sessionBroker,
+    cdrEvidence,
+    workloadControlEvidence,
+    androidNativeEvidence,
+    routeEvidence,
+    cpuConfidentialEvidence,
+    paymentTokenEvidence
+  });
   return {
     generatedAt: new Date().toISOString(),
     sessionBroker,
+    evidence: {
+      androidNativeEvidence,
+      cdrEvidence,
+      routeEvidence,
+      workloadControlEvidence,
+      cpuConfidentialEvidence,
+      paymentTokenEvidence
+    },
     operators: rows,
     productionGates,
     summary: {
@@ -1768,6 +1856,30 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { plan });
       }
 
+      if (req.method === "GET" && url.pathname === "/subscription/payment-tokens") {
+        return send(res, 200, subscriptions.listPaymentTokens({ actor, correlationId }));
+      }
+
+      if (req.method === "POST" && url.pathname === "/subscription/payment-tokens") {
+        auth.requireFreshStepUp(actor, "subscription.payment_token.issue", {
+          correlationId,
+          resourceType: "subscription_payment_token"
+        });
+        const body = await readJson(req);
+        const issued = subscriptions.issuePaymentToken({ actor, ...body, correlationId });
+        return send(res, 201, issued);
+      }
+
+      if (req.method === "POST" && url.pathname === "/subscription/payment-tokens/redeem") {
+        auth.requireFreshStepUp(actor, "subscription.payment_token.redeem", {
+          correlationId,
+          resourceType: "subscription_payment_token"
+        });
+        const body = await readJson(req);
+        const redemption = subscriptions.redeemPaymentToken({ actor, ...body, correlationId });
+        return send(res, 201, redemption);
+      }
+
       if (req.method === "POST" && url.pathname === "/phantom/boundary/status") {
         const body = await readJson(req);
         const boundary = phantom.updateBoundaryStatus({ actor, ...body, correlationId });
@@ -2547,6 +2659,22 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         const policy = jurisdiction.create({ actor, ...body, correlationId });
         return send(res, 201, { policy });
+      }
+
+      if (req.method === "GET" && url.pathname === "/jurisdiction/route-evidence") {
+        return send(res, 200, {
+          evidence: jurisdiction.listRouteEvidence({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      if (req.method === "POST" && url.pathname === "/jurisdiction/route-evidence") {
+        const body = await readJson(req);
+        const evidence = jurisdiction.recordRouteEvidence({ actor, ...body, correlationId });
+        return send(res, 201, { evidence });
       }
 
       const jurisdictionRotationMatch = url.pathname.match(/^\/jurisdiction\/policies\/([^/]+)\/rotation-plan$/);

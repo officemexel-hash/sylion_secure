@@ -1223,6 +1223,37 @@ export class LiveExecutionService {
     return [...this.cpuQualifications.values()];
   }
 
+  cpuConfidentialEvidenceSummary() {
+    const records = [...this.cpuQualifications.values()];
+    const firecrackerHostApprovedObserved = records.some((record) => record.firecrackerHostApproved === true);
+    const confidentialApprovedObserved = records.some((record) => record.confidentialComputingApproved === true);
+    const secretsReleaseAllowedObserved = records.some((record) => record.secretsReleaseAllowed === true);
+    const attestationObserved = records.some((record) => record.attestation?.verified === true);
+    const blockedAx102Observed = records.some((record) => (
+      record.hostId?.includes("AX102")
+      && record.confidentialComputingApproved === false
+      && record.productionExecutionAllowed === false
+    ));
+    const ready = confidentialApprovedObserved
+      && secretsReleaseAllowedObserved
+      && attestationObserved;
+    return {
+      records: records.length,
+      firecrackerHostApprovedObserved,
+      confidentialApprovedObserved,
+      secretsReleaseAllowedObserved,
+      attestationObserved,
+      blockedAx102Observed,
+      ready,
+      blockers: ready ? [] : [
+        ...(confidentialApprovedObserved ? [] : ["sev_snp_or_tdx_attestation_missing"]),
+        ...(secretsReleaseAllowedObserved ? [] : ["secrets_release_not_allowed"]),
+        ...(attestationObserved ? [] : ["remote_attestation_not_verified"])
+      ],
+      productionExecutionAllowed: false
+    };
+  }
+
   createPhantomExecutionRequest({
     actor,
     packageId,

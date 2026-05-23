@@ -510,6 +510,18 @@ export class AdminApiClient {
     return this.request("/subscription/plans", { method: "POST", body });
   }
 
+  listSubscriptionPaymentTokens() {
+    return this.request("/subscription/payment-tokens");
+  }
+
+  issueSubscriptionPaymentToken(body) {
+    return this.request("/subscription/payment-tokens", { method: "POST", body });
+  }
+
+  redeemSubscriptionPaymentToken(body) {
+    return this.request("/subscription/payment-tokens/redeem", { method: "POST", body });
+  }
+
   getTenantSubscription(tenantId) {
     return this.request(`/tenants/${tenantId}/subscription`);
   }
@@ -544,6 +556,14 @@ export class AdminApiClient {
 
   listQuotaDecisions() {
     return this.request("/subscription/quota-decisions");
+  }
+
+  listJurisdictionRouteEvidence(operatorId = null) {
+    return this.request(`/jurisdiction/route-evidence${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  recordJurisdictionRouteEvidence(body) {
+    return this.request("/jurisdiction/route-evidence", { method: "POST", body });
   }
 
   listProvisioningApprovals(operatorId = null) {

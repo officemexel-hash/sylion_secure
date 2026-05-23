@@ -75,6 +75,8 @@ export const RESOURCE_TYPES = Object.freeze({
   FIRECRACKER_HOST_QUALIFICATION: "firecracker_host_qualification",
   FIRECRACKER_LAUNCH_REHEARSAL: "firecracker_launch_rehearsal",
   CPU_CONFIDENTIAL_QUALIFICATION: "cpu_confidential_qualification",
+  JURISDICTION_ROUTE_EVIDENCE: "jurisdiction_route_evidence",
+  SUBSCRIPTION_PAYMENT_TOKEN: "subscription_payment_token",
   LIVE_ROLLBACK_PLAN: "live_rollback_plan",
   PHANTOM_EXECUTION_REQUEST: "phantom_execution_request",
   RELEASE_GATE: "release_gate",

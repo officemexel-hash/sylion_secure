@@ -32,6 +32,11 @@ This step turns the current "10 things that do not work" list into hard producti
   - workload app UI visible
   - target DuckDuckGo content verified
   - no terminal-side operational data
+- Repair pass 2 replaces the remaining env-only readiness checks with auditable evidence summaries:
+  - Android-native readiness reads Android host, Android workload manifest and factual Android test evidence.
+  - Tor/jurisdiction routing reads metadata-only route evidence with tier allow/deny probes and no anonymity claim.
+  - Confidential-compute readiness reads CPU qualification and attestation records instead of only `SYLION_CONFIDENTIAL_COMPUTE_ATTESTED`.
+  - Payment-token provisioning reads issued token, live payment mode, redemption and package handoff records without storing plaintext token material.
 
 ## Live State
 
@@ -47,6 +52,29 @@ This step turns the current "10 things that do not work" list into hard producti
 | 8. Self-service recreate/rotate | ready for human gate | Disposable-style DuckDuckGo rotation exercised through operator API; missing confirmation blocked before runner, confirmed request completed live. | Add UI click regression and rollback drill; keep destructive operations human-gated. |
 | 9. Confidential compute | blocked | AX102 KVM/Firecracker is not SEV-SNP/TDX attested. | Add provider capability and attestation records before tier claims. |
 | 10. Payment token provisioning | blocked | Admin subscription model exists; public payment/token redemption is not live. | Implement payment sandbox, token issue/redeem, and provisioning handoff. |
+
+## Repair Pass 2 Evidence Contracts
+
+```mermaid
+flowchart LR
+    Gate5["Gate 5 Android-native"] --> Host["WORKLOAD_NATIVE host"]
+    Gate5 --> Manifest["android_native_workload manifest"]
+    Gate5 --> Fact["passed factual Android test"]
+
+    Gate7["Gate 7 routing"] --> Allow["allowed Tor/jurisdiction route probe"]
+    Gate7 --> Deny["tier-denied route probe"]
+    Gate7 --> Boundaries["no terminal data, no content inspection, no anonymity claim"]
+
+    Gate9["Gate 9 confidential compute"] --> CPU["CPU qualification record"]
+    Gate9 --> Att["remote attestation verified"]
+    Gate9 --> Secret["secrets release evidence"]
+
+    Gate10["Gate 10 payment token"] --> Paid["live paid token"]
+    Gate10 --> Redeem["token redemption"]
+    Gate10 --> Package["operator package handoff"]
+```
+
+These contracts keep `productionExecutionAllowed=false`. A sandbox token can prove mechanics but does not satisfy the public live payment gate. AX102 can prove KVM/Firecracker but does not satisfy SEV-SNP/TDX.
 
 ## Mermaid
 
@@ -76,6 +104,7 @@ node --test services/admin-api/test/step3-61-native-firecracker-runner.test.js
 node --test services/admin-api/test/step3-70-live-factual-audit-helpers.test.js
 node --test services/admin-api/test/step3-80-guacamole-workload-connections.test.js
 node --test services/admin-api/test/admin-web-static.test.js services/admin-api/test/apps-cdr.contract.test.js
+node --test services/admin-api/test/step3-83-production-gate-evidence-contract.test.js
 node scripts/live-factual-workload-audit.mjs --apps=zangi,exodus --pixel
 node scripts/install-g2-guacamole-broker.mjs --deploy
 node scripts/install-workload-guacamole-vnc-forwards.mjs --apply
