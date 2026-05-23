@@ -230,7 +230,9 @@ test("Step 3.43 Signal, DuckDuckGo and LibreOffice can become ready for G2 thin 
       });
       assert.equal(session.session.state, "stream_session_ready");
       assert.equal(session.session.blockers.length, 0);
-      assert.match(session.session.launchUrl, /^https:\/\/.+\.sylion\.internal\/stream\//);
+      assert.match(session.session.launchUrl, /^https:\/\/.+\.sylion\.internal\//);
+      assert.equal(session.session.gateway.launchMode, "private_app_stream");
+      assert.equal(session.session.source.directProbeMode, "private_websockify_probe_not_production_broker");
       assert.equal(session.session.stream.operationalDataOnTerminal, false);
       assert.deepEqual(session.session.stream.terminalReceives, ["video_pixels", "audio_optional", "input_events"]);
       assert.ok(session.session.stream.terminalForbidden.includes("message_database"));

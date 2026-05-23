@@ -215,6 +215,12 @@ if (!profiles[requestedAppKey]) {
 
 const appKey = profiles[requestedAppKey].aliasOf || requestedAppKey;
 const profile = profiles[appKey];
+const display = {
+  width: Number(process.env.SYLION_GUI_DISPLAY_WIDTH || profile.displayWidth || 960),
+  height: Number(process.env.SYLION_GUI_DISPLAY_HEIGHT || profile.displayHeight || 1800),
+  windowWidth: Number(process.env.SYLION_GUI_WINDOW_WIDTH || profile.windowWidth || process.env.SYLION_GUI_DISPLAY_WIDTH || profile.displayWidth || 960),
+  windowHeight: Number(process.env.SYLION_GUI_WINDOW_HEIGHT || profile.windowHeight || process.env.SYLION_GUI_DISPLAY_HEIGHT || profile.displayHeight || 1680)
+};
 const cfg = {
   sshKey: process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
   workload: process.env.SYLION_WORKLOAD_NATIVE_SSH || "root@65.109.123.72",
@@ -397,7 +403,7 @@ EOF_ELECTRON_FLAGS
 fi
 export DISPLAY=:1
 export HOME=/root
-Xvfb :1 -screen 0 ${profile.displayWidth || 1080}x${profile.displayHeight || 2400}x24 -ac -nolisten tcp &
+Xvfb :1 -screen 0 ${display.width}x${display.height}x24 -ac -nolisten tcp &
 sleep 1
 openbox-session &
 sleep 1
@@ -413,12 +419,12 @@ app_pid="$!"
 echo "sylion-app-pid=$app_pid"
 sleep 35
 if command -v xdotool >/dev/null 2>&1; then
-  DISPLAY=:1 xdotool search --name '.' windowmove %@ 0 0 windowsize %@ ${profile.windowWidth || 1080} ${profile.windowHeight || 2200} 2>/dev/null || true
-  DISPLAY=:1 xdotool search --class 'firefox|navigator|chrome|signal|libreoffice|soffice|exodus' windowmove %@ 0 0 windowsize %@ ${profile.windowWidth || 1080} ${profile.windowHeight || 2200} 2>/dev/null || true
+  DISPLAY=:1 xdotool search --name '.' windowmove %@ 0 0 windowsize %@ ${display.windowWidth} ${display.windowHeight} 2>/dev/null || true
+  DISPLAY=:1 xdotool search --class 'firefox|navigator|chrome|signal|libreoffice|soffice|exodus' windowmove %@ 0 0 windowsize %@ ${display.windowWidth} ${display.windowHeight} 2>/dev/null || true
   DISPLAY=:1 xwininfo -root -children 2>/dev/null \
     | awk '/^     0x[0-9a-f]+/ && $1 != "0x20011f" { print $1 }' \
     | while read -r win; do
-        DISPLAY=:1 xdotool windowmap "$win" windowmove "$win" 0 0 windowsize "$win" ${profile.windowWidth || 1080} ${profile.windowHeight || 2200} 2>/dev/null || true
+        DISPLAY=:1 xdotool windowmap "$win" windowmove "$win" 0 0 windowsize "$win" ${display.windowWidth} ${display.windowHeight} 2>/dev/null || true
       done
   if [ -n "$target_url" ]; then
     firefox_win="$(DISPLAY=:1 xdotool search --onlyvisible --class firefox 2>/dev/null | head -1 || true)"
@@ -435,7 +441,7 @@ if command -v xdotool >/dev/null 2>&1; then
   fi
 fi
 if command -v wmctrl >/dev/null 2>&1; then
-  DISPLAY=:1 wmctrl -r :ACTIVE: -e 0,0,0,${profile.windowWidth || 1080},${profile.windowHeight || 2200} 2>/dev/null || true
+  DISPLAY=:1 wmctrl -r :ACTIVE: -e 0,0,0,${display.windowWidth},${display.windowHeight} 2>/dev/null || true
   DISPLAY=:1 wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz 2>/dev/null || true
 fi
 sleep 5
@@ -589,8 +595,8 @@ fi
 async function verifyFromG2() {
   const script = `
 set -euo pipefail
-code="$(curl -k -sS -o /tmp/sylion-native-gui.html -w "%{http_code}" --resolve ${profile.serverName}:443:${cfg.g2Private} --max-time 12 'https://${profile.serverName}/vnc.html?autoconnect=true&resize=scale&path=websockify' || true)"
-headers="$(curl -k -sS -I --resolve ${profile.serverName}:443:${cfg.g2Private} --max-time 12 'https://${profile.serverName}/vnc.html?autoconnect=true&resize=scale&path=websockify' | tr '\\r\\n' ' ' || true)"
+code="$(curl -k -sS -o /tmp/sylion-native-gui.html -w "%{http_code}" --resolve ${profile.serverName}:443:${cfg.g2Private} --max-time 12 'https://${profile.serverName}/vnc.html?autoconnect=true&resize=remote&path=websockify' || true)"
+headers="$(curl -k -sS -I --resolve ${profile.serverName}:443:${cfg.g2Private} --max-time 12 'https://${profile.serverName}/vnc.html?autoconnect=true&resize=remote&path=websockify' | tr '\\r\\n' ' ' || true)"
 grep -qi 'noVNC' /tmp/sylion-native-gui.html && marker=true || marker=false
 echo "code=$code"
 echo "marker=$marker"
@@ -618,6 +624,7 @@ async function main() {
       g2: cfg.g2,
       hostEndpoint: `${cfg.workloadPrivate}:${profile.hostPort}`,
       serverName: profile.serverName,
+      display,
       productionExecutionAllowed: false
     }, null, 2));
     return;
@@ -628,6 +635,7 @@ async function main() {
   const result = {
     evidence,
     g2,
+    display,
     readyThroughG2: evidence.ready === true && g2.code === "200" && g2.marker === true && g2.g2_header === true && g2.terminal_header === true,
     productionExecutionAllowed: false
   };

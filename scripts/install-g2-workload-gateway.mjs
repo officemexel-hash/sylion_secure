@@ -43,8 +43,8 @@ const defaultPlan = {
   gateway: {
     host: process.env.SYLION_G2_SSH || "sylion@178.105.203.31",
     bindAddress: process.env.SYLION_G2_BIND || "10.42.0.12",
-    tlsCertificate: "/etc/sylion/tls/sylion-internal.crt",
-    tlsKey: "/etc/sylion/tls/sylion-internal.key",
+    tlsCertificate: "/etc/sylion/tls/sylion-internal-server-chain.crt",
+    tlsKey: "/etc/sylion/tls/sylion-internal-server.key",
     configPath: "/etc/nginx/sites-available/sylion-g2-broker",
     extraConfigPath: "/etc/nginx/conf.d/sylion-extra-workloads.conf"
   },
@@ -124,7 +124,7 @@ function renderWorkloadServer(plan, app) {
     : "";
   const rootRedirect = app.noVnc
     ? `  location = / {
-    return 302 /vnc.html?autoconnect=true&resize=scale&path=websockify;
+    return 302 /vnc.html?autoconnect=true&resize=remote&path=websockify;
   }
 `
     : "";

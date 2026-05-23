@@ -19,8 +19,8 @@ const plan = {
     host: process.env.SYLION_G2_SSH || "sylion@178.105.203.31",
     bindAddress: process.env.SYLION_G2_BIND || "10.42.0.12",
     serverName: process.env.SYLION_GUACAMOLE_SERVER_NAME || "session.sylion.internal",
-    tlsCertificate: "/etc/sylion/tls/sylion-internal.crt",
-    tlsKey: "/etc/sylion/tls/sylion-internal.key",
+    tlsCertificate: "/etc/sylion/tls/sylion-internal-server-chain.crt",
+    tlsKey: "/etc/sylion/tls/sylion-internal-server.key",
     nginxConfigPath: "/etc/nginx/sites-available/sylion-g2-guacamole-broker"
   },
   runtime: {

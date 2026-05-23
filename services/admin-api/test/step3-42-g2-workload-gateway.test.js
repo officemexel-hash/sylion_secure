@@ -29,6 +29,8 @@ test("Step 3.42 rendered gateway config has no embedded workload password and no
   const config = renderGatewayConfig();
 
   assert.match(config, /listen 10\.42\.0\.12:443 ssl;/);
+  assert.match(config, /ssl_certificate \/etc\/sylion\/tls\/sylion-internal-server-chain\.crt;/);
+  assert.match(config, /ssl_certificate_key \/etc\/sylion\/tls\/sylion-internal-server\.key;/);
   assert.match(config, /server_name admin\.sylion\.internal;/);
   assert.match(config, /server_name operator\.sylion\.internal;/);
   assert.match(config, /location = \/ \{\n    return 302 \/operator;/);
@@ -36,12 +38,12 @@ test("Step 3.42 rendered gateway config has no embedded workload password and no
   assert.doesNotMatch(config, /listen 0\.0\.0\.0:443/);
   assert.doesNotMatch(config, /sylion-signal-local/);
   assert.doesNotMatch(config, /a2FzbV91c2VyOnN5bGlvbi1zaWduYWwtbG9jYWw=/);
-  assert.match(config, /server_name signal\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=scale&path=websockify;/);
+  assert.match(config, /server_name signal\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=remote&path=websockify;/);
   assert.doesNotMatch(config, /include \/etc\/nginx\/snippets\/sylion-signal-auth\.conf;/);
   assert.doesNotMatch(config, /proxy_ssl_verify off;/);
   assert.match(config, /server_name signal\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.44\.0\.13:3013;/);
-  assert.match(config, /server_name duckduckgo\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=scale&path=websockify;/);
-  assert.match(config, /server_name zangi\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=scale&path=websockify;/);
+  assert.match(config, /server_name duckduckgo\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=remote&path=websockify;/);
+  assert.match(config, /server_name zangi\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=remote&path=websockify;/);
   assert.match(config, /server_name zangi\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.44\.0\.13:3014;/);
   assert.match(config, /X-Sylion-Terminal-Data-Stored "false"/);
   assert.match(config, /X-Sylion-G1-G2-Bypass "false"/);

@@ -26,6 +26,12 @@ test("Step 3.61 AX102 Firecracker GUI runner exposes separate app profiles witho
   assert.equal(duck.appKey, "duckduckgo");
   assert.equal(duck.hostEndpoint, "10.44.0.13:3001");
   assert.equal(duck.serverName, "duckduckgo.sylion.internal");
+  assert.deepEqual(duck.display, {
+    width: 960,
+    height: 1800,
+    windowWidth: 960,
+    windowHeight: 1680
+  });
   assert.equal(duck.productionExecutionAllowed, false);
 
   const libreOffice = await planFor("libreoffice");
@@ -45,6 +51,8 @@ test("Step 3.61 AX102 Firecracker GUI runner exposes separate app profiles witho
   const exodus = await planFor("exodus");
   assert.equal(exodus.hostEndpoint, "10.44.0.13:3015");
   assert.equal(exodus.serverName, "exodus.sylion.internal");
+  assert.equal(exodus.display.width, 1440);
+  assert.equal(exodus.display.height, 2400);
 });
 
 test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible windows before readiness", async () => {

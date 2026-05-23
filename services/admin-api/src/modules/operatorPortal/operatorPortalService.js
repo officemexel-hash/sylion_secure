@@ -1488,6 +1488,7 @@ export class OperatorPortalService {
       ...appSpecificBlockers
     ];
     const ready = blockers.length === 0;
+    const launch = this.#streamLaunchTarget({ templateKey, brokerPolicy, ready });
     const session = {
       id: newId("stream_session"),
       operatorId: operatorActor.operatorId,
@@ -1497,13 +1498,15 @@ export class OperatorPortalService {
       templateKey,
       appName: execution.appName,
       state: ready ? "stream_session_ready" : "stream_session_blocked",
-      launchUrl: ready ? `https://${appStreamHost}/stream/${templateKey}` : null,
+      launchUrl: launch.url,
       gateway: {
         role: "G2",
         host: "g2-stream.sylion.internal",
         appHost: appStreamHost,
         protocol: brokerPolicy.protocol,
         broker: brokerPolicy,
+        launchMode: launch.mode,
+        brokerConnectionName: launch.brokerConnectionName,
         transport: "internal_tls_via_g1_g2",
         publicInternetExposure: false,
         evidenceId: readiness?.id || null,
@@ -1513,6 +1516,8 @@ export class OperatorPortalService {
         workloadRole: "WORKLOAD",
         readiness: streamSourceBlockers.length ? "blocked" : "ready",
         mode: "existing_workload_stream_source",
+        directProbeUrl: ready ? launch.directProbeUrl : null,
+        directProbeMode: "private_websockify_probe_not_production_broker",
         runtimeManifestId: runtimeManifest?.sources?.[templateKey] ? runtimeManifest.id : null,
         productionWorkloadExecutionRequired: false
       },
@@ -2958,8 +2963,40 @@ export class OperatorPortalService {
     return `${templateKey}.sylion.internal`;
   }
 
+  #guacamoleConnectionName(templateKey) {
+    const definition = this.#appDefinition(templateKey);
+    return definition ? `SYLION ${definition.name}` : `SYLION ${templateKey}`;
+  }
+
+  #streamLaunchTarget({ templateKey, brokerPolicy, ready }) {
+    if (!ready) {
+      return {
+        url: null,
+        mode: "blocked",
+        brokerConnectionName: null,
+        directProbeUrl: null
+      };
+    }
+    const host = this.#streamHostForTemplate(templateKey);
+    const directProbeUrl = this.#workloadLaunchUrl(templateKey, host);
+    if (brokerPolicy.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE) {
+      return {
+        url: "https://session.sylion.internal/guacamole/",
+        mode: "guacamole_connection_picker",
+        brokerConnectionName: this.#guacamoleConnectionName(templateKey),
+        directProbeUrl
+      };
+    }
+    return {
+      url: directProbeUrl,
+      mode: brokerPolicy.labOnly ? "private_websockify_lab_fallback" : "private_app_stream",
+      brokerConnectionName: null,
+      directProbeUrl
+    };
+  }
+
   #workloadLaunchUrl(templateKey, host = this.#streamHostForTemplate(templateKey)) {
-    if (templateKey === "duckduckgo_browser") return `https://${host}/vnc.html`;
+    if (templateKey === "duckduckgo_browser") return `https://${host}/vnc.html?autoconnect=true&resize=remote&path=websockify`;
     return `https://${host}/`;
   }
 

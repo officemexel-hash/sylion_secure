@@ -108,6 +108,8 @@ test("Step 3.79 Guacamole deploy plan stays private and does not print secrets",
   assert.doesNotMatch(compose, /guacadmin/);
   assert.match(nginx, /listen 10\.42\.0\.12:443 ssl default_server;/);
   assert.match(nginx, /server_name session\.sylion\.internal 10\.42\.0\.12;/);
+  assert.match(nginx, /ssl_certificate \/etc\/sylion\/tls\/sylion-internal-server-chain\.crt;/);
+  assert.match(nginx, /ssl_certificate_key \/etc\/sylion\/tls\/sylion-internal-server\.key;/);
   assert.match(nginx, /X-Sylion-Session-Broker "guacamole"/);
   assert.match(nginx, /X-Sylion-File-Transfer "disabled_until_cdr_gate"/);
   assert.doesNotMatch(nginx, /listen 0\.0\.0\.0/);
@@ -244,6 +246,10 @@ test("Step 3.79 Guacamole can satisfy the G2 broker candidate gate without termi
     assert.equal(session.session.state, "stream_session_ready");
     assert.equal(session.session.gateway.protocol, "guacamole");
     assert.equal(session.session.gateway.broker.productionCandidate, true);
+    assert.equal(session.session.gateway.launchMode, "guacamole_connection_picker");
+    assert.equal(session.session.gateway.brokerConnectionName, "SYLION Signal");
+    assert.equal(session.session.launchUrl, "https://session.sylion.internal/guacamole/");
+    assert.equal(session.session.source.directProbeUrl, "https://signal.sylion.internal/");
     assert.equal(session.session.security.terminalDataStored, false);
     assert.equal(session.session.stream.fileTransfer, "cdr_required");
   } finally {
