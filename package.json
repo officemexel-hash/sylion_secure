@@ -13,6 +13,7 @@
     "test:pixel-adb-operator-lab": "node scripts/pixel-adb-operator-lab.mjs",
     "test:pixel-live-human-regression": "node scripts/pixel-live-human-regression.mjs",
     "test:laptop-terminal-human-regression": "node scripts/laptop-terminal-human-regression.mjs",
+    "test:workload-factual-human-runner": "node scripts/workload-factual-human-runner.mjs",
     "test:live-factual-workload-audit": "node scripts/live-factual-workload-audit.mjs",
     "test:hetzner-live-smoke": "node scripts/hetzner-live-smoke.mjs",
     "live:hetzner-operator-baseline": "node scripts/hetzner-live-operator-baseline.mjs",

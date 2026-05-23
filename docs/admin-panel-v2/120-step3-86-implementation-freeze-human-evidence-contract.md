@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01 through Prompt A/T86-07 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-08 implemented.
 
 ## Implemented
 
@@ -77,6 +77,14 @@ Status: Prompt A/T86-01 through Prompt A/T86-07 implemented.
    - covers Signal, WhatsApp, Telegram, Threema, Zangi, DuckDuckGo, LibreOffice and Exodus
    - defines expected behavior, human steps, pass criteria, fail criteria and repair prompt per app
 
+10. Workload factual human runner scaffold:
+   - `scripts/workload-factual-human-runner.mjs`
+   - npm script: `test:workload-factual-human-runner`
+   - consumes `/release/workload-factual-matrix`
+   - writes one strict `human-evidence.json` per app
+   - labels unexecuted app tests as `UNKNOWN`, never PASS
+   - optional `SYLION_INDEX_HUMAN_EVIDENCE=true` sends each app result to `/release/human-evidence-repair-loop`
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -99,6 +107,7 @@ flowchart TD
   B --> D["Pixel ADB lab harness"]
   B --> E["Pixel live human regression"]
   B --> Q["Laptop terminal human regression"]
+  B --> Y["App factual human runner scaffold"]
   B --> L["Release API: strict evidence indexing"]
   D --> F["summary.json compatibility"]
   D --> G["human-evidence.json strict bundle"]
@@ -128,6 +137,8 @@ flowchart TD
   V --> J
   W --> J
   X --> J
+  Y --> X
+  Y --> J
   J --> K["Next prompt: exact test-runner repair loop"]
 ```
 
@@ -140,6 +151,7 @@ node --check scripts/lib/human-evidence.mjs
 node --check scripts/pixel-adb-operator-lab.mjs
 node --check scripts/pixel-live-human-regression.mjs
 node --check scripts/laptop-terminal-human-regression.mjs
+node --check scripts/workload-factual-human-runner.mjs
 node --check services/admin-api/src/lib/humanEvidence.js
 node --check services/admin-api/src/modules/release/releaseControlService.js
 node --check services/admin-api/src/app.js
@@ -154,9 +166,9 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-08:
+Prompt A/T86-09:
 
-Add the app-specific human runner scaffold that consumes the workload factual-state matrix:
+Turn the scaffold into app-specific executable runners, one app at a time:
 
 - Signal,
 - WhatsApp,
@@ -167,7 +179,7 @@ Add the app-specific human runner scaffold that consumes the workload factual-st
 - LibreOffice,
 - Exodus.
 
-For each app, the runner must:
+For each app runner:
 
 - read expected behavior from `/release/workload-factual-matrix`,
 - execute the exact human test steps through Pixel or laptop harness,
