@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01 through Prompt A/T86-08 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-09 implemented.
 
 ## Implemented
 
@@ -85,6 +85,23 @@ Status: Prompt A/T86-01 through Prompt A/T86-08 implemented.
    - labels unexecuted app tests as `UNKNOWN`, never PASS
    - optional `SYLION_INDEX_HUMAN_EVIDENCE=true` sends each app result to `/release/human-evidence-repair-loop`
 
+11. DuckDuckGo app-specific factual runner:
+   - `scripts/lib/duckduckgo-factual-evaluator.mjs`
+   - `scripts/workload-duckduckgo-human-runner.mjs`
+   - npm script: `test:duckduckgo-human-runner`
+   - reads `/release/workload-factual-matrix?appKey=duckduckgo_browser`
+   - requests a DuckDuckGo streaming session through the operator API
+   - opens the operator panel in a Pixel-sized Playwright viewport
+   - can optionally open the internal stream URL only when `SYLION_DUCKDUCKGO_OPEN_STREAM=true`
+   - refuses factual PASS unless all of these are true:
+     - stream session is ready,
+     - launch URL is internal `*.sylion.internal`,
+     - broker is G2,
+     - DuckDuckGo UI marker has safe evidence reference,
+     - browsing metadata probe proves workload route,
+     - terminal data storage is false
+   - sends blocked/failed app-specific evidence into the repair loop when `SYLION_INDEX_HUMAN_EVIDENCE=true`
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -108,6 +125,7 @@ flowchart TD
   B --> E["Pixel live human regression"]
   B --> Q["Laptop terminal human regression"]
   B --> Y["App factual human runner scaffold"]
+  B --> Z["DuckDuckGo app-specific runner"]
   B --> L["Release API: strict evidence indexing"]
   D --> F["summary.json compatibility"]
   D --> G["human-evidence.json strict bundle"]
@@ -139,6 +157,9 @@ flowchart TD
   X --> J
   Y --> X
   Y --> J
+  Z --> X
+  Z --> AA["DuckDuckGo evaluator: stream + UI + browse gates"]
+  AA --> J
   J --> K["Next prompt: exact test-runner repair loop"]
 ```
 
@@ -152,12 +173,15 @@ node --check scripts/pixel-adb-operator-lab.mjs
 node --check scripts/pixel-live-human-regression.mjs
 node --check scripts/laptop-terminal-human-regression.mjs
 node --check scripts/workload-factual-human-runner.mjs
+node --check scripts/lib/duckduckgo-factual-evaluator.mjs
+node --check scripts/workload-duckduckgo-human-runner.mjs
 node --check services/admin-api/src/lib/humanEvidence.js
 node --check services/admin-api/src/modules/release/releaseControlService.js
 node --check services/admin-api/src/app.js
 node --test services/admin-api/test/step3-86-human-evidence-schema.test.js
 node --test services/admin-api/test/step3-86-human-evidence-release-index.test.js
 node --test services/admin-api/test/step3-86-workload-factual-matrix.test.js
+node --test services/admin-api/test/step3-86-duckduckgo-runner-evaluator.test.js
 node --test services/admin-api/test/step3-21-human-test-inventory.test.js services/admin-api/test/step3-11-release-control.test.js
 node --test services/admin-api/test/admin-web-static.test.js
 ```
@@ -166,16 +190,15 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-09:
+Prompt A/T86-10:
 
-Turn the scaffold into app-specific executable runners, one app at a time:
+Continue turning the scaffold into app-specific executable runners, one app at a time:
 
 - Signal,
 - WhatsApp,
 - Telegram,
 - Threema,
 - Zangi,
-- DuckDuckGo,
 - LibreOffice,
 - Exodus.
 
