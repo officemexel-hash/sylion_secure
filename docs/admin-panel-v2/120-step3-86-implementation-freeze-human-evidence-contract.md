@@ -2,7 +2,7 @@
 
 Date: 2026-05-23
 
-Status: Prompt A/T86-01 through Prompt A/T86-04 implemented.
+Status: Prompt A/T86-01 through Prompt A/T86-05 implemented.
 
 ## Implemented
 
@@ -54,6 +54,14 @@ Status: Prompt A/T86-01 through Prompt A/T86-04 implemented.
      - `SYLION_INDEX_HUMAN_EVIDENCE=true`
    - default mode is no API mutation, so dry-runs stay safe.
 
+7. Laptop terminal parity harness:
+   - `scripts/laptop-terminal-human-regression.mjs`
+   - npm script: `test:laptop-terminal-human-regression`
+   - opens admin panel and operator workload controls through Playwright
+   - writes strict `human-evidence.json`
+   - supports the same optional Release API indexing flag:
+     - `SYLION_INDEX_HUMAN_EVIDENCE=true`
+
 ## No-Shortcut Rules Now Enforced In Code
 
 - A passing test must have evidence references.
@@ -75,23 +83,28 @@ flowchart TD
   B --> C["Contract tests"]
   B --> D["Pixel ADB lab harness"]
   B --> E["Pixel live human regression"]
+  B --> Q["Laptop terminal human regression"]
   B --> L["Release API: strict evidence indexing"]
   D --> F["summary.json compatibility"]
   D --> G["human-evidence.json strict bundle"]
   E --> H["summary.json compatibility"]
   E --> I["human-evidence.json strict bundle"]
+  Q --> R["laptop summary.json compatibility"]
+  Q --> S["laptop human-evidence.json strict bundle"]
   G --> P["Optional POST when SYLION_INDEX_HUMAN_EVIDENCE=true"]
   I --> P
+  S --> P
   P --> L
   L --> M["Human test run inventory"]
   L --> N["Evidence artifact index"]
   L --> O["Problem registry for failed/blocked strict results"]
   G --> J["Repair loop: smallest fix then retest exact blocker"]
   I --> J
+  S --> J
   M --> J
   N --> J
   O --> J
-  J --> K["Next prompt: laptop terminal parity evidence"]
+  J --> K["Next prompt: exact test-runner repair loop"]
 ```
 
 ## Verification
@@ -102,6 +115,7 @@ Executed without live infrastructure mutation:
 node --check scripts/lib/human-evidence.mjs
 node --check scripts/pixel-adb-operator-lab.mjs
 node --check scripts/pixel-live-human-regression.mjs
+node --check scripts/laptop-terminal-human-regression.mjs
 node --check services/admin-api/src/lib/humanEvidence.js
 node --check services/admin-api/src/modules/release/releaseControlService.js
 node --check services/admin-api/src/app.js
@@ -115,14 +129,14 @@ Result: all checks passed.
 
 ## Next Prompt
 
-Prompt A/T86-05:
+Prompt A/T86-06:
 
-Add laptop terminal parity evidence using the same strict schema and release indexing path, so Pixel and laptop terminal behavior can be compared without changing production readiness gates:
+Add the exact failed-test repair loop runner:
 
-- laptop browser opens operator panel through the approved path,
-- laptop browser opens workload stream selector,
-- no local app data or secrets land on laptop,
-- strict `human-evidence.json` is written,
-- optional `SYLION_INDEX_HUMAN_EVIDENCE=true` upload indexes it in Release view.
+- reads a strict `human-evidence.json`,
+- opens/updates a release problem for each blocker,
+- records the repair commit after a fix,
+- forces retest of the exact failed test id,
+- refuses production readiness when the latest result is `LAB_PASS`, `SIMULATION_PASS`, `BLOCKED`, `UNKNOWN`, `FLAKY`, `FAIL`, or `FAIL_CRITICAL`.
 
 No live production claim can advance until the evidence index shows a reproducible `PASS` for the exact required path.
