@@ -1,0 +1,9 @@
+{
+  "hostRole": "WORKLOAD_NATIVE_LAB_01",
+  "dockerActive": "active",
+  "dockerVersion": "Docker version 29.1.3, build 29.1.3-0ubuntu3~24.04.2",
+  "containerdActive": "active",
+  "usage": "helper_runtime_for_build_and_standard_lab_only_not_phantom_or_sovereign_isolation_claim",
+  "productionExecutionAllowed": false,
+  "generatedAt": "2026-05-22T15:51:24+02:00"
+}

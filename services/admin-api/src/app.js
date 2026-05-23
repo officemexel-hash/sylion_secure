@@ -30,6 +30,7 @@ import { PhantomGovernanceService } from "./modules/phantom/phantomGovernanceSer
 import { ProvisioningApprovalService } from "./modules/approvals/provisioningApprovalService.js";
 import { ReleaseControlService } from "./modules/release/releaseControlService.js";
 import { LiveExecutionService } from "./modules/live/liveExecutionService.js";
+import { buildLiveBaselineUserData, liveBaselineArtifactSummary } from "./modules/live/liveBaselineArtifacts.js";
 import { SecurityProfileService } from "./modules/security/securityProfileService.js";
 import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
 import { RouterReadinessService } from "./modules/router/routerReadinessService.js";
@@ -44,8 +45,8 @@ async function readJson(req) {
   return raw ? JSON.parse(raw) : {};
 }
 
-function send(res, status, payload) {
-  res.writeHead(status, { "content-type": "application/json" });
+function send(res, status, payload, headers = {}) {
+  res.writeHead(status, { "content-type": "application/json", ...headers });
   res.end(JSON.stringify(payload));
 }
 
@@ -61,7 +62,69 @@ function bearerToken(req) {
 
 function operatorBearerToken(req) {
   const header = req.headers.authorization || "";
-  return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
+  if (header.startsWith("Bearer ")) return header.slice("Bearer ".length);
+  return parseCookies(req).sylion_operator_session || null;
+}
+
+function operatorTokenSource(req) {
+  const header = req.headers.authorization || "";
+  if (header.startsWith("Bearer ")) {
+    return { token: header.slice("Bearer ".length), source: "bearer" };
+  }
+  const token = parseCookies(req).sylion_operator_session || null;
+  return { token, source: token ? "cookie" : "missing" };
+}
+
+function parseCookies(req) {
+  const raw = req.headers.cookie || "";
+  return Object.fromEntries(raw.split(";").map((part) => {
+    const [key, ...rest] = part.trim().split("=");
+    if (!key) return null;
+    try {
+      return [key, decodeURIComponent(rest.join("=") || "")];
+    } catch {
+      return [key, ""];
+    }
+  }).filter(Boolean));
+}
+
+function isSecureRequest(req) {
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const host = String(req.headers.host || "");
+  return req.socket?.encrypted === true
+    || forwardedProto === "https"
+    || host.endsWith(".sylion.internal");
+}
+
+function operatorSessionCookie(req, session) {
+  const seconds = Math.max(0, Math.floor((Date.parse(session.expiresAt) - Date.now()) / 1000));
+  const secure = isSecureRequest(req) ? "; Secure" : "";
+  return [
+    `sylion_operator_session=${encodeURIComponent(session.token)}`,
+    "Path=/operator-api",
+    "HttpOnly",
+    "SameSite=Strict",
+    `Max-Age=${seconds}`,
+    secure.trim()
+  ].filter(Boolean).join("; ");
+}
+
+function clearOperatorSessionCookie(req) {
+  const secure = isSecureRequest(req) ? "; Secure" : "";
+  return [
+    "sylion_operator_session=",
+    "Path=/operator-api",
+    "HttpOnly",
+    "SameSite=Strict",
+    "Max-Age=0",
+    secure.trim()
+  ].filter(Boolean).join("; ");
+}
+
+function assertCookieMutationCsrf(req, source) {
+  if (source !== "cookie" || ["GET", "HEAD", "OPTIONS"].includes(req.method)) return;
+  if (req.headers["x-sylion-operator-csrf"] === "same-origin-ui") return;
+  throw new AppError("csrf_required", "Cookie-bound operator session requires same-origin CSRF header for mutations", 403);
 }
 
 function latestPromotableLocalBaseline(pipelines = []) {
@@ -71,6 +134,496 @@ function latestPromotableLocalBaseline(pipelines = []) {
     && pipeline.firecrackerPlan?.workloads?.length > 0
     && pipeline.productionExecutionAllowed === false
   ));
+}
+
+const PRODUCTION_READINESS_APPS = Object.freeze([
+  { key: "duckduckgo_browser", label: "DuckDuckGo", host: "duckduckgo.sylion.internal", path: "/vnc.html", envAlias: "DUCKDUCKGO", expected: "firecracker_gui" },
+  { key: "libreoffice", label: "LibreOffice", host: "libreoffice.sylion.internal", path: "/", envAlias: "LIBREOFFICE", expected: "firecracker_gui" },
+  { key: "whatsapp", label: "WhatsApp", host: "whatsapp.sylion.internal", path: "/", envAlias: "WHATSAPP", expected: "firecracker_web" },
+  { key: "telegram", label: "Telegram", host: "telegram.sylion.internal", path: "/", envAlias: "TELEGRAM", expected: "firecracker_web" },
+  { key: "threema", label: "Threema", host: "threema.sylion.internal", path: "/", envAlias: "THREEMA", expected: "firecracker_web" },
+  { key: "signal", label: "Signal", host: "signal.sylion.internal", path: "/", envAlias: "SIGNAL", expected: "firecracker_desktop" },
+  { key: "zangi", label: "Zangi", host: "zangi.sylion.internal", path: "/", envAlias: "ZANGI", expected: "android_native" },
+  { key: "exodus", label: "Exodus", host: "exodus.sylion.internal", path: "/", envAlias: "EXODUS", expected: "dedicated_wallet_workload" }
+]);
+
+const FACTUAL_RECORD_REQUIRED_APPS = new Set(["whatsapp", "telegram", "threema", "signal", "zangi", "exodus"]);
+
+const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
+  {
+    id: "gate_01_zangi_android_native_functional",
+    title: "1. Zangi Android-native functional",
+    area: "workload-app",
+    severity: "critical",
+    blockers: ["zangi_android_native_account_flow_not_proven"],
+    acceptance: "Zangi opens from Pixel and laptop thin client, reaches its own Android-native workload, and has a recorded account bootstrap or functional-app test without storing operational data on the terminal.",
+    verifyHow: "Run Pixel/laptop human regression, record approved APK provenance, then promote a Zangi factual workload test only after UI plus account bootstrap evidence passes.",
+    repairAction: "Finish approved Zangi APK provenance, install into the Android-native workload, launch it through the broker, and capture a content-safe factual test record."
+  },
+  {
+    id: "gate_02_exodus_pixel_functional",
+    title: "2. Exodus Pixel visual and workflow",
+    area: "workload-app",
+    severity: "critical",
+    blockers: ["exodus_pixel_visual_not_proven"],
+    acceptance: "Exodus renders through the Pixel thin client and laptop thin client, its wallet workflow is verified with non-secret evidence, and no seed, wallet data, or file contents are logged.",
+    verifyHow: "Run Exodus human regression with screenshot metadata only, confirm visible nonblank stream and wallet-risk checks, and record a factual test without secrets.",
+    repairAction: "Fix the blank/white Pixel stream path for Exodus, re-run the visual stats probe, then record the wallet workflow factual test."
+  },
+  {
+    id: "gate_03_guacamole_broker",
+    title: "3. G2 Guacamole production broker",
+    area: "g2-broker",
+    severity: "critical",
+    blockers: ["guacamole_not_active_as_production_broker"],
+    acceptance: "G2 runs the selected production broker with per-user limits, connection inventory, audit events, and no noVNC-only production claim.",
+    verifyHow: "Check guacd/Tomcat or approved broker services, count configured connections, confirm max sessions per user, and verify broker audit entries.",
+    repairAction: "Install and configure Apache Guacamole on G2 or record a formal ADR for an approved alternative; keep noVNC labeled lab-only until approved."
+  },
+  {
+    id: "gate_04_communicator_functional_tests",
+    title: "4. Communicators prove account workflow",
+    area: "workload-app",
+    severity: "critical",
+    blockers: ["communicator_account_send_receive_not_proven"],
+    acceptance: "WhatsApp, Telegram, Threema, Signal and Zangi each have factual records showing UI, account bootstrap, and send/receive or equivalent safe functional proof.",
+    verifyHow: "Run communicator factual tests that reject transport-only evidence and require bootstrap plus send/receive metadata without message content.",
+    repairAction: "Complete one communicator at a time, starting with Signal, and do not mark ready from HTTP 200 or RFB reachability alone."
+  },
+  {
+    id: "gate_05_android_native_workloads",
+    title: "5. Native Android workload mode",
+    area: "workload-runtime",
+    severity: "high",
+    blockers: ["android_native_mode_incomplete"],
+    acceptance: "Operator can select desktop/web or Android-native per communicator, and Android-native launch/install/status is controlled from the operator panel.",
+    verifyHow: "Use operator panel app settings, launch Android-native session, confirm workload status, and verify Pixel display scaling.",
+    repairAction: "Wire Android-native app mode into workload lifecycle controls and add per-app install, launch, stop, reset and evidence collection."
+  },
+  {
+    id: "gate_06_cdr_end_to_end",
+    title: "6. CDR ingress and egress",
+    area: "cdr",
+    severity: "critical",
+    blockers: ["cdr_file_workflow_not_end_to_end_proven"],
+    acceptance: "Every file ingress/egress path for operator workloads requires CDR, records non-content audit metadata, and blocks bypass paths.",
+    verifyHow: "Run file upload/download tests through the operator portal and workload broker, confirm CDR decision, audit hash, and denied bypass attempt.",
+    repairAction: "Complete CDR broker integration for workload file transfer and add negative tests for direct file movement."
+  },
+  {
+    id: "gate_07_tor_jurisdiction_routing",
+    title: "7. Tor and jurisdiction routing",
+    area: "routing",
+    severity: "high",
+    blockers: ["tor_jurisdiction_route_not_end_to_end_proven"],
+    acceptance: "Operator tier controls whether Tor/jurisdiction routing is available; selected routes show evidence without claiming anonymity.",
+    verifyHow: "Run route probes from workload apps, record egress class/country metadata, and verify blocked access when the tier lacks entitlement.",
+    repairAction: "Implement route policy enforcement, evidence capture, and tier-gated operator controls for Tor/jurisdiction profiles."
+  },
+  {
+    id: "gate_08_self_service_recreate_rotate",
+    title: "8. Self-service recreate and rotate",
+    area: "operator-lifecycle",
+    severity: "high",
+    blockers: ["environment_recreate_rotate_still_human_gated"],
+    acceptance: "Operator can request allowed reset/recreate/rotation actions from the panel, with tier policy, audit, and destructive human gates where required.",
+    verifyHow: "Create a disposable operator, trigger allowed reset/rotation, verify audit events and that forbidden/destructive actions require approval.",
+    repairAction: "Connect operator panel lifecycle actions to the provisioning pipeline with dry-run, approval, execution and rollback states."
+  },
+  {
+    id: "gate_09_confidential_compute",
+    title: "9. Confidential compute readiness",
+    area: "hardware-security",
+    severity: "high",
+    blockers: ["amd_sev_snp_or_intel_tdx_not_active"],
+    acceptance: "Higher tiers can require AMD SEV-SNP or Intel TDX provider capability, with attestation evidence before production claim.",
+    verifyHow: "Record provider/server capability, kernel support, attestation evidence, and tier placement decision.",
+    repairAction: "Add provider capability checks and attestation records; keep current AX102 KVM/Firecracker separate from confidential-compute claims."
+  },
+  {
+    id: "gate_10_payment_token_provisioning",
+    title: "10. Payment token provisioning",
+    area: "subscription",
+    severity: "high",
+    blockers: ["public_payment_token_provisioning_not_live"],
+    acceptance: "Public subscription payment issues a token, token redemption creates an operator package, and admin panel shows cost, tier and minimum 6-month subscription state.",
+    verifyHow: "Run payment sandbox, token redemption, operator creation, package generation and subscription ledger checks.",
+    repairAction: "Implement payment provider sandbox, token lifecycle, redemption endpoint, and package-generation handoff into admin provisioning."
+  }
+]);
+
+function readinessHttpStatus(env, app) {
+  const direct = env[`SYLION_${app.key.toUpperCase()}_LIVE_HTTP_STATUS`];
+  const alias = env[`SYLION_${app.envAlias}_LIVE_HTTP_STATUS`];
+  const value = direct || alias || null;
+  return value ? Number(value) : null;
+}
+
+function readinessAppState(env, app, factualRecord = null) {
+  const httpStatus = readinessHttpStatus(env, app);
+  const evidenceReady = env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "true"
+    || env[`SYLION_${app.envAlias}_NATIVE_EVIDENCE_READY`] === "true";
+  const envFactualStateVerified = env[`SYLION_${app.key.toUpperCase()}_FACTUAL_STATE_VERIFIED`] === "true"
+    || env[`SYLION_${app.envAlias}_FACTUAL_STATE_VERIFIED`] === "true";
+  const factualStateVerified = factualRecord
+    ? factualRecord.factualStateVerified === true
+    : FACTUAL_RECORD_REQUIRED_APPS.has(app.key) ? false : envFactualStateVerified;
+  const transportReady = httpStatus === 200 || evidenceReady;
+  const ready = transportReady && factualStateVerified;
+  const notBuilt = httpStatus === 502 || env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "false";
+  const androidRuntimeSatisfied = app.expected !== "android_native"
+    || evidenceReady
+    || factualRecord?.runtimeMode === "android_native";
+  const factualBlockers = factualRecord && factualRecord.factualStateVerified !== true
+    ? factualRecord.blockers || ["factual_state_not_verified"]
+    : [];
+  return {
+    ...app,
+    url: `https://${app.host}${app.path}`,
+    httpStatus,
+    evidenceReady,
+    factualStateVerified,
+    latestFactualTest: factualRecord ? {
+      id: factualRecord.id,
+      result: factualRecord.result,
+      terminalMode: factualRecord.terminalMode,
+      runtimeMode: factualRecord.runtimeMode,
+      requiredChecks: factualRecord.requiredChecks,
+      blockers: factualRecord.blockers,
+      createdAt: factualRecord.createdAt,
+      linkedProblemId: factualRecord.linkedProblemId || null
+    } : null,
+    state: ready ? "ready" : notBuilt ? "not_built" : "unknown_or_blocked",
+    blockers: ready ? [] : [
+      ...(notBuilt ? [`${app.key}_native_workload_not_built`] : []),
+      ...(!notBuilt && !transportReady ? [`${app.key}_live_route_not_verified`] : []),
+      ...(transportReady && !factualStateVerified ? ["factual_state_not_verified", ...factualBlockers] : []),
+      ...(androidRuntimeSatisfied ? [] : ["android_native_runtime_required"])
+    ],
+    cdrRequired: true,
+    terminalDataStored: false,
+    privateRouteRequired: true,
+    productionExecutionAllowed: false
+  };
+}
+
+function tierCostModel(tier) {
+  const models = {
+    STANDARD: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 420, monthlyCustomerPricePln: 1200, workloadTenancy: "shared_dedicated_pool_allowed" },
+    PRO: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 760, monthlyCustomerPricePln: 2500, workloadTenancy: "shared_dedicated_pool_allowed" },
+    SOVEREIGN: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 1800, monthlyCustomerPricePln: 6500, workloadTenancy: "dedicated_operator_only" }
+  };
+  const model = models[tier] || models.PRO;
+  return {
+    ...model,
+    grossMarginPln: model.monthlyCustomerPricePln - model.monthlyInfraCostPln
+  };
+}
+
+function sessionBrokerReadiness(env) {
+  const selected = String(env.SYLION_G2_SESSION_BROKER || "adr_pending").toLowerCase();
+  const guacamoleReady = env.SYLION_GUACAMOLE_BROKER_READY === "true";
+  const webrtcReady = env.SYLION_SELKIES_GATEWAY_READY === "true" || env.SYLION_G2_STREAM_GATEWAY_READY === "true";
+  const novncLabReady = env.SYLION_NOVNC_LAB_READY === "true";
+  const normalized = selected === "guac" || selected === "apache_guacamole"
+    ? "guacamole"
+    : selected === "selkies" || selected === "webrtc" || selected === "selkies_webrtc"
+      ? "webrtc_selkies"
+      : selected === "novnc" || selected === "novnc_websockify"
+        ? "novnc_lab"
+        : selected;
+  const productionCandidateReady = normalized === "guacamole"
+    ? guacamoleReady
+    : normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies"
+      ? webrtcReady
+      : false;
+  const technicalBlockers = [
+    ...(normalized === "adr_pending" ? ["g2_session_broker_adr_pending"] : []),
+    ...(normalized === "novnc_lab" ? ["novnc_lab_only_not_approved_for_production_broker"] : []),
+    ...(normalized === "guacamole" && !guacamoleReady ? ["guacamole_broker_poc_not_ready"] : []),
+    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") && !webrtcReady ? ["webrtc_selkies_broker_poc_not_ready"] : [])
+  ];
+  const approvalBlockers = [
+    ...(env.SYLION_G2_SESSION_BROKER_APPROVED === "true" ? [] : ["g2_session_broker_human_approval_missing"])
+  ];
+  const technicalReadyForHumanGate = technicalBlockers.length === 0 && productionCandidateReady;
+  return {
+    selectedProtocol: normalized,
+    candidates: [
+      { protocol: "guacamole", ready: guacamoleReady, productionCandidate: true, labOnly: false },
+      { protocol: "webrtc_selkies", ready: webrtcReady, productionCandidate: true, labOnly: false },
+      { protocol: "novnc_lab", ready: novncLabReady, productionCandidate: false, labOnly: true }
+    ],
+    state: technicalReadyForHumanGate ? "ready_for_human_gate" : "blocked",
+    readyForHumanGate: technicalReadyForHumanGate,
+    blockers: technicalBlockers,
+    approvalBlockers,
+    humanApprovalRequired: approvalBlockers.length > 0,
+    noVncProductionApproved: false,
+    productionExecutionAllowed: false
+  };
+}
+
+function envFlag(env, key) {
+  return env[key] === "true";
+}
+
+function productionGateState(isReady, blockers) {
+  return isReady && blockers.length === 0 ? "ready_for_human_gate" : "blocked";
+}
+
+function appReady(rows, appKey) {
+  return rows.some((row) => row.apps?.some((app) => app.key === appKey && app.state === "ready"));
+}
+
+function appsReady(rows, appKeys) {
+  return appKeys.every((appKey) => appReady(rows, appKey));
+}
+
+function cdrEvidenceSummary(cdr) {
+  const decisions = cdr?.listDecisions?.() || [];
+  const events = cdr?.listMonitoringEvents?.() || [];
+  const directions = new Set(decisions.map((decision) => decision.direction));
+  const decisionValues = new Set(decisions.map((decision) => decision.decision));
+  const transferEvents = events.filter((event) => event.eventType === "cdr.file_transfer");
+  const hasAllowedTransfer = transferEvents.some((event) => event.labels?.allowed === "true");
+  const hasDeniedTransfer = transferEvents.some((event) => event.labels?.allowed === "false");
+  const hasDenyDecision = decisionValues.has("block") || decisionValues.has("quarantine");
+  return {
+    decisions: decisions.length,
+    monitoringEvents: events.length,
+    ingressObserved: directions.has("ingress"),
+    egressObserved: directions.has("egress"),
+    allowReconstructedObserved: decisionValues.has("allow_reconstructed"),
+    denyOrQuarantineObserved: hasDenyDecision,
+    allowedTransferObserved: hasAllowedTransfer,
+    deniedTransferObserved: hasDeniedTransfer,
+    ready: directions.has("ingress")
+      && directions.has("egress")
+      && decisionValues.has("allow_reconstructed")
+      && hasDenyDecision
+      && hasAllowedTransfer
+      && hasDeniedTransfer
+  };
+}
+
+function androidNativeEvidenceSummary({ rows = [], hosts = [], manifests = [] } = {}) {
+  const androidManifests = manifests.filter((manifest) => manifest.runtimeKind === "android_native_workload");
+  const passedAndroidFactualTests = rows.flatMap((row) => row.apps || [])
+    .filter((app) => app.latestFactualTest?.runtimeMode === "android_native" && app.factualStateVerified === true);
+  const androidHostObserved = hosts.some((host) => host.readyForLabWorkloads === true);
+  const androidManifestReadyObserved = androidManifests.some((manifest) => manifest.readyForLabLaunch === true);
+  const androidFactualObserved = passedAndroidFactualTests.length > 0;
+  const operatorModeSelectableObserved = androidManifests.some((manifest) => (
+    manifest.appKey === "zangi"
+    || manifest.launchManifest?.operatorSelectableMode === true
+    || manifest.buildEvidence?.operatorSelectableMode === true
+  ));
+  const ready = androidHostObserved
+    && androidManifestReadyObserved
+    && androidFactualObserved
+    && operatorModeSelectableObserved;
+  return {
+    androidHosts: hosts.length,
+    androidManifests: androidManifests.length,
+    passedAndroidFactualTests: passedAndroidFactualTests.length,
+    androidHostObserved,
+    androidManifestReadyObserved,
+    androidFactualObserved,
+    operatorModeSelectableObserved,
+    ready,
+    blockers: ready ? [] : [
+      ...(androidHostObserved ? [] : ["android_workload_host_missing"]),
+      ...(androidManifestReadyObserved ? [] : ["android_native_manifest_missing"]),
+      ...(androidFactualObserved ? [] : ["android_native_factual_test_missing"]),
+      ...(operatorModeSelectableObserved ? [] : ["operator_app_mode_selection_missing"])
+    ],
+    productionExecutionAllowed: false
+  };
+}
+
+function buildProductionGates({
+  env,
+  rows,
+  sessionBroker,
+  cdrEvidence,
+  workloadControlEvidence,
+  androidNativeEvidence,
+  routeEvidence,
+  cpuConfidentialEvidence,
+  paymentTokenEvidence
+}) {
+  const facts = {
+    zangiReady: appReady(rows, "zangi"),
+    exodusReady: appReady(rows, "exodus") && envFlag(env, "SYLION_EXODUS_PIXEL_VISUAL_VERIFIED"),
+    guacamoleReady: sessionBroker.selectedProtocol === "guacamole" && sessionBroker.readyForHumanGate === true,
+    communicatorsReady: appsReady(rows, ["whatsapp", "telegram", "threema", "signal", "zangi"]),
+    androidNativeReady: envFlag(env, "SYLION_ANDROID_NATIVE_MODE_READY") || androidNativeEvidence?.ready === true,
+    cdrReady: envFlag(env, "SYLION_CDR_END_TO_END_READY") || cdrEvidence?.ready === true,
+    torJurisdictionReady: envFlag(env, "SYLION_TOR_JURISDICTION_READY") || routeEvidence?.ready === true,
+    recreateRotateReady: envFlag(env, "SYLION_SELF_SERVICE_ROTATE_READY") || workloadControlEvidence?.ready === true,
+    confidentialComputeReady: envFlag(env, "SYLION_CONFIDENTIAL_COMPUTE_ATTESTED") || cpuConfidentialEvidence?.ready === true,
+    paymentTokenReady: envFlag(env, "SYLION_PAYMENT_TOKEN_PROVISIONING_READY") || paymentTokenEvidence?.ready === true
+  };
+  const readinessByGate = {
+    gate_01_zangi_android_native_functional: facts.zangiReady,
+    gate_02_exodus_pixel_functional: facts.exodusReady,
+    gate_03_guacamole_broker: facts.guacamoleReady,
+    gate_04_communicator_functional_tests: facts.communicatorsReady,
+    gate_05_android_native_workloads: facts.androidNativeReady,
+    gate_06_cdr_end_to_end: facts.cdrReady,
+    gate_07_tor_jurisdiction_routing: facts.torJurisdictionReady,
+    gate_08_self_service_recreate_rotate: facts.recreateRotateReady,
+    gate_09_confidential_compute: facts.confidentialComputeReady,
+    gate_10_payment_token_provisioning: facts.paymentTokenReady
+  };
+  const blockersByGate = {
+    gate_03_guacamole_broker: facts.guacamoleReady ? [] : sessionBroker.blockers.length
+      ? sessionBroker.blockers
+      : ["guacamole_not_active_as_production_broker"],
+    gate_05_android_native_workloads: facts.androidNativeReady ? [] : androidNativeEvidence?.blockers?.length
+      ? androidNativeEvidence.blockers
+      : ["android_native_mode_incomplete"],
+    gate_07_tor_jurisdiction_routing: facts.torJurisdictionReady ? [] : routeEvidence?.blockers?.length
+      ? routeEvidence.blockers
+      : ["tor_jurisdiction_route_not_end_to_end_proven"],
+    gate_09_confidential_compute: facts.confidentialComputeReady ? [] : cpuConfidentialEvidence?.blockers?.length
+      ? cpuConfidentialEvidence.blockers
+      : ["amd_sev_snp_or_intel_tdx_not_active"],
+    gate_10_payment_token_provisioning: facts.paymentTokenReady ? [] : paymentTokenEvidence?.blockers?.length
+      ? paymentTokenEvidence.blockers
+      : ["public_payment_token_provisioning_not_live"]
+  };
+  return PRODUCTION_GATE_DEFINITIONS.map((definition) => {
+    const isReady = readinessByGate[definition.id] === true;
+    const blockers = isReady ? [] : blockersByGate[definition.id] || definition.blockers;
+    return {
+      ...definition,
+      state: productionGateState(isReady, blockers),
+      blockers,
+      humanGateRequired: true,
+      productionExecutionAllowed: false,
+      evidence: {
+        source: "production_readiness_control_plane",
+        factualStateRequired: true,
+        ...(definition.id === "gate_05_android_native_workloads" ? { androidNativeEvidence } : {}),
+        ...(definition.id === "gate_06_cdr_end_to_end" ? { cdrEvidence } : {}),
+        ...(definition.id === "gate_07_tor_jurisdiction_routing" ? { routeEvidence } : {}),
+        ...(definition.id === "gate_08_self_service_recreate_rotate" ? { workloadControlEvidence } : {}),
+        ...(definition.id === "gate_09_confidential_compute" ? { cpuConfidentialEvidence } : {}),
+        ...(definition.id === "gate_10_payment_token_provisioning" ? { paymentTokenEvidence } : {}),
+        terminalDataStored: false,
+        contentInspected: false
+      }
+    };
+  });
+}
+
+function buildProductionReadiness({ actor, services, env, correlationId }) {
+  const productionOperatorId = env.SYLION_PRODUCTION_OPERATOR_ID || null;
+  const sessionBroker = sessionBrokerReadiness(env);
+  const operatorsList = services.operators.list({ actor, correlationId })
+    .filter((operator) => !productionOperatorId || operator.id === productionOperatorId);
+  const hosts = services.liveExecution.listWorkloadNativeHosts({ actor, correlationId });
+  const manifests = services.liveExecution.listWorkloadImageManifests({ actor, correlationId });
+  const nativeHost = hosts[0] || null;
+  const rows = operatorsList.map((operator) => {
+    const subscription = services.subscriptions.getTenantSubscription({ actor, tenantId: operator.tenantId, correlationId });
+    const cost = tierCostModel(operator.tier);
+    const factualByApp = services.release.latestWorkloadFactualTestsByApp({ actor, operatorId: operator.id, correlationId });
+    const apps = PRODUCTION_READINESS_APPS.map((app) => readinessAppState(env, app, factualByApp[app.key] || null));
+    const criticalBlockers = [
+      ...(env.SYLION_PIXEL_G1_READY === "true" ? [] : ["pixel_to_g1_evidence_missing_or_stale"]),
+      ...(env.SYLION_G1_G2_READY === "true" ? [] : ["g1_to_g2_evidence_missing_or_stale"]),
+      ...(env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true" ? [] : ["g2_to_ax102_evidence_missing_or_stale"]),
+      ...(nativeHost ? [] : ["workload_native_host_not_registered"]),
+      ...sessionBroker.blockers,
+      ...apps.flatMap((app) => app.blockers.map((blocker) => `${app.key}:${blocker}`))
+    ];
+    return {
+      operatorId: operator.id,
+      displayName: operator.displayName,
+      tenantId: operator.tenantId,
+      tier: operator.tier,
+      operatorStatus: operator.status,
+      subscription: {
+        tier: subscription.tier,
+        planId: subscription.planId,
+        billingStatus: subscription.billingStatus,
+        minimumMonths: cost.minimumSubscriptionMonths,
+        tokenState: env.SYLION_SUBSCRIPTION_TOKEN_FLOW_READY === "true" ? "ready" : "planned"
+      },
+      cost,
+      infrastructure: {
+        g1: env.SYLION_G1_PUBLIC_IP || "178.105.200.112",
+        g2: env.SYLION_G2_PUBLIC_IP || "178.105.203.31",
+        workloadNative: nativeHost ? {
+          hostId: nativeHost.hostId,
+          serverNumber: nativeHost.serverNumber,
+          region: nativeHost.region,
+          lifecycleState: nativeHost.lifecycleState,
+          readyForLabWorkloads: nativeHost.readyForLabWorkloads === true
+        } : null
+      },
+      path: {
+        pixel: env.SYLION_PIXEL_G1_READY === "true" ? "ready" : "evidence_required",
+        laptop: env.SYLION_LAPTOP_G1_READY === "true" ? "ready" : "not_configured",
+        g1g2: env.SYLION_G1_G2_READY === "true" ? "ready" : "evidence_required",
+        g2Workload: env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true" ? "ready" : "evidence_required"
+      },
+      sessionBroker,
+      apps,
+      blockers: criticalBlockers,
+      status: criticalBlockers.length ? "blocked" : "ready_for_human_gate",
+      productionExecutionAllowed: false
+    };
+  });
+  const cdrEvidence = cdrEvidenceSummary(services.cdr);
+  const workloadControlEvidence = services.operatorPortal.workloadControlEvidenceSummary({
+    operatorIds: operatorsList.map((operator) => operator.id)
+  });
+  const androidNativeEvidence = androidNativeEvidenceSummary({ rows, hosts, manifests });
+  const routeEvidence = services.jurisdiction.routeEvidenceSummary({
+    operatorIds: operatorsList.map((operator) => operator.id)
+  });
+  const cpuConfidentialEvidence = services.liveExecution.cpuConfidentialEvidenceSummary();
+  const paymentTokenEvidence = services.subscriptions.paymentTokenEvidenceSummary({
+    operatorIds: operatorsList.map((operator) => operator.id)
+  });
+  const productionGates = buildProductionGates({
+    env,
+    rows,
+    sessionBroker,
+    cdrEvidence,
+    workloadControlEvidence,
+    androidNativeEvidence,
+    routeEvidence,
+    cpuConfidentialEvidence,
+    paymentTokenEvidence
+  });
+  return {
+    generatedAt: new Date().toISOString(),
+    sessionBroker,
+    evidence: {
+      androidNativeEvidence,
+      cdrEvidence,
+      routeEvidence,
+      workloadControlEvidence,
+      cpuConfidentialEvidence,
+      paymentTokenEvidence
+    },
+    operators: rows,
+    productionGates,
+    summary: {
+      operators: rows.length,
+      readyForHumanGate: rows.filter((row) => row.status === "ready_for_human_gate").length,
+      blocked: rows.filter((row) => row.status === "blocked").length,
+      productionGates: productionGates.length,
+      productionGatesReadyForHumanGate: productionGates.filter((gate) => gate.state === "ready_for_human_gate").length,
+      productionGatesBlocked: productionGates.filter((gate) => gate.state === "blocked").length,
+      productionExecutionAllowed: false
+    }
+  };
 }
 
 const WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/admin-web/", import.meta.url)));
@@ -221,7 +774,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     securityProfiles,
     routerReadiness,
     env: runtimeEnv,
-    store
+    store,
+    liveWorkloadRunner: liveExecutionOptions.liveWorkloadRunner,
+    workloadImageManifestResolver: (appKey) => liveExecution.latestReadyWorkloadImageManifestForApp(appKey)
   });
 
   const services = {
@@ -258,7 +813,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
   };
 
   function operatorActorFromRequest(req) {
-    return operatorPortal.actorFromToken(operatorBearerToken(req));
+    const source = operatorTokenSource(req);
+    assertCookieMutationCsrf(req, source.source);
+    return operatorPortal.actorFromToken(source.token);
   }
 
   async function handle(req, res) {
@@ -299,6 +856,28 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { session });
       }
 
+      if (req.method === "POST" && url.pathname === "/operator-api/sessions/attach") {
+        const token = bearerToken(req);
+        const session = operatorPortal.sessionFromToken(token, { includeToken: true });
+        return send(res, 200, {
+          session: operatorPortal.sessionFromToken(token, { includeToken: false }),
+          cookieBound: true
+        }, {
+          "set-cookie": operatorSessionCookie(req, session)
+        });
+      }
+
+      if (req.method === "GET" && url.pathname === "/operator-api/sessions/current") {
+        const { token } = operatorTokenSource(req);
+        return send(res, 200, { session: operatorPortal.sessionFromToken(token, { includeToken: false }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/operator-api/sessions/detach") {
+        return send(res, 200, { detached: true }, {
+          "set-cookie": clearOperatorSessionCookie(req)
+        });
+      }
+
       if (req.method === "GET" && url.pathname === "/operator-api/me") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { me: operatorPortal.me({ operatorActor, correlationId }) });
@@ -320,9 +899,36 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         return send(res, 201, { request: operatorPortal.requestWorkloadControl({ operatorActor, body, correlationId }) });
       }
+      const workloadControlExecuteMatch = url.pathname.match(/^\/operator-api\/workload-control\/requests\/([^/]+)\/execute$/);
+      if (req.method === "POST" && workloadControlExecuteMatch) {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 200, {
+          job: await operatorPortal.executeWorkloadControlRequest({
+            operatorActor,
+            requestId: workloadControlExecuteMatch[1],
+            body,
+            correlationId
+          })
+        });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/vpn-status") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { vpn: operatorPortal.vpnStatus({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/vpn-evidence") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { evidence: operatorPortal.recordVpnEvidence({ operatorActor, body, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/traffic-monitoring") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { monitoring: operatorPortal.trafficMonitoring({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/traffic-monitoring/evidence") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { evidence: operatorPortal.recordTrafficEvidence({ operatorActor, body, correlationId }) });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/connection-path") {
         const operatorActor = operatorActorFromRequest(req);
@@ -332,13 +938,62 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { execution: operatorPortal.workloadExecution({ operatorActor, templateKey: "signal", correlationId }) });
       }
+      if (req.method === "GET" && url.pathname.startsWith("/operator-api/workload-execution/") && !url.pathname.endsWith("/start")) {
+        const operatorActor = operatorActorFromRequest(req);
+        const templateKey = decodeURIComponent(url.pathname.split("/").at(-1) || "signal");
+        return send(res, 200, { execution: operatorPortal.workloadExecution({ operatorActor, templateKey, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/account-bootstrap") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { bootstrap: operatorPortal.accountBootstrap({ operatorActor, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/account-bootstrap/sessions") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        const session = operatorPortal.requestAccountBootstrap({ operatorActor, body, correlationId });
+        return send(res, 201, { session });
+      }
+      const accountBootstrapEvidenceMatch = url.pathname.match(/^\/operator-api\/account-bootstrap\/sessions\/([^/]+)\/evidence$/);
+      if (req.method === "POST" && accountBootstrapEvidenceMatch) {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        const session = operatorPortal.recordAccountBootstrapEvidence({
+          operatorActor,
+          sessionId: accountBootstrapEvidenceMatch[1],
+          body,
+          correlationId
+        });
+        return send(res, 200, { session });
+      }
       if (req.method === "POST" && url.pathname === "/operator-api/workload-execution/signal/start") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { request: operatorPortal.startWorkloadExecution({ operatorActor, templateKey: "signal", correlationId }) });
       }
+      if (req.method === "POST" && url.pathname.startsWith("/operator-api/workload-execution/") && url.pathname.endsWith("/start")) {
+        const operatorActor = operatorActorFromRequest(req);
+        const templateKey = decodeURIComponent(url.pathname.split("/").at(-2) || "signal");
+        return send(res, 200, { request: operatorPortal.startWorkloadExecution({ operatorActor, templateKey, correlationId }) });
+      }
       if (req.method === "GET" && url.pathname === "/operator-api/vpn-install-package") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { package: operatorPortal.vpnInstallPackage({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/pixel-ca-provisioning") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { package: operatorPortal.pixelCaProvisioning({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/laptop-access-package") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { package: operatorPortal.laptopAccessPackage({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname.startsWith("/operator-api/workload-session-broker/")) {
+        const operatorActor = operatorActorFromRequest(req);
+        const templateKey = decodeURIComponent(url.pathname.split("/").at(-1) || "signal");
+        return send(res, 200, { broker: operatorPortal.workloadSessionBroker({ operatorActor, templateKey, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/live-access-foundation") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { foundation: operatorPortal.liveAccessFoundation({ operatorActor, correlationId }) });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/streaming-profile") {
         const operatorActor = operatorActorFromRequest(req);
@@ -351,6 +1006,21 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             correlationId
           })
         });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/streaming-sessions") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { session: operatorPortal.requestStreamingSession({ operatorActor, body, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/streaming-readiness") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { evidence: operatorPortal.recordStreamingReadiness({ operatorActor, body, correlationId }) });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/streaming-runtime-manifest") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, { manifest: operatorPortal.recordStreamingRuntimeManifest({ operatorActor, body, correlationId }) });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/audit") {
         const operatorActor = operatorActorFromRequest(req);
@@ -470,6 +1140,12 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { session: auth.sessionFromActor(actor) });
       }
 
+      if (req.method === "GET" && url.pathname === "/production-readiness/operators") {
+        return send(res, 200, {
+          readiness: buildProductionReadiness({ actor, services, env: runtimeEnv, correlationId })
+        });
+      }
+
       if (req.method === "GET" && url.pathname === "/release/summary") {
         return send(res, 200, { summary: release.summary({ actor, correlationId }) });
       }
@@ -530,6 +1206,75 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { run });
       }
 
+      if (req.method === "POST" && url.pathname === "/release/human-evidence-runs") {
+        const body = await readJson(req);
+        const run = release.recordHumanEvidenceRun({ actor, ...body, correlationId });
+        return send(res, 201, { run });
+      }
+
+      if (req.method === "GET" && url.pathname === "/release/workload-factual-tests") {
+        return send(res, 200, {
+          tests: release.listWorkloadFactualTests({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            appKey: url.searchParams.get("appKey"),
+            correlationId
+          })
+        });
+      }
+
+      if (req.method === "GET" && url.pathname === "/release/account-bootstrap-evidence") {
+        return send(res, 200, {
+          sessions: operatorPortal.listAccountBootstrapEvidenceForAdmin({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const accountBootstrapPromoteMatch = url.pathname.match(/^\/release\/account-bootstrap-evidence\/([^/]+)\/promote$/);
+      if (req.method === "POST" && accountBootstrapPromoteMatch) {
+        const body = await readJson(req);
+        const session = operatorPortal.getAccountBootstrapEvidenceForAdmin({
+          actor,
+          sessionId: accountBootstrapPromoteMatch[1],
+          correlationId
+        });
+        if (session.factualCandidate !== true) {
+          throw validationError("Only complete account bootstrap evidence can be promoted to factual test", {
+            sessionId: session.id,
+            blockers: session.blockers || []
+          });
+        }
+        const test = release.recordWorkloadFactualTest({
+          actor,
+          operatorId: session.operatorId,
+          appKey: session.appKey,
+          terminalMode: session.terminalMode,
+          runtimeMode: session.runtimeMode,
+          result: body.result || "passed",
+          checks: session.checks,
+          evidenceArtifactIds: body.evidenceArtifactIds || session.evidenceArtifactIds || [],
+          latencyMs: body.latencyMs ?? session.latencyMs,
+          note: body.note || `Admin/QA promoted account bootstrap evidence ${session.id}`,
+          correlationId
+        });
+        const reviewed = operatorPortal.markAccountBootstrapEvidenceReviewed({
+          actor,
+          sessionId: session.id,
+          factualTestId: test.id,
+          correlationId
+        });
+        return send(res, 201, { test, session: reviewed });
+      }
+
+      if (req.method === "POST" && url.pathname === "/release/workload-factual-tests") {
+        const body = await readJson(req);
+        const test = release.recordWorkloadFactualTest({ actor, ...body, correlationId });
+        return send(res, 201, { test });
+      }
+
       const releaseTestStatusMatch = url.pathname.match(/^\/release\/human-tests\/([^/]+)\/status$/);
       if (req.method === "POST" && releaseTestStatusMatch) {
         const body = await readJson(req);
@@ -566,6 +1311,60 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       if (req.method === "GET" && url.pathname === "/live-execution/cloud/rehearsals") {
         return send(res, 200, { rehearsals: liveExecution.listProviderRehearsals({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/live-execution/dedicated-workload/orders") {
+        return send(res, 200, { orders: liveExecution.listDedicatedWorkloadOrders({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/live-execution/workload-native/hosts") {
+        return send(res, 200, { hosts: liveExecution.listWorkloadNativeHosts({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/live-execution/workload-images/manifests") {
+        return send(res, 200, { manifests: liveExecution.listWorkloadImageManifests({ actor, correlationId }) });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/workload-native/hosts") {
+        auth.requireFreshStepUp(actor, "workload_native.host.register", {
+          correlationId,
+          resourceType: "workload_native_host"
+        });
+        const body = await readJson(req);
+        const host = liveExecution.registerWorkloadNativeHost({
+          actor,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { host });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/workload-images/manifests") {
+        auth.requireFreshStepUp(actor, "workload_image_manifest.create", {
+          correlationId,
+          resourceType: "workload_image_manifest"
+        });
+        const body = await readJson(req);
+        const manifest = liveExecution.createWorkloadImageManifest({
+          actor,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { manifest });
+      }
+
+      if (req.method === "POST" && url.pathname === "/live-execution/dedicated-workload/hetzner-robot/order") {
+        auth.requireFreshStepUp(actor, "dedicated_workload.hetzner_robot.order", {
+          correlationId,
+          resourceType: "dedicated_workload_order"
+        });
+        const body = await readJson(req);
+        const order = await liveExecution.createDedicatedWorkloadOrder({
+          actor,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { order });
       }
 
       const providerReconcileMatch = url.pathname.match(/^\/live-execution\/cloud\/([^/]+)\/reconcile$/);
@@ -1072,6 +1871,30 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { plan });
       }
 
+      if (req.method === "GET" && url.pathname === "/subscription/payment-tokens") {
+        return send(res, 200, subscriptions.listPaymentTokens({ actor, correlationId }));
+      }
+
+      if (req.method === "POST" && url.pathname === "/subscription/payment-tokens") {
+        auth.requireFreshStepUp(actor, "subscription.payment_token.issue", {
+          correlationId,
+          resourceType: "subscription_payment_token"
+        });
+        const body = await readJson(req);
+        const issued = subscriptions.issuePaymentToken({ actor, ...body, correlationId });
+        return send(res, 201, issued);
+      }
+
+      if (req.method === "POST" && url.pathname === "/subscription/payment-tokens/redeem") {
+        auth.requireFreshStepUp(actor, "subscription.payment_token.redeem", {
+          correlationId,
+          resourceType: "subscription_payment_token"
+        });
+        const body = await readJson(req);
+        const redemption = subscriptions.redeemPaymentToken({ actor, ...body, correlationId });
+        return send(res, 201, redemption);
+      }
+
       if (req.method === "POST" && url.pathname === "/phantom/boundary/status") {
         const body = await readJson(req);
         const boundary = phantom.updateBoundaryStatus({ actor, ...body, correlationId });
@@ -1315,6 +2138,19 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
+      if (req.method === "GET" && url.pathname === "/monitoring/blue-team-dashboard") {
+        return send(res, 200, {
+          dashboard: monitoring.blueTeamDashboard({
+            actor,
+            auditEvents: audit.list(),
+            cdrDecisions: cdr.listDecisions(),
+            cdrEvents: cdr.listMonitoringEvents(),
+            operators: operators.list({ actor, correlationId }),
+            correlationId
+          })
+        });
+      }
+
       if (req.method === "POST" && url.pathname === "/monitoring/health-status") {
         const body = await readJson(req);
         const event = monitoring.recordHealthStatus({ actor, ...body, correlationId });
@@ -1441,6 +2277,11 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         }
         let liveBaseline = null;
         if (body.liveBaseline?.enabled === true) {
+          const userDataByRole = buildLiveBaselineUserData({
+            userDataByRole: body.liveBaseline.userDataByRole || {},
+            gatewayOptions: body.liveBaseline.gatewayOptions || {}
+          });
+          const artifactSummary = liveBaselineArtifactSummary(body.liveBaseline.gatewayOptions || {});
           const approval = approvals.createApproval({
             actor,
             operatorId: operator.id,
@@ -1471,7 +2312,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             serverTypesByRole: body.liveBaseline.serverTypesByRole || {},
             image: body.liveBaseline.image || "ubuntu-24.04",
             sshKeys: body.liveBaseline.sshKeys || [],
-            userDataByRole: body.liveBaseline.userDataByRole || {},
+            userDataByRole,
             correlationId
           });
           liveBaseline = {
@@ -1481,6 +2322,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             region: body.liveBaseline.region || "fsn1",
             approvalId: approved.id,
             request,
+            artifacts: artifactSummary,
             productionExecutionAllowed: false,
             rollbackRequired: true
           };
@@ -1496,6 +2338,45 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             correlationId
           })
         });
+      }
+
+      if (req.method === "GET" && url.pathname === "/operators/disposable-teardown-plans") {
+        return send(res, 200, {
+          plans: operators.listDisposableTeardownPlans({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const disposableTeardownPlanMatch = url.pathname.match(/^\/operators\/([^/]+)\/disposable-teardown-plan$/);
+      if (req.method === "POST" && disposableTeardownPlanMatch) {
+        const body = await readJson(req);
+        const plan = operators.createDisposableTeardownPlan({
+          actor,
+          operatorId: disposableTeardownPlanMatch[1],
+          requestedAction: body.requestedAction,
+          reason: body.reason,
+          body,
+          correlationId
+        });
+        return send(res, 201, { plan });
+      }
+
+      const disposableTeardownExecuteMatch = url.pathname.match(/^\/operators\/([^/]+)\/disposable-teardown-execute$/);
+      if (req.method === "POST" && disposableTeardownExecuteMatch) {
+        const body = await readJson(req);
+        const job = operators.executeDisposableTeardown({
+          actor,
+          operatorId: disposableTeardownExecuteMatch[1],
+          planId: body.planId,
+          confirmation: body.confirmation,
+          reason: body.reason,
+          body,
+          correlationId
+        });
+        return send(res, 200, { job });
       }
 
       const operatorConnectionPathMatch = url.pathname.match(/^\/operators\/([^/]+)\/connection-path$/);
@@ -1606,6 +2487,18 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       if (req.method === "GET" && url.pathname === "/providers") {
         return send(res, 200, { providers: providers.list({ actor, correlationId }) });
+      }
+
+      if (req.method === "GET" && url.pathname === "/providers/eligible") {
+        return send(res, 200, {
+          providers: providers.listEligible({
+            actor,
+            capability: url.searchParams.get("capability"),
+            country: url.searchParams.get("country"),
+            tier: url.searchParams.get("tier"),
+            correlationId
+          })
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/secrets/backend-status") {
@@ -1781,6 +2674,22 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         const policy = jurisdiction.create({ actor, ...body, correlationId });
         return send(res, 201, { policy });
+      }
+
+      if (req.method === "GET" && url.pathname === "/jurisdiction/route-evidence") {
+        return send(res, 200, {
+          evidence: jurisdiction.listRouteEvidence({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      if (req.method === "POST" && url.pathname === "/jurisdiction/route-evidence") {
+        const body = await readJson(req);
+        const evidence = jurisdiction.recordRouteEvidence({ actor, ...body, correlationId });
+        return send(res, 201, { evidence });
       }
 
       const jurisdictionRotationMatch = url.pathname.match(/^\/jurisdiction\/policies\/([^/]+)\/rotation-plan$/);

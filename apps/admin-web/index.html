@@ -23,9 +23,11 @@
         <button data-view="subscriptions">Subscriptions</button>
         <button data-view="devices">Devices</button>
         <button data-view="providers">Providers</button>
+        <button data-view="blue-team">Blue Team</button>
         <button data-view="security">Security</button>
         <button data-view="phantom">PHANTOM</button>
         <button data-view="release">Release</button>
+        <button data-view="production-readiness">Production Readiness</button>
         <button data-view="audit">Audit</button>
       </nav>
     </aside>
@@ -212,6 +214,9 @@
                   <option>SOVEREIGN</option>
                 </select>
               </label>
+              <label class="check-row"><input name="disposable" type="checkbox"> Disposable destructive lab operator</label>
+              <label>Destructive scope <input name="destructiveTestScope" value="operator_teardown_lab"></label>
+              <label>Labels <input name="labels" placeholder="DISPOSABLE, lab"></label>
               <label class="check-row"><input name="liveBaselineEnabled" type="checkbox"> Create live Hetzner G1/G2/WORKLOAD</label>
               <label>Live Provider <select name="liveProviderId" id="operator-live-provider-select"></select></label>
               <label>Region <input name="liveRegion" value="fsn1"></label>
@@ -220,6 +225,39 @@
               <label>Idempotency Key <input name="liveIdempotencyKey" placeholder="auto if empty"></label>
               <label class="check-row"><input name="liveConfirmed" type="checkbox"> I confirm live cost and rollback</label>
               <button type="submit">Create Operator</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Disposable Teardown Plan <span class="help-tip" tabindex="0" data-tip="Creates a plan-only destructive test for one explicitly disposable operator. It records the expected diff and keeps provider deletion disabled.">?</span></h2>
+              <span class="pill warn">Human gate</span>
+            </div>
+            <form id="disposable-teardown-plan-form">
+              <label>Operator <select name="operatorId" id="disposable-teardown-operator-select"></select></label>
+              <label>Action
+                <select name="requestedAction">
+                  <option value="data_wipe">Data wipe</option>
+                  <option value="environment_destroy">Environment destroy</option>
+                  <option value="account_revoke" selected>Account revoke</option>
+                  <option value="operator_teardown">Full disposable teardown</option>
+                </select>
+              </label>
+              <label>Reason <input name="reason" value="dashboard_disposable_operator_lab"></label>
+              <button type="submit">Create Teardown Plan</button>
+            </form>
+            <div id="disposable-teardown-confirmation" class="evidence-box">No disposable teardown plan created in this browser session.</div>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Execute Disposable Teardown <span class="help-tip" tabindex="0" data-tip="Runs only the control-plane teardown for a disposable operator after the exact confirmation phrase. Normal operators are denied before any side effect.">?</span></h2>
+              <span class="pill danger">Disposable only</span>
+            </div>
+            <form id="disposable-teardown-execute-form">
+              <label>Operator <select name="operatorId" id="disposable-teardown-execute-operator-select"></select></label>
+              <label>Plan <select name="planId" id="disposable-teardown-plan-select"></select></label>
+              <label>Confirmation <input name="confirmation" autocomplete="off" placeholder="DESTROY_DISPOSABLE_OPERATOR:op_..."></label>
+              <label>Reason <input name="reason" value="approved_dashboard_disposable_teardown"></label>
+              <button type="submit">Execute Control-plane Teardown</button>
             </form>
           </article>
           <article class="panel form-panel">
@@ -370,6 +408,10 @@
             <div class="cards" id="operator-cards"></div>
           </article>
           <article class="panel wide">
+            <div class="panel-head"><h2>Disposable Teardown Plans</h2><span class="pill warn">Audit retained</span></div>
+            <div class="cards" id="disposable-teardown-plan-cards"></div>
+          </article>
+          <article class="panel wide">
             <div class="panel-head"><h2>Operator Connection Path</h2><span class="pill warn">No prod VPN</span></div>
             <div class="cards" id="operator-connection-path-cards"></div>
           </article>
@@ -402,6 +444,7 @@
               <label>Provider
                 <select name="providerType">
                   <option value="hetzner">Hetzner</option>
+                  <option value="hetzner_robot">Hetzner Robot Dedicated</option>
                   <option value="ovh">OVH</option>
                   <option value="aws">AWS EC2</option>
                   <option value="azure">Azure</option>
@@ -412,11 +455,20 @@
               </label>
               <label>API Secret <input name="apiSecret" type="password" placeholder="Provider API secret" required></label>
               <label>Regions <input name="regions" value="fsn1,nbg1"></label>
+              <label>Countries <input name="countries" value="DE,FI" placeholder="DE,FI,PL"></label>
+              <label>Region catalog <input name="regionCatalog" value="fsn1:DE:Falkenstein,nbg1:DE:Nuremberg" placeholder="region:country:city,region:country:city"></label>
               <label>Runtime class
                 <select name="runtimeClass">
                   <option value="containers">Containers - Standard/Pro</option>
                   <option value="firecracker">Firecracker/KVM - Pro+</option>
                   <option value="confidential">TDX/SEV-SNP - Sovereign</option>
+                </select>
+              </label>
+              <label>Provider role
+                <select name="providerRole">
+                  <option value="standard">Standard containers</option>
+                  <option value="firecracker">Firecracker/KVM capable</option>
+                  <option value="confidential">Intel TDX / AMD SEV-SNP capable</option>
                 </select>
               </label>
               <button type="submit">Save Provider</button>
@@ -520,6 +572,87 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
+              <h2>Dedicated Workload <span class="help-tip" tabindex="0" data-tip="Plans or orders one Hetzner Robot dedicated WORKLOAD_NATIVE host for a single operator. Paid ordering requires env gates, approved approval, step-up and explicit cost/hardware confirmations.">?</span></h2>
+              <span class="pill warn">Paid gate</span>
+            </div>
+            <form id="dedicated-order-form">
+              <label>Provider <select name="providerId" id="dedicated-order-provider-select"></select></label>
+              <label>Operator <select name="operatorId" id="dedicated-order-operator-select"></select></label>
+              <label>Approval <select name="approvalId" id="dedicated-order-approval-select"></select></label>
+              <label>Product ID <input name="productId" value="AX102-U"></label>
+              <label>Region <input name="region" value="hel1"></label>
+              <label>Install image <input name="dist" value="Ubuntu 24.04 LTS base"></label>
+              <label>SSH key fingerprint <input name="authorizedKeyRef" value="admin-default-ssh-key"></label>
+              <label>Addons <input name="addons" value="primary_ipv4"></label>
+              <label>Max monthly EUR <input name="maxMonthlyPrice" type="number" min="0" step="1" value="120"></label>
+              <label>Tenancy
+                <select name="workloadTenancyMode">
+                  <option value="dedicated_operator" selected>Dedicated operator</option>
+                  <option value="shared_pool">Shared pool - STANDARD/PRO only</option>
+                </select>
+              </label>
+              <label>Mode
+                <select name="orderMode">
+                  <option value="plan_only" selected>Plan only</option>
+                  <option value="robot_test">Robot test transaction</option>
+                  <option value="live_order">Live paid order</option>
+                </select>
+              </label>
+              <label class="check-row"><input type="checkbox" name="liveConfirmed"> I confirm dedicated host ordering intent</label>
+              <label class="check-row"><input type="checkbox" name="costConfirmed"> I confirm monthly/setup cost gate</label>
+              <label class="check-row"><input type="checkbox" name="hardwareGateConfirmed"> I confirm KVM/binderfs hardware gate will be verified before secrets release</label>
+              <label class="check-row"><input type="checkbox" name="phantomSensitive"> PHANTOM-sensitive workload, requires fully dedicated host</label>
+              <button type="submit">Create Dedicated Order Gate</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Workload Image <span class="help-tip" tabindex="0" data-tip="Registers a workload application manifest for the dedicated host: image, kernel/rootfs, CDR policy and private G2 stream. It does not expose public ports or release secrets.">?</span></h2>
+              <span class="pill warn">CDR required</span>
+            </div>
+            <form id="workload-image-manifest-form">
+              <label>Host <select name="hostId" id="workload-image-host-select"></select></label>
+              <label>App
+                <select name="appKey">
+                  <option value="signal">Signal</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="threema">Threema</option>
+                  <option value="zangi">Zangi</option>
+                  <option value="duckduckgo_browser">DuckDuckGo Browser</option>
+                  <option value="libreoffice">LibreOffice</option>
+                  <option value="exodus">Exodus</option>
+                </select>
+              </label>
+              <label>Display name <input name="appName" value="Signal"></label>
+              <label>Runtime
+                <select name="runtimeKind">
+                  <option value="firecracker_microvm" selected>Firecracker microVM</option>
+                  <option value="android_native_workload">Android native workload</option>
+                  <option value="container_lab_helper">Container lab helper</option>
+                </select>
+              </label>
+              <label>Image ref <input name="imageRef" value="image://sylion/signal-firecracker-lab-v0"></label>
+              <label>Kernel ref <input name="kernelRef" value="artifact://workload-native-lab-01/firecracker/vmlinux.bin"></label>
+              <label>Rootfs ref <input name="rootfsRef" value="artifact://workload-native-lab-01/apps/signal/rootfs.ext4"></label>
+              <label>Package ref <input name="packageRef" value="package://signal-desktop/pending-approved-download"></label>
+              <label>CDR policy <input name="cdrPolicyRef" value="cdr://mandatory-workload-file-transfer"></label>
+              <label>Stream bind <input name="bindAddress" value="127.0.0.1"></label>
+              <label>Stream port <input name="sourcePort" type="number" min="1" max="65535" value="7901"></label>
+              <label>Network mode <input name="networkMode" value="tap_isolated_g2_private_only"></label>
+              <label>Storage mode <input name="storageMode" value="ephemeral_cdr_only"></label>
+              <label>Production blockers <input name="productionBlockers" value="g1_g2_private_path_not_bound,g2_stream_broker_not_bound,pixel_human_regression_pending,hsm_pki_not_integrated,app_image_build_not_reproducible_yet"></label>
+              <label class="check-row"><input type="checkbox" name="throughG2" checked> G2 stream broker only</label>
+              <label class="check-row"><input type="checkbox" name="pixelOptimized" checked> Pixel viewport declared</label>
+              <label class="check-row"><input type="checkbox" name="reproducibleBuild"> Reproducible build evidence collected</label>
+              <label class="check-row"><input type="checkbox" name="cdrHookDeclared" checked> CDR hook declared</label>
+              <label class="check-row"><input type="checkbox" name="binderfs"> binderfs evidence for Android native</label>
+              <label class="check-row"><input type="checkbox" name="androidRuntime"> Android runtime evidence</label>
+              <button type="submit">Create Image Manifest</button>
+            </form>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
               <h2>Firecracker Host <span class="help-tip" tabindex="0" data-tip="Qualifies a host for future Firecracker execution. It does not launch microVMs from the dashboard.">?</span></h2>
               <span class="pill warn">No launch</span>
             </div>
@@ -606,6 +739,24 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Provider Rehearsals</h2><span class="pill">Smoke evidence</span></div>
             <div class="cards" id="provider-rehearsal-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Dedicated Workload Orders</h2><span class="pill warn">Hetzner Robot</span></div>
+            <div class="cards" id="dedicated-order-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>WORKLOAD_NATIVE Hosts <span class="help-tip" tabindex="0" data-tip="Delivered dedicated hosts are registered here after SSH bootstrap and no-secret evidence collection. Lab-ready is not a production approval.">?</span></h2>
+              <span class="pill">Dedicated lab</span>
+            </div>
+            <div class="cards" id="workload-native-host-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Workload Image Manifests <span class="help-tip" tabindex="0" data-tip="Shows application image manifests for Signal, Telegram, WhatsApp, Threema, Zangi, DuckDuckGo, LibreOffice and Exodus before G2 stream launch.">?</span></h2>
+              <span class="pill warn">Lab launch gate</span>
+            </div>
+            <div class="cards" id="workload-image-manifest-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Live Rollback Plans <span class="help-tip" tabindex="0" data-tip="Every live provider request must have rollback metadata before mutation. Blocked requests keep no-op cleanup actions; executed requests store sanitized delete actions.">?</span></h2><span class="pill warn">Required</span></div>
@@ -906,6 +1057,59 @@
           <article class="panel wide">
             <div class="panel-head"><h2>Quota Decisions</h2><span class="pill">Audit-ready</span></div>
             <div class="cards" id="quota-decision-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="blue-team" hidden>
+          <article class="panel wide command-panel">
+            <div>
+              <span class="eyebrow">Defensive monitoring</span>
+              <h2>Blue team cockpit <span class="help-tip" tabindex="0" data-tip="Metadata-only detection layer. It correlates audit, CDR, monitoring signals and incidents without storing communication content.">?</span></h2>
+            </div>
+            <div class="command-grid">
+              <span id="blue-team-status">Status loading</span>
+              <span id="blue-team-cdr">CDR checking</span>
+              <span id="blue-team-content">No communication content</span>
+            </div>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Record Signal <span class="help-tip" tabindex="0" data-tip="Records a metadata-only alert/anomaly. Do not paste messages, files, packet captures or communication content.">?</span></h2>
+              <span class="pill warn">Metadata only</span>
+            </div>
+            <form id="blue-team-signal-form">
+              <label>Signal
+                <select name="signal">
+                  <option value="auth_attack">Auth attack</option>
+                  <option value="key_material_change">Key material change</option>
+                  <option value="cdr_policy_gap">CDR policy gap</option>
+                  <option value="ipsec_down">IPsec down</option>
+                  <option value="dns_leak">DNS leak</option>
+                  <option value="microvm_crash_loop">microVM crash loop</option>
+                  <option value="provider_drift">Provider drift</option>
+                </select>
+              </label>
+              <label>Operator <select name="operatorId" id="blue-team-signal-operator-select"></select></label>
+              <label>Resource ID <input name="resourceId" value="metadata-signal-1"></label>
+              <label>Evidence ref <input name="evidenceRef" value="evidence://blue-team/manual-signal"></label>
+              <button type="submit">Record Metadata Signal</button>
+            </form>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Metadata Signals</h2><span class="pill">No content</span></div>
+            <div class="cards" id="blue-team-metadata-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Alerts & Anomalies</h2><span class="pill warn">Triage</span></div>
+            <div class="cards" id="blue-team-alert-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>CDR Per Operator</h2><span class="pill">Mandatory</span></div>
+            <div class="cards" id="blue-team-cdr-cards"></div>
+          </article>
+          <article class="panel wide">
+            <div class="panel-head"><h2>Incidents</h2><span class="pill warn">Runbooks</span></div>
+            <div class="cards" id="blue-team-incident-cards"></div>
           </article>
         </section>
 
@@ -1470,6 +1674,69 @@
           </article>
           <article class="panel">
             <div class="panel-head">
+              <h2>Factual App Test <span class="help-tip" tabindex="0" data-tip="Records whether a workload application actually works through Pixel or laptop. Communicators need account bootstrap plus send/receive before PASS; HTTP 200 alone is not enough.">?</span></h2>
+              <span class="pill warn">No hallucination</span>
+            </div>
+            <form id="workload-factual-test-form">
+              <label>Operator <select name="operatorId" id="factual-test-operator-select"></select></label>
+              <label>App
+                <select name="appKey">
+                  <option value="signal">Signal</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="telegram">Telegram</option>
+                  <option value="threema">Threema</option>
+                  <option value="zangi">Zangi</option>
+                  <option value="duckduckgo_browser">DuckDuckGo Browser</option>
+                  <option value="libreoffice">LibreOffice</option>
+                  <option value="exodus">Exodus</option>
+                </select>
+              </label>
+              <label>Terminal
+                <select name="terminalMode">
+                  <option value="pixel_grapheneos">Pixel GrapheneOS</option>
+                  <option value="laptop_web_terminal">Laptop web terminal</option>
+                </select>
+              </label>
+              <label>Runtime
+                <select name="runtimeMode">
+                  <option value="desktop">Desktop</option>
+                  <option value="web">Web</option>
+                  <option value="android_native">Android native</option>
+                  <option value="firecracker_gui">Firecracker GUI</option>
+                  <option value="container">Container</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </label>
+              <label>Result
+                <select name="result">
+                  <option value="blocked">blocked</option>
+                  <option value="failed">failed</option>
+                  <option value="passed">passed</option>
+                  <option value="unknown">unknown</option>
+                </select>
+              </label>
+              <label class="check-row"><input name="uiVisible" type="checkbox" checked> UI visible</label>
+              <label class="check-row"><input name="accountBootstrap" type="checkbox"> Account bootstrap/linking passed</label>
+              <label class="check-row"><input name="sendReceive" type="checkbox"> Send/receive passed</label>
+              <label class="check-row"><input name="browsing" type="checkbox"> Browsing passed</label>
+              <label class="check-row"><input name="documentWorkflow" type="checkbox"> Document workflow passed</label>
+              <label class="check-row"><input name="walletWorkflow" type="checkbox"> Wallet workflow passed</label>
+              <label class="check-row"><input name="riskAcceptance" type="checkbox"> Risk acceptance recorded</label>
+              <label>Evidence IDs <input name="evidenceArtifactIds" value=""></label>
+              <label>Note <input name="note" value="Real app state checked through terminal path"></label>
+              <button type="submit">Record Factual Test</button>
+            </form>
+            <div class="cards" id="workload-factual-test-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Account Bootstrap Queue <span class="help-tip" tabindex="0" data-tip="Operator-submitted bootstrap evidence is metadata-only. Admin/QA promotes complete evidence into a factual workload test after review.">?</span></h2>
+              <span class="pill warn">QA review</span>
+            </div>
+            <div class="cards" id="account-bootstrap-evidence-cards"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head">
               <h2>Full Test Run <span class="help-tip" tabindex="0" data-tip="Records one complete human or Playwright dashboard pass, updates scenario statuses and creates problem records for failed or blocked scenarios.">?</span></h2>
               <span class="pill">Step 3.21</span>
             </div>
@@ -1580,6 +1847,40 @@
               <span class="pill warn">Production false</span>
             </div>
             <div class="cards compact" id="release-build-assessment-cards"></div>
+          </article>
+        </section>
+
+        <section class="grid view" data-view-panel="production-readiness" hidden>
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Production Readiness <span class="help-tip" data-tip="Single source of truth for operator cost, subscription, Pixel/Laptop path, G1/G2/workload state, app route state, CDR requirement, and production blockers.">?</span></h2>
+              <span class="pill warn">Human gate required</span>
+            </div>
+            <div class="cards compact" id="production-readiness-summary-cards"></div>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Operator Cost And Path <span class="help-tip" data-tip="Shows tier, minimum subscription length, estimated monthly infrastructure cost, operator price, G1/G2/workload host and whether Pixel/laptop routes have evidence.">?</span></h2>
+              <span class="pill">One row per operator</span>
+            </div>
+            <div class="cards" id="production-readiness-operator-cards"></div>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>10 Production Gates <span class="help-tip" data-tip="Hard factual gates for the known production blockers. Each gate has an acceptance rule, verification method, repair action and production execution locked off until a human gate approves the evidence.">?</span></h2>
+              <span class="pill danger">Factual proof required</span>
+            </div>
+            <div class="cards" id="production-readiness-production-gates-cards"></div>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-head">
+              <h2>Workload App Routes <span class="help-tip" data-tip="Each communicator or tool must expose a private workload route, retain no terminal-side operational data, and keep CDR mandatory for ingress/egress.">?</span></h2>
+              <span class="pill danger">No mock success</span>
+            </div>
+            <div class="cards" id="production-readiness-app-cards"></div>
           </article>
         </section>
 

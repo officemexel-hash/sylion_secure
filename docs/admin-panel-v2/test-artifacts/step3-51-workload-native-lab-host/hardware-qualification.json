@@ -1,0 +1,20 @@
+{
+  "hostRole": "WORKLOAD_NATIVE_LAB_01",
+  "serverNumber": "2983993",
+  "cpuVendor": "AuthenticAMD",
+  "cpuModel": "AMD Ryzen 9 7950X3D 16-Core Processor",
+  "cpuThreads": 32,
+  "amdVirtualizationFlags": 32,
+  "kvmDevice": "present",
+  "iommuEvidence": "not_visible_in_dmesg",
+  "tpm": "missing",
+  "secureBoot": "SecureBoot disabled ",
+  "apparmor": "active",
+  "auditd": "active",
+  "microcodeNeedrestart": "NEEDRESTART-UCSTA: 1",
+  "firecrackerSmoke": "Running",
+  "verdict": "LAB_ACCEPT_KVM_FIRECRACKER_SMOKE_PASSED",
+  "productionExecutionAllowed": false,
+  "productionBlockers": ["tenant_isolation_not_validated", "g1_g2_private_path_not_bound", "workload_images_not_built", "thin_stream_broker_not_bound", "hsm_pki_not_integrated", "human_pixel_regression_pending"],
+  "generatedAt": "2026-05-22T15:51:02+02:00"
+}

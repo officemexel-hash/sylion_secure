@@ -7,6 +7,8 @@ const state = {
   operatorProvisioningPipelines: [],
   operatorEnvironments: [],
   operatorConnectionPath: null,
+  disposableTeardownPlans: [],
+  lastDisposableTeardownPlan: null,
   routerPackages: [],
   routerPostures: [],
   providers: [],
@@ -53,11 +55,20 @@ const state = {
   releaseProblems: [],
   humanTests: [],
   humanTestRuns: [],
+  workloadFactualTests: [],
+  accountBootstrapEvidence: [],
   evidenceArtifacts: [],
   liveExecutionSummary: null,
   liveCloudRequests: [],
   liveRollbackPlans: [],
   liveProviderRehearsals: [],
+  dedicatedWorkloadOrders: [],
+  workloadNativeHosts: [],
+  workloadImageManifests: [],
+  productionReadiness: null,
+  blueTeamDashboard: null,
+  monitoringEvents: [],
+  incidents: [],
   secretBackendStatus: null,
   secretBackends: [],
   firecrackerQualifications: [],
@@ -74,6 +85,11 @@ const state = {
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
+
+function setText(selector, value) {
+  const element = $(selector);
+  if (element) element.textContent = value;
+}
 
 function toast(message, tone = "info") {
   const target = $("#toast");
@@ -122,6 +138,17 @@ function splitCsv(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseRegionCatalog(value) {
+  return splitCsv(value).map((item) => {
+    const [region, country, ...cityParts] = item.split(":").map((part) => part.trim());
+    return {
+      region,
+      country: String(country || "").toUpperCase(),
+      city: cityParts.join(":") || null
+    };
+  }).filter((entry) => entry.region && entry.country);
 }
 
 function supportsBrowserWebAuthn() {
@@ -203,6 +230,7 @@ async function refreshAll() {
     session,
     tenants,
     operators,
+    disposableTeardownPlans,
     operatorProvisioningTemplates,
     operatorProvisioningPipelines,
     operatorEnvironments,
@@ -238,11 +266,20 @@ async function refreshAll() {
     releaseProblems,
     humanTests,
     humanTestRuns,
+    workloadFactualTests,
+    accountBootstrapEvidence,
     evidenceArtifacts,
     liveExecutionSummary,
     liveCloudRequests,
     liveRollbackPlans,
     liveProviderRehearsals,
+    dedicatedWorkloadOrders,
+    workloadNativeHosts,
+    workloadImageManifests,
+    productionReadiness,
+    blueTeamDashboard,
+    monitoringEvents,
+    incidents,
     secretBackendStatus,
     secretBackends,
     firecrackerQualifications,
@@ -262,6 +299,7 @@ async function refreshAll() {
     api("/auth/session"),
     api("/tenants"),
     api("/operators"),
+    api("/operators/disposable-teardown-plans").catch(() => ({ plans: [] })),
     api("/operator-provisioning/templates").catch(() => ({ templates: [] })),
     api("/operator-provisioning/pipelines").catch(() => ({ pipelines: [] })),
     api("/operator-environments").catch(() => ({ environments: [] })),
@@ -297,11 +335,20 @@ async function refreshAll() {
     api("/release/problems").catch(() => ({ problems: [] })),
     api("/release/human-tests").catch(() => ({ scenarios: [] })),
     api("/release/human-test-runs").catch(() => ({ runs: [] })),
+    api("/release/workload-factual-tests").catch(() => ({ tests: [] })),
+    api("/release/account-bootstrap-evidence").catch(() => ({ sessions: [] })),
     api("/release/evidence-artifacts").catch(() => ({ artifacts: [] })),
     api("/live-execution/summary").catch(() => ({ summary: null })),
     api("/live-execution/cloud/requests").catch(() => ({ requests: [] })),
     api("/live-execution/cloud/rollback-plans").catch(() => ({ plans: [] })),
     api("/live-execution/cloud/rehearsals").catch(() => ({ rehearsals: [] })),
+    api("/live-execution/dedicated-workload/orders").catch(() => ({ orders: [] })),
+    api("/live-execution/workload-native/hosts").catch(() => ({ hosts: [] })),
+    api("/live-execution/workload-images/manifests").catch(() => ({ manifests: [] })),
+    api("/production-readiness/operators").catch(() => ({ readiness: null })),
+    api("/monitoring/blue-team-dashboard").catch(() => ({ dashboard: null })),
+    api("/monitoring/events").catch(() => ({ events: [] })),
+    api("/incidents").catch(() => ({ incidents: [] })),
     api("/secrets/backend-status").catch(() => ({ status: null })),
     api("/secrets/backends").catch(() => ({ backends: [] })),
     api("/live-execution/firecracker/host-qualifications").catch(() => ({ qualifications: [] })),
@@ -321,6 +368,7 @@ async function refreshAll() {
   state.session = session.session;
   state.tenants = tenants.tenants;
   state.operators = operators.operators;
+  state.disposableTeardownPlans = disposableTeardownPlans.plans;
   state.operatorProvisioningTemplates = operatorProvisioningTemplates.templates;
   state.operatorProvisioningPipelines = operatorProvisioningPipelines.pipelines;
   state.operatorEnvironments = operatorEnvironments.environments;
@@ -356,11 +404,20 @@ async function refreshAll() {
   state.releaseProblems = releaseProblems.problems;
   state.humanTests = humanTests.scenarios;
   state.humanTestRuns = humanTestRuns.runs;
+  state.workloadFactualTests = workloadFactualTests.tests;
+  state.accountBootstrapEvidence = accountBootstrapEvidence.sessions;
   state.evidenceArtifacts = evidenceArtifacts.artifacts;
   state.liveExecutionSummary = liveExecutionSummary.summary;
   state.liveCloudRequests = liveCloudRequests.requests;
   state.liveRollbackPlans = liveRollbackPlans.plans;
   state.liveProviderRehearsals = liveProviderRehearsals.rehearsals;
+  state.dedicatedWorkloadOrders = dedicatedWorkloadOrders.orders;
+  state.workloadNativeHosts = workloadNativeHosts.hosts;
+  state.workloadImageManifests = workloadImageManifests.manifests;
+  state.productionReadiness = productionReadiness.readiness;
+  state.blueTeamDashboard = blueTeamDashboard.dashboard;
+  state.monitoringEvents = monitoringEvents.events;
+  state.incidents = incidents.incidents;
   state.secretBackendStatus = secretBackendStatus.status;
   state.secretBackends = secretBackends.backends;
   state.firecrackerQualifications = firecrackerQualifications.qualifications;
@@ -418,6 +475,9 @@ function render() {
 
   renderSelect("#operator-tenant-select", state.tenants, "No tenants");
   renderSelect("#operator-live-provider-select", state.providers.filter((provider) => provider.providerKey === "hetzner"), "No Hetzner provider", "displayName");
+  renderSelect("#disposable-teardown-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#disposable-teardown-execute-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#disposable-teardown-plan-select", state.disposableTeardownPlans, "No teardown plans", "requestedAction");
   renderSelect("#pipeline-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#local-lab-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
   renderSelect("#local-environment-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
@@ -451,6 +511,11 @@ function render() {
   renderSelect("#provider-rehearsal-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#provider-rehearsal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#provider-rehearsal-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#dedicated-order-provider-select", state.providers.filter((provider) => provider.providerKey === "hetzner_robot"), "No Hetzner Robot provider", "displayName");
+  renderSelect("#dedicated-order-operator-select", state.operators, "No operators", "displayName");
+  renderSelect("#dedicated-order-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect("#workload-image-host-select", state.workloadNativeHosts, "No native hosts", "hostId");
+  renderSelect("#blue-team-signal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#firecracker-rehearsal-host-select", state.firecrackerQualifications, "No qualified hosts", "hostId");
   renderSelect("#firecracker-rehearsal-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#subscription-tenant-select", state.tenants, "No tenants");
@@ -484,6 +549,7 @@ function render() {
   renderSelect("#phantom-coverage-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#phantom-execution-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#human-test-select", state.humanTests, "No test scenarios", "title");
+  renderSelect("#factual-test-operator-select", state.operators, "No operators", "displayName");
 
   $("#ksiega-status-cards").innerHTML = (state.systemStatus?.ksiega34 || []).map((item) => card(item.label, [
     ["Status", item.status],
@@ -498,8 +564,22 @@ function render() {
     ["Tier", operator.tier],
     ["Status", operator.status],
     ["Tenant", operator.tenantId],
-    ["Router", operator.baseline?.router]
+    ["Router", operator.baseline?.router],
+    ["Disposable", String(operator.disposable === true)],
+    ["Deletion protection", String(operator.destructiveTest?.deletionProtection !== false)],
+    ["Teardown", operator.teardown?.state || "-"]
   ])).join("") || empty("No operators yet.");
+
+  $("#disposable-teardown-plan-cards").innerHTML = state.disposableTeardownPlans.map((plan) => card(plan.requestedAction, [
+    ["Plan", plan.id],
+    ["Operator", plan.operatorId],
+    ["State", plan.state],
+    ["Expires", plan.expiresAt],
+    ["Provider mutation", String(plan.guardrails?.providerMutationAllowed)],
+    ["Prod exec", String(plan.guardrails?.productionExecutionAllowed)],
+    ["Audit retention", String(plan.guardrails?.auditRetentionRequired)],
+    ["Resources", String(plan.resourceDiff?.length || 0)]
+  ])).join("") || empty("No disposable teardown plans yet.");
 
   $("#operator-connection-path-cards").innerHTML = state.operatorConnectionPath ? [
     card("Terminal path", [
@@ -576,9 +656,12 @@ function render() {
 
   $("#provider-cards").innerHTML = state.providers.map((provider) => card(provider.displayName, [
     ["Provider", provider.providerKey],
+    ["Countries", provider.countries?.join(", ") || "-"],
     ["Regions", provider.regions?.join(", ")],
+    ["Region catalog", provider.regionCatalog?.map((item) => `${item.region}:${item.country}`).join(", ") || "-"],
     ["Containers", String(provider.runtimeCapabilities?.containers)],
     ["Firecracker", String(provider.runtimeCapabilities?.firecracker)],
+    ["Android workloads", String(provider.runtimeCapabilities?.androidWorkloads)],
     ["TDX", String(provider.runtimeCapabilities?.intelTdx)],
     ["SEV-SNP", String(provider.runtimeCapabilities?.amdSevSnp)],
     ["Tier fit", provider.runtimeCapabilities?.recommendedTier || "-"],
@@ -645,6 +728,46 @@ function render() {
     ["Blockers", rehearsal.gate?.blockers?.join(", ") || "-"]
   ])).join("") || empty("No provider rehearsals recorded.");
 
+  $("#dedicated-order-cards").innerHTML = state.dedicatedWorkloadOrders.map((order) => card(order.id, [
+    ["Status", order.status],
+    ["Provider", order.providerKey],
+    ["Operator", order.operatorId],
+    ["Product", order.productId],
+    ["Region", order.region],
+    ["Mode", order.orderMode],
+    ["Tenancy", order.workloadTenancyMode || "-"],
+    ["PHANTOM sensitive", String(order.phantomSensitive)],
+    ["Side effect", String(order.sideEffectAllowed)],
+    ["Resource", order.providerResource?.providerResourceId || "-"],
+    ["Blockers", order.gate?.blockers?.join(", ") || "-"]
+  ])).join("") || empty("No dedicated workload orders recorded.");
+
+  $("#workload-native-host-cards").innerHTML = state.workloadNativeHosts.map((host) => card(host.hostId, [
+    ["State", host.lifecycleState],
+    ["Server", host.serverNumber],
+    ["Product", host.productId],
+    ["Region", host.region],
+    ["Lab ready", String(host.readyForLabWorkloads)],
+    ["Production", String(host.productionExecutionAllowed)],
+    ["Checks", host.checks?.map((check) => `${check.key}:${check.status}`).join(", ") || "-"],
+    ["Blockers", host.productionBlockers?.join(", ") || "-"],
+    ["Next", host.nextActions?.join(", ") || "-"]
+  ])).join("") || empty("No workload-native hosts registered.");
+
+  $("#workload-image-manifest-cards").innerHTML = state.workloadImageManifests.map((manifest) => card(`${manifest.appName} / ${manifest.runtimeKind}`, [
+    ["Host", manifest.hostId],
+    ["Ready", String(manifest.readyForLabLaunch)],
+    ["Production", String(manifest.productionExecutionAllowed)],
+    ["Image", manifest.imageRef],
+    ["Stream", `${manifest.streamGateway?.bindAddress || "-"}:${manifest.streamGateway?.sourcePort || "-"}`],
+    ["CDR", manifest.cdrPolicyRef],
+    ["Checks", manifest.checks?.map((check) => `${check.key}:${check.status}`).join(", ") || "-"],
+    ["Blockers", manifest.productionBlockers?.join(", ") || "-"],
+    ["Next", manifest.nextActions?.join(", ") || "-"]
+  ])).join("") || empty("No workload image manifests registered.");
+
+  renderProductionReadiness();
+
   $("#live-rollback-plan-cards").innerHTML = state.liveRollbackPlans.map((plan) => card(plan.id, [
     ["Provider", plan.providerKey],
     ["Request", plan.requestId],
@@ -679,6 +802,36 @@ function render() {
     ["Secrets", String(item.secretsReleaseAllowed)]
   ])).join("") || empty("No CPU confidential-computing qualifications recorded.");
 
+  const blue = state.blueTeamDashboard;
+  setText("#blue-team-status", blue ? `Status: ${blue.status}` : "Status unavailable");
+  setText("#blue-team-cdr", blue ? `CDR mandatory: ${blue.cdrMandatoryForAllOperators}` : "CDR unavailable");
+  setText("#blue-team-content", blue ? `Content stored: ${blue.communicationContentStored}` : "No communication content");
+  $("#blue-team-metadata-cards").innerHTML = (blue?.metadataSignals || []).map((item) => card(item.key, [
+    ["Value", String(item.value)]
+  ])).join("") || empty("No blue-team metadata yet.");
+  $("#blue-team-alert-cards").innerHTML = (blue?.alerts || []).map((alert) => card(alert.summary || alert.signal, [
+    ["Signal", alert.signal],
+    ["Severity", alert.severity],
+    ["Operator", alert.operatorId || "-"],
+    ["Resource", alert.resource?.id || "-"],
+    ["Content stored", String(alert.contentStored)]
+  ])).join("") || empty("No alerts or anomalies.");
+  $("#blue-team-cdr-cards").innerHTML = (blue?.cdrCoverage || []).map((row) => card(row.displayName || row.operatorId, [
+    ["Status", row.status],
+    ["Mandatory", String(row.cdrMandatory)],
+    ["Decisions", String(row.decisions)],
+    ["Allowed", String(row.allowed)],
+    ["Quarantined", String(row.quarantined)],
+    ["Blocked", String(row.blocked)],
+    ["Content stored", String(row.contentStored)]
+  ])).join("") || empty("No operator CDR coverage.");
+  $("#blue-team-incident-cards").innerHTML = state.incidents.map((incident) => card(incident.sourceSignal, [
+    ["Severity", incident.severity],
+    ["Status", incident.status],
+    ["Operator", incident.operatorId || "-"],
+    ["Runbook", String(incident.runbookTasks?.length || 0)]
+  ])).join("") || empty("No incidents.");
+
   $("#phantom-execution-request-cards").innerHTML = state.phantomExecutionRequests.map((item) => card(item.packageId, [
     ["Status", item.status],
     ["Lab exec", String(item.labExecutionAllowed)],
@@ -712,6 +865,11 @@ function render() {
     ["Tier", plan.tier],
     ["Max envs", String(plan.maxWorkloadEnvironments)],
     ["Per app", String(plan.maxAppsPerOperator)],
+    ["Jurisdiction", `${plan.jurisdictionRotationMode} / min ${plan.jurisdictionPolicy?.minFrequencyHours || "-"}h`],
+    ["Countries", String(plan.jurisdictionPolicy?.maxCountries || plan.regionCount)],
+    ["Runtime classes", plan.providerPolicy?.allowedRuntimeClasses?.join(", ") || "-"],
+    ["Confidential req", String(plan.providerPolicy?.confidentialComputeRequired)],
+    ["Max session", `${plan.sessionPolicy?.maxHours || "-"}h`],
     ["PHANTOM exec", String(plan.phantomExecutionAllowed)]
   ])).join("") || empty("No subscription plans visible.");
 
@@ -969,6 +1127,99 @@ function render() {
   `).join("") || tableEmpty(5, "No audit events yet.");
 }
 
+function renderProductionReadiness() {
+  const readiness = state.productionReadiness;
+  const summaryTarget = $("#production-readiness-summary-cards");
+  const operatorTarget = $("#production-readiness-operator-cards");
+  const gateTarget = $("#production-readiness-production-gates-cards");
+  const appTarget = $("#production-readiness-app-cards");
+  if (!summaryTarget || !operatorTarget || !gateTarget || !appTarget) return;
+  if (!readiness) {
+    summaryTarget.innerHTML = empty("Production readiness unavailable.");
+    operatorTarget.innerHTML = empty("No operator readiness rows loaded.");
+    gateTarget.innerHTML = empty("No production gate matrix loaded.");
+    appTarget.innerHTML = empty("No app route evidence loaded.");
+    return;
+  }
+
+  summaryTarget.innerHTML = [
+    card("Operator readiness", [
+      ["Operators", String(readiness.summary?.operators || 0)],
+      ["Ready for human gate", String(readiness.summary?.readyForHumanGate || 0)],
+      ["Blocked", String(readiness.summary?.blocked || 0)],
+      ["Production exec", String(readiness.summary?.productionExecutionAllowed)]
+    ]),
+    card("10 production gates", [
+      ["Total", String(readiness.summary?.productionGates || 0)],
+      ["Ready for human gate", String(readiness.summary?.productionGatesReadyForHumanGate || 0)],
+      ["Blocked", String(readiness.summary?.productionGatesBlocked || 0)],
+      ["Prod exec", String(readiness.summary?.productionExecutionAllowed)]
+    ]),
+    card("Security invariants", [
+      ["Terminal data", "false"],
+      ["CDR", "mandatory"],
+      ["G1/G2 bypass", "blocked"],
+      ["HSM/FIDO2", "interface ready; physical test deferred"]
+    ]),
+    card("G2 Session Broker", [
+      ["Selected", readiness.sessionBroker?.selectedProtocol || "adr_pending"],
+      ["State", readiness.sessionBroker?.state || "blocked"],
+      ["Guacamole", String(readiness.sessionBroker?.candidates?.find((item) => item.protocol === "guacamole")?.ready || false)],
+      ["WebRTC/Selkies", String(readiness.sessionBroker?.candidates?.find((item) => item.protocol === "webrtc_selkies")?.ready || false)],
+      ["noVNC", readiness.sessionBroker?.noVncProductionApproved ? "approved" : "lab only"],
+      ["Blockers", readiness.sessionBroker?.blockers?.join(", ") || "none"]
+    ])
+  ].join("");
+
+  operatorTarget.innerHTML = readiness.operators.map((operator) => card(operator.displayName, [
+    ["Tier", operator.tier],
+    ["Status", operator.status],
+    ["Subscription", `${operator.subscription?.billingStatus || "-"} / ${operator.subscription?.minimumMonths || 6} mo min`],
+    ["Token flow", operator.subscription?.tokenState],
+    ["Infra cost", `${operator.cost?.monthlyInfraCostPln || 0} PLN/mo`],
+    ["Customer price", `${operator.cost?.monthlyCustomerPricePln || 0} PLN/mo`],
+    ["Margin", `${operator.cost?.grossMarginPln || 0} PLN/mo`],
+    ["Tenancy", operator.cost?.workloadTenancy],
+    ["G1", operator.infrastructure?.g1],
+    ["G2", operator.infrastructure?.g2],
+    ["Workload", operator.infrastructure?.workloadNative?.serverNumber || "not registered"],
+    ["Pixel", operator.path?.pixel],
+    ["Laptop", operator.path?.laptop],
+    ["G1/G2", operator.path?.g1g2],
+    ["G2/workload", operator.path?.g2Workload],
+    ["Broker", `${operator.sessionBroker?.selectedProtocol || "-"} / ${operator.sessionBroker?.state || "-"}`],
+    ["Blockers", operator.blockers?.slice(0, 6).join(", ") || "none"]
+  ])).join("") || empty("No operators in readiness matrix.");
+
+  gateTarget.innerHTML = (readiness.productionGates || []).map((gate) => card(gate.title, [
+    ["State", gate.state],
+    ["Area", gate.area],
+    ["Severity", gate.severity],
+    ["Human gate", String(gate.humanGateRequired)],
+    ["Prod exec", String(gate.productionExecutionAllowed)],
+    ["Evidence", Object.entries(gate.evidence || {})
+      .filter(([key, value]) => key.endsWith("Evidence") && value && typeof value === "object")
+      .map(([key, value]) => `${key}: ready=${String(value.ready)} records=${value.records ?? value.tokens ?? value.androidManifests ?? "-"}`)
+      .join("; ") || "-"],
+    ["Acceptance", gate.acceptance],
+    ["Verify", gate.verifyHow],
+    ["Repair", gate.repairAction],
+    ["Blockers", gate.blockers?.join(", ") || "none"]
+  ])).join("") || empty("No hard production gates recorded.");
+
+  appTarget.innerHTML = readiness.operators.flatMap((operator) => operator.apps.map((app) => card(`${operator.displayName} / ${app.label}`, [
+    ["State", app.state],
+    ["Expected", app.expected],
+    ["HTTP", app.httpStatus ? String(app.httpStatus) : "-"],
+    ["URL", app.url],
+    ["CDR", String(app.cdrRequired)],
+    ["Terminal data", String(app.terminalDataStored)],
+    ["Private route", String(app.privateRouteRequired)],
+    ["Prod exec", String(app.productionExecutionAllowed)],
+    ["Blockers", app.blockers?.join(", ") || "none"]
+  ]))).join("") || empty("No workload app routes in readiness matrix.");
+}
+
 function renderRelease() {
   const summary = state.releaseSummary;
   $("#release-decision").textContent = summary?.decision || "not evaluated";
@@ -998,10 +1249,36 @@ function renderRelease() {
   $("#human-test-run-cards").innerHTML = state.humanTestRuns.map((run) => card(run.title, [
     ["Status", run.status],
     ["Mode", run.mode],
+    ["Strict", run.humanEvidence?.strictResult || "-"],
     ["Results", String(run.results?.length || 0)],
     ["Evidence", String(run.evidenceArtifactIds?.length || 0)],
-    ["Prod exec", String(run.productionExecutionAllowed)]
+    ["Prod exec", String(run.productionExecutionAllowed)],
+    ["Blockers", run.humanEvidence?.blockers?.join(", ") || "-"],
+    ["Next", run.humanEvidence?.nextRequiredAction || "-"]
   ])).join("") || empty("No full human test runs recorded.");
+
+  $("#workload-factual-test-cards").innerHTML = state.workloadFactualTests.map((item) => card(`${item.appKey} / ${item.result}`, [
+    ["Operator", item.operatorId],
+    ["Terminal", item.terminalMode],
+    ["Runtime", item.runtimeMode],
+    ["Factual", String(item.factualStateVerified)],
+    ["Required", item.requiredChecks?.join(", ") || "-"],
+    ["Blockers", item.blockers?.join(", ") || "none"],
+    ["Problem", item.linkedProblemId || "-"]
+  ])).join("") || empty("No factual workload app tests recorded.");
+
+  $("#account-bootstrap-evidence-cards").innerHTML = state.accountBootstrapEvidence.map((item) => `
+    <article class="mini-card" data-account-bootstrap-id="${escapeHtml(item.id)}">
+      <strong>${escapeHtml(item.appName)} / ${escapeHtml(item.state)}</strong>
+      <p><span>Operator</span>${escapeHtml(item.operatorId)}</p>
+      <p><span>Terminal</span>${escapeHtml(item.terminalMode)}</p>
+      <p><span>Runtime</span>${escapeHtml(item.runtimeMode)}</p>
+      <p><span>Candidate</span>${escapeHtml(item.factualCandidate)}</p>
+      <p><span>Blockers</span>${escapeHtml(item.blockers?.join(", ") || "none")}</p>
+      <p><span>Promoted</span>${escapeHtml(item.promotedFactualTestId || "-")}</p>
+      <button type="button" data-bootstrap-promote="${escapeHtml(item.id)}" ${item.factualCandidate && !item.promotedFactualTestId ? "" : "disabled"}>Promote to factual test</button>
+    </article>
+  `).join("") || empty("No operator bootstrap evidence recorded.");
 
   $("#release-problem-cards").innerHTML = state.releaseProblems.map((problem) => card(problem.title, [
     ["Severity", problem.severity],
@@ -1312,6 +1589,11 @@ async function createOperator(event) {
     tier: data.tier,
     requestedTemplates: ["whatsapp", "signal", "telegram"]
   };
+  if (event.currentTarget.disposable.checked) {
+    body.disposable = true;
+    body.destructiveTestScope = data.destructiveTestScope || "operator_teardown_lab";
+    body.labels = splitCsv(data.labels || "DISPOSABLE");
+  }
   if (liveBaselineEnabled) {
     body.liveBaseline = {
       enabled: true,
@@ -1332,6 +1614,58 @@ async function createOperator(event) {
   toast(liveBaselineEnabled
     ? "Operator created with live baseline gate decision"
     : "Operator created with automatic G1/G2/WORKLOAD baseline");
+  await refreshAll();
+}
+
+async function createDisposableTeardownPlan(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.operatorId) {
+    toast("Select an operator before teardown plan", "warn");
+    return;
+  }
+  const result = await api(`/operators/${data.operatorId}/disposable-teardown-plan`, {
+    method: "POST",
+    body: {
+      requestedAction: data.requestedAction,
+      reason: data.reason
+    }
+  });
+  state.lastDisposableTeardownPlan = result.plan;
+  const box = $("#disposable-teardown-confirmation");
+  if (box) {
+    box.innerHTML = `
+      <strong>${escapeHtml(result.plan.requestedAction)} plan created</strong>
+      <p><span>Plan</span>${escapeHtml(result.plan.id)}</p>
+      <p><span>Operator</span>${escapeHtml(result.plan.operatorId)}</p>
+      <p><span>Confirmation</span>${escapeHtml(result.plan.confirmationPhrase || "not returned")}</p>
+      <p><span>Provider mutation</span>${escapeHtml(String(result.plan.guardrails?.providerMutationAllowed))}</p>
+    `;
+  }
+  toast("Disposable teardown plan created; confirmation phrase shown once in this browser session", "warn");
+  await refreshAll();
+  const planSelect = $("#disposable-teardown-plan-select");
+  if (planSelect) planSelect.value = result.plan.id;
+  const operatorSelect = $("#disposable-teardown-execute-operator-select");
+  if (operatorSelect) operatorSelect.value = result.plan.operatorId;
+}
+
+async function executeDisposableTeardown(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  if (!data.operatorId || !data.planId) {
+    toast("Select disposable operator and teardown plan", "warn");
+    return;
+  }
+  await api(`/operators/${data.operatorId}/disposable-teardown-execute`, {
+    method: "POST",
+    body: {
+      planId: data.planId,
+      confirmation: data.confirmation,
+      reason: data.reason
+    }
+  });
+  toast("Disposable operator control-plane teardown completed; audit retained", "warn");
   await refreshAll();
 }
 
@@ -1517,7 +1851,10 @@ async function createProvider(event) {
       providerType: data.providerType,
       apiSecret: data.apiSecret,
       regions: splitCsv(data.regions),
+      countries: splitCsv(data.countries).map((country) => country.toUpperCase()),
+      regionCatalog: parseRegionCatalog(data.regionCatalog),
       runtimeCapabilities: runtimeCapabilitiesForClass(data.runtimeClass),
+      metadata: { providerRole: data.providerRole },
       billingHealth: { status: "healthy" },
       testConnection: { mode: "mock", status: "passed" }
     }
@@ -1529,12 +1866,12 @@ async function createProvider(event) {
 
 function runtimeCapabilitiesForClass(runtimeClass) {
   if (runtimeClass === "firecracker") {
-    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, intelTdx: false, amdSevSnp: false, recommendedTier: "PRO" };
+    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, androidWorkloads: "kvm_binderfs_review_required", intelTdx: false, amdSevSnp: false, recommendedTier: "PRO" };
   }
   if (runtimeClass === "confidential") {
-    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, intelTdx: true, amdSevSnp: true, recommendedTier: "SOVEREIGN" };
+    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, androidWorkloads: "kvm_binderfs_review_required", intelTdx: true, amdSevSnp: true, recommendedTier: "SOVEREIGN" };
   }
-  return { containers: true, nestedKvm: false, bareMetalKvm: false, firecracker: false, intelTdx: false, amdSevSnp: false, recommendedTier: "STANDARD" };
+  return { containers: true, nestedKvm: false, bareMetalKvm: false, firecracker: false, androidWorkloads: false, intelTdx: false, amdSevSnp: false, recommendedTier: "STANDARD" };
 }
 
 async function createProviderDryRunPlan(event) {
@@ -1638,6 +1975,33 @@ async function runProviderRehearsal(event) {
   await refreshAll();
 }
 
+async function createDedicatedWorkloadOrder(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await withStepUpRetry(() => api("/live-execution/dedicated-workload/hetzner-robot/order", {
+    method: "POST",
+    body: {
+      providerId: data.providerId,
+      operatorId: data.operatorId,
+      approvalId: data.approvalId,
+      productId: data.productId,
+      region: data.region,
+      dist: data.dist,
+      authorizedKeyRef: data.authorizedKeyRef,
+      addons: splitCsv(data.addons),
+      maxMonthlyPrice: data.maxMonthlyPrice ? Number(data.maxMonthlyPrice) : null,
+      workloadTenancyMode: data.workloadTenancyMode,
+      phantomSensitive: event.currentTarget.phantomSensitive.checked,
+      orderMode: data.orderMode,
+      liveConfirmed: event.currentTarget.liveConfirmed.checked,
+      costConfirmed: event.currentTarget.costConfirmed.checked,
+      hardwareGateConfirmed: event.currentTarget.hardwareGateConfirmed.checked
+    }
+  }), "Dedicated Workload Order");
+  toast("Dedicated workload order gate recorded");
+  await refreshAll();
+}
+
 async function qualifyFirecrackerHost(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
@@ -1649,6 +2013,46 @@ async function qualifyFirecrackerHost(event) {
     }
   }), "Firecracker Host Qualification");
   toast("Firecracker host qualification recorded");
+  await refreshAll();
+}
+
+async function createWorkloadImageManifest(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const form = event.currentTarget.elements;
+  await withStepUpRetry(() => api("/live-execution/workload-images/manifests", {
+    method: "POST",
+    body: {
+      hostId: data.hostId,
+      appKey: data.appKey,
+      appName: data.appName,
+      runtimeKind: data.runtimeKind,
+      imageRef: data.imageRef,
+      kernelRef: data.kernelRef || null,
+      rootfsRef: data.rootfsRef || null,
+      packageRef: data.packageRef || null,
+      cdrPolicyRef: data.cdrPolicyRef,
+      streamGateway: {
+        bindAddress: data.bindAddress,
+        sourcePort: Number(data.sourcePort),
+        throughG2: form.namedItem("throughG2").checked,
+        pixelOptimized: form.namedItem("pixelOptimized").checked,
+        publicExposureAllowed: false
+      },
+      launchManifest: {
+        networkMode: data.networkMode,
+        storageMode: data.storageMode
+      },
+      buildEvidence: {
+        reproducibleBuild: form.namedItem("reproducibleBuild").checked,
+        cdrHookDeclared: form.namedItem("cdrHookDeclared").checked,
+        binderfs: form.namedItem("binderfs").checked,
+        androidRuntime: form.namedItem("androidRuntime").checked
+      },
+      productionBlockers: splitCsv(data.productionBlockers)
+    }
+  }), "Workload Image Manifest");
+  toast("Workload image manifest recorded");
   await refreshAll();
 }
 
@@ -2278,6 +2682,82 @@ async function recordHumanTestRun(event) {
   await refreshAll();
 }
 
+function factualCheck(checked, passedEvidence, blockedNote = "Not proven in this run") {
+  return checked
+    ? { status: "passed", evidence: passedEvidence }
+    : { status: "blocked", note: blockedNote };
+}
+
+async function recordWorkloadFactualTest(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = formData(form);
+  if (!data.operatorId) {
+    toast("Select an operator before recording factual app test", "warn");
+    return;
+  }
+  await api("/release/workload-factual-tests", {
+    method: "POST",
+    body: {
+      operatorId: data.operatorId,
+      appKey: data.appKey,
+      terminalMode: data.terminalMode,
+      runtimeMode: data.runtimeMode,
+      result: data.result,
+      checks: {
+        uiVisible: factualCheck(form.uiVisible.checked, "UI visible through selected terminal"),
+        accountBootstrap: factualCheck(form.accountBootstrap.checked, "Account created or linked in workload"),
+        sendReceive: factualCheck(form.sendReceive.checked, "Send/receive test completed"),
+        browsing: factualCheck(form.browsing.checked, "External page opened through workload browser"),
+        documentWorkflow: factualCheck(form.documentWorkflow.checked, "Document create/open/save test completed"),
+        walletWorkflow: factualCheck(form.walletWorkflow.checked, "Test-only wallet workflow completed"),
+        riskAcceptance: factualCheck(form.riskAcceptance.checked, "Operator risk acceptance recorded")
+      },
+      evidenceArtifactIds: splitCsv(data.evidenceArtifactIds),
+      note: data.note
+    }
+  });
+  toast("Factual workload app test recorded");
+  await refreshAll();
+}
+
+async function promoteAccountBootstrapEvidence(event) {
+  const sessionId = event.target.dataset.bootstrapPromote;
+  if (!sessionId) return;
+  await api(`/release/account-bootstrap-evidence/${encodeURIComponent(sessionId)}/promote`, {
+    method: "POST",
+    body: {
+      note: `Admin QA promoted account bootstrap evidence ${sessionId}`
+    }
+  });
+  toast("Account bootstrap evidence promoted to factual test");
+  await refreshAll();
+}
+
+async function recordBlueTeamSignal(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const operator = state.operators.find((item) => item.id === data.operatorId);
+  await api("/monitoring/signals", {
+    method: "POST",
+    body: {
+      signal: data.signal,
+      tenantId: operator?.tenantId || null,
+      operatorId: data.operatorId || null,
+      resource: {
+        id: data.resourceId,
+        kind: "blue_team_signal"
+      },
+      details: {
+        detector: "admin_blue_team_panel",
+        evidenceRef: data.evidenceRef
+      }
+    }
+  });
+  toast("Blue-team signal recorded");
+  await refreshAll();
+}
+
 async function handleCredentialAction(event) {
   const action = event.target.dataset.credentialAction;
   if (!action) return;
@@ -2596,6 +3076,7 @@ function setView(name) {
     subscriptions: ["Subscriptions", "Manage tiers, add-ons, workload quotas and billing state."],
     devices: ["Devices", "Register Pixel, Puli AX and FIDO2 assets."],
     providers: ["Providers", "Add provider accounts without retaining plaintext secrets."],
+    "blue-team": ["Blue Team", "Metadata-only defensive monitoring, CDR coverage, alerts and anomalies."],
     security: ["Security", "Review core V2 security boundaries."],
     phantom: ["PHANTOM", "Governance-only separate track with HUMAN GATE."],
     release: ["Release", "Production readiness gates, human tests, problem registry and evidence."],
@@ -2610,6 +3091,8 @@ function bind() {
   $("#enroll-button").addEventListener("click", () => enrollSecurityKey().catch(showError));
   $("#tenant-form").addEventListener("submit", (event) => createTenant(event).catch(showError));
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
+  $("#disposable-teardown-plan-form").addEventListener("submit", (event) => createDisposableTeardownPlan(event).catch(showError));
+  $("#disposable-teardown-execute-form").addEventListener("submit", (event) => executeDisposableTeardown(event).catch(showError));
   $("#pipeline-draft-form").addEventListener("submit", (event) => createPipelineDraft(event).catch(showError));
   $("#local-lab-vps-form").addEventListener("submit", (event) => createLocalLabVpsSet(event).catch(showError));
   $("#secrets-release-check-form").addEventListener("submit", (event) => checkSecretsRelease(event).catch(showError));
@@ -2627,6 +3110,8 @@ function bind() {
   $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));
   $("#baseline-promotion-form").addEventListener("submit", (event) => promoteOperatorBaselineToLive(event).catch(showError));
   $("#provider-rehearsal-form").addEventListener("submit", (event) => runProviderRehearsal(event).catch(showError));
+  $("#dedicated-order-form").addEventListener("submit", (event) => createDedicatedWorkloadOrder(event).catch(showError));
+  $("#workload-image-manifest-form").addEventListener("submit", (event) => createWorkloadImageManifest(event).catch(showError));
   $("#firecracker-qualification-form").addEventListener("submit", (event) => qualifyFirecrackerHost(event).catch(showError));
   $("#firecracker-rehearsal-form").addEventListener("submit", (event) => runFirecrackerLaunchRehearsal(event).catch(showError));
   $("#cpu-confidential-qualification-form").addEventListener("submit", (event) => qualifyCpuConfidentialHost(event).catch(showError));
@@ -2666,6 +3151,9 @@ function bind() {
   $("#release-problem-form").addEventListener("submit", (event) => createReleaseProblem(event).catch(showError));
   $("#human-test-status-form").addEventListener("submit", (event) => updateHumanTestStatus(event).catch(showError));
   $("#human-test-run-form").addEventListener("submit", (event) => recordHumanTestRun(event).catch(showError));
+  $("#workload-factual-test-form").addEventListener("submit", (event) => recordWorkloadFactualTest(event).catch(showError));
+  $("#account-bootstrap-evidence-cards").addEventListener("click", (event) => promoteAccountBootstrapEvidence(event).catch(showError));
+  $("#blue-team-signal-form").addEventListener("submit", (event) => recordBlueTeamSignal(event).catch(showError));
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
   $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));

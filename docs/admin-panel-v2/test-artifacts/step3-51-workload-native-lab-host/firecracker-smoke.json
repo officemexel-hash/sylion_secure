@@ -1,0 +1,12 @@
+{
+  "hostRole": "WORKLOAD_NATIVE_LAB_01",
+  "microvmStarted": true,
+  "state": "Running",
+  "kvmDevice": "present",
+  "kernelSource": "https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/x86_64/kernels/vmlinux.bin",
+  "rootfsSource": "https://s3.amazonaws.com/spec.ccfc.min/img/quickstart_guide/x86_64/rootfs/bionic.rootfs.ext4",
+  "logPath": "/opt/sylion/logs/firecracker-smoke.log",
+  "terminalDataStored": false,
+  "productionExecutionAllowed": false,
+  "generatedAt": "2026-05-22T15:50:13+02:00"
+}

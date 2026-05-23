@@ -10,25 +10,39 @@
 
   const state = {
     operatorToken: sessionStorage.getItem("sylion.operator.token") || null,
-    session: JSON.parse(sessionStorage.getItem("sylion.operator.session") || "null")
+    session: JSON.parse(sessionStorage.getItem("sylion.operator.session") || "null"),
+    cookieBound: false
   };
 
-  function bootstrapLocalLabToken() {
+  async function bootstrapOperatorToken() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("op_token");
     const localhost = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname);
-    if (!token || !localhost || !token.startsWith("op_")) return;
-    state.operatorToken = token;
-    sessionStorage.setItem("sylion.operator.token", token);
-    params.delete("op_token");
-    const cleanSearch = params.toString();
-    window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${window.location.hash}`);
+    const internalHost = window.location.protocol === "https:" && window.location.hostname.endsWith(".sylion.internal");
+    if (token && (localhost || internalHost) && token.startsWith("op_")) {
+      state.operatorToken = token;
+      params.delete("op_token");
+      const cleanSearch = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${window.location.hash}`);
+      const attached = await attachOperatorSessionCookie();
+      if (!attached) {
+        sessionStorage.setItem("sylion.operator.token", token);
+        setText("#session-status", internalHost ? "Operator session received through internal VPN link." : "Operator session received through local lab link.");
+      }
+      return;
+    }
+    if (state.operatorToken) {
+      await attachOperatorSessionCookie();
+      return;
+    }
+    await recoverOperatorCookieSession();
   }
 
   function headers(extra = {}) {
     return {
       "content-type": "application/json",
       "x-correlation-id": `corr_operator_web_${crypto.randomUUID()}`,
+      "x-sylion-operator-csrf": "same-origin-ui",
       ...(state.operatorToken ? { authorization: `Bearer ${state.operatorToken}` } : {}),
       ...extra
     };
@@ -52,6 +66,40 @@
     }
   }
 
+  async function attachOperatorSessionCookie() {
+    if (!state.operatorToken) return false;
+    const res = await fetch("/operator-api/sessions/attach", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_operator_web_attach_${crypto.randomUUID()}`,
+        authorization: `Bearer ${state.operatorToken}`
+      }
+    });
+    const payload = await res.json();
+    if (!res.ok) return false;
+    state.session = payload.session;
+    state.operatorToken = null;
+    state.cookieBound = true;
+    sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
+    sessionStorage.removeItem("sylion.operator.token");
+    setText("#session-status", `Session bound to this operator browser context (${payload.session.terminalMode}).`);
+    return true;
+  }
+
+  async function recoverOperatorCookieSession() {
+    const payload = await fetchJson("/operator-api/sessions/current");
+    if (payload.error || !payload.session) return false;
+    state.session = payload.session;
+    state.operatorToken = null;
+    state.cookieBound = true;
+    sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
+    sessionStorage.removeItem("sylion.operator.token");
+    setText("#session-status", `Session restored for ${payload.session.operatorId} (${payload.session.terminalMode}).`);
+    return true;
+  }
+
   function setActiveView(viewId) {
     $$(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
     $$(".sidebar a").forEach((link) => link.classList.toggle("active", link.dataset.view === viewId));
@@ -66,6 +114,16 @@
     if (window.history && window.history.replaceState) {
       window.history.replaceState(null, "", "#" + viewId);
     }
+    loadViewData(viewId);
+  }
+
+  function handleInternalSwitcher(event) {
+    const link = event.target.closest("a[data-view]");
+    if (!link || !link.closest("#app-switcher")) return;
+    event.preventDefault();
+    const viewId = link.dataset.view;
+    setActiveView(viewId);
+    window.history.replaceState(null, "", "#" + viewId);
     loadViewData(viewId);
   }
 
@@ -101,14 +159,17 @@
     state.session = payload.session;
     state.operatorToken = payload.session.token;
     sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
-    sessionStorage.setItem("sylion.operator.token", payload.session.token);
-    setText("#session-status", `Session active for ${payload.session.operatorId} (${payload.session.terminalMode})`);
+    const attached = await attachOperatorSessionCookie();
+    if (!attached) {
+      sessionStorage.setItem("sylion.operator.token", payload.session.token);
+      setText("#session-status", `Session active for ${payload.session.operatorId} (${payload.session.terminalMode})`);
+    }
     await loadOverview();
   }
 
   async function loadOverview() {
     setText("#terminal-mode", detectTerminalMode());
-    if (!state.operatorToken) {
+    if (!state.operatorToken && !state.session) {
       setText("#operator-session", "Not connected");
       setText("#vpn-overview", "Configuration pending");
       return;
@@ -279,8 +340,11 @@
     if (form) {
       form.elements.mode.value = p.mode;
       form.elements.regions.value = (p.regions || []).join(",");
+      form.elements.countries.value = (p.countries || []).join(",");
+      form.elements.providers.value = (p.providers || []).join(",");
+      form.elements.frequencyHours.value = p.frequencyHours || "";
     }
-    list.innerHTML = `<li><strong>${escapeHtml(p.mode)}</strong><span>tier mode: ${escapeHtml(p.subscriptionMode)} | regions: ${escapeHtml((p.regions || []).join(", ") || "none")} | state: ${escapeHtml(p.state)}</span></li>`;
+    list.innerHTML = `<li><strong>${escapeHtml(p.mode)}</strong><span>tier mode: ${escapeHtml(p.subscriptionMode)} | countries: ${escapeHtml((p.countries || []).join(", ") || "none")} | providers: ${escapeHtml((p.providers || []).join(", ") || "none")} | every ${escapeHtml(p.frequencyHours || "-")}h | scopes: ${escapeHtml((p.rotationScopes || []).join(", ") || "none")} | state: ${escapeHtml(p.state)}</span></li>`;
   }
 
   async function saveJurisdictionPolicy(event) {
@@ -290,7 +354,10 @@
       method: "POST",
       body: {
         mode: data.mode,
-        regions: splitCsv(data.regions)
+        regions: splitCsv(data.regions),
+        countries: splitCsv(data.countries),
+        providers: splitCsv(data.providers),
+        frequencyHours: Number(data.frequencyHours)
       }
     });
     setText("#session-status", result.error || "Jurisdiction policy saved");
@@ -355,12 +422,69 @@
     setText("#vpn-g2", data.vpn.endpoints.g2 || "-");
     setText("#vpn-workload", data.vpn.endpoints.workload || "-");
     setText("#vpn-handshake", data.vpn.lastHandshake || "-");
+    if (data.vpn.liveEvidence) {
+      setText("#vpn-evidence-status", data.vpn.liveEvidence.ready
+        ? `Live evidence active: ${data.vpn.liveEvidence.observedAt}`
+        : `Evidence incomplete: ${(data.vpn.liveEvidence.blockers || []).join(", ")}`);
+    }
     const install = await fetchJson("/operator-api/vpn-install-package");
     if (!install.error) {
       setText("#vpn-install-state", install.package.installState);
       setText("#vpn-install-type", install.package.packageType);
       setText("#vpn-install-blockers", (install.package.requires || []).join(", "));
     }
+    const ca = await fetchJson("/operator-api/pixel-ca-provisioning");
+    if (!ca.error) {
+      const recommended = (ca.package.installMethods || []).find((item) => item.status === "recommended") || ca.package.installMethods?.[0];
+      setText("#ca-package-type", ca.package.packageType);
+      setText("#ca-trust-scope", (ca.package.trustScope || []).join(", "));
+      setText("#ca-install-method", recommended?.method || "-");
+      setText("#ca-fingerprint", ca.package.caFingerprintSha256 || "pending profile fingerprint");
+      const steps = $("#ca-install-steps");
+      if (steps) {
+        steps.innerHTML = (recommended?.steps || []).map((step) => `<li><strong>${escapeHtml(step)}</strong><span>GrapheneOS user-present install step.</span></li>`).join("") || `<li class="placeholder">No CA provisioning steps available.</li>`;
+      }
+    }
+    const laptop = await fetchJson("/operator-api/laptop-access-package");
+    if (!laptop.error) {
+      setText("#laptop-package-type", laptop.package.packageType);
+      setText("#laptop-package-transport", laptop.package.transport);
+      setText("#laptop-package-entrypoints", (laptop.package.browserThinClient?.entrypoints || []).join(", "));
+      setText("#laptop-package-validation", (laptop.package.validation?.requiredChecks || []).join(", "));
+    }
+  }
+
+  async function prepareWorkloadBroker(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson(`/operator-api/workload-session-broker/${encodeURIComponent(data.templateKey)}`);
+    if (result.error) {
+      setText("#workload-broker-status", result.error);
+      return;
+    }
+    const broker = result.broker;
+    setText("#workload-broker-status", `${broker.appName}: ${broker.state} | ${broker.authMode} | blockers: ${(broker.blockers || []).join(", ") || "none"} | ${broker.url}`);
+  }
+
+  async function recordVpnEvidence(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/vpn-evidence", {
+      method: "POST",
+      body: {
+        vpnConnected: data.vpnConnected === "on",
+        vpnSession: "SYLION",
+        vpnInterface: data.vpnInterface,
+        dnsThroughTunnel: data.dnsThroughTunnel === "on",
+        certificateTrusted: data.certificateTrusted === "on",
+        reachableHosts: splitCsv(data.reachableHosts)
+      }
+    });
+    setText("#vpn-evidence-status", result.error || (result.evidence.ready
+      ? `Live VPN evidence accepted: ${result.evidence.observedAt}`
+      : `Evidence incomplete: ${(result.evidence.blockers || []).join(", ")}`));
+    await loadVpn();
+    await loadAudit();
   }
 
   async function loadConnectionPath() {
@@ -397,6 +521,104 @@
     }
   }
 
+  async function loadTrafficMonitoring() {
+    const data = await fetchJson("/operator-api/traffic-monitoring");
+    if (data.error) {
+      setText("#traffic-state", data.error);
+      return;
+    }
+    const monitoring = data.monitoring || {};
+    const summary = monitoring.summary || {};
+    setText("#traffic-state", summary.state || "-");
+    setText("#traffic-healthy", String(summary.healthy ?? "-"));
+    setText("#traffic-degraded", String(summary.degraded ?? "-"));
+    setText("#traffic-blocked", String(summary.blocked ?? "-"));
+    setText("#traffic-alert-count", String(summary.alerts ?? "-"));
+    const segments = $("#traffic-segments");
+    if (segments) {
+      segments.innerHTML = (monitoring.segments || []).map((segment) => `
+        <li>
+          <strong>${escapeHtml(segment.from)} -> ${escapeHtml(segment.to)}: ${escapeHtml(segment.status)}</strong>
+          <span>${escapeHtml(segment.observedTransport || segment.expectedTransport)} | encrypted ${escapeHtml(segment.encrypted)} | latency ${escapeHtml(segment.latencyMs ?? "-")} ms</span>
+          <span>blockers: ${escapeHtml((segment.blockers || []).join(", ") || "-")}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No traffic segments available.</li>`;
+    }
+    const alerts = $("#traffic-alerts");
+    if (alerts) {
+      alerts.innerHTML = (monitoring.alerts || []).map((alert) => `
+        <li>
+          <strong>${escapeHtml(alert.severity)}: ${escapeHtml(alert.code)}</strong>
+          <span>${escapeHtml(alert.message)}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No active traffic alerts.</li>`;
+    }
+    const guardrails = $("#traffic-guardrails");
+    if (guardrails) {
+      guardrails.innerHTML = Object.entries(monitoring.guardrails || {}).map(([key, value]) => `
+        <li><strong>${escapeHtml(key)}</strong><span>${escapeHtml(value)}</span></li>
+      `).join("") || `<li class="placeholder">No guardrails reported.</li>`;
+    }
+  }
+
+  async function recordTrafficEvidence(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/traffic-monitoring/evidence", {
+      method: "POST",
+      body: {
+        segmentId: data.segmentId,
+        status: data.status,
+        encrypted: data.encrypted === "on",
+        transport: data.transport || undefined,
+        latencyMs: data.latencyMs ? Number(data.latencyMs) : null,
+        packetLossPct: data.packetLossPct ? Number(data.packetLossPct) : null,
+        bytesIn: data.bytesIn ? Number(data.bytesIn) : null,
+        bytesOut: data.bytesOut ? Number(data.bytesOut) : null,
+        evidenceRefs: splitCsv(data.evidenceRefs)
+      }
+    });
+    setText("#traffic-evidence-status", result.error || `Traffic metadata recorded: ${result.evidence.segmentId} ${result.evidence.status}`);
+    await loadTrafficMonitoring();
+    await loadAudit();
+  }
+
+  async function loadLiveAccess() {
+    const data = await fetchJson("/operator-api/live-access-foundation");
+    if (data.error) {
+      setText("#live-access-state", data.error);
+      return;
+    }
+    const foundation = data.foundation;
+    setText("#live-access-state", foundation.state);
+    setText("#live-access-phase", foundation.phase);
+    setText("#live-access-vpn", `${foundation.vpn.state} | evidence ${foundation.vpn.evidenceReady}`);
+    setText("#live-access-ca", foundation.ca.trustedOnPixel ? "trusted_on_pixel" : "not_trusted_on_pixel");
+    setText("#live-access-blockers", (foundation.blockers || []).join(", ") || "-");
+    const checks = $("#live-access-checks");
+    if (checks) {
+      checks.innerHTML = (foundation.checks || []).map((check) => `
+        <li>
+          <strong>${escapeHtml(check.key)}: ${escapeHtml(check.status)}</strong>
+          <span>${escapeHtml(check.detail)}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No live access checks.</li>`;
+    }
+    const apps = $("#live-access-apps");
+    if (apps) {
+      apps.innerHTML = (foundation.appGateways || []).map((app) => `
+        <li>
+          <strong>${escapeHtml(app.templateKey)}: ${escapeHtml(app.brokerState)}</strong>
+          <span>${escapeHtml(app.host)} | ${escapeHtml(app.runtimeClass)} | CDR ${escapeHtml(app.cdrRequired)}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No app gateways.</li>`;
+    }
+    const next = $("#live-access-next");
+    if (next) {
+      next.innerHTML = (foundation.nextActions || []).map((action) => `<li><strong>${escapeHtml(action)}</strong></li>`).join("") || `<li><strong>Live access foundation is ready for the workload broker.</strong></li>`;
+    }
+  }
+
   async function loadStreaming() {
     const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
     const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
@@ -417,6 +639,101 @@
     if (frame) {
       frame.style.aspectRatio = `${stream.targetWidth} / ${stream.targetHeight}`;
     }
+  }
+
+  async function requestStreamSession(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
+    const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
+    const dpr = Number(window.devicePixelRatio || 1).toFixed(2);
+    const result = await fetchJson("/operator-api/streaming-sessions", {
+      method: "POST",
+      body: {
+        templateKey: data.templateKey,
+        protocol: data.protocol,
+        width,
+        height,
+        dpr
+      }
+    });
+    if (result.error) {
+      setText("#stream-session-state", result.error);
+      return;
+    }
+    const session = result.session;
+    setText("#stream-session-state", session.state);
+    setText("#stream-session-gateway", `${session.gateway.host} | ${session.gateway.protocol}`);
+    setText("#stream-session-broker", `${session.gateway.broker?.protocol || session.gateway.protocol} | ${session.gateway.broker?.labOnly ? "lab only" : "production candidate"}`);
+    setText("#stream-session-url", session.launchUrl || "blocked_until_gate_passes");
+    setText("#stream-session-blockers", (session.blockers || []).join(", ") || "-");
+    const center = $(".stream-center span");
+    if (center) {
+      center.textContent = session.state === "stream_session_ready"
+        ? `${session.appName} stream ready through G2`
+        : `${session.appName} stream blocked by gates`;
+    }
+    await loadAudit();
+  }
+
+  async function recordStreamReadiness(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const sources = Object.fromEntries(splitCsv(data.sources).map((key) => [key, true]));
+    const result = await fetchJson("/operator-api/streaming-readiness", {
+      method: "POST",
+      body: {
+        g2StreamGatewayReady: data.g2StreamGatewayReady === "on",
+        tlsInternalOnly: data.tlsInternalOnly === "on",
+        inputProxyReady: data.inputProxyReady === "on",
+        publicInternetExposure: false,
+        protocol: data.protocol,
+        sources
+      }
+    });
+    setText("#stream-readiness-status", result.error || (result.evidence.ready
+      ? `Stream readiness accepted: ${result.evidence.observedAt}`
+      : `Readiness incomplete: ${(result.evidence.blockers || []).join(", ")}`));
+    await loadAudit();
+  }
+
+  function parseRuntimeSources(value) {
+    const sources = {};
+    for (const item of splitCsv(value)) {
+      const [templateKey, bindAddress, port] = item.split(":").map((part) => part.trim());
+      if (!templateKey || !bindAddress) continue;
+      sources[templateKey] = {
+        process: `${templateKey}-stream-source`,
+        bindAddress,
+        port: Number(port || 7900),
+        healthPath: "/healthz",
+        cdrRequired: true
+      };
+    }
+    return sources;
+  }
+
+  async function recordStreamRuntimeManifest(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/streaming-runtime-manifest", {
+      method: "POST",
+      body: {
+        gateway: {
+          process: "sylion-g2-stream-gateway",
+          bindAddress: data.gatewayBindAddress,
+          port: Number(data.gatewayPort || 8443),
+          protocol: data.protocol,
+          tlsMode: "internal_tls_only",
+          publicInternetExposure: false
+        },
+        sources: parseRuntimeSources(data.sources)
+      }
+    });
+    setText("#stream-runtime-status", result.error || (result.manifest.ready
+      ? `Runtime manifest accepted: ${result.manifest.id}`
+      : `Runtime manifest blocked: ${(result.manifest.blockers || []).join(", ")}`));
+    await loadAudit();
   }
 
   async function loadSignalPreview() {
@@ -481,6 +798,124 @@
     }
   }
 
+  async function loadRuntimeGate(templateKey = $("#runtime-gate-form")?.elements.templateKey?.value || "zangi") {
+    const data = await fetchJson(`/operator-api/workload-execution/${encodeURIComponent(templateKey)}`);
+    if (data.error) {
+      setText("#runtime-gate-state", data.error);
+      return;
+    }
+    const execution = data.execution || {};
+    const androidRuntime = execution.runtime?.substrate?.androidRuntime || {};
+    setText("#runtime-gate-app", execution.appName || templateKey);
+    setText("#runtime-gate-kind", execution.runtime?.kind || "-");
+    setText("#runtime-gate-runner", execution.runtime?.runner || "-");
+    setText("#runtime-gate-state", execution.readinessState || "-");
+    setText("#runtime-gate-android-fit", androidRuntime.required ? androidRuntime.currentProviderFit : "not required");
+    const list = $("#runtime-gate-list");
+    if (list) {
+      const blockers = execution.blockers || [];
+      const checks = androidRuntime.checks || [];
+      list.innerHTML = [
+        ...checks.map((check) => `<li><strong>${escapeHtml(check.key)}: ${escapeHtml(check.status)}</strong><span>${escapeHtml(check.detail)}</span></li>`),
+        ...blockers.map((blocker) => `<li><strong>${escapeHtml(blocker)}</strong><span>Blocks production launch for this workload.</span></li>`)
+      ].join("") || `<li><strong>ready</strong><span>No runtime blockers detected.</span></li>`;
+    }
+  }
+
+  async function handleRuntimeGate(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    await loadRuntimeGate(data.templateKey || "zangi");
+  }
+
+  async function loadAccountBootstrap() {
+    const data = await fetchJson("/operator-api/account-bootstrap");
+    if (data.error) {
+      setText("#account-bootstrap-status", data.error);
+      return;
+    }
+    const bootstrap = data.bootstrap || {};
+    const catalog = $("#account-bootstrap-catalog");
+    if (catalog) {
+      catalog.innerHTML = (bootstrap.catalog || []).map((app) => `
+        <article class="app-tile">
+          <div>
+            <strong>${escapeHtml(app.name)}</strong>
+            <span>${escapeHtml(app.category)} | ${escapeHtml(app.defaultRuntimeMode)} | ${escapeHtml(app.defaultMode)}</span>
+          </div>
+          <div class="app-tile-meta">
+            <span class="badge">checks ${escapeHtml((app.requiredChecks || []).join("+"))}</span>
+            <span class="badge">CDR ${escapeHtml(app.cdrRequired)}</span>
+            <span class="badge badge-warn">QA review</span>
+          </div>
+        </article>
+      `).join("") || `<div class="placeholder">No bootstrap-capable apps.</div>`;
+    }
+    const list = $("#account-bootstrap-list");
+    if (list) {
+      list.innerHTML = (bootstrap.latestSessions || []).map((session) => `
+        <li>
+          <strong>${escapeHtml(session.appName)} - ${escapeHtml(session.state)}</strong>
+          <span>${escapeHtml(session.id)} | ${escapeHtml(session.mode)} | ${escapeHtml(session.runtimeMode)} | factual candidate ${escapeHtml(session.factualCandidate)}</span>
+          <span>blockers: ${escapeHtml((session.blockers || []).join(", ") || "-")}</span>
+        </li>
+      `).join("") || `<li class="placeholder">No bootstrap sessions yet.</li>`;
+    }
+  }
+
+  async function requestAccountBootstrap(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const result = await fetchJson("/operator-api/account-bootstrap/sessions", {
+      method: "POST",
+      body: {
+        appKey: data.appKey,
+        mode: data.mode,
+        runtimeMode: data.runtimeMode,
+        approvedPhoneProviderRef: data.approvedPhoneProviderRef || null
+      }
+    });
+    if (result.error) {
+      setText("#account-bootstrap-status", result.error);
+      return;
+    }
+    setText("#account-bootstrap-status", `Bootstrap session created: ${result.session.id}`);
+    const evidenceForm = $("#account-bootstrap-evidence-form");
+    if (evidenceForm) evidenceForm.elements.sessionId.value = result.session.id;
+    await loadAccountBootstrap();
+    await loadAudit();
+  }
+
+  async function recordAccountBootstrapEvidence(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const sessionId = String(data.sessionId || "").trim();
+    if (!sessionId) {
+      setText("#account-bootstrap-status", "Select a bootstrap session first.");
+      return;
+    }
+    const pass = (checked) => ({ status: checked === "on" ? "passed" : "not_run" });
+    const result = await fetchJson(`/operator-api/account-bootstrap/sessions/${encodeURIComponent(sessionId)}/evidence`, {
+      method: "POST",
+      body: {
+        result: data.result,
+        checks: {
+          uiVisible: pass(data.uiVisible),
+          accountBootstrap: pass(data.accountBootstrap),
+          sendReceive: pass(data.sendReceive),
+          walletWorkflow: pass(data.walletWorkflow),
+          riskAcceptance: pass(data.riskAcceptance)
+        },
+        evidenceArtifactIds: splitCsv(data.evidenceArtifactIds),
+        latencyMs: data.latencyMs ? Number(data.latencyMs) : null,
+        note: data.note || null
+      }
+    });
+    setText("#account-bootstrap-status", result.error || `Evidence recorded: ${result.session.state}`);
+    if (!result.error) await loadAccountBootstrap();
+    await loadAudit();
+  }
+
   async function loadAudit() {
     const list = $("#audit-list");
     if (!list) return;
@@ -538,6 +973,12 @@
     setText("#workload-control-quota", `${c.quota.tier}: ${c.quota.maxWorkloadEnvironments} environments, ${c.quota.maxAppsPerOperator} app families`);
     setText("#workload-control-current", countsToText(c.currentCounts));
     setText("#workload-control-last", c.latestRequest ? `${c.latestRequest.action} -> ${c.latestRequest.state} (${c.latestRequest.totalRequested}/${c.quota.maxWorkloadEnvironments})` : "none");
+    const runnerForm = $("#workload-live-runner-form");
+    if (runnerForm && c.latestRequest?.executionPlan?.liveRunner) {
+      runnerForm.elements.requestId.value = c.latestRequest.id;
+    }
+    renderLiveRunnerJob(c.latestJob || c.latestRequest?.liveJob || null);
+    renderWorkloadCatalog(c);
     const form = $("#workload-control-form");
     if (form) {
       const counts = c.latestDesiredCounts || c.currentCounts || {};
@@ -545,6 +986,7 @@
         if (form.elements[key]) form.elements[key].value = value;
       });
     }
+    renderWorkloadPreview(c.latestDesiredCounts || c.currentCounts || {}, c.latestRequest);
   }
 
   async function requestWorkloadControl(event) {
@@ -559,7 +1001,8 @@
       "matrix_client",
       "matrix_server",
       "duckduckgo_browser",
-      "libreoffice"
+      "libreoffice",
+      "exodus"
     ];
     const desiredCounts = Object.fromEntries(appKeys.map((key) => [key, Number(data[key] || 0)]));
     const result = await fetchJson("/operator-api/workload-control/requests", {
@@ -571,8 +1014,108 @@
       }
     });
     setText("#session-status", result.error || `Workload control queued: ${result.request.state}`);
+    const preview = $("#workload-control-preview");
+    if (preview && result.request?.executionPlan) {
+      preview.classList.remove("placeholder");
+      preview.textContent = `${result.request.executionPlan.mode}: ${result.request.executionPlan.stages.join(" -> ")} | CDR ${result.request.executionPlan.cdr.required}`;
+    }
+    const runnerForm = $("#workload-live-runner-form");
+    if (runnerForm && result.request?.executionPlan?.liveRunner) {
+      runnerForm.elements.requestId.value = result.request.id;
+      runnerForm.elements.confirmation.value = "";
+    }
     await loadWorkloadControl();
     await loadAudit();
+  }
+
+  async function executeLiveWorkloadRunner(event) {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const requestId = String(data.requestId || "").trim();
+    if (!requestId) {
+      setText("#workload-live-runner-result", "Select or enter a destructive workload request ID first.");
+      return;
+    }
+    const result = await fetchJson(`/operator-api/workload-control/requests/${encodeURIComponent(requestId)}/execute`, {
+      method: "POST",
+      body: {
+        confirmation: data.confirmation,
+        wipeVolume: data.wipeVolume === "on",
+        fourEyesApprovalRef: data.fourEyesApprovalRef || null
+      }
+    });
+    if (result.error) {
+      setText("#workload-live-runner-result", result.error);
+      return;
+    }
+    renderLiveRunnerJob(result.job);
+    setText("#session-status", `Live runner job: ${result.job.state}`);
+    await loadWorkloadControl();
+    await loadAudit();
+  }
+
+  function renderWorkloadCatalog(control) {
+    const catalog = $("#workload-app-catalog");
+    if (!catalog) return;
+    const counts = control.latestDesiredCounts || control.currentCounts || {};
+    catalog.innerHTML = (control.catalog || []).map((app) => {
+      const count = Number(counts[app.key] || 0);
+      const risk = app.requiresOperatorRiskAcceptance ? `<span class="badge badge-warn">operator risk</span>` : "";
+      const native = app.nativeRuntimeRequired ? `<span class="badge badge-warn">native ${escapeHtml(app.nativeRuntimeClass)}</span>` : "";
+      const runtime = app.runtimeGate?.required
+        ? `<span class="badge ${app.runtimeGate.ready ? "" : "badge-warn"}">${escapeHtml(app.runtimeGate.currentProviderFit)}</span>`
+        : "";
+      return `
+        <article class="app-tile">
+          <div>
+            <strong>${escapeHtml(app.name)}</strong>
+            <span>${escapeHtml(app.category)} | ${escapeHtml(app.isolation)}</span>
+          </div>
+          <div class="app-tile-meta">
+            <span class="badge">${escapeHtml(count)} env</span>
+            <span class="badge">CDR ${escapeHtml(app.cdrRequired)}</span>
+            ${native}
+            ${runtime}
+            ${risk}
+          </div>
+        </article>
+      `;
+    }).join("") || `<div class="placeholder">No authorized workload apps.</div>`;
+  }
+
+  function renderWorkloadPreview(counts, latestRequest) {
+    const preview = $("#workload-control-preview");
+    if (!preview) return;
+    const entries = Object.entries(counts || {}).filter(([, value]) => Number(value) > 0);
+    const total = entries.reduce((sum, [, value]) => sum + Number(value), 0);
+    const action = latestRequest?.action || "scale_to_counts";
+    const rotate = latestRequest?.rotateApp ? ` | rotate: ${latestRequest.rotateApp}` : "";
+    preview.classList.remove("placeholder");
+    preview.innerHTML = `
+      <strong>Execution preview</strong>
+      <span>${escapeHtml(action)}${escapeHtml(rotate)} | total requested: ${escapeHtml(total)}</span>
+      <span>${escapeHtml(entries.map(([key, value]) => `${key} x${value}`).join(", ") || "no environments selected")}</span>
+      <span>Runner status: control-plane queued, production side effects blocked until human gate.</span>
+    `;
+  }
+
+  function renderLiveRunnerJob(job) {
+    const preview = $("#workload-live-runner-result");
+    if (!preview) return;
+    if (!job) {
+      preview.classList.add("placeholder");
+      preview.textContent = "No live runner job executed from this browser session.";
+      return;
+    }
+    preview.classList.remove("placeholder");
+    const smoke = job.result?.smoke ? Object.entries(job.result.smoke).map(([key, value]) => `${key}:${value}`).join(", ") : "-";
+    const blockers = (job.blockers || []).join(", ") || "-";
+    preview.innerHTML = `
+      <strong>${escapeHtml(job.state)}</strong>
+      <span>job ${escapeHtml(job.id)} | request ${escapeHtml(job.requestId)} | runner ${escapeHtml(job.runnerApp)} | wipe ${escapeHtml(job.wipeVolume)}</span>
+      <span>CDR ${escapeHtml(job.cdrRequired)} | terminal data stored ${escapeHtml(job.terminalDataStored)} | private bind required ${escapeHtml(job.privateBindOnlyRequired)}</span>
+      <span>smoke: ${escapeHtml(smoke)} | blockers: ${escapeHtml(blockers)}</span>
+    `;
   }
 
   function setText(sel, value) {
@@ -617,11 +1160,16 @@
 
   function loadViewData(viewId) {
     if (viewId === "overview") loadOverview();
+    if (viewId === "app-switcher") loadOverview();
     if (viewId === "devices") loadDevices();
     if (viewId === "workloads") loadWorkloads();
     if (viewId === "workload-control") loadWorkloadControl();
     if (viewId === "connection-path") loadConnectionPath();
+    if (viewId === "traffic-monitoring") loadTrafficMonitoring();
+    if (viewId === "live-access") loadLiveAccess();
     if (viewId === "signal-preview") loadSignalPreview();
+    if (viewId === "runtime-gate") loadRuntimeGate();
+    if (viewId === "account-bootstrap") loadAccountBootstrap();
     if (viewId === "vpn") loadVpn();
     if (viewId === "streaming") loadStreaming();
     if (viewId === "audit") loadAudit();
@@ -635,19 +1183,35 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
-    bootstrapLocalLabToken();
+    void initOperatorPortal();
+  });
+
+  async function initOperatorPortal() {
     $(".sidebar").addEventListener("click", handleNav);
+    $("#app-switcher").addEventListener("click", handleInternalSwitcher);
     $("#session-form").addEventListener("submit", createLocalSession);
     $("#workload-control-form").addEventListener("submit", requestWorkloadControl);
+    $("#workload-live-runner-form").addEventListener("submit", executeLiveWorkloadRunner);
+    $("#runtime-gate-form").addEventListener("submit", handleRuntimeGate);
+    $("#account-bootstrap-form").addEventListener("submit", requestAccountBootstrap);
+    $("#account-bootstrap-evidence-form").addEventListener("submit", recordAccountBootstrapEvidence);
+    $("#vpn-evidence-form").addEventListener("submit", recordVpnEvidence);
+    $("#traffic-evidence-form").addEventListener("submit", recordTrafficEvidence);
+    $("#stream-session-form").addEventListener("submit", requestStreamSession);
+    $("#stream-readiness-form").addEventListener("submit", recordStreamReadiness);
+    $("#stream-runtime-form").addEventListener("submit", recordStreamRuntimeManifest);
     $("#unlock-form").addEventListener("submit", saveUnlockPolicy);
     $("#safety-form").addEventListener("submit", saveSafetyPolicy);
     $("#jurisdiction-form").addEventListener("submit", saveJurisdictionPolicy);
+    $("#workload-broker-form").addEventListener("submit", prepareWorkloadBroker);
     $("#matrix-form").addEventListener("submit", requestMatrixServer);
     $("#subscription-form").addEventListener("submit", requestSubscriptionChange);
     $("#fido2-form").addEventListener("submit", saveFido2);
     $("#hsm-form").addEventListener("submit", saveHsm);
+    await bootstrapOperatorToken();
     if (state.session) {
-      setText("#session-status", `Session active for ${state.session.operatorId} (${state.session.terminalMode})`);
+      const source = state.cookieBound ? "cookie-bound" : "active";
+      setText("#session-status", `Session ${source} for ${state.session.operatorId} (${state.session.terminalMode})`);
     }
     const initialView = (location.hash || "#overview").replace("#", "");
     setActiveView(initialView);
@@ -657,5 +1221,5 @@
     window.addEventListener("resize", () => {
       if ($("#streaming")?.classList.contains("active")) loadStreaming();
     });
-  });
+  }
 })();

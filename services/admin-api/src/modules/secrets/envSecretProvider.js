@@ -8,6 +8,7 @@ export class EnvSecretProvider {
       source: "environment",
       providers: {
         hetzner: { configured: this.hasProviderSecret("hetzner") },
+        hetzner_robot: { configured: this.hasProviderSecret("hetzner_robot") },
         ovh: { configured: this.hasProviderSecret("ovh") }
       },
       plaintextExposed: false
@@ -26,6 +27,7 @@ export class EnvSecretProvider {
   #envName(providerKey) {
     const key = String(providerKey || "").toLowerCase();
     if (key === "hetzner") return "HETZNER_API_TOKEN";
+    if (key === "hetzner_robot") return this.env.SYLION_HETZNER_ROBOT_USER && this.env.SYLION_HETZNER_ROBOT_PASSWORD ? "SYLION_HETZNER_ROBOT_PASSWORD" : null;
     if (key === "ovh") return "OVH_API_SECRET";
     return null;
   }

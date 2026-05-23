@@ -190,6 +190,18 @@ label {
   min-height: auto;
 }
 
+.checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+}
+
+.checkbox-line input {
+  width: auto;
+  min-height: auto;
+}
+
 input,
 select {
   min-height: 38px;
@@ -308,6 +320,110 @@ dd {
 
 .compact-metrics dd {
   overflow-wrap: anywhere;
+}
+
+.app-catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.quick-tile {
+  min-height: 82px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #141a25;
+  padding: 12px;
+  display: grid;
+  align-content: space-between;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.quick-tile:hover,
+.quick-tile:focus {
+  border-color: var(--accent);
+  background: rgba(91, 141, 239, 0.12);
+  outline: none;
+}
+
+.quick-tile strong {
+  display: block;
+  color: var(--text);
+}
+
+.quick-tile span {
+  color: var(--text-dim);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.workload-launcher .quick-tile {
+  border-color: #344159;
+}
+
+.app-tile {
+  min-height: 96px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #141a25;
+  padding: 12px;
+  display: grid;
+  align-content: space-between;
+  gap: 10px;
+}
+
+.app-tile strong,
+.workload-preview strong {
+  display: block;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.app-tile span,
+.workload-preview span {
+  color: var(--text-dim);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.app-tile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badge {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: #10151d;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.badge-warn {
+  border-color: var(--accent-warn);
+  color: var(--accent-warn);
+}
+
+.workload-preview {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #111620;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
 }
 
 .key-list {
@@ -607,6 +723,16 @@ button.primary {
   cursor: pointer;
 }
 
+button.secondary {
+  background: #111620;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 button.primary:disabled {
   background: var(--bg-card);
   color: var(--text-dim);
@@ -634,21 +760,57 @@ button.primary:disabled {
   body {
     grid-template-areas:
       "top"
-      "side"
       "main"
       "foot";
     grid-template-columns: 1fr;
-    grid-template-rows: 56px auto 1fr 48px;
+    grid-template-rows: 56px 1fr 48px;
   }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .sidebar {
+    position: fixed;
+    z-index: 30;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    min-height: 72px;
+    padding: 7px 0 calc(7px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -18px 34px rgb(0 0 0 / 28%);
+  }
+
   .sidebar ul {
     display: flex;
     overflow-x: auto;
+    gap: 2px;
+    padding: 0 10px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
   }
+
+  .sidebar ul::-webkit-scrollbar {
+    display: none;
+  }
+
   .sidebar li a {
     border-left: 0;
     border-bottom: 3px solid transparent;
     white-space: nowrap;
+    min-height: 48px;
+    min-width: max-content;
+    display: grid;
+    place-items: center;
+    padding: 8px 12px;
+    border-radius: 8px;
+    scroll-snap-align: start;
   }
+
   .sidebar li a.active {
     border-bottom-color: var(--accent);
     border-left-color: transparent;
@@ -659,7 +821,8 @@ button.primary:disabled {
   }
 
   .dense-form,
-  .compact-metrics {
+  .compact-metrics,
+  .quick-grid {
     grid-template-columns: 1fr;
   }
 
@@ -673,15 +836,15 @@ button.primary:disabled {
   }
 
   .content {
-    padding: 14px;
+    padding: 14px 14px 98px;
+  }
+
+  .view {
+    scroll-margin-top: 72px;
   }
 
   .footer {
-    min-height: 54px;
-    padding: 8px 12px;
-    align-items: flex-start;
-    flex-direction: column;
-    justify-content: center;
+    display: none;
   }
 
   table {

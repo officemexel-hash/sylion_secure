@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import { APP_STATUSES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
@@ -7,6 +8,8 @@ const TIER_VALUES = new Set(Object.values(TIERS));
 const BILLING_STATES = new Set(["trial", "active", "past_due", "suspended", "cancelled"]);
 const ALLOCATION_STATUSES = new Set(["planned", "active", "suspended"]);
 const ADDONS = new Set(["matrix_custom_server", "phantom_admin_lifecycle"]);
+const PAYMENT_PROVIDER_MODES = new Set(["sandbox", "manual_paid_reference", "card_gateway_live", "crypto_gateway_live"]);
+const PAYMENT_STATUSES = new Set(["paid_sandbox", "paid_external_reference", "paid_live", "failed", "refunded"]);
 
 const DEFAULT_PLANS = Object.freeze([
   {
@@ -17,6 +20,27 @@ const DEFAULT_PLANS = Object.freeze([
     maxAppsPerOperator: 3,
     regionCount: 2,
     jurisdictionRotationMode: "limited_manual",
+    jurisdictionPolicy: {
+      allowedModes: ["disabled", "manual"],
+      minFrequencyHours: 168,
+      maxCountries: 2,
+      providerRotationAllowed: false,
+      allVpsRotationAllowed: false
+    },
+    providerPolicy: {
+      allowedRuntimeClasses: ["containers"],
+      confidentialComputeRequired: false,
+      firecrackerRequired: false,
+      allowedProviderCount: 1,
+      workloadTenancy: "shared_dedicated_pool_allowed",
+      dedicatedWorkloadPerOperatorRequired: false,
+      phantomWorkloadDedicatedRequired: true
+    },
+    sessionPolicy: {
+      defaultHours: 8,
+      maxHours: 8,
+      fido2RequiredAtSessionEnd: true
+    },
     matrixAddonAvailable: true,
     phantomAdminLifecycleAvailable: false,
     cdrMandatory: true,
@@ -30,6 +54,27 @@ const DEFAULT_PLANS = Object.freeze([
     maxAppsPerOperator: 5,
     regionCount: 5,
     jurisdictionRotationMode: "scheduled",
+    jurisdictionPolicy: {
+      allowedModes: ["disabled", "manual", "scheduled"],
+      minFrequencyHours: 24,
+      maxCountries: 5,
+      providerRotationAllowed: true,
+      allVpsRotationAllowed: false
+    },
+    providerPolicy: {
+      allowedRuntimeClasses: ["containers", "firecracker"],
+      confidentialComputeRequired: false,
+      firecrackerRequired: true,
+      allowedProviderCount: 3,
+      workloadTenancy: "shared_dedicated_pool_allowed",
+      dedicatedWorkloadPerOperatorRequired: false,
+      phantomWorkloadDedicatedRequired: true
+    },
+    sessionPolicy: {
+      defaultHours: 12,
+      maxHours: 12,
+      fido2RequiredAtSessionEnd: true
+    },
     matrixAddonAvailable: true,
     phantomAdminLifecycleAvailable: true,
     cdrMandatory: true,
@@ -43,6 +88,27 @@ const DEFAULT_PLANS = Object.freeze([
     maxAppsPerOperator: 10,
     regionCount: "custom",
     jurisdictionRotationMode: "full_policy",
+    jurisdictionPolicy: {
+      allowedModes: ["disabled", "manual", "scheduled", "full_policy"],
+      minFrequencyHours: 4,
+      maxCountries: "custom",
+      providerRotationAllowed: true,
+      allVpsRotationAllowed: true
+    },
+    providerPolicy: {
+      allowedRuntimeClasses: ["containers", "firecracker", "confidential"],
+      confidentialComputeRequired: true,
+      firecrackerRequired: true,
+      allowedProviderCount: "custom",
+      workloadTenancy: "dedicated_operator_only",
+      dedicatedWorkloadPerOperatorRequired: true,
+      phantomWorkloadDedicatedRequired: true
+    },
+    sessionPolicy: {
+      defaultHours: 12,
+      maxHours: 24,
+      fido2RequiredAtSessionEnd: true
+    },
     matrixAddonAvailable: true,
     phantomAdminLifecycleAvailable: true,
     cdrMandatory: true,
@@ -81,7 +147,37 @@ function cleanAddons(addons = []) {
   return unique;
 }
 
+function tokenHash(token) {
+  return createHash("sha256").update(String(token || ""), "utf8").digest("hex");
+}
+
+function tokenPreview(token) {
+  const value = String(token || "");
+  return value.length > 10 ? `${value.slice(0, 7)}...${value.slice(-4)}` : "[redacted]";
+}
+
+function requirePositiveNumber(value, field) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) {
+    throw validationError(`${field} must be a positive number`, { field, value });
+  }
+  return number;
+}
+
+function requireEnum(value, allowed, field) {
+  if (!allowed.has(value)) {
+    throw validationError(`Unsupported ${field}`, { field, value, allowed: [...allowed] });
+  }
+  return value;
+}
+
+function safeRefs(value = [], field = "refs") {
+  if (!Array.isArray(value)) throw validationError(`${field} must be an array`, { field });
+  return value.map((item, index) => requireText(String(item || ""), `${field}.${index}`));
+}
+
 function publicPlan(plan) {
+  const defaults = DEFAULT_PLANS.find((item) => item.tier === plan.tier) || {};
   return {
     id: plan.id,
     tier: plan.tier,
@@ -91,6 +187,9 @@ function publicPlan(plan) {
     maxAppsPerOperator: plan.maxAppsPerOperator,
     regionCount: plan.regionCount,
     jurisdictionRotationMode: plan.jurisdictionRotationMode,
+    jurisdictionPolicy: plan.jurisdictionPolicy || defaults.jurisdictionPolicy,
+    providerPolicy: plan.providerPolicy || defaults.providerPolicy,
+    sessionPolicy: plan.sessionPolicy || defaults.sessionPolicy,
     matrixAddonAvailable: plan.matrixAddonAvailable,
     phantomAdminLifecycleAvailable: plan.phantomAdminLifecycleAvailable,
     phantomExecutionAllowed: false,
@@ -114,6 +213,8 @@ export class SubscriptionService {
     this.allocations = new PersistentMap({ store, collection: "workload_allocations" });
     this.quotaDecisions = new PersistentMap({ store, collection: "workload_quota_decisions" });
     this.placementPlans = new PersistentMap({ store, collection: "microvm_placement_plans" });
+    this.paymentTokens = new PersistentMap({ store, collection: "subscription_payment_tokens" });
+    this.paymentTokenRedemptions = new PersistentMap({ store, collection: "subscription_payment_token_redemptions" });
     this.#seedPlans();
   }
 
@@ -123,7 +224,7 @@ export class SubscriptionService {
     return [...this.plans.values()].map(publicPlan);
   }
 
-  createPlan({ actor, tier, name, maxWorkloadEnvironments, maxAppsPerOperator, regionCount, jurisdictionRotationMode, matrixAddonAvailable = true, phantomAdminLifecycleAvailable = false, cdrMandatory = true, supportLevel = "custom", correlationId }) {
+  createPlan({ actor, tier, name, maxWorkloadEnvironments, maxAppsPerOperator, regionCount, jurisdictionRotationMode, jurisdictionPolicy = {}, providerPolicy = {}, sessionPolicy = {}, matrixAddonAvailable = true, phantomAdminLifecycleAvailable = false, cdrMandatory = true, supportLevel = "custom", correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "subscription.manage", { correlationId: corr, resourceType: RESOURCE_TYPES.SUBSCRIPTION_PLAN });
     if (!TIER_VALUES.has(tier)) {
@@ -141,6 +242,27 @@ export class SubscriptionService {
       maxAppsPerOperator: requirePositiveInteger(maxAppsPerOperator, "maxAppsPerOperator"),
       regionCount: regionCount === "custom" ? "custom" : requirePositiveInteger(regionCount, "regionCount"),
       jurisdictionRotationMode: requireText(jurisdictionRotationMode, "jurisdictionRotationMode"),
+      jurisdictionPolicy: {
+        allowedModes: Array.isArray(jurisdictionPolicy.allowedModes) && jurisdictionPolicy.allowedModes.length ? jurisdictionPolicy.allowedModes : ["disabled", "manual"],
+        minFrequencyHours: requirePositiveInteger(jurisdictionPolicy.minFrequencyHours || 24, "jurisdictionPolicy.minFrequencyHours"),
+        maxCountries: jurisdictionPolicy.maxCountries === "custom" ? "custom" : requirePositiveInteger(jurisdictionPolicy.maxCountries || regionCount || 1, "jurisdictionPolicy.maxCountries"),
+        providerRotationAllowed: jurisdictionPolicy.providerRotationAllowed === true,
+        allVpsRotationAllowed: jurisdictionPolicy.allVpsRotationAllowed === true
+      },
+      providerPolicy: {
+        allowedRuntimeClasses: Array.isArray(providerPolicy.allowedRuntimeClasses) && providerPolicy.allowedRuntimeClasses.length ? providerPolicy.allowedRuntimeClasses : ["containers"],
+        confidentialComputeRequired: providerPolicy.confidentialComputeRequired === true,
+        firecrackerRequired: providerPolicy.firecrackerRequired === true,
+        allowedProviderCount: providerPolicy.allowedProviderCount === "custom" ? "custom" : requirePositiveInteger(providerPolicy.allowedProviderCount || 1, "providerPolicy.allowedProviderCount"),
+        workloadTenancy: providerPolicy.workloadTenancy || (tier === TIERS.SOVEREIGN ? "dedicated_operator_only" : "shared_dedicated_pool_allowed"),
+        dedicatedWorkloadPerOperatorRequired: tier === TIERS.SOVEREIGN || providerPolicy.dedicatedWorkloadPerOperatorRequired === true,
+        phantomWorkloadDedicatedRequired: providerPolicy.phantomWorkloadDedicatedRequired !== false
+      },
+      sessionPolicy: {
+        defaultHours: requirePositiveInteger(sessionPolicy.defaultHours || 12, "sessionPolicy.defaultHours"),
+        maxHours: requirePositiveInteger(sessionPolicy.maxHours || 12, "sessionPolicy.maxHours"),
+        fido2RequiredAtSessionEnd: sessionPolicy.fido2RequiredAtSessionEnd !== false
+      },
       matrixAddonAvailable: matrixAddonAvailable === true,
       phantomAdminLifecycleAvailable: phantomAdminLifecycleAvailable === true,
       phantomExecutionAllowed: false,
@@ -418,6 +540,222 @@ export class SubscriptionService {
     return [...this.quotaDecisions.values()].map((decision) => this.#publicQuotaDecision(decision));
   }
 
+  issuePaymentToken({
+    actor,
+    tier,
+    planId = null,
+    minimumMonths = 6,
+    amount,
+    currency = "PLN",
+    providerMode = "sandbox",
+    paymentStatus = "paid_sandbox",
+    paymentReference,
+    customerReference = null,
+    evidenceRefs = [],
+    expiresAt = null,
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "subscription.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.SUBSCRIPTION_PAYMENT_TOKEN
+    });
+    if (!TIER_VALUES.has(tier)) {
+      throw validationError("Unknown subscription tier", { tier });
+    }
+    const plan = planId ? this.#requirePlan(planId) : this.#defaultPlanForTier(tier);
+    const months = requirePositiveInteger(minimumMonths, "minimumMonths");
+    if (months < 6) {
+      throw validationError("SYLION subscription token minimum term is 6 months", {
+        minimumMonths: months,
+        requiredMinimumMonths: 6
+      });
+    }
+    const mode = requireEnum(providerMode, PAYMENT_PROVIDER_MODES, "providerMode");
+    const status = requireEnum(paymentStatus, PAYMENT_STATUSES, "paymentStatus");
+    if (mode === "sandbox" && status !== "paid_sandbox") {
+      throw validationError("Sandbox payment tokens must use paid_sandbox status", { providerMode: mode, paymentStatus: status });
+    }
+    if (["card_gateway_live", "crypto_gateway_live"].includes(mode) && status !== "paid_live") {
+      throw validationError("Live payment gateway tokens require paid_live status", { providerMode: mode, paymentStatus: status });
+    }
+    const rawToken = `sylion_sub_${randomBytes(24).toString("base64url")}`;
+    const now = isoNow();
+    const record = {
+      id: newId("sub_pay"),
+      tokenHash: tokenHash(rawToken),
+      tokenPreview: tokenPreview(rawToken),
+      tier,
+      planId: plan.id,
+      minimumMonths: months,
+      amount: requirePositiveNumber(amount, "amount"),
+      currency: requireText(currency, "currency"),
+      providerMode: mode,
+      paymentStatus: status,
+      paymentReference: requireText(paymentReference, "paymentReference"),
+      customerReference: customerReference ? String(customerReference) : null,
+      evidenceRefs: safeRefs(evidenceRefs, "evidenceRefs"),
+      state: "issued",
+      issuedAt: now,
+      expiresAt,
+      issuedBy: actor.id,
+      redeemedAt: null,
+      redeemedBy: null,
+      productionExecutionAllowed: false
+    };
+    this.paymentTokens.set(record.id, record);
+    this.audit.record({
+      actorId: actor.id,
+      action: "subscription.payment_token_issued",
+      resourceType: RESOURCE_TYPES.SUBSCRIPTION_PAYMENT_TOKEN,
+      resourceId: record.id,
+      correlationId: corr,
+      policyDecision: status.startsWith("paid") ? "allow" : "deny",
+      result: record.state,
+      newValue: this.#publicPaymentToken(record)
+    });
+    return {
+      token: this.#publicPaymentToken(record),
+      redemptionToken: rawToken,
+      tokenMaterialReturnedOnce: true
+    };
+  }
+
+  redeemPaymentToken({
+    actor,
+    redemptionToken,
+    tenantId = null,
+    operatorId = null,
+    operatorDisplayName = null,
+    packageRefs = [],
+    operatorPackageGenerated = false,
+    graphenePackageGenerated = false,
+    routerPackageDeferred = true,
+    workloadProvisioningRequested = false,
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "subscription.manage", {
+      tenantId,
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.SUBSCRIPTION_PAYMENT_TOKEN
+    });
+    const hash = tokenHash(redemptionToken);
+    const token = [...this.paymentTokens.values()].find((item) => item.tokenHash === hash);
+    if (!token) throw validationError("Subscription payment token was not found", { tokenMaterialLogged: false });
+    if (token.state !== "issued") {
+      throw validationError("Subscription payment token is not redeemable", { tokenId: token.id, state: token.state });
+    }
+    if (token.expiresAt && Date.parse(token.expiresAt) <= Date.now()) {
+      throw validationError("Subscription payment token expired", { tokenId: token.id, expiresAt: token.expiresAt });
+    }
+    const redemption = {
+      id: newId("sub_redemption"),
+      tokenId: token.id,
+      tokenPreview: token.tokenPreview,
+      tenantId,
+      operatorId,
+      operatorDisplayName: operatorDisplayName ? String(operatorDisplayName) : null,
+      tier: token.tier,
+      planId: token.planId,
+      minimumMonths: token.minimumMonths,
+      packageRefs: safeRefs(packageRefs, "packageRefs"),
+      operatorPackageGenerated: operatorPackageGenerated === true,
+      graphenePackageGenerated: graphenePackageGenerated === true,
+      routerPackageDeferred: routerPackageDeferred === true,
+      workloadProvisioningRequested: workloadProvisioningRequested === true,
+      state: "redeemed",
+      terminalDataStored: false,
+      paymentTokenStoredPlaintext: false,
+      productionExecutionAllowed: false,
+      redeemedAt: isoNow(),
+      redeemedBy: actor.id
+    };
+    const updated = {
+      ...token,
+      state: "redeemed",
+      redeemedAt: redemption.redeemedAt,
+      redeemedBy: actor.id
+    };
+    this.paymentTokens.set(token.id, updated);
+    this.paymentTokenRedemptions.set(redemption.id, redemption);
+    this.audit.record({
+      actorId: actor.id,
+      action: "subscription.payment_token_redeemed",
+      resourceType: RESOURCE_TYPES.SUBSCRIPTION_PAYMENT_TOKEN,
+      resourceId: token.id,
+      tenantId,
+      operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: redemption.state,
+      previousValue: this.#publicPaymentToken(token),
+      newValue: redemption
+    });
+    return {
+      token: this.#publicPaymentToken(updated),
+      redemption
+    };
+  }
+
+  listPaymentTokens({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "subscription.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.SUBSCRIPTION_PAYMENT_TOKEN
+    });
+    return {
+      tokens: [...this.paymentTokens.values()].map((record) => this.#publicPaymentToken(record)),
+      redemptions: [...this.paymentTokenRedemptions.values()]
+    };
+  }
+
+  paymentTokenEvidenceSummary({ operatorIds = [] } = {}) {
+    const operatorSet = new Set(operatorIds.filter(Boolean));
+    const tokens = [...this.paymentTokens.values()];
+    const redemptions = [...this.paymentTokenRedemptions.values()]
+      .filter((record) => operatorSet.size === 0 || operatorSet.has(record.operatorId));
+    const liveIssuedTokenObserved = tokens.some((record) => (
+      ["card_gateway_live", "crypto_gateway_live"].includes(record.providerMode)
+      && record.paymentStatus === "paid_live"
+      && record.minimumMonths >= 6
+    ));
+    const sandboxIssuedTokenObserved = tokens.some((record) => (
+      record.providerMode === "sandbox"
+      && record.paymentStatus === "paid_sandbox"
+      && record.minimumMonths >= 6
+    ));
+    const redeemedTokenObserved = redemptions.some((record) => record.state === "redeemed");
+    const operatorPackageGeneratedObserved = redemptions.some((record) => (
+      record.operatorPackageGenerated === true
+      && record.graphenePackageGenerated === true
+      && record.workloadProvisioningRequested === true
+    ));
+    const minimumTermObserved = tokens.some((record) => record.minimumMonths >= 6);
+    const ready = liveIssuedTokenObserved
+      && redeemedTokenObserved
+      && operatorPackageGeneratedObserved
+      && minimumTermObserved;
+    return {
+      tokens: tokens.length,
+      redemptions: redemptions.length,
+      liveIssuedTokenObserved,
+      sandboxIssuedTokenObserved,
+      redeemedTokenObserved,
+      operatorPackageGeneratedObserved,
+      minimumTermObserved,
+      ready,
+      blockers: ready ? [] : [
+        ...(liveIssuedTokenObserved ? [] : ["live_payment_gateway_token_missing"]),
+        ...(redeemedTokenObserved ? [] : ["token_redemption_missing"]),
+        ...(operatorPackageGeneratedObserved ? [] : ["operator_package_handoff_missing"]),
+        ...(minimumTermObserved ? [] : ["minimum_6_month_term_missing"])
+      ],
+      productionExecutionAllowed: false
+    };
+  }
+
   canUseAddon({ tenantId, addon }) {
     const tenant = this.#requireTenant(tenantId);
     const subscription = this.ensureForTenant({ tenant, correlationId: `corr_subscription_addon_${tenantId}` });
@@ -547,6 +885,30 @@ export class SubscriptionService {
       activatedAt: subscription.activatedAt,
       changedAt: subscription.changedAt,
       changedBy: subscription.changedBy
+    };
+  }
+
+  #publicPaymentToken(record) {
+    return {
+      id: record.id,
+      tokenPreview: record.tokenPreview,
+      tier: record.tier,
+      planId: record.planId,
+      minimumMonths: record.minimumMonths,
+      amount: record.amount,
+      currency: record.currency,
+      providerMode: record.providerMode,
+      paymentStatus: record.paymentStatus,
+      paymentReference: record.paymentReference,
+      customerReference: record.customerReference,
+      evidenceRefs: record.evidenceRefs,
+      state: record.state,
+      issuedAt: record.issuedAt,
+      expiresAt: record.expiresAt,
+      redeemedAt: record.redeemedAt,
+      redeemedBy: record.redeemedBy,
+      paymentTokenStoredPlaintext: false,
+      productionExecutionAllowed: false
     };
   }
 

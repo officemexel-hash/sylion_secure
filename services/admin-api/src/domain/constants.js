@@ -69,21 +69,28 @@ export const RESOURCE_TYPES = Object.freeze({
   PROVIDER_DRY_RUN_PLAN: "provider_dry_run_plan",
   LIVE_EXECUTION_REQUEST: "live_execution_request",
   LIVE_PROVIDER_REHEARSAL: "live_provider_rehearsal",
+  DEDICATED_WORKLOAD_ORDER: "dedicated_workload_order",
+  WORKLOAD_NATIVE_HOST: "workload_native_host",
+  WORKLOAD_IMAGE_MANIFEST: "workload_image_manifest",
   FIRECRACKER_HOST_QUALIFICATION: "firecracker_host_qualification",
   FIRECRACKER_LAUNCH_REHEARSAL: "firecracker_launch_rehearsal",
   CPU_CONFIDENTIAL_QUALIFICATION: "cpu_confidential_qualification",
+  JURISDICTION_ROUTE_EVIDENCE: "jurisdiction_route_evidence",
+  SUBSCRIPTION_PAYMENT_TOKEN: "subscription_payment_token",
   LIVE_ROLLBACK_PLAN: "live_rollback_plan",
   PHANTOM_EXECUTION_REQUEST: "phantom_execution_request",
   RELEASE_GATE: "release_gate",
   RELEASE_PROBLEM: "release_problem",
   RELEASE_TEST_SCENARIO: "release_test_scenario",
   RELEASE_TEST_RUN: "release_test_run",
+  WORKLOAD_FACTUAL_TEST: "workload_factual_test",
   EVIDENCE_ARTIFACT: "evidence_artifact",
   SECURITY_PROFILE: "security_profile",
   OPERATOR_PORTAL_SESSION: "operator_portal_session",
   TERMINAL_CONNECTION_PROFILE: "terminal_connection_profile",
   ROUTER_PACKAGE: "router_package",
-  ROUTER_POSTURE: "router_posture"
+  ROUTER_POSTURE: "router_posture",
+  DISPOSABLE_OPERATOR_TEARDOWN: "disposable_operator_teardown"
 });
 
 export const DEVICE_TYPES = Object.freeze({

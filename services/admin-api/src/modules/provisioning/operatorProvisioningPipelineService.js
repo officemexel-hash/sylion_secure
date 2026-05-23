@@ -10,11 +10,14 @@ const COMMUNICATOR_TEMPLATES = Object.freeze([
   ["threema", "Threema", 1, 1024, 4096],
   ["zangi", "Zangi", 1, 1024, 4096],
   ["matrix_client", "Matrix Client", 1, 1536, 8192],
-  ["matrix_server", "Matrix Server", 2, 4096, 32768]
+  ["matrix_server", "Matrix Server", 2, 4096, 32768],
+  ["duckduckgo_browser", "DuckDuckGo Browser", 1, 1536, 8192],
+  ["libreoffice", "LibreOffice", 2, 4096, 16384],
+  ["exodus", "Exodus", 2, 4096, 16384]
 ].map(([key, name, vcpu, memoryMiB, diskMiB]) => ({
   key,
   name,
-  type: "messaging",
+  type: key === "matrix_server" ? "server" : key === "libreoffice" ? "office" : key === "duckduckgo_browser" ? "browser" : key === "exodus" ? "wallet" : "messaging",
   isolation: "firecracker_microvm",
   cdrRequired: true,
   defaults: { vcpu, memoryMiB, diskMiB },

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
+import { buildLiveBaselineUserData } from "../services/admin-api/src/modules/live/liveBaselineArtifacts.js";
 
 const HETZNER_API = "https://api.hetzner.cloud/v1";
 const baseUrl = process.env.SYLION_ADMIN_API_URL || "http://127.0.0.1:8099";
@@ -141,137 +142,6 @@ runcmd:
 `;
 }
 
-function workloadCloudInit({ publicKey }) {
-  return `#cloud-config
-package_update: true
-package_upgrade: false
-packages:
-  - curl
-  - ca-certificates
-  - docker.io
-  - nftables
-  - jq
-users:
-  - name: sylion
-    groups: sudo,docker
-    shell: /bin/bash
-    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-    ssh_authorized_keys:
-      - ${publicKey}
-write_files:
-  - path: /opt/sylion-workloads/docker-compose.yml
-    permissions: "0644"
-    content: |
-      services:
-        duckduckgo:
-          image: lscr.io/linuxserver/firefox:latest
-          container_name: sylion-duckduckgo
-          restart: unless-stopped
-          shm_size: "1gb"
-          environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=UTC
-            - TITLE=SYLION DuckDuckGo
-          ports:
-            - "127.0.0.1:3001:3000"
-          volumes:
-            - duckduckgo_config:/config
-        libreoffice:
-          image: lscr.io/linuxserver/libreoffice:latest
-          container_name: sylion-libreoffice
-          restart: unless-stopped
-          shm_size: "1gb"
-          environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=UTC
-          ports:
-            - "127.0.0.1:3002:3000"
-          volumes:
-            - libreoffice_config:/config
-        whatsapp:
-          image: lscr.io/linuxserver/chromium:latest
-          container_name: sylion-whatsapp-web
-          restart: unless-stopped
-          shm_size: "1gb"
-          environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=UTC
-            - TITLE=SYLION WhatsApp Web
-          ports:
-            - "127.0.0.1:3010:3000"
-          volumes:
-            - whatsapp_config:/config
-        telegram:
-          image: lscr.io/linuxserver/chromium:latest
-          container_name: sylion-telegram-web
-          restart: unless-stopped
-          shm_size: "1gb"
-          environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=UTC
-            - TITLE=SYLION Telegram Web
-          ports:
-            - "127.0.0.1:3011:3000"
-          volumes:
-            - telegram_config:/config
-        threema:
-          image: lscr.io/linuxserver/chromium:latest
-          container_name: sylion-threema-web
-          restart: unless-stopped
-          shm_size: "1gb"
-          environment:
-            - PUID=1000
-            - PGID=1000
-            - TZ=UTC
-            - TITLE=SYLION Threema Web
-          ports:
-            - "127.0.0.1:3012:3000"
-          volumes:
-            - threema_config:/config
-        signal:
-          image: kasmweb/signal:1.18.0
-          container_name: sylion-signal-desktop
-          restart: unless-stopped
-          shm_size: "1gb"
-          environment:
-            - VNC_PW=sylion-signal-local
-            - KASM_RESOLUTION=1080x2400
-          ports:
-            - "127.0.0.1:3013:6901"
-          volumes:
-            - signal_profile:/home/kasm-user/.config/Signal
-      volumes:
-        duckduckgo_config:
-        libreoffice_config:
-        whatsapp_config:
-        telegram_config:
-        threema_config:
-        signal_profile:
-  - path: /opt/sylion-workloads/README.txt
-    permissions: "0644"
-    content: |
-      SYLION WORKLOAD host.
-      Local noVNC services bind to 127.0.0.1 only:
-      duckduckgo 3001, libreoffice 3002, whatsapp web 3010, telegram web 3011, threema web 3012, signal desktop 3013.
-      Reach them through G2/thin-client or SSH tunnel for diagnostics.
-runcmd:
-  - [ bash, -lc, "systemctl enable --now docker" ]
-  - [ bash, -lc, "docker rm -f sylion-duckduckgo sylion-libreoffice sylion-whatsapp-web sylion-telegram-web sylion-threema-web 2>/dev/null || true" ]
-  - [ bash, -lc, "docker volume create sylion_duckduckgo_config >/dev/null && docker run -d --name sylion-duckduckgo --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION DuckDuckGo' -p 127.0.0.1:3001:3000 -v sylion_duckduckgo_config:/config lscr.io/linuxserver/firefox:latest" ]
-  - [ bash, -lc, "docker volume create sylion_libreoffice_config >/dev/null && docker run -d --name sylion-libreoffice --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -p 127.0.0.1:3002:3000 -v sylion_libreoffice_config:/config lscr.io/linuxserver/libreoffice:latest" ]
-  - [ bash, -lc, "docker volume create sylion_whatsapp_config >/dev/null && docker run -d --name sylion-whatsapp-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION WhatsApp Web' -p 127.0.0.1:3010:3000 -v sylion_whatsapp_config:/config lscr.io/linuxserver/chromium:latest" ]
-  - [ bash, -lc, "docker volume create sylion_telegram_config >/dev/null && docker run -d --name sylion-telegram-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Telegram Web' -p 127.0.0.1:3011:3000 -v sylion_telegram_config:/config lscr.io/linuxserver/chromium:latest" ]
-  - [ bash, -lc, "docker volume create sylion_threema_config >/dev/null && docker run -d --name sylion-threema-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Threema Web' -p 127.0.0.1:3012:3000 -v sylion_threema_config:/config lscr.io/linuxserver/chromium:latest" ]
-  - [ bash, -lc, "docker volume create sylion_signal_profile >/dev/null && docker run -d --name sylion-signal-desktop --restart unless-stopped --shm-size 1g -e VNC_PW=sylion-signal-local -e KASM_RESOLUTION=1080x2400 -p 127.0.0.1:3013:6901 -v sylion_signal_profile:/home/kasm-user/.config/Signal kasmweb/signal:1.18.0" ]
-  - [ bash, -lc, "docker ps --format '{{.Names}} {{.Status}}' > /opt/sylion-workloads/container-status.txt" ]
-  - [ bash, -lc, "echo 'WORKLOAD ready at $(date -Is)' > /var/log/sylion-bootstrap.log" ]
-`;
-}
-
 async function run() {
   const token = requireEnv("HETZNER_API_TOKEN");
   if (process.env.SYLION_LIVE_BASELINE_CONFIRM !== "I_UNDERSTAND_COST_AND_ROLLBACK") {
@@ -333,11 +203,12 @@ async function run() {
       },
       image,
       sshKeys: [],
-      userDataByRole: {
-        G1: baseCloudInit({ role: "G1", publicKey }),
-        G2: baseCloudInit({ role: "G2", publicKey }),
-        WORKLOAD: workloadCloudInit({ publicKey })
-      },
+      userDataByRole: buildLiveBaselineUserData({
+        userDataByRole: {
+          G1: baseCloudInit({ role: "G1", publicKey })
+        },
+        gatewayOptions: { sshPublicKey: publicKey }
+      }),
       idempotencyKey: process.env.SYLION_LIVE_IDEMPOTENCY_KEY || `live-operator-${Date.now()}`,
       liveConfirmed: true,
       evidenceRefs: ["script://hetzner-live-operator-baseline"]

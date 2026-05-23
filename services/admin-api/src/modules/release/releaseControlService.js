@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { validationError, notFound } from "../../lib/errors.js";
+import { HUMAN_EVIDENCE_SCHEMA_VERSION, isProductionSatisfyingResult, normalizeResultStatus, validateHumanEvidenceSummary } from "../../lib/humanEvidence.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const GATE_STATUSES = new Set(["implemented", "partial", "blocked", "blocked_human_gate", "dry_run_ready", "review_required", "verified"]);
@@ -9,8 +10,26 @@ const PROBLEM_STATUSES = new Set(["open", "triaged", "in_progress", "fixed_pendi
 const PROBLEM_CATEGORIES = new Set(["defect", "ux_issue", "test_gap", "compliance_gap", "architecture_gap", "security_gap"]);
 const SEVERITIES = new Set(["low", "medium", "high", "critical"]);
 const TEST_STATUSES = new Set(["not_run", "running", "passed", "failed", "blocked", "needs_human_review"]);
-const TEST_RUN_MODES = new Set(["playwright_dashboard", "operator_portal", "manual_human", "mixed_human_playwright"]);
-const ARTIFACT_TYPES = new Set(["screenshot", "test_log", "json_summary", "release_note", "coverage_report", "manual_note"]);
+const TEST_RUN_MODES = new Set(["playwright_dashboard", "operator_portal", "manual_human", "mixed_human_playwright", "strict_human_evidence", "pixel_adb_human", "laptop_human"]);
+const ARTIFACT_TYPES = new Set(["screenshot", "test_log", "json_summary", "human_evidence_summary", "release_note", "coverage_report", "manual_note"]);
+const FACTUAL_TEST_RESULTS = new Set(["passed", "failed", "blocked", "unknown"]);
+const FACTUAL_CHECK_STATUSES = new Set(["passed", "failed", "blocked", "not_run", "not_applicable"]);
+const FACTUAL_TERMINAL_MODES = new Set(["pixel_grapheneos", "laptop_web_terminal"]);
+const FACTUAL_RUNTIME_MODES = new Set(["desktop", "web", "android_native", "firecracker_gui", "container", "unknown"]);
+const WORKLOAD_APP_KEYS = new Set([
+  "whatsapp",
+  "signal",
+  "telegram",
+  "threema",
+  "zangi",
+  "matrix_client",
+  "matrix_server",
+  "duckduckgo_browser",
+  "libreoffice",
+  "exodus"
+]);
+const COMMUNICATOR_APP_KEYS = new Set(["whatsapp", "signal", "telegram", "threema", "zangi", "matrix_client"]);
+const SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|panic.*code|seed|mnemonic|private[_-]?key)/i;
 const PROHIBITED_TERMS = ["imei", "imsi", "spoof", "evasion", "evade", "bypass lawful", "destroy evidence", "unauthorized access"];
 
 const DEFAULT_RELEASE_GATES = Object.freeze([
@@ -209,6 +228,44 @@ function artifactHash({ path, type, source }) {
   return createHash("sha256").update(`${path}|${type}|${source}`).digest("hex");
 }
 
+function findSecretFields(value, path = []) {
+  if (!value || typeof value !== "object") return [];
+  return Object.entries(value).flatMap(([key, nested]) => {
+    const nextPath = [...path, key];
+    const current = SECRET_FIELD_PATTERN.test(key) ? [nextPath.join(".")] : [];
+    return nested && typeof nested === "object"
+      ? [...current, ...findSecretFields(nested, nextPath)]
+      : current;
+  });
+}
+
+function assertNoSecretFields(value) {
+  const fields = findSecretFields(value);
+  if (fields.length) {
+    throw validationError("Factual workload app tests must not include secret, OTP, seed or token material", {
+      fields,
+      allowed: "Store only evidence artifact ids and write-only secret references."
+    });
+  }
+}
+
+function strictResultToScenarioStatus(result) {
+  const normalized = normalizeResultStatus(result);
+  if (normalized === "PASS") return "passed";
+  if (normalized === "BLOCKED") return "blocked";
+  if (["FAIL", "FAIL_CRITICAL", "FLAKY"].includes(normalized)) return "failed";
+  return "needs_human_review";
+}
+
+function requiredFactualChecks(appKey) {
+  if (COMMUNICATOR_APP_KEYS.has(appKey)) return ["uiVisible", "accountBootstrap", "sendReceive"];
+  if (appKey === "duckduckgo_browser") return ["uiVisible", "browsing"];
+  if (appKey === "libreoffice") return ["uiVisible", "documentWorkflow"];
+  if (appKey === "exodus") return ["uiVisible", "walletWorkflow", "riskAcceptance"];
+  if (appKey === "matrix_server") return ["serviceReachable", "federationPolicy", "torPolicy"];
+  return ["uiVisible"];
+}
+
 export class ReleaseControlService {
   constructor({ audit, rbac, approvals, phantom, store = null }) {
     this.audit = audit;
@@ -220,6 +277,7 @@ export class ReleaseControlService {
     this.tests = new PersistentMap({ store, collection: "release_test_scenarios" });
     this.testRuns = new PersistentMap({ store, collection: "release_test_runs" });
     this.artifacts = new PersistentMap({ store, collection: "evidence_artifacts" });
+    this.workloadFactualTests = new PersistentMap({ store, collection: "workload_factual_tests" });
     this.#seedDefaults();
   }
 
@@ -478,6 +536,110 @@ export class ReleaseControlService {
     return [...this.testRuns.values()];
   }
 
+  listWorkloadFactualTests({ actor, operatorId = null, appKey = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.read", { correlationId: corr, resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST });
+    return [...this.workloadFactualTests.values()]
+      .filter((record) => !operatorId || record.operatorId === operatorId)
+      .filter((record) => !appKey || record.appKey === appKey)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  }
+
+  latestWorkloadFactualTestsByApp({ actor, operatorId, correlationId }) {
+    return Object.fromEntries(this.listWorkloadFactualTests({ actor, operatorId, correlationId })
+      .reduce((rows, record) => {
+        if (!rows.has(record.appKey)) rows.set(record.appKey, record);
+        return rows;
+      }, new Map()));
+  }
+
+  recordWorkloadFactualTest({
+    actor,
+    operatorId,
+    appKey,
+    terminalMode = "pixel_grapheneos",
+    runtimeMode = "unknown",
+    result = "unknown",
+    checks = {},
+    evidenceArtifactIds = [],
+    latencyMs = null,
+    note = null,
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.manage", { correlationId: corr, resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST });
+    const key = requireEnum(appKey, WORKLOAD_APP_KEYS, "appKey");
+    const normalizedResult = requireEnum(result, FACTUAL_TEST_RESULTS, "result");
+    const normalizedChecks = this.#normalizeFactualChecks({ appKey: key, checks });
+    const requiredChecks = requiredFactualChecks(key);
+    const missingRequired = requiredChecks.filter((checkKey) => normalizedChecks[checkKey]?.status !== "passed");
+    if (normalizedResult === "passed" && missingRequired.length) {
+      throw validationError("Factual PASS requires all mandatory app checks to pass", {
+        appKey: key,
+        missingRequired,
+        requiredChecks
+      });
+    }
+    if (normalizedResult === "passed" && COMMUNICATOR_APP_KEYS.has(key) && normalizedChecks.accountBootstrap?.mode === "web_link_only") {
+      throw validationError("Communicator PASS cannot be based on web-link-only account bootstrap", {
+        appKey: key,
+        required: "android_native_or_desktop_linked_account_with_send_receive"
+      });
+    }
+    assertNoSecretFields({ checks, note });
+    const factualStateVerified = normalizedResult === "passed" && missingRequired.length === 0;
+    const record = {
+      id: newId("factual_test"),
+      operatorId: safeText(operatorId, "operatorId"),
+      appKey: key,
+      terminalMode: requireEnum(terminalMode, FACTUAL_TERMINAL_MODES, "terminalMode"),
+      runtimeMode: requireEnum(runtimeMode, FACTUAL_RUNTIME_MODES, "runtimeMode"),
+      result: normalizedResult,
+      factualStateVerified,
+      checks: normalizedChecks,
+      requiredChecks,
+      blockers: factualStateVerified ? [] : missingRequired.map((check) => `${check}_not_passed`),
+      evidenceArtifactIds: safeArray(evidenceArtifactIds, "evidenceArtifactIds"),
+      latencyMs: latencyMs === null || latencyMs === undefined ? null : Number(latencyMs),
+      note: optionalText(note, "note"),
+      cdrRequired: true,
+      terminalDataStored: false,
+      productionExecutionAllowed: false,
+      createdAt: isoNow(),
+      createdBy: actor.id
+    };
+    this.workloadFactualTests.set(record.id, record);
+    let problemId = null;
+    if (!factualStateVerified && ["failed", "blocked"].includes(normalizedResult)) {
+      const problem = this.createProblem({
+        actor,
+        title: `Factual app test ${key} ${normalizedResult}: ${record.blockers.join(", ") || "review required"}`,
+        severity: normalizedResult === "failed" ? "high" : "medium",
+        category: "test_gap",
+        moduleKey: `workload_app:${key}`,
+        status: "open",
+        evidenceArtifactIds: record.evidenceArtifactIds,
+        owner: "qa",
+        correlationId: corr
+      });
+      problemId = problem.id;
+    }
+    const stored = { ...record, linkedProblemId: problemId };
+    this.workloadFactualTests.set(stored.id, stored);
+    this.audit.record({
+      actorId: actor.id,
+      action: "release.workload_factual_test_recorded",
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: stored.id,
+      operatorId: stored.operatorId,
+      correlationId: corr,
+      policyDecision: factualStateVerified ? "allow" : "deny",
+      result: stored.result,
+      newValue: stored
+    });
+    return stored;
+  }
+
   recordHumanTestRun({
     actor,
     mode = "mixed_human_playwright",
@@ -543,6 +705,90 @@ export class ReleaseControlService {
     return run;
   }
 
+  recordHumanEvidenceRun({
+    actor,
+    summary,
+    evidenceArtifactPath = null,
+    linkedModule = "human_regression",
+    repairCommit = null,
+    ksiegaControlRefs = [],
+    phantomBoundaryImpact = "none",
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.manage", { correlationId: corr, resourceType: RESOURCE_TYPES.RELEASE_TEST_RUN });
+    try {
+      validateHumanEvidenceSummary(summary);
+    } catch (error) {
+      throw validationError("Strict human evidence validation failed", {
+        reason: error.message,
+        schemaVersion: HUMAN_EVIDENCE_SCHEMA_VERSION
+      });
+    }
+    const strictResult = normalizeResultStatus(summary.result);
+    const scenarioStatus = strictResultToScenarioStatus(strictResult);
+    const artifact = this.createArtifact({
+      actor,
+      type: "human_evidence_summary",
+      path: evidenceArtifactPath || `human-evidence://${summary.testId}/${summary.gitCommit}`,
+      source: "strict_human_evidence",
+      linkedModule,
+      correlationId: corr
+    });
+    const evidenceIds = [artifact.id];
+    const run = this.recordHumanTestRun({
+      actor,
+      mode: "strict_human_evidence",
+      title: `${summary.testId} strict evidence ${strictResult}`,
+      environment: summary.environment?.mode || "strict_human_evidence",
+      evidenceArtifactIds: evidenceIds,
+      results: [{
+        scenarioId: summary.testId,
+        view: linkedModule,
+        status: scenarioStatus,
+        note: `Strict human evidence result ${strictResult}`,
+        evidenceArtifactIds: evidenceIds
+      }],
+      correlationId: corr
+    });
+    const humanEvidence = {
+      schemaVersion: HUMAN_EVIDENCE_SCHEMA_VERSION,
+      testId: summary.testId,
+      testVersion: summary.testVersion,
+      strictResult,
+      productionSatisfyingResult: isProductionSatisfyingResult(strictResult),
+      evidenceArtifactIds: evidenceIds,
+      evidenceRefs: safeArray(summary.evidenceRefs || [], "summary.evidenceRefs"),
+      blockers: safeArray(summary.blockers || [], "summary.blockers"),
+      residualRisk: safeArray(summary.residualRisk || [], "summary.residualRisk"),
+      nextRequiredAction: optionalText(summary.nextRequiredAction, "summary.nextRequiredAction"),
+      repairCommit: optionalText(repairCommit, "repairCommit"),
+      ksiegaControlRefs: safeArray(ksiegaControlRefs, "ksiegaControlRefs"),
+      phantomBoundaryImpact: safeText(phantomBoundaryImpact, "phantomBoundaryImpact"),
+      metadataOnly: summary.forbiddenDataPolicy?.metadataOnly === true,
+      terminalDataStored: summary.forbiddenDataPolicy?.terminalDataStored === true,
+      contentInspected: summary.forbiddenDataPolicy?.contentInspected === true,
+      packetCaptureStored: summary.forbiddenDataPolicy?.packetCaptureStored === true
+    };
+    const indexedRun = {
+      ...run,
+      humanEvidence,
+      productionExecutionAllowed: false
+    };
+    this.testRuns.set(indexedRun.id, indexedRun);
+    this.audit.record({
+      actorId: actor.id,
+      action: "release.human_evidence_run_indexed",
+      resourceType: RESOURCE_TYPES.RELEASE_TEST_RUN,
+      resourceId: indexedRun.id,
+      correlationId: corr,
+      policyDecision: humanEvidence.productionSatisfyingResult ? "allow" : "deny",
+      result: strictResult,
+      newValue: indexedRun
+    });
+    return indexedRun;
+  }
+
   listArtifacts({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "release.read", { correlationId: corr, resourceType: RESOURCE_TYPES.EVIDENCE_ARTIFACT });
@@ -584,6 +830,25 @@ export class ReleaseControlService {
       status: requireEnum(item.status, TEST_STATUSES, `results.${index}.status`),
       note: optionalText(item.note, `results.${index}.note`),
       evidenceArtifactIds: safeArray(item.evidenceArtifactIds || [], `results.${index}.evidenceArtifactIds`)
+    }));
+  }
+
+  #normalizeFactualChecks({ appKey, checks }) {
+    if (!checks || typeof checks !== "object" || Array.isArray(checks)) {
+      throw validationError("Factual checks must be an object", { field: "checks" });
+    }
+    const required = requiredFactualChecks(appKey);
+    const allKeys = [...new Set([...required, ...Object.keys(checks)])];
+    return Object.fromEntries(allKeys.map((checkKey) => {
+      const value = checks[checkKey] || {};
+      const asObject = typeof value === "string" ? { status: value } : value;
+      const status = requireEnum(asObject.status || "not_run", FACTUAL_CHECK_STATUSES, `checks.${checkKey}.status`);
+      return [checkKey, {
+        status,
+        mode: optionalText(asObject.mode, `checks.${checkKey}.mode`),
+        evidence: optionalText(asObject.evidence, `checks.${checkKey}.evidence`),
+        note: optionalText(asObject.note, `checks.${checkKey}.note`)
+      }];
     }));
   }
 }

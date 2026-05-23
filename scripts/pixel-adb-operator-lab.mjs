@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { writeHumanEvidenceSummary } from "./lib/human-evidence.mjs";
 import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
 
 const execFileAsync = promisify(execFile);
@@ -273,6 +274,63 @@ async function run() {
     usedLocalhostLabTokenBootstrap: true,
     checkedAt: new Date().toISOString()
   };
+  const labHealthy = summary.openedOperatorPortalOnPixel
+    && summary.pixelProfileAvailable
+    && summary.connectionPathState === "ready"
+    && summary.terminalMode === "pixel_grapheneos";
+  const humanEvidence = await writeHumanEvidenceSummary(outputDir, {
+    testId: "step3-24-pixel-adb-operator-lab",
+    testVersion: "step3.86",
+    tester: "Codex Pixel ADB harness",
+    environment: {
+      mode: "local_lab",
+      adminApi: "local_admin_api",
+      g1g2WorkloadPath: "simulated_local_lab",
+      productionMutationAllowed: false
+    },
+    terminal: {
+      type: "pixel_grapheneos",
+      adbAuthorized: true,
+      serialHashRef: "adb_device_seen",
+      targetViewport: summary.streamTarget,
+      resizePolicy: summary.streamResizePolicy
+    },
+    pathTested: "Pixel ADB -> local reverse tunnel -> operator panel local lab -> simulated G1/G2/WORKLOAD metadata",
+    expectedBehavior: "A connected Pixel opens the operator panel in lab mode, receives only thin-client metadata, and does not store operational data on the terminal.",
+    preconditions: [
+      "Authorized Pixel is visible over ADB.",
+      "Local admin API is running.",
+      "Operator baseline creates exactly 3 local lab VPS layers.",
+      "Lab session is explicitly non-production."
+    ],
+    actions: [
+      "Create tenant and operator.",
+      "Register Pixel and laptop terminal profiles.",
+      "Create local operator environment.",
+      "Open operator panel on Pixel through ADB.",
+      "Query VPN, connection path, workload execution and streaming profile metadata."
+    ],
+    evidenceRefs: [
+      "summary.json",
+      "operator-api:/operator-api/me",
+      "operator-api:/operator-api/connection-path",
+      "operator-api:/operator-api/workload-execution/signal",
+      "operator-api:/operator-api/streaming-profile"
+    ],
+    result: labHealthy ? "LAB_PASS" : "FAIL",
+    blockers: [
+      ...summary.signalExecutionBlockers,
+      "local_lab_does_not_prove_live_pixel_g1_g2_workload_path",
+      "physical_puli_ax_router_test_blocked_until_hardware_arrives",
+      "physical_hsm_fido2_test_blocked_until_devices_are_present"
+    ],
+    residualRisk: [
+      "This lab run proves operator-panel and Pixel bootstrap ergonomics only.",
+      "Live VPN, Guacamole/streaming and workload application usability must be proven by live human regression."
+    ],
+    nextRequiredAction: "Run step3-40 live Pixel human regression and compare with live path evidence."
+  }, { fileName: "human-evidence.json" });
+  summary.humanEvidencePath = humanEvidence.path;
   await writeFile(join(outputDir, "summary.json"), JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
 }

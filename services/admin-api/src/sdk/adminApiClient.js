@@ -175,6 +175,21 @@ export class AdminApiClient {
     return this.request("/release/human-test-runs", { method: "POST", body });
   }
 
+  recordHumanEvidenceRun(body) {
+    return this.request("/release/human-evidence-runs", { method: "POST", body });
+  }
+
+  listWorkloadFactualTests({ operatorId = null, appKey = null } = {}) {
+    const params = new URLSearchParams();
+    if (operatorId) params.set("operatorId", operatorId);
+    if (appKey) params.set("appKey", appKey);
+    return this.request(`/release/workload-factual-tests${params.toString() ? `?${params}` : ""}`);
+  }
+
+  recordWorkloadFactualTest(body) {
+    return this.request("/release/workload-factual-tests", { method: "POST", body });
+  }
+
   updateHumanTestScenarioStatus(scenarioId, body) {
     return this.request(`/release/human-tests/${scenarioId}/status`, { method: "POST", body });
   }
@@ -201,6 +216,34 @@ export class AdminApiClient {
 
   listLiveProviderRehearsals() {
     return this.request("/live-execution/cloud/rehearsals");
+  }
+
+  listDedicatedWorkloadOrders() {
+    return this.request("/live-execution/dedicated-workload/orders");
+  }
+
+  listWorkloadNativeHosts() {
+    return this.request("/live-execution/workload-native/hosts");
+  }
+
+  registerWorkloadNativeHost(body) {
+    return this.request("/live-execution/workload-native/hosts", { method: "POST", body });
+  }
+
+  listWorkloadImageManifests() {
+    return this.request("/live-execution/workload-images/manifests");
+  }
+
+  createWorkloadImageManifest(body) {
+    return this.request("/live-execution/workload-images/manifests", { method: "POST", body });
+  }
+
+  getProductionReadiness() {
+    return this.request("/production-readiness/operators");
+  }
+
+  createHetznerRobotDedicatedWorkloadOrder(body) {
+    return this.request("/live-execution/dedicated-workload/hetzner-robot/order", { method: "POST", body });
   }
 
   reconcileProviderLiveVpsSet(providerKey, body) {
@@ -471,6 +514,18 @@ export class AdminApiClient {
     return this.request("/subscription/plans", { method: "POST", body });
   }
 
+  listSubscriptionPaymentTokens() {
+    return this.request("/subscription/payment-tokens");
+  }
+
+  issueSubscriptionPaymentToken(body) {
+    return this.request("/subscription/payment-tokens", { method: "POST", body });
+  }
+
+  redeemSubscriptionPaymentToken(body) {
+    return this.request("/subscription/payment-tokens/redeem", { method: "POST", body });
+  }
+
   getTenantSubscription(tenantId) {
     return this.request(`/tenants/${tenantId}/subscription`);
   }
@@ -505,6 +560,14 @@ export class AdminApiClient {
 
   listQuotaDecisions() {
     return this.request("/subscription/quota-decisions");
+  }
+
+  listJurisdictionRouteEvidence(operatorId = null) {
+    return this.request(`/jurisdiction/route-evidence${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  recordJurisdictionRouteEvidence(body) {
+    return this.request("/jurisdiction/route-evidence", { method: "POST", body });
   }
 
   listProvisioningApprovals(operatorId = null) {
@@ -565,6 +628,18 @@ export class AdminApiClient {
 
   createOperator(body) {
     return this.request("/operators", { method: "POST", body });
+  }
+
+  listDisposableTeardownPlans(operatorId = null) {
+    return this.request(`/operators/disposable-teardown-plans${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+  }
+
+  createDisposableTeardownPlan(operatorId, body = {}) {
+    return this.request(`/operators/${operatorId}/disposable-teardown-plan`, { method: "POST", body });
+  }
+
+  executeDisposableTeardown(operatorId, body = {}) {
+    return this.request(`/operators/${operatorId}/disposable-teardown-execute`, { method: "POST", body });
   }
 
   createProvider(body) {

@@ -52,6 +52,12 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.contentType, /text\/html/);
     assert.match(html.body, /SYLION Operator Portal/);
     assert.match(html.body, /Scoped local session required/);
+    assert.match(html.body, /data-view="app-switcher"/);
+    assert.match(html.body, /https:\/\/signal\.sylion\.internal\//);
+    assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal\/vnc\.html/);
+    assert.match(html.body, /https:\/\/libreoffice\.sylion\.internal\//);
+    assert.match(html.body, /Backup & Panic/);
+    assert.match(html.body, /Laptop terminal package/);
   } finally {
     await close();
   }
@@ -70,6 +76,12 @@ test("Operator portal serves styles.css and app.js", async () => {
     assert.match(js.contentType, /text\/javascript|application\/javascript/);
     assert.match(js.body, /detectTerminalMode/);
     assert.match(js.body, /streaming-profile/);
+    assert.match(js.body, /laptop-access-package/);
+    assert.match(js.body, /bootstrapOperatorToken/);
+    assert.match(js.body, /\.sylion\.internal/);
+
+    assert.match(css.body, /quick-grid/);
+    assert.match(css.body, /position: fixed/);
   } finally {
     await close();
   }
@@ -119,6 +131,16 @@ test("/operator-api/vpn-install-package requires an operator portal session", as
   const { baseUrl, close } = await startTestServer();
   try {
     const res = await getJson(baseUrl, "/operator-api/vpn-install-package");
+    assert.equal(res.status, 401);
+  } finally {
+    await close();
+  }
+});
+
+test("/operator-api/laptop-access-package requires an operator portal session", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const res = await getJson(baseUrl, "/operator-api/laptop-access-package");
     assert.equal(res.status, 401);
   } finally {
     await close();

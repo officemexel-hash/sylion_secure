@@ -1,8 +1,12 @@
+import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { promisify } from "node:util";
 import { DEVICE_TYPES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { AppError, notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
+
+const execFileAsync = promisify(execFile);
 
 const TERMINAL_MODES = Object.freeze({
   PIXEL: "pixel_grapheneos",
@@ -10,21 +14,122 @@ const TERMINAL_MODES = Object.freeze({
 });
 
 const WORKLOAD_CONTROL_APPS = Object.freeze([
-  { key: "whatsapp", name: "WhatsApp" },
-  { key: "signal", name: "Signal" },
-  { key: "telegram", name: "Telegram" },
-  { key: "threema", name: "Threema" },
-  { key: "zangi", name: "Zangi" },
-  { key: "matrix_client", name: "Matrix Client" },
-  { key: "matrix_server", name: "Matrix Server" },
-  { key: "duckduckgo_browser", name: "DuckDuckGo Browser" },
-  { key: "libreoffice", name: "LibreOffice" }
+  { key: "whatsapp", name: "WhatsApp", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "signal", name: "Signal", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "telegram", name: "Telegram", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "threema", name: "Threema", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  {
+    key: "zangi",
+    name: "Zangi",
+    category: "messenger",
+    isolation: "android_workload_kvm_required",
+    cdrRequired: true,
+    nativeRuntimeRequired: true,
+    nativeRuntimeClass: "android_workload",
+    compatibilityMode: "remote_browser_download_page_only",
+    productionNativeRequires: ["kvm_device", "binder_or_binderfs", "approved_android_image", "approved_zangi_apk_ref"]
+  },
+  { key: "matrix_client", name: "Matrix Client", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "matrix_server", name: "Matrix Server", category: "server", isolation: "dedicated_service_workload", cdrRequired: true },
+  { key: "duckduckgo_browser", name: "DuckDuckGo Browser", category: "browser", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "libreoffice", name: "LibreOffice", category: "office", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  { key: "exodus", name: "Exodus", category: "wallet", isolation: "dedicated_wallet_workload", cdrRequired: true, requiresOperatorRiskAcceptance: true }
+]);
+
+const ANDROID_WORKLOAD_APPS = new Set(["zangi"]);
+const SESSION_BROKER_PROTOCOLS = Object.freeze({
+  GUACAMOLE: "guacamole",
+  WEBRTC_SELKIES: "webrtc_selkies",
+  LEGACY_WEBRTC_OR_SELKIES: "webrtc_or_selkies",
+  NOVNC_LAB: "novnc_lab"
+});
+const PRODUCTION_SESSION_BROKER_PROTOCOLS = new Set([
+  SESSION_BROKER_PROTOCOLS.GUACAMOLE,
+  SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES,
+  SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+]);
+const LAB_SESSION_BROKER_PROTOCOLS = new Set([
+  SESSION_BROKER_PROTOCOLS.NOVNC_LAB,
+  "novnc",
+  "novnc_websockify",
+  "novnc_over_g2_private_websockify_vnc_vencrypt_adapter"
 ]);
 
 const WORKLOAD_CONTROL_ACTIONS = new Set(["scale_to_counts", "rotate_app", "recreate_all"]);
 const UNLOCK_LAYERS = Object.freeze(["g1", "g2", "workload"]);
 const PANIC_LEVELS = Object.freeze(["data_wipe", "environment_destroy", "account_revoke"]);
 const JURISDICTION_MODES = Object.freeze(["disabled", "manual", "scheduled", "full_policy"]);
+const ACCOUNT_BOOTSTRAP_RESULTS = new Set(["passed", "failed", "blocked", "in_progress"]);
+const ACCOUNT_BOOTSTRAP_CHECK_STATUSES = new Set(["passed", "failed", "blocked", "not_run", "not_applicable"]);
+const ACCOUNT_BOOTSTRAP_MODES = new Set([
+  "desktop_linked_account",
+  "android_native_workload",
+  "physical_mobile_companion",
+  "approved_test_number_provider",
+  "manual_operator_account"
+]);
+const BOOTSTRAP_SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|phone.*number|panic.*code|seed|mnemonic|private[_-]?key)/i;
+const LIVE_RECREATE_APP_MAP = Object.freeze({
+  whatsapp: "whatsapp",
+  signal: "signal",
+  telegram: "telegram",
+  threema: "threema",
+  zangi: "zangi",
+  duckduckgo_browser: "duckduckgo",
+  libreoffice: "libreoffice",
+  exodus: "exodus"
+});
+const NATIVE_FIRECRACKER_RECREATE_APPS = new Set(["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal"]);
+const TRAFFIC_MONITOR_SEGMENTS = Object.freeze([
+  {
+    id: "pixel_router",
+    order: 1,
+    from: "Pixel/laptop terminal",
+    to: "Puli AX router",
+    zone: "ZONE_0_TO_ACCESS_ROUTER",
+    transport: "local_access_link_with_device_posture",
+    expectedControls: ["terminal_no_operational_data", "router_kill_switch", "dns_leak_prevention"]
+  },
+  {
+    id: "router_g1",
+    order: 2,
+    from: "Puli AX router",
+    to: "G1 ingress gateway",
+    zone: "ACCESS_ROUTER_TO_G1",
+    transport: "ipsec_ikev2_mutual_certificate",
+    expectedControls: ["ikev2_sa_established", "terminal_default_route_to_g1_only", "internal_dns_only"]
+  },
+  {
+    id: "g1_g2",
+    order: 3,
+    from: "G1 ingress gateway",
+    to: "G2 access broker",
+    zone: "G1_TO_G2",
+    transport: "ipsec_ikev2_policy_path",
+    expectedControls: ["default_deny_except_g2", "mutual_service_identity", "route_policy_audited"]
+  },
+  {
+    id: "g2_workload",
+    order: 4,
+    from: "G2 access broker",
+    to: "WORKLOAD host",
+    zone: "G2_TO_WORKLOAD",
+    transport: "ipsec_ikev2_or_private_policy_link",
+    expectedControls: ["g2_broker_only", "private_bind_only", "cdr_file_gate"]
+  },
+  {
+    id: "workload_microvm",
+    order: 5,
+    from: "WORKLOAD host",
+    to: "Firecracker/container app environment",
+    zone: "WORKLOAD_TO_MICROVM",
+    transport: "firecracker_jailer_private_tap_or_vsock",
+    expectedControls: ["per_app_isolation", "no_terminal_storage", "cdr_file_gate"]
+  }
+]);
+const TRAFFIC_SEGMENT_IDS = new Set(TRAFFIC_MONITOR_SEGMENTS.map((segment) => segment.id));
+const TRAFFIC_STATUSES = new Set(["healthy", "degraded", "blocked", "missing", "observed"]);
+const TRAFFIC_FORBIDDEN_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms|seed|mnemonic|private[_-]?key|payload|message|chat|packet[_-]?capture|pcap|capture[_-]?file|file[_-]?content|wallet[_-]?secret|cookie|body)/i;
 
 function isoNow() {
   return new Date().toISOString();
@@ -53,8 +158,57 @@ function publicSession(session) {
   };
 }
 
+function publicSessionMetadata(session) {
+  const view = publicSession(session);
+  delete view.token;
+  return view;
+}
+
+async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
+  const nativeFirecracker = process.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE === "native_firecracker";
+  const command = nativeFirecracker ? "node" : process.platform === "win32" ? "npm.cmd" : "npm";
+  const args = nativeFirecracker
+    ? ["scripts/launch-native-firecracker-gui-workload.mjs", "--apply"]
+    : ["run", "live:workload-recreate", "--", `--app=${app}`];
+  if (!nativeFirecracker && wipeVolume) args.push("--wipe-volume");
+  const result = await execFileAsync(command, args, {
+    timeout: nativeFirecracker ? 1_800_000 : 240_000,
+    windowsHide: true,
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      ...(nativeFirecracker ? { SYLION_GUI_APP: app } : {})
+    }
+  });
+  const stdout = result.stdout.trim();
+  const json = stdout.slice(stdout.indexOf("{"), stdout.lastIndexOf("}") + 1);
+  const parsed = JSON.parse(json);
+  return nativeFirecracker ? {
+    applied: parsed.readyThroughG2 === true,
+    app,
+    mode: "native_firecracker",
+    evidence: parsed.evidence,
+    g2: parsed.g2,
+    secretPrinted: false,
+    productionExecutionAllowed: false
+  } : parsed;
+}
+
 export class OperatorPortalService {
-  constructor({ audit, rbac, operators, devices, subscriptions, operatorEnvironments, securityProfiles, routerReadiness = null, env = process.env, store = null }) {
+  constructor({
+    audit,
+    rbac,
+    operators,
+    devices,
+    subscriptions,
+    operatorEnvironments,
+    securityProfiles,
+    routerReadiness = null,
+    env = process.env,
+    store = null,
+    liveWorkloadRunner = defaultLiveWorkloadRunner,
+    workloadImageManifestResolver = null
+  }) {
     this.audit = audit;
     this.rbac = rbac;
     this.operators = operators;
@@ -71,6 +225,15 @@ export class OperatorPortalService {
     this.jurisdictionPolicies = new PersistentMap({ store, collection: "operator_jurisdiction_policies" });
     this.matrixRequests = new PersistentMap({ store, collection: "operator_matrix_server_requests" });
     this.subscriptionRequests = new PersistentMap({ store, collection: "operator_subscription_change_requests" });
+    this.vpnEvidence = new PersistentMap({ store, collection: "operator_vpn_evidence" });
+    this.streamingSessions = new PersistentMap({ store, collection: "operator_streaming_sessions" });
+    this.streamingReadinessEvidence = new PersistentMap({ store, collection: "operator_streaming_readiness_evidence" });
+    this.streamingRuntimeManifests = new PersistentMap({ store, collection: "operator_streaming_runtime_manifests" });
+    this.trafficEvidence = new PersistentMap({ store, collection: "operator_traffic_monitoring_evidence" });
+    this.workloadControlJobs = new PersistentMap({ store, collection: "operator_workload_control_jobs" });
+    this.accountBootstrapSessions = new PersistentMap({ store, collection: "operator_account_bootstrap_sessions" });
+    this.liveWorkloadRunner = liveWorkloadRunner;
+    this.workloadImageManifestResolver = workloadImageManifestResolver;
   }
 
   createLocalSession({ actor, operatorId, terminalMode, deviceId = null, correlationId }) {
@@ -134,6 +297,12 @@ export class OperatorPortalService {
     };
   }
 
+  sessionFromToken(token, { includeToken = false } = {}) {
+    this.actorFromToken(token);
+    const session = this.sessions.get(token);
+    return includeToken ? publicSession(session) : publicSessionMetadata(session);
+  }
+
   me({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
     const operator = this.#requireOperator(operatorActor.operatorId);
@@ -193,13 +362,17 @@ export class OperatorPortalService {
     requireCorrelationId(correlationId);
     const subscription = this.subscription({ operatorActor, correlationId });
     const currentCounts = this.#currentWorkloadCounts(operatorActor.operatorId);
+    const androidRuntime = this.#androidRuntimeSubstrate();
     const latestRequest = [...this.workloadControlRequests.values()]
       .filter((request) => request.operatorId === operatorActor.operatorId)
       .at(-1) || null;
     return {
       operatorId: operatorActor.operatorId,
       tenantId: operatorActor.tenantId,
-      catalog: WORKLOAD_CONTROL_APPS,
+      catalog: WORKLOAD_CONTROL_APPS.map((app) => ({
+        ...app,
+        runtimeGate: ANDROID_WORKLOAD_APPS.has(app.key) ? androidRuntime : { required: false, ready: true, blockers: [] }
+      })),
       quota: {
         maxWorkloadEnvironments: subscription.quota.maxWorkloadEnvironments,
         maxAppsPerOperator: subscription.quota.maxAppsPerOperator,
@@ -208,6 +381,7 @@ export class OperatorPortalService {
       currentCounts,
       latestDesiredCounts: latestRequest?.desiredCounts || currentCounts,
       latestRequest: latestRequest ? this.#publicWorkloadControlRequest(latestRequest) : null,
+      latestJob: this.#latestWorkloadControlJob(operatorActor.operatorId),
       actions: [
         { key: "scale_to_counts", label: "Set desired counts", destructive: false },
         { key: "rotate_app", label: "Delete and recreate one app family", destructive: true },
@@ -219,8 +393,45 @@ export class OperatorPortalService {
         quotaEnforced: true,
         destructiveCleanupAllowed: false,
         controlPlaneOnly: true,
-        productionExecutionAllowed: false
+        productionExecutionAllowed: this.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED === "true",
+        androidNativeWorkloadGate: androidRuntime
       }
+    };
+  }
+
+  workloadControlEvidenceSummary({ operatorIds = [] } = {}) {
+    const operatorSet = new Set(operatorIds.filter(Boolean));
+    const includesOperator = (item) => operatorSet.size === 0 || operatorSet.has(item.operatorId);
+    const requests = [...this.workloadControlRequests.values()].filter(includesOperator);
+    const jobs = [...this.workloadControlJobs.values()].filter(includesOperator);
+    const completedLiveRecreate = jobs.filter((job) => {
+      const publicJob = this.#publicWorkloadControlJob(job);
+      const result = job.result || {};
+      const nativeReady = result.nativeFirecracker?.readyThroughG2 === true
+        || result.applied === true
+        || result.workloadEvidence?.privateBindOnly === true;
+      return publicJob.state === "completed_live_workload_recreate"
+        && publicJob.cdrRequired === true
+        && publicJob.terminalDataStored === false
+        && publicJob.privateBindOnlyRequired === true
+        && nativeReady;
+    });
+    const blockedBeforeRunner = jobs.filter((job) => job.state === "blocked_before_live_runner");
+    const failedLiveRecreate = jobs.filter((job) => job.state === "failed_live_workload_recreate");
+    const destructiveRequests = requests.filter((request) => request.action === "rotate_app" || request.action === "recreate_all");
+    const ready = completedLiveRecreate.length > 0 && blockedBeforeRunner.length > 0 && failedLiveRecreate.length === 0;
+    return {
+      requests: requests.length,
+      destructiveRequests: destructiveRequests.length,
+      jobs: jobs.length,
+      completedLiveRecreate: completedLiveRecreate.length,
+      blockedBeforeRunner: blockedBeforeRunner.length,
+      failedLiveRecreate: failedLiveRecreate.length,
+      cdrRequiredObserved: completedLiveRecreate.some((job) => job.cdrRequired === true),
+      terminalDataStoredFalseObserved: completedLiveRecreate.some((job) => job.terminalDataStored === false),
+      privateBindOnlyObserved: completedLiveRecreate.some((job) => job.privateBindOnlyRequired === true),
+      ready,
+      productionExecutionAllowed: false
     };
   }
 
@@ -262,6 +473,12 @@ export class OperatorPortalService {
       productionExecutionAllowed: false,
       sideEffectAllowed: false,
       destructiveCleanupAllowed: false,
+      executionPlan: this.#workloadExecutionPlan({
+        action,
+        rotateApp,
+        desiredCounts,
+        operatorId: operatorActor.operatorId
+      }),
       requestedBy: operatorActor.id,
       requestedAt: isoNow()
     };
@@ -279,6 +496,150 @@ export class OperatorPortalService {
       newValue: this.#publicWorkloadControlRequest(request)
     });
     return this.#publicWorkloadControlRequest(request);
+  }
+
+  async executeWorkloadControlRequest({ operatorActor, requestId, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const request = this.workloadControlRequests.get(requestId);
+    if (!request || request.operatorId !== operatorActor.operatorId) {
+      throw notFound("workload_control_request", requestId);
+    }
+    if (request.action === "scale_to_counts") {
+      throw validationError("Only destructive recreate requests can use the live workload runner", {
+        requestId,
+        action: request.action
+      });
+    }
+    const runnerApp = this.#runnerAppForRequest(request);
+    if (!runnerApp) {
+      throw validationError("This workload request is not supported by the live recreate runner yet", {
+        requestId,
+        rotateApp: request.rotateApp,
+        supported: Object.keys(LIVE_RECREATE_APP_MAP)
+      });
+    }
+    const liveRunnerEnabled = this.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED === "true";
+    const confirmation = String(body.confirmation || "").trim();
+    if (!liveRunnerEnabled || confirmation !== "RUN_LIVE_WORKLOAD_RECREATE") {
+      const blocked = this.#workloadJob({
+        request,
+        operatorActor,
+        runnerApp,
+        state: "blocked_before_live_runner",
+        wipeVolume: false,
+        result: null,
+        blockers: [
+          ...(liveRunnerEnabled ? [] : ["SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED_not_true"]),
+          ...(confirmation === "RUN_LIVE_WORKLOAD_RECREATE" ? [] : ["confirmation_phrase_missing"])
+        ]
+      });
+      this.workloadControlJobs.set(blocked.id, blocked);
+      this.audit.record({
+        actorId: operatorActor.id,
+        action: "operator_portal.workload_live_runner_blocked",
+        resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+        resourceId: blocked.id,
+        tenantId: operatorActor.tenantId,
+        operatorId: operatorActor.operatorId,
+        correlationId: corr,
+        policyDecision: "deny",
+        result: blocked.state,
+        newValue: this.#publicWorkloadControlJob(blocked)
+      });
+      return this.#publicWorkloadControlJob(blocked);
+    }
+    const wipeVolume = body.wipeVolume === true;
+    if (wipeVolume && (this.env.SYLION_ALLOW_WORKLOAD_WIPE !== "true" || !body.fourEyesApprovalRef)) {
+      throw validationError("Volume wipe requires four-eyes approval and explicit server-side unlock", {
+        requestId,
+        fourEyesApprovalRequired: true,
+        envGate: "SYLION_ALLOW_WORKLOAD_WIPE"
+      });
+    }
+
+    const started = this.#workloadJob({
+      request,
+      operatorActor,
+      runnerApp,
+      state: "running_live_workload_recreate",
+      wipeVolume,
+      result: null,
+      blockers: []
+    });
+    this.workloadControlJobs.set(started.id, started);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.workload_live_runner_started",
+      resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+      resourceId: started.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: started.state,
+      newValue: this.#publicWorkloadControlJob(started)
+    });
+
+    try {
+      const result = await this.liveWorkloadRunner({ app: runnerApp, wipeVolume });
+      const completed = {
+        ...started,
+        state: result?.applied ? "completed_live_workload_recreate" : "failed_live_workload_recreate",
+        completedAt: isoNow(),
+        result: this.#sanitizeLiveRunnerResult(result),
+        productionExecutionAllowed: false,
+        sideEffectAllowed: true
+      };
+      request.state = completed.state;
+      request.deleteRecreateMode = completed.state;
+      request.liveJobId = completed.id;
+      this.workloadControlRequests.set(request.id, request);
+      this.workloadControlJobs.set(completed.id, completed);
+      this.audit.record({
+        actorId: operatorActor.id,
+        action: "operator_portal.workload_live_runner_completed",
+        resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+        resourceId: completed.id,
+        tenantId: operatorActor.tenantId,
+        operatorId: operatorActor.operatorId,
+        correlationId: corr,
+        policyDecision: completed.state === "completed_live_workload_recreate" ? "allow" : "deny",
+        result: completed.state,
+        newValue: this.#publicWorkloadControlJob(completed)
+      });
+      return this.#publicWorkloadControlJob(completed);
+    } catch (error) {
+      const failed = {
+        ...started,
+        state: "failed_live_workload_recreate",
+        completedAt: isoNow(),
+        result: {
+          applied: false,
+          secretPrinted: false,
+          error: String(error.message || error).slice(0, 240)
+        },
+        productionExecutionAllowed: false,
+        sideEffectAllowed: false
+      };
+      request.state = failed.state;
+      request.deleteRecreateMode = failed.state;
+      request.liveJobId = failed.id;
+      this.workloadControlRequests.set(request.id, request);
+      this.workloadControlJobs.set(failed.id, failed);
+      this.audit.record({
+        actorId: operatorActor.id,
+        action: "operator_portal.workload_live_runner_failed",
+        resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION,
+        resourceId: failed.id,
+        tenantId: operatorActor.tenantId,
+        operatorId: operatorActor.operatorId,
+        correlationId: corr,
+        policyDecision: "deny",
+        result: failed.state,
+        newValue: this.#publicWorkloadControlJob(failed)
+      });
+      return this.#publicWorkloadControlJob(failed);
+    }
   }
 
   connectionPath({ operatorActor, correlationId }) {
@@ -356,7 +717,9 @@ export class OperatorPortalService {
   vpnStatus({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
     const ready = this.#latestReadyEnvironment(operatorActor.operatorId);
-    const state = ready ? "local_lab_connected" : "configuration_pending";
+    const evidence = this.#latestVpnEvidenceForOperator(operatorActor.operatorId);
+    const evidenceReady = this.#vpnEvidenceReady(evidence);
+    const state = evidenceReady ? "live_ipsec_connected" : ready ? "local_lab_connected" : "configuration_pending";
     const path = this.#connectionPathForOperator({
       operatorId: operatorActor.operatorId,
       terminalMode: operatorActor.terminalMode,
@@ -375,38 +738,211 @@ export class OperatorPortalService {
       },
       path: [
         path.nodes.find((node) => node.role === "TERMINAL")?.label || "Operator terminal",
-        "Puli AX IPsec gateway",
+        evidenceReady ? "Pixel strongSwan IPsec client" : "Puli AX IPsec gateway",
         "G1 network gateway",
         "G2 access broker",
         "WORKLOAD microVM layer"
       ],
       segments: path.segments,
       microVmSlots: path.microVmSlots,
-      lastHandshake: null,
+      lastHandshake: evidenceReady ? evidence.observedAt : null,
+      liveEvidence: evidence ? this.#publicVpnEvidence(evidence) : null,
       sideEffectAllowed: false,
+      productionExecutionAllowed: evidenceReady
+    };
+  }
+
+  recordVpnEvidence({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const reachableHosts = Array.isArray(body.reachableHosts)
+      ? body.reachableHosts.map((host) => String(host).trim()).filter(Boolean)
+      : Object.entries(body.reachableHosts || {})
+        .filter(([, reachable]) => Boolean(reachable))
+        .map(([host]) => String(host).trim())
+        .filter(Boolean);
+    const evidence = {
+      id: newId("vpn_evidence"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      vpnConnected: body.vpnConnected === true,
+      vpnSession: String(body.vpnSession || "").slice(0, 64) || null,
+      vpnInterface: String(body.vpnInterface || "").slice(0, 32) || null,
+      dnsThroughTunnel: body.dnsThroughTunnel === true,
+      reachableHosts,
+      requiredHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "10.42.0.12"],
+      certificateTrusted: body.certificateTrusted === true,
+      observedAt: isoNow(),
+      source: "operator_terminal_live_evidence",
+      terminalDataStored: false,
+      contentInspected: false
+    };
+    evidence.blockers = this.#vpnEvidenceBlockers(evidence);
+    evidence.ready = evidence.blockers.length === 0;
+    this.vpnEvidence.set(evidence.id, evidence);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.vpn_live_evidence_recorded",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: evidence.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: evidence.ready ? "allow" : "deny",
+      result: evidence.ready ? "live_ipsec_connected" : "vpn_evidence_incomplete",
+      newValue: this.#publicVpnEvidence(evidence)
+    });
+    return this.#publicVpnEvidence(evidence);
+  }
+
+  trafficMonitoring({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const path = this.#connectionPathForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId
+    });
+    const vpnEvidence = this.#latestVpnEvidenceForOperator(operatorActor.operatorId);
+    const streamingReadiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
+    const streamingRuntime = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const latestEvidence = this.#latestTrafficEvidenceBySegment(operatorActor.operatorId);
+    const segments = TRAFFIC_MONITOR_SEGMENTS.map((definition) => this.#trafficSegmentView({
+      definition,
+      operatorActor,
+      path,
+      vpnEvidence,
+      streamingReadiness,
+      streamingRuntime,
+      evidence: latestEvidence.get(definition.id) || null
+    }));
+    const alerts = this.#trafficAlerts({
+      segments,
+      path,
+      vpnEvidence,
+      streamingReadiness,
+      streamingRuntime
+    });
+    const summary = {
+      segments: segments.length,
+      healthy: segments.filter((segment) => segment.status === "healthy").length,
+      degraded: segments.filter((segment) => segment.status === "degraded").length,
+      blocked: segments.filter((segment) => segment.status === "blocked").length,
+      missing: segments.filter((segment) => segment.status === "missing").length,
+      alerts: alerts.length,
+      state: segments.every((segment) => segment.status === "healthy")
+        ? "blue_team_path_healthy"
+        : segments.some((segment) => segment.status === "blocked")
+          ? "blue_team_path_blocked"
+          : "blue_team_path_degraded",
       productionExecutionAllowed: false
     };
+    return {
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      mode: "metadata_only_blue_team_monitoring",
+      route: ["Pixel/laptop", "Puli AX", "G1", "G2", "WORKLOAD", "microVM/container"],
+      summary,
+      segments,
+      alerts,
+      guardrails: {
+        metadataOnly: true,
+        contentInspected: false,
+        packetCaptureStored: false,
+        messageContentStored: false,
+        terminalDataStored: false,
+        noTerminalOperationalData: true,
+        g1G2BypassAllowed: false,
+        baselineTransport: "ipsec_ikev2",
+        cdrRequiredForFiles: true,
+        routerPhysicalGateDeferred: path.router?.readyForPhysicalSmoke !== true,
+        hsmFido2PhysicalGateDeferred: this.env?.SYLION_DEFER_PHYSICAL_HSM_FIDO2 === "true"
+      },
+      evidence: {
+        vpnEvidenceId: vpnEvidence?.id || null,
+        streamingReadinessId: streamingReadiness?.id || null,
+        streamingRuntimeManifestId: streamingRuntime?.id || null,
+        trafficEvidenceIds: [...latestEvidence.values()].map((evidence) => evidence.id)
+      },
+      generatedAt: isoNow(),
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  recordTrafficEvidence({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.#assertNoTrafficSecrets(body);
+    const segmentId = String(body.segmentId || body.segment || "").trim();
+    if (!TRAFFIC_SEGMENT_IDS.has(segmentId)) {
+      throw validationError("Unsupported traffic segment", {
+        segmentId,
+        supported: [...TRAFFIC_SEGMENT_IDS]
+      });
+    }
+    const status = this.#normalizeTrafficStatus(body.status || (body.healthy === true ? "healthy" : "observed"));
+    const encrypted = body.encrypted === undefined ? status !== "blocked" : body.encrypted === true;
+    const evidence = {
+      id: newId("traffic_evidence"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      segmentId,
+      status,
+      encrypted,
+      transport: String(body.transport || this.#trafficSegmentDefinition(segmentId).transport).slice(0, 96),
+      latencyMs: this.#optionalNumber(body.latencyMs, "latencyMs", 0, 600000),
+      jitterMs: this.#optionalNumber(body.jitterMs, "jitterMs", 0, 600000),
+      packetLossPct: this.#optionalNumber(body.packetLossPct, "packetLossPct", 0, 100),
+      bytesIn: this.#optionalNumber(body.bytesIn, "bytesIn", 0, Number.MAX_SAFE_INTEGER),
+      bytesOut: this.#optionalNumber(body.bytesOut, "bytesOut", 0, Number.MAX_SAFE_INTEGER),
+      policyDecision: String(body.policyDecision || (status === "healthy" ? "allow" : "review")).slice(0, 48),
+      evidenceRefs: this.#safeTrafficEvidenceRefs(body.evidenceRefs || []),
+      source: "operator_blue_team_metadata_evidence",
+      contentInspected: false,
+      packetCaptureStored: false,
+      terminalDataStored: false,
+      observedAt: isoNow(),
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+    evidence.blockers = this.#trafficEvidenceBlockers(evidence);
+    this.trafficEvidence.set(evidence.id, evidence);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.traffic_monitoring_evidence_recorded",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: evidence.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: evidence.blockers.length ? "deny" : "allow",
+      result: evidence.blockers.length ? "traffic_evidence_incomplete" : "traffic_evidence_recorded",
+      newValue: this.#publicTrafficEvidence(evidence)
+    });
+    return this.#publicTrafficEvidence(evidence);
   }
 
   vpnInstallPackage({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
     const vpn = this.vpnStatus({ operatorActor, correlationId });
-    const readyForRealInstall = false;
+    const readyForRealInstall = vpn.liveEvidence?.ready === true;
     return {
       operatorId: operatorActor.operatorId,
       terminalMode: operatorActor.terminalMode,
       packageType: "android_ipsec_ikev2_profile",
       transport: "ipsec_ikev2_certificate_auth",
-      installState: readyForRealInstall ? "ready" : "blocked_human_gate",
+      installState: readyForRealInstall ? "active_live_evidence" : "blocked_human_gate",
       readyForRealInstall,
-      profileDelivery: "adb_lab_preview_only",
+      profileDelivery: readyForRealInstall ? "installed_and_verified_on_pixel" : "adb_lab_preview_only",
       androidPackageInstallAllowed: false,
-      requires: [
-        "real_g1_public_ipsec_endpoint",
-        "hsm_or_secure_element_client_certificate",
-        "router_puli_ax_package_validation",
+      requires: readyForRealInstall ? [] : [
+        "pixel_live_vpn_evidence",
         "dns_leak_and_kill_switch_tests",
-        "fido2_operator_unlock"
+        "internal_ca_trusted",
+        "g1_g2_workload_reachability"
       ],
       plannedProfile: {
         server: vpn.endpoints.g1,
@@ -417,8 +953,452 @@ export class OperatorPortalService {
         blockConnectionsWithoutVpn: true,
         dnsThroughTunnelOnly: true
       },
+      liveEvidence: vpn.liveEvidence,
+      productionExecutionAllowed: readyForRealInstall,
+      sideEffectAllowed: false
+    };
+  }
+
+  pixelCaProvisioning({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const caPem = this.env.SYLION_INTERNAL_CA_CERT_PEM || null;
+    const fingerprint = this.env.SYLION_INTERNAL_CA_SHA256 || null;
+    return {
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      packageType: "grapheneos_internal_ca_profile",
+      caCertificateRef: caPem ? "env://SYLION_INTERNAL_CA_CERT_PEM" : "pki://sylion/internal-ca/current",
+      caCertificatePem: caPem,
+      caFingerprintSha256: fingerprint,
+      trustScope: ["operator.sylion.internal", "*.sylion.internal"],
+      installMethods: [
+        {
+          method: "grapheneos_settings_certificate_installer",
+          status: "recommended",
+          steps: [
+            "Open Settings",
+            "Security and privacy",
+            "More security settings",
+            "Encryption and credentials",
+            "Install a certificate",
+            "CA certificate",
+            "Select sylion-internal.crt from Downloads",
+            "Confirm screen lock"
+          ]
+        },
+        {
+          method: "adb_file_intent",
+          status: "blocked_on_grapheneos_file_uri",
+          reason: "GrapheneOS certificate installer may reject direct file:// intents from ADB."
+        }
+      ],
+      validation: {
+        expectedBrowserErrorBeforeInstall: "NET::ERR_CERT_AUTHORITY_INVALID",
+        expectedBrowserStateAfterInstall: "trusted_internal_tls",
+        requiresUserPresence: true,
+        privateKeyIncluded: false
+      },
       productionExecutionAllowed: false,
       sideEffectAllowed: false
+    };
+  }
+
+  laptopAccessPackage({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const vpn = this.vpnStatus({ operatorActor, correlationId });
+    return {
+      operatorId: operatorActor.operatorId,
+      terminalMode: TERMINAL_MODES.LAPTOP,
+      packageType: "laptop_ipsec_browser_thin_client_profile",
+      transport: "ipsec_ikev2_certificate_auth",
+      browserThinClient: {
+        entrypoints: [
+          "https://operator.sylion.internal/operator",
+          "https://duckduckgo.sylion.internal/vnc.html",
+          "https://libreoffice.sylion.internal/"
+        ],
+        sessionBroker: {
+          requiredLayer: "G2",
+          productionCandidates: ["guacamole", "webrtc_selkies"],
+          labFallback: "novnc_lab",
+          selectedProtocol: this.#selectedSessionBrokerProtocol(),
+          noVncProductionApproved: false
+        },
+        streamResizePolicy: "server_side_dynamic_resolution",
+        clipboardDefault: "disabled",
+        fileTransfer: "cdr_required"
+      },
+      plannedProfile: {
+        server: vpn.endpoints.g1,
+        authentication: "mutual_certificate",
+        ike: "aes256gcm16-prfsha384-ecp384",
+        esp: "aes256gcm16-ecp384",
+        splitTunnelAllowed: false,
+        dnsThroughTunnelOnly: true,
+        killSwitchRequired: true
+      },
+      validation: {
+        noOperationalDataOnLaptop: true,
+        noG1G2Bypass: true,
+        requiredChecks: [
+          "ikev2_sa_established",
+          "operator_panel_loads_through_internal_tls",
+          "guacamole_or_webrtc_session_broker_visible",
+          "clipboard_disabled_by_default",
+          "cdr_gate_blocks_file_transfer_without_decision"
+        ]
+      },
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  workloadSessionBroker({ operatorActor, templateKey = "signal", correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const normalizedTemplate = this.#normalizeWorkloadTemplate(templateKey);
+    const execution = this.#workloadExecutionForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey: normalizedTemplate
+    });
+    const host = this.#streamHostForTemplate(normalizedTemplate);
+    const routeStatus = this.#workloadRouteStatus(normalizedTemplate);
+    const broker = {
+      id: newId("workload_broker"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      templateKey: execution.templateKey,
+      appName: execution.appName,
+      state: execution.launchAllowed || routeStatus.ready ? "session_ready" : "session_prepared_with_blockers",
+      url: this.#workloadLaunchUrl(normalizedTemplate, host),
+      routeStatus,
+      authMode: normalizedTemplate === "signal" ? "g2_session_broker_required" : "g2_internal_tls",
+      sessionBroker: this.#sessionBrokerCatalog(),
+      handoff: {
+        terminalMode: operatorActor.terminalMode,
+        opensInBrowser: true,
+        returnsViaAndroidBack: true,
+        storesOperationalDataOnTerminal: false,
+        clipboardEnabled: false,
+        fileTransfer: "cdr_required"
+      },
+      blockers: [
+        ...execution.blockers.filter((blocker) => !routeStatus.satisfiedBlockers.includes(blocker)),
+        ...routeStatus.blockers,
+        ...(this.env.SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL === "true" ? [] : ["pixel_internal_ca_not_trusted"])
+      ],
+      warnings: execution.warnings,
+      productionExecutionAllowed: execution.productionExecutionAllowed,
+      sideEffectAllowed: false,
+      createdAt: isoNow()
+    };
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.workload_session_broker_prepared",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: broker.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: broker.blockers.length ? "deny" : "allow",
+      result: broker.state,
+      newValue: { ...broker, url: broker.url, tokenMaterialStored: false }
+    });
+    return broker;
+  }
+
+  accountBootstrap({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const latestSessions = [...this.accountBootstrapSessions.values()]
+      .filter((session) => session.operatorId === operatorActor.operatorId)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, 12)
+      .map((session) => this.#publicAccountBootstrapSession(session));
+    return {
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      catalog: this.#accountBootstrapCatalog(),
+      latestSessions,
+      guardrails: {
+        noPhoneNumbersStored: true,
+        noOtpStored: true,
+        noSeedsOrWalletSecretsStored: true,
+        evidenceRefsOnly: true,
+        adminQaReviewRequiredForProductionReadiness: true,
+        terminalDataStored: false,
+        cdrRequired: true,
+        productionExecutionAllowed: false
+      }
+    };
+  }
+
+  listAccountBootstrapEvidenceForAdmin({ actor, operatorId = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      operatorId
+    });
+    return [...this.accountBootstrapSessions.values()]
+      .filter((session) => !operatorId || session.operatorId === operatorId)
+      .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))
+      .map((session) => this.#publicAccountBootstrapSession(session));
+  }
+
+  getAccountBootstrapEvidenceForAdmin({ actor, sessionId, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: sessionId
+    });
+    const session = this.accountBootstrapSessions.get(sessionId);
+    if (!session) throw notFound("account_bootstrap_session", sessionId);
+    return this.#publicAccountBootstrapSession(session);
+  }
+
+  markAccountBootstrapEvidenceReviewed({ actor, sessionId, factualTestId, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "release.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: sessionId
+    });
+    const previous = this.accountBootstrapSessions.get(sessionId);
+    if (!previous) throw notFound("account_bootstrap_session", sessionId);
+    const next = {
+      ...previous,
+      state: "promoted_to_factual_test",
+      adminQaReviewRequired: false,
+      promotedFactualTestId: factualTestId,
+      reviewedBy: actor.id,
+      reviewedAt: isoNow(),
+      updatedAt: isoNow()
+    };
+    this.accountBootstrapSessions.set(next.id, next);
+    this.audit.record({
+      actorId: actor.id,
+      action: "operator_portal.account_bootstrap_promoted_to_factual_test",
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: next.id,
+      tenantId: next.tenantId,
+      operatorId: next.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: next.state,
+      previousValue: this.#publicAccountBootstrapSession(previous),
+      newValue: this.#publicAccountBootstrapSession(next)
+    });
+    return this.#publicAccountBootstrapSession(next);
+  }
+
+  requestAccountBootstrap({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.#assertNoBootstrapSecrets(body);
+    const appKey = this.#normalizeWorkloadTemplate(body.appKey || body.templateKey || "signal");
+    const mode = this.#normalizeBootstrapMode(body.mode || this.#defaultBootstrapMode(appKey));
+    const runtimeMode = this.#normalizeBootstrapRuntime(body.runtimeMode || this.#defaultBootstrapRuntime(appKey));
+    const app = this.#appDefinition(appKey);
+    const requiredChecks = this.#accountBootstrapRequiredChecks(appKey);
+    const routeStatus = this.#workloadRouteStatus(appKey);
+    const androidRuntime = ANDROID_WORKLOAD_APPS.has(appKey) ? this.#androidRuntimeSubstrate() : null;
+    const session = {
+      id: newId("acct_bootstrap"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      appKey,
+      appName: app.name,
+      mode,
+      runtimeMode,
+      state: "awaiting_human_bootstrap",
+      requiredChecks,
+      routeStatus,
+      runtimeGate: androidRuntime,
+      launchUrl: this.#workloadLaunchUrl(appKey),
+      approvedPhoneProviderRef: body.approvedPhoneProviderRef ? String(body.approvedPhoneProviderRef).trim().slice(0, 160) : null,
+      evidencePolicy: {
+        allowedEvidence: ["artifact_ref", "manual_note_without_secrets", "latency_ms", "pass_fail_checks"],
+        forbiddenEvidence: ["phone_number", "otp_or_sms_code", "password", "seed", "message_content", "wallet_secret"],
+        accountCreationResponsibility: "operator_human_step",
+        adminQaReviewRequired: true
+      },
+      blockers: [
+        ...(routeStatus.ready ? [] : routeStatus.blockers),
+        ...(androidRuntime && !androidRuntime.ready ? androidRuntime.blockers.map((blocker) => `android_runtime:${blocker}`) : []),
+        ...(appKey === "exodus" ? ["operator_wallet_risk_acceptance_required"] : []),
+        "human_account_bootstrap_not_recorded",
+        "send_receive_not_verified"
+      ],
+      checks: this.#normalizeBootstrapChecks(requiredChecks, {}),
+      factualCandidate: false,
+      terminalDataStored: false,
+      cdrRequired: true,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdBy: operatorActor.id,
+      createdAt: isoNow()
+    };
+    this.accountBootstrapSessions.set(session.id, session);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.account_bootstrap_requested",
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: session.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "deny",
+      result: session.state,
+      newValue: this.#publicAccountBootstrapSession(session)
+    });
+    return this.#publicAccountBootstrapSession(session);
+  }
+
+  recordAccountBootstrapEvidence({ operatorActor, sessionId, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.#assertNoBootstrapSecrets(body);
+    const previous = this.accountBootstrapSessions.get(sessionId);
+    if (!previous || previous.operatorId !== operatorActor.operatorId) {
+      throw notFound("account_bootstrap_session", sessionId);
+    }
+    const result = this.#normalizeBootstrapResult(body.result || "in_progress");
+    const checks = this.#normalizeBootstrapChecks(previous.requiredChecks, body.checks || {});
+    const missingRequired = previous.requiredChecks.filter((check) => checks[check]?.status !== "passed");
+    if (result === "passed" && missingRequired.length) {
+      throw validationError("Account bootstrap PASS requires every required check to pass", {
+        appKey: previous.appKey,
+        missingRequired,
+        requiredChecks: previous.requiredChecks
+      });
+    }
+    const factualCandidate = result === "passed" && missingRequired.length === 0;
+    const next = {
+      ...previous,
+      state: factualCandidate ? "evidence_passed_pending_admin_qa_review" : result === "blocked" ? "blocked_pending_fix" : "evidence_incomplete",
+      checks,
+      result,
+      blockers: factualCandidate ? [] : missingRequired.map((check) => `${check}_not_passed`),
+      evidenceArtifactIds: this.#safeBootstrapArray(body.evidenceArtifactIds || [], "evidenceArtifactIds"),
+      latencyMs: body.latencyMs === undefined || body.latencyMs === null || body.latencyMs === "" ? null : Number(body.latencyMs),
+      note: body.note ? String(body.note).trim().slice(0, 500) : null,
+      factualCandidate,
+      adminQaReviewRequired: true,
+      updatedBy: operatorActor.id,
+      updatedAt: isoNow()
+    };
+    this.accountBootstrapSessions.set(next.id, next);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.account_bootstrap_evidence_recorded",
+      resourceType: RESOURCE_TYPES.WORKLOAD_FACTUAL_TEST,
+      resourceId: next.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: factualCandidate ? "allow" : "deny",
+      result: next.state,
+      previousValue: this.#publicAccountBootstrapSession(previous),
+      newValue: this.#publicAccountBootstrapSession(next)
+    });
+    return this.#publicAccountBootstrapSession(next);
+  }
+
+  liveAccessFoundation({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const path = this.#connectionPathForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId
+    });
+    const vpn = this.vpnStatus({ operatorActor, correlationId });
+    const caPackage = this.pixelCaProvisioning({ operatorActor, correlationId });
+    const evidence = vpn.liveEvidence;
+    const env = this.env || {};
+    const caTrusted = evidence?.certificateTrusted === true || env.SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL === "true";
+    const liveVpnReady = evidence?.ready === true;
+    const g1ToG2Ready = env.SYLION_G1_G2_POLICY_READY === "true" || liveVpnReady;
+    const g2ToWorkloadReady = env.SYLION_G2_WORKLOAD_POLICY_READY === "true" || liveVpnReady;
+    const gatewayReady = env.SYLION_G2_WORKLOAD_GATEWAY_READY === "true" || evidence?.reachableHosts?.some((host) => host === "signal.sylion.internal");
+    const hsmFidoDeferred = env.SYLION_DEFER_PHYSICAL_HSM_FIDO2 === "true";
+    const routerDeferred = env.SYLION_PULI_AX_PHYSICAL_READY !== "true";
+    const checks = [
+      this.#liveAccessCheck("scoped_operator_session", true, "Operator session is scoped to one operator and terminal."),
+      this.#liveAccessCheck("thin_terminal_boundary", true, "Pixel/laptop remains display and input only."),
+      this.#liveAccessCheck("pixel_internal_ca_trust", caTrusted, "Pixel trusts SYLION Internal CA for *.sylion.internal."),
+      this.#liveAccessCheck("t0_pixel_to_g1_ipsec", liveVpnReady, "Pixel strongSwan/IKEv2 tunnel to G1 is established and evidenced."),
+      this.#liveAccessCheck("dns_through_tunnel", evidence?.dnsThroughTunnel === true, "Internal DNS is resolved through the tunnel only."),
+      this.#liveAccessCheck("g1_to_g2_policy_path", g1ToG2Ready, "G1 forwards only the authorized policy path to G2."),
+      this.#liveAccessCheck("g2_to_workload_policy_path", g2ToWorkloadReady, "G2 reaches WORKLOAD only through the workload policy path."),
+      this.#liveAccessCheck("g2_workload_gateway_tls", gatewayReady, "Internal workload names terminate through G2 TLS gateway."),
+      this.#liveAccessCheck("cdr_file_gate", true, "File ingress and egress stay blocked without CDR decision."),
+      this.#liveAccessCheck("puli_ax_physical_router", !routerDeferred, "Puli AX physical router package and posture are validated.", routerDeferred ? "deferred" : "passed"),
+      this.#liveAccessCheck("hsm_fido2_physical_enforcement", !hsmFidoDeferred, "Physical HSM/FIDO2 enforcement is configured.", hsmFidoDeferred ? "deferred" : "passed")
+    ];
+    const requiredBlockers = checks.filter((check) => check.required && check.status !== "passed").map((check) => check.key);
+    const appGateways = ["signal", "whatsapp", "telegram", "threema", "zangi", "duckduckgo_browser", "libreoffice", "exodus"].map((templateKey) => {
+      const host = `${templateKey === "duckduckgo_browser" ? "duckduckgo" : templateKey}.sylion.internal`;
+      const browserOnly = !ANDROID_WORKLOAD_APPS.has(templateKey);
+      return {
+        templateKey,
+        host,
+        route: `terminal -> G1 -> G2 -> WORKLOAD -> ${templateKey}`,
+        brokerState: requiredBlockers.length ? "blocked_until_live_access_ready" : "ready_for_session_broker",
+        runtimeClass: browserOnly ? "firecracker_or_container_workload" : "android_workload_required",
+        terminalDataStored: false,
+        cdrRequired: true,
+        productionExecutionAllowed: false
+      };
+    });
+    return {
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      state: requiredBlockers.length ? "blocked_before_live_access" : "live_access_ready_for_workload_broker",
+      phase: "stage_a_b_pixel_vpn_g1_g2_workload",
+      path: {
+        nodes: path.nodes.map((node) => ({ id: node.id, role: node.role, label: node.label, status: node.status })),
+        segments: path.segments.map((segment) => ({
+          id: segment.id,
+          from: segment.from,
+          to: segment.to,
+          protocol: segment.protocol,
+          state: segment.state,
+          routePolicy: segment.routePolicy,
+          killSwitch: segment.killSwitch
+        }))
+      },
+      vpn: {
+        state: vpn.state,
+        transport: vpn.transport,
+        lastHandshake: vpn.lastHandshake,
+        evidenceReady: liveVpnReady,
+        blockers: evidence?.blockers || ["vpn_evidence_missing"]
+      },
+      ca: {
+        packageType: caPackage.packageType,
+        trustedOnPixel: caTrusted,
+        fingerprintPresent: Boolean(caPackage.caFingerprintSha256),
+        requiresUserPresence: caPackage.validation.requiresUserPresence
+      },
+      checks,
+      blockers: requiredBlockers,
+      appGateways,
+      nextActions: this.#liveAccessNextActions({ requiredBlockers, hsmFidoDeferred, routerDeferred }),
+      guardrails: {
+        noTerminalOperationalData: true,
+        g1G2BypassAllowed: false,
+        baselineTransport: "ipsec_ikev2",
+        cdrRequired: true,
+        hsmFido2DeferredOnly: hsmFidoDeferred,
+        puliAxPhysicalDeferredOnly: routerDeferred
+      },
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      generatedAt: isoNow()
     };
   }
 
@@ -441,8 +1421,10 @@ export class OperatorPortalService {
       terminalMode: operatorActor.terminalMode,
       viewport: { width: w, height: h, dpr: ratio, orientation: portrait ? "portrait" : "landscape" },
       stream: {
-        protocol: "webrtc_planned",
+        protocol: this.#selectedSessionBrokerProtocol(),
         source: "G2 pixel stream gateway",
+        brokerLayer: "G2",
+        brokerCandidates: this.#sessionBrokerCatalog().candidates,
         targetWidth,
         targetHeight,
         codec: "h264_baseline_or_av1_when_available",
@@ -459,6 +1441,262 @@ export class OperatorPortalService {
       productionExecutionAllowed: false,
       sideEffectAllowed: false
     };
+  }
+
+  requestStreamingSession({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const templateKey = this.#normalizeStreamingTemplate(body.templateKey || body.app || "signal");
+    const viewport = {
+      width: body.width,
+      height: body.height,
+      dpr: body.dpr
+    };
+    const profile = this.streamingProfile({
+      operatorActor,
+      width: viewport.width,
+      height: viewport.height,
+      dpr: viewport.dpr,
+      correlationId: corr
+    });
+    const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
+    const execution = this.#workloadExecutionForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey
+    });
+    const env = this.env || {};
+    const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
+    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const brokerPolicy = this.#sessionBrokerPolicy({
+      protocol: body.protocol || runtimeManifest?.gateway?.protocol || readiness?.gateway?.protocol || env.SYLION_G2_SESSION_BROKER,
+      readiness,
+      runtimeManifest
+    });
+    const streamGatewayReady = this.#streamGatewayReady(readiness, env) && brokerPolicy.gatewayReady;
+    const appStreamHost = this.#streamHostForTemplate(templateKey);
+    const streamSourceBlockers = this.#streamSourceBlockers({ templateKey, env, readiness });
+    const appSpecificBlockers = [
+      ...(ANDROID_WORKLOAD_APPS.has(templateKey) ? ["android_native_stream_runner_required"] : []),
+      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
+    ];
+    const blockers = [
+      ...foundation.blockers.map((blocker) => `live_access:${blocker}`),
+      ...streamSourceBlockers,
+      ...(streamGatewayReady ? [] : ["g2_stream_gateway_not_ready"]),
+      ...brokerPolicy.blockers,
+      ...appSpecificBlockers
+    ];
+    const ready = blockers.length === 0;
+    const session = {
+      id: newId("stream_session"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey,
+      appName: execution.appName,
+      state: ready ? "stream_session_ready" : "stream_session_blocked",
+      launchUrl: ready ? `https://${appStreamHost}/stream/${templateKey}` : null,
+      gateway: {
+        role: "G2",
+        host: "g2-stream.sylion.internal",
+        appHost: appStreamHost,
+        protocol: brokerPolicy.protocol,
+        broker: brokerPolicy,
+        transport: "internal_tls_via_g1_g2",
+        publicInternetExposure: false,
+        evidenceId: readiness?.id || null,
+        runtimeManifestId: runtimeManifest?.id || null
+      },
+      source: {
+        workloadRole: "WORKLOAD",
+        readiness: streamSourceBlockers.length ? "blocked" : "ready",
+        mode: "existing_workload_stream_source",
+        runtimeManifestId: runtimeManifest?.sources?.[templateKey] ? runtimeManifest.id : null,
+        productionWorkloadExecutionRequired: false
+      },
+      stream: {
+        ...profile.stream,
+        renderingMode: "server_side_pixels_only",
+        sourceWorkload: `workload://${operatorActor.operatorId}/${templateKey}`,
+        terminalReceives: ["video_pixels", "audio_optional", "input_events"],
+        terminalForbidden: ["workload_files", "app_secrets", "message_database", "wallet_seed", "session_cookies"],
+        fileTransfer: "cdr_required"
+      },
+      security: {
+        terminalDataStored: false,
+        clipboardEnabled: false,
+        fileIngressEgress: "blocked_without_cdr_decision",
+        g1G2BypassAllowed: false,
+        recordingAllowed: false,
+        auditContentStored: false
+      },
+      blockers,
+      warnings: [
+        ...execution.warnings,
+        ...(runtimeManifest?.ready ? [] : ["stream_runtime_manifest_not_ready"]),
+        ...(brokerPolicy.labOnly ? ["novnc_is_lab_only_until_human_approved_adr"] : []),
+        "streaming_session_is_pixels_only_terminal_boundary",
+        "production_runner_requires_human_pixel_visual_regression"
+      ],
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdAt: isoNow()
+    };
+    this.streamingSessions.set(session.id, session);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.streaming_session_requested",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: session.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: ready ? "allow" : "deny",
+      result: session.state,
+      newValue: this.#publicStreamingSession(session)
+    });
+    return this.#publicStreamingSession(session);
+  }
+
+  recordStreamingReadiness({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const sourcesInput = body.sources && typeof body.sources === "object" ? body.sources : {};
+    const sources = {};
+    for (const app of WORKLOAD_CONTROL_APPS) {
+      const value = sourcesInput[app.key] ?? sourcesInput[this.#streamHostForTemplate(app.key)] ?? false;
+      sources[app.key] = value === true || value === "true";
+    }
+    const evidence = {
+      id: newId("stream_readiness"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      gateway: {
+        g2StreamGatewayReady: body.g2StreamGatewayReady === true,
+        protocol: this.#normalizeSessionBrokerProtocol(body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES),
+        publicInternetExposure: body.publicInternetExposure === true,
+        tlsInternalOnly: body.tlsInternalOnly === true,
+        inputProxyReady: body.inputProxyReady === true,
+        brokerLayer: "G2"
+      },
+      broker: this.#sessionBrokerPolicy({
+        protocol: body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES,
+        readiness: {
+          ready: body.g2StreamGatewayReady === true
+            && body.publicInternetExposure !== true
+            && body.tlsInternalOnly === true
+            && body.inputProxyReady === true,
+          gateway: {
+            protocol: this.#normalizeSessionBrokerProtocol(body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES)
+          }
+        }
+      }),
+      sources,
+      observedAt: isoNow(),
+      source: "operator_streaming_readiness_evidence",
+      contentInspected: false,
+      terminalDataStored: false
+    };
+    evidence.blockers = this.#streamingReadinessBlockers(evidence);
+    evidence.ready = evidence.blockers.length === 0;
+    this.streamingReadinessEvidence.set(evidence.id, evidence);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.streaming_readiness_recorded",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: evidence.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: evidence.ready ? "allow" : "deny",
+      result: evidence.ready ? "streaming_readiness_evidence_ready" : "streaming_readiness_incomplete",
+      newValue: this.#publicStreamingReadiness(evidence)
+    });
+    return this.#publicStreamingReadiness(evidence);
+  }
+
+  recordStreamingRuntimeManifest({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const gatewayBind = String(body.gateway?.bindAddress || body.gatewayBindAddress || "").trim();
+    const gatewayPort = this.#normalizeInteger(body.gateway?.port ?? body.gatewayPort, "gatewayPort", 1, 65535, 8443);
+    const sourcesInput = body.sources && typeof body.sources === "object" ? body.sources : {};
+    const sources = {};
+    for (const app of WORKLOAD_CONTROL_APPS) {
+      const source = sourcesInput[app.key];
+      if (!source) continue;
+      sources[app.key] = {
+        templateKey: app.key,
+        process: String(source.process || `${app.key}-stream-source`).slice(0, 96),
+        bindAddress: String(source.bindAddress || "").trim(),
+        port: this.#normalizeInteger(source.port, `${app.key}Port`, 1, 65535, 7900),
+        healthPath: String(source.healthPath || "/healthz").slice(0, 128),
+        cdrRequired: source.cdrRequired !== false,
+        terminalDataStored: false
+      };
+    }
+    const manifest = {
+      id: newId("stream_runtime"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      gateway: {
+        process: String(body.gateway?.process || "sylion-g2-stream-gateway").slice(0, 96),
+        bindAddress: gatewayBind,
+        port: gatewayPort,
+        protocol: this.#normalizeSessionBrokerProtocol(body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES),
+        tlsMode: String(body.gateway?.tlsMode || "internal_tls_only").slice(0, 64),
+        publicInternetExposure: body.gateway?.publicInternetExposure === true || body.publicInternetExposure === true,
+        inputProxy: "server_side_input_events_only"
+      },
+      broker: this.#sessionBrokerPolicy({
+        protocol: body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES,
+        runtimeManifest: {
+          ready: this.#privateBindAllowed(gatewayBind)
+            && body.gateway?.publicInternetExposure !== true
+            && body.publicInternetExposure !== true
+            && String(body.gateway?.tlsMode || "internal_tls_only") === "internal_tls_only",
+          gateway: {
+            protocol: this.#normalizeSessionBrokerProtocol(body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES)
+          }
+        }
+      }),
+      sources,
+      healthChecks: {
+        gateway: `https://${gatewayBind}:${gatewayPort}/healthz`,
+        sources: Object.fromEntries(Object.entries(sources).map(([key, source]) => [key, `http://${source.bindAddress}:${source.port}${source.healthPath}`]))
+      },
+      guardrails: {
+        terminalReceivesOnlyPixels: true,
+        terminalDataStored: false,
+        cdrRequired: true,
+        g1G2BypassAllowed: false,
+        publicInternetExposureAllowed: false,
+        contentInspectionAllowed: false
+      },
+      createdAt: isoNow(),
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+    manifest.blockers = this.#streamingRuntimeManifestBlockers(manifest);
+    manifest.ready = manifest.blockers.length === 0;
+    this.streamingRuntimeManifests.set(manifest.id, manifest);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.streaming_runtime_manifest_recorded",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: manifest.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: manifest.ready ? "allow" : "deny",
+      result: manifest.ready ? "streaming_runtime_manifest_ready" : "streaming_runtime_manifest_blocked",
+      newValue: this.#publicStreamingRuntimeManifest(manifest)
+    });
+    return this.#publicStreamingRuntimeManifest(manifest);
   }
 
   subscription({ operatorActor, correlationId }) {
@@ -715,12 +1953,32 @@ export class OperatorPortalService {
     }
     this.#assertJurisdictionModeAllowed(mode, subscription.quota.jurisdictionRotationMode);
     const regions = Array.isArray(body.regions) ? body.regions.map((item) => String(item).trim()).filter(Boolean) : [];
+    const countries = Array.isArray(body.countries) ? [...new Set(body.countries.map((item) => String(item).trim().toUpperCase()).filter(Boolean))] : [];
+    const providers = Array.isArray(body.providers) ? [...new Set(body.providers.map((item) => String(item).trim().toLowerCase()).filter(Boolean))] : [];
+    const frequencyHours = this.#normalizeJurisdictionFrequency(body.frequencyHours, subscription.quota);
+    const maxCountries = subscription.quota.jurisdictionPolicy?.maxCountries;
+    if (maxCountries !== "custom" && countries.length > Number(maxCountries || subscription.quota.regionCount || 1)) {
+      throw validationError("Jurisdiction country count exceeds subscription tier", {
+        countries: countries.length,
+        maxCountries
+      });
+    }
+    if (providers.length > 1 && subscription.quota.jurisdictionPolicy?.providerRotationAllowed !== true) {
+      throw validationError("Provider rotation is not available in this subscription tier", {
+        providers,
+        subscriptionMode: subscription.quota.jurisdictionRotationMode
+      });
+    }
     const next = {
       id: `jurisdiction_${operatorActor.operatorId}`,
       operatorId: operatorActor.operatorId,
       tenantId: operatorActor.tenantId,
       mode,
       regions,
+      countries,
+      providers,
+      frequencyHours,
+      rotationScopes: this.#rotationScopesForJurisdictionMode(mode, subscription.quota),
       subscriptionMode: subscription.quota.jurisdictionRotationMode,
       state: "queued_policy_update",
       productionExecutionAllowed: false,
@@ -1054,11 +2312,952 @@ export class OperatorPortalService {
       cdrRequired: true,
       terminalDataStored: false,
       controlPlaneOnly: true,
+      executionPlan: request.executionPlan || null,
       productionExecutionAllowed: false,
       sideEffectAllowed: false,
       destructiveCleanupAllowed: false,
+      liveJobId: request.liveJobId || null,
+      liveJob: request.liveJobId ? this.#publicWorkloadControlJob(this.workloadControlJobs.get(request.liveJobId)) : null,
       requestedAt: request.requestedAt
     };
+  }
+
+  #runnerAppForRequest(request) {
+    if (request.action === "recreate_all") return this.#nativeFirecrackerRunnerEnabled() ? null : "all";
+    const app = LIVE_RECREATE_APP_MAP[request.rotateApp] || null;
+    if (this.#nativeFirecrackerRunnerEnabled() && !NATIVE_FIRECRACKER_RECREATE_APPS.has(app)) return null;
+    return app;
+  }
+
+  #workloadJob({ request, operatorActor, runnerApp, state, wipeVolume, result, blockers = [] }) {
+    return {
+      id: newId("workload_live_job"),
+      requestId: request.id,
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      action: request.action,
+      rotateApp: request.rotateApp,
+      runnerApp,
+      state,
+      wipeVolume,
+      cdrRequired: true,
+      terminalDataStored: false,
+      privateBindOnlyRequired: true,
+      signalAuthHandoffRequired: request.action === "recreate_all" || runnerApp === "signal",
+      blockers,
+      result,
+      requestedBy: operatorActor.id,
+      startedAt: isoNow(),
+      completedAt: null,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: state === "running_live_workload_recreate"
+    };
+  }
+
+  #latestWorkloadControlJob(operatorId) {
+    const job = [...this.workloadControlJobs.values()]
+      .filter((item) => item.operatorId === operatorId)
+      .at(-1) || null;
+    return job ? this.#publicWorkloadControlJob(job) : null;
+  }
+
+  #sanitizeLiveRunnerResult(result) {
+    if (!result || typeof result !== "object") return { applied: false, secretPrinted: false };
+    return {
+      applied: result.applied === true,
+      secretPrinted: false,
+      workloadEvidence: result.workloadEvidence ? {
+        component: result.workloadEvidence.component,
+        app: result.workloadEvidence.app,
+        wipeVolume: result.workloadEvidence.wipeVolume === true,
+        cdrRequired: result.workloadEvidence.cdrRequired === true,
+        terminalDataStored: result.workloadEvidence.terminalDataStored === true,
+        privateBindOnly: result.workloadEvidence.privateBindOnly === true,
+        checkedAt: result.workloadEvidence.checkedAt || null
+      } : null,
+      signalHandoff: result.signalHandoff ? {
+        applied: result.signalHandoff.applied === true,
+        secretPrinted: false,
+        signalStatus: result.signalHandoff.signalStatus || null,
+        terminalDataStored: result.signalHandoff.terminalDataStored === true,
+        g1G2BypassAllowed: result.signalHandoff.g1G2BypassAllowed === true,
+        cdrRequired: result.signalHandoff.cdrRequired === true
+      } : null,
+      smoke: result.smoke || {},
+      nativeFirecracker: result.mode === "native_firecracker" ? {
+        app: result.app,
+        readyThroughG2: result.applied === true,
+        g2: result.g2 || {},
+        evidence: result.evidence ? {
+          component: result.evidence.component,
+          appKey: result.evidence.appKey,
+          hostHttpCode: result.evidence.hostHttpCode,
+          noVncMarker: result.evidence.noVncMarker === true,
+          terminalDataStored: result.evidence.terminalDataStored === true,
+          productionExecutionAllowed: result.evidence.productionExecutionAllowed === true
+        } : null
+      } : null,
+      productionExecutionAllowed: false
+    };
+  }
+
+  #publicWorkloadControlJob(job) {
+    if (!job) return null;
+    return {
+      id: job.id,
+      requestId: job.requestId,
+      operatorId: job.operatorId,
+      tenantId: job.tenantId,
+      action: job.action,
+      rotateApp: job.rotateApp,
+      runnerApp: job.runnerApp,
+      state: job.state,
+      wipeVolume: job.wipeVolume === true,
+      cdrRequired: true,
+      terminalDataStored: false,
+      privateBindOnlyRequired: true,
+      signalAuthHandoffRequired: job.signalAuthHandoffRequired === true,
+      blockers: job.blockers || [],
+      result: job.result || null,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: job.sideEffectAllowed === true
+    };
+  }
+
+  #latestVpnEvidenceForOperator(operatorId) {
+    return [...this.vpnEvidence.values()]
+      .filter((evidence) => evidence.operatorId === operatorId)
+      .at(-1) || null;
+  }
+
+  #vpnEvidenceReady(evidence) {
+    return this.#vpnEvidenceBlockers(evidence).length === 0;
+  }
+
+  #vpnEvidenceBlockers(evidence) {
+    if (!evidence) return ["vpn_evidence_missing"];
+    const reachable = new Set(evidence.reachableHosts || []);
+    const missingHosts = (evidence.requiredHosts || []).filter((host) => !reachable.has(host));
+    return [
+      ...(evidence.vpnConnected ? [] : ["vpn_not_connected"]),
+      ...(evidence.vpnInterface === "tun1" ? [] : ["tun1_interface_missing"]),
+      ...(evidence.dnsThroughTunnel ? [] : ["dns_not_through_tunnel"]),
+      ...(evidence.certificateTrusted ? [] : ["internal_ca_not_trusted"]),
+      ...missingHosts.map((host) => `host_unreachable:${host}`)
+    ];
+  }
+
+  #publicVpnEvidence(evidence) {
+    return {
+      id: evidence.id,
+      operatorId: evidence.operatorId,
+      terminalMode: evidence.terminalMode,
+      deviceId: evidence.deviceId,
+      vpnConnected: evidence.vpnConnected,
+      vpnSession: evidence.vpnSession,
+      vpnInterface: evidence.vpnInterface,
+      dnsThroughTunnel: evidence.dnsThroughTunnel,
+      certificateTrusted: evidence.certificateTrusted,
+      reachableHosts: evidence.reachableHosts,
+      requiredHosts: evidence.requiredHosts,
+      ready: evidence.ready,
+      blockers: evidence.blockers,
+      observedAt: evidence.observedAt,
+      terminalDataStored: false,
+      contentInspected: false
+    };
+  }
+
+  #latestTrafficEvidenceBySegment(operatorId) {
+    const latest = new Map();
+    for (const evidence of [...this.trafficEvidence.values()].filter((item) => item.operatorId === operatorId)) {
+      const previous = latest.get(evidence.segmentId);
+      if (!previous || Date.parse(evidence.observedAt) >= Date.parse(previous.observedAt)) {
+        latest.set(evidence.segmentId, evidence);
+      }
+    }
+    return latest;
+  }
+
+  #trafficSegmentDefinition(segmentId) {
+    return TRAFFIC_MONITOR_SEGMENTS.find((segment) => segment.id === segmentId);
+  }
+
+  #trafficSegmentView({ definition, operatorActor, path, vpnEvidence, streamingReadiness, streamingRuntime, evidence }) {
+    const inferred = this.#inferredTrafficSegment({
+      definition,
+      path,
+      vpnEvidence,
+      streamingReadiness,
+      streamingRuntime
+    });
+    const status = evidence ? this.#normalizeTrafficStatus(evidence.status) : inferred.status;
+    const blockers = [
+      ...(evidence ? evidence.blockers || [] : inferred.blockers),
+      ...(evidence?.encrypted === false && definition.id !== "pixel_router" ? ["encryption_not_evidenced"] : [])
+    ];
+    const finalStatus = blockers.length && status === "healthy" ? "degraded" : status;
+    return {
+      id: definition.id,
+      order: definition.order,
+      operatorId: operatorActor.operatorId,
+      from: definition.from,
+      to: definition.to,
+      zone: definition.zone,
+      expectedTransport: definition.transport,
+      observedTransport: evidence?.transport || inferred.observedTransport || definition.transport,
+      status: finalStatus,
+      encrypted: evidence ? evidence.encrypted === true : inferred.encrypted,
+      latencyMs: evidence?.latencyMs ?? inferred.latencyMs,
+      jitterMs: evidence?.jitterMs ?? null,
+      packetLossPct: evidence?.packetLossPct ?? null,
+      bytesIn: evidence?.bytesIn ?? null,
+      bytesOut: evidence?.bytesOut ?? null,
+      lastObservedAt: evidence?.observedAt || inferred.lastObservedAt || null,
+      policyDecision: evidence?.policyDecision || inferred.policyDecision,
+      expectedControls: definition.expectedControls,
+      blockers,
+      evidenceId: evidence?.id || null,
+      contentInspected: false,
+      packetCaptureStored: false,
+      terminalDataStored: false,
+      productionExecutionAllowed: false
+    };
+  }
+
+  #inferredTrafficSegment({ definition, path, vpnEvidence, streamingReadiness, streamingRuntime }) {
+    const vpnReady = vpnEvidence?.ready === true || this.#vpnEvidenceReady(vpnEvidence);
+    const routerReady = path.router?.readyForPhysicalSmoke === true || this.env?.SYLION_PULI_AX_PHYSICAL_READY === "true";
+    const g1G2Ready = this.env?.SYLION_G1_G2_POLICY_READY === "true"
+      || vpnEvidence?.reachableHosts?.includes("10.42.0.12") === true;
+    const g2WorkloadReady = this.env?.SYLION_G2_WORKLOAD_POLICY_READY === "true"
+      || this.env?.SYLION_G2_WORKLOAD_GATEWAY_READY === "true"
+      || streamingReadiness?.gateway?.g2StreamGatewayReady === true
+      || streamingRuntime?.ready === true;
+    const streamSourcesReady = streamingReadiness?.ready === true
+      || streamingRuntime?.ready === true
+      || this.env?.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true";
+    if (definition.id === "pixel_router") {
+      return {
+        status: routerReady ? "degraded" : "blocked",
+        encrypted: false,
+        observedTransport: routerReady ? "puli_ax_local_link_posture_pending" : "router_physical_gate_pending",
+        policyDecision: routerReady ? "review" : "deny",
+        blockers: routerReady ? ["router_packet_metadata_agent_not_reporting_yet"] : ["puli_ax_physical_router_pending"],
+        lastObservedAt: null,
+        latencyMs: null
+      };
+    }
+    if (definition.id === "router_g1") {
+      return {
+        status: vpnReady ? routerReady ? "healthy" : "degraded" : "blocked",
+        encrypted: vpnReady,
+        observedTransport: vpnReady ? "pixel_direct_or_router_ipsec_ikev2_evidenced" : "ipsec_ikev2_not_evidenced",
+        policyDecision: vpnReady ? "allow" : "deny",
+        blockers: [
+          ...(vpnReady ? [] : ["vpn_evidence_missing_or_incomplete"]),
+          ...(routerReady ? [] : ["puli_ax_physical_router_pending"])
+        ],
+        lastObservedAt: vpnEvidence?.observedAt || null,
+        latencyMs: null
+      };
+    }
+    if (definition.id === "g1_g2") {
+      return {
+        status: g1G2Ready ? "healthy" : "blocked",
+        encrypted: g1G2Ready,
+        observedTransport: g1G2Ready ? "g1_g2_policy_path_evidenced" : "g1_g2_policy_path_missing",
+        policyDecision: g1G2Ready ? "allow" : "deny",
+        blockers: g1G2Ready ? [] : ["g1_to_g2_evidence_missing"],
+        lastObservedAt: vpnEvidence?.observedAt || null,
+        latencyMs: null
+      };
+    }
+    if (definition.id === "g2_workload") {
+      return {
+        status: g2WorkloadReady ? "healthy" : "blocked",
+        encrypted: g2WorkloadReady,
+        observedTransport: g2WorkloadReady ? "g2_workload_private_gateway_evidenced" : "g2_workload_gateway_missing",
+        policyDecision: g2WorkloadReady ? "allow" : "deny",
+        blockers: g2WorkloadReady ? [] : ["g2_to_workload_evidence_missing"],
+        lastObservedAt: streamingRuntime?.createdAt || streamingReadiness?.observedAt || null,
+        latencyMs: null
+      };
+    }
+    return {
+      status: streamSourcesReady ? "degraded" : "blocked",
+      encrypted: streamSourcesReady,
+      observedTransport: streamSourcesReady ? "workload_stream_source_evidenced" : "microvm_stream_source_missing",
+      policyDecision: streamSourcesReady ? "review" : "deny",
+      blockers: streamSourcesReady ? ["per_app_firecracker_runtime_factual_test_required"] : ["workload_microvm_evidence_missing"],
+      lastObservedAt: streamingRuntime?.createdAt || streamingReadiness?.observedAt || null,
+      latencyMs: null
+    };
+  }
+
+  #trafficAlerts({ segments, path, vpnEvidence, streamingReadiness, streamingRuntime }) {
+    const alerts = [];
+    const add = (severity, code, message, segmentId = null) => {
+      alerts.push({
+        id: `${code}_${alerts.length + 1}`,
+        severity,
+        code,
+        segmentId,
+        message,
+        contentInspected: false,
+        terminalDataStored: false,
+        productionExecutionAllowed: false
+      });
+    };
+    for (const segment of segments) {
+      if (segment.status === "blocked") add("critical", "segment_blocked", `${segment.from} -> ${segment.to} is blocked: ${(segment.blockers || []).join(", ") || "no evidence"}`, segment.id);
+      if (segment.status === "missing") add("warning", "segment_missing", `${segment.from} -> ${segment.to} has no fresh metadata evidence.`, segment.id);
+      if (segment.status === "degraded") add("warning", "segment_degraded", `${segment.from} -> ${segment.to} is degraded: ${(segment.blockers || []).join(", ") || "review required"}`, segment.id);
+      if (segment.encrypted === false && segment.id !== "pixel_router") add("critical", "encryption_not_evidenced", `${segment.from} -> ${segment.to} lacks encryption evidence.`, segment.id);
+    }
+    if (path.router?.readyForPhysicalSmoke !== true) {
+      add("warning", "puli_ax_pending", "Puli AX physical router package/posture is still pending, so router telemetry is not factual yet.", "pixel_router");
+    }
+    if (!vpnEvidence) {
+      add("critical", "vpn_evidence_missing", "No operator-scoped VPN/IPsec evidence has been recorded for this terminal session.", "router_g1");
+    } else {
+      if (vpnEvidence.dnsThroughTunnel !== true) add("critical", "dns_leak_risk", "DNS-through-tunnel evidence is missing or false.", "router_g1");
+      if (vpnEvidence.certificateTrusted !== true) add("warning", "internal_ca_not_trusted", "SYLION Internal CA trust is not evidenced on the terminal.", "router_g1");
+    }
+    if (streamingReadiness?.gateway?.publicInternetExposure === true || streamingRuntime?.gateway?.publicInternetExposure === true) {
+      add("critical", "public_stream_exposure", "G2 stream gateway evidence reports public exposure, which is forbidden.", "g2_workload");
+    }
+    return alerts;
+  }
+
+  #trafficEvidenceBlockers(evidence) {
+    return [
+      ...(evidence.status === "blocked" ? ["segment_reported_blocked"] : []),
+      ...(evidence.status === "missing" ? ["segment_reported_missing"] : []),
+      ...(evidence.encrypted ? [] : evidence.segmentId === "pixel_router" ? [] : ["encryption_not_evidenced"]),
+      ...(evidence.packetCaptureStored === false ? [] : ["packet_capture_storage_forbidden"]),
+      ...(evidence.contentInspected === false ? [] : ["content_inspection_forbidden"]),
+      ...(evidence.terminalDataStored === false ? [] : ["terminal_data_storage_forbidden"])
+    ];
+  }
+
+  #publicTrafficEvidence(evidence) {
+    return {
+      id: evidence.id,
+      operatorId: evidence.operatorId,
+      terminalMode: evidence.terminalMode,
+      deviceId: evidence.deviceId,
+      segmentId: evidence.segmentId,
+      status: evidence.status,
+      encrypted: evidence.encrypted,
+      transport: evidence.transport,
+      latencyMs: evidence.latencyMs,
+      jitterMs: evidence.jitterMs,
+      packetLossPct: evidence.packetLossPct,
+      bytesIn: evidence.bytesIn,
+      bytesOut: evidence.bytesOut,
+      policyDecision: evidence.policyDecision,
+      evidenceRefs: evidence.evidenceRefs,
+      blockers: evidence.blockers,
+      observedAt: evidence.observedAt,
+      contentInspected: false,
+      packetCaptureStored: false,
+      terminalDataStored: false,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #normalizeTrafficStatus(value) {
+    const status = String(value || "observed").trim().toLowerCase();
+    if (!TRAFFIC_STATUSES.has(status)) {
+      throw validationError("Unsupported traffic evidence status", {
+        status: value,
+        supported: [...TRAFFIC_STATUSES]
+      });
+    }
+    return status === "observed" ? "degraded" : status;
+  }
+
+  #optionalNumber(value, field, min, max) {
+    if (value === undefined || value === null || value === "") return null;
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < min || number > max) {
+      throw validationError(`${field} must be a finite number in range`, { field, value, min, max });
+    }
+    return number;
+  }
+
+  #safeTrafficEvidenceRefs(value) {
+    const items = Array.isArray(value) ? value : String(value || "").split(",");
+    return items.map((item) => String(item).trim().slice(0, 160)).filter(Boolean).slice(0, 12);
+  }
+
+  #assertNoTrafficSecrets(value, path = "body") {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => this.#assertNoTrafficSecrets(item, `${path}[${index}]`));
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    for (const [key, nested] of Object.entries(value)) {
+      if (TRAFFIC_FORBIDDEN_FIELD_PATTERN.test(key)) {
+        throw validationError("Traffic monitoring evidence must be metadata-only", {
+          field: `${path}.${key}`,
+          forbidden: "secrets_payloads_messages_packet_captures_and_file_contents"
+        });
+      }
+      this.#assertNoTrafficSecrets(nested, `${path}.${key}`);
+    }
+  }
+
+  #liveAccessCheck(key, passed, detail, statusOverride = null) {
+    const status = statusOverride || (passed ? "passed" : "blocked");
+    return {
+      key,
+      status,
+      required: status !== "deferred",
+      detail,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #liveAccessNextActions({ requiredBlockers, hsmFidoDeferred, routerDeferred }) {
+    const actions = [];
+    if (requiredBlockers.includes("pixel_internal_ca_trust")) {
+      actions.push("Install SYLION Internal CA on Pixel through GrapheneOS user-present certificate flow.");
+    }
+    if (requiredBlockers.includes("t0_pixel_to_g1_ipsec")) {
+      actions.push("Establish Pixel strongSwan IKEv2 tunnel to G1 and record live VPN evidence.");
+    }
+    if (requiredBlockers.includes("dns_through_tunnel")) {
+      actions.push("Verify DNS leak prevention and internal DNS resolution through the VPN tunnel.");
+    }
+    if (requiredBlockers.includes("g1_to_g2_policy_path") || requiredBlockers.includes("g2_to_workload_policy_path")) {
+      actions.push("Apply G1/G2 policy routing and default-deny firewall rules for T1/T2.");
+    }
+    if (requiredBlockers.includes("g2_workload_gateway_tls")) {
+      actions.push("Enable G2 TLS workload gateway for signal/whatsapp/telegram/threema/zangi/duckduckgo/libreoffice/exodus hostnames.");
+    }
+    if (routerDeferred) {
+      actions.push("Complete Puli AX physical package and posture smoke when router is available.");
+    }
+    if (hsmFidoDeferred) {
+      actions.push("Enroll physical HSM/FIDO2 after hardware arrives; keep panel refs write-only until then.");
+    }
+    return actions;
+  }
+
+  #normalizeStreamingTemplate(value) {
+    return this.#normalizeWorkloadTemplate(value);
+  }
+
+  #normalizeWorkloadTemplate(value) {
+    const key = String(value || "").trim().toLowerCase();
+    const normalized = key === "duckduckgo" ? "duckduckgo_browser" : key;
+    if (!WORKLOAD_CONTROL_APPS.some((app) => app.key === normalized)) {
+      throw validationError("Unknown streaming app", {
+        app: value,
+        supported: WORKLOAD_CONTROL_APPS.map((app) => app.key)
+      });
+    }
+    return normalized;
+  }
+
+  #accountBootstrapCatalog() {
+    return WORKLOAD_CONTROL_APPS
+      .filter((app) => ["messenger", "wallet"].includes(app.category))
+      .map((app) => ({
+        key: app.key,
+        name: app.name,
+        category: app.category,
+        requiredChecks: this.#accountBootstrapRequiredChecks(app.key),
+        defaultMode: this.#defaultBootstrapMode(app.key),
+        supportedModes: this.#supportedBootstrapModes(app.key),
+        defaultRuntimeMode: this.#defaultBootstrapRuntime(app.key),
+        requiresAdminQaReview: true,
+        terminalDataStored: false,
+        cdrRequired: true,
+        productionExecutionAllowed: false
+      }));
+  }
+
+  #accountBootstrapRequiredChecks(appKey) {
+    if (appKey === "exodus") return ["uiVisible", "walletWorkflow", "riskAcceptance"];
+    return ["uiVisible", "accountBootstrap", "sendReceive"];
+  }
+
+  #defaultBootstrapMode(appKey) {
+    if (appKey === "zangi") return "android_native_workload";
+    if (appKey === "signal" || appKey === "whatsapp") return "physical_mobile_companion";
+    if (appKey === "exodus") return "manual_operator_account";
+    return "approved_test_number_provider";
+  }
+
+  #defaultBootstrapRuntime(appKey) {
+    if (appKey === "zangi") return "android_native";
+    if (appKey === "signal") return "desktop";
+    if (appKey === "exodus") return "desktop";
+    return "web";
+  }
+
+  #supportedBootstrapModes(appKey) {
+    if (appKey === "zangi") return ["android_native_workload", "approved_test_number_provider"];
+    if (appKey === "signal" || appKey === "whatsapp") return ["physical_mobile_companion", "android_native_workload"];
+    if (appKey === "exodus") return ["manual_operator_account"];
+    return ["approved_test_number_provider", "desktop_linked_account", "android_native_workload"];
+  }
+
+  #normalizeBootstrapMode(value) {
+    const mode = String(value || "").trim();
+    if (!ACCOUNT_BOOTSTRAP_MODES.has(mode)) {
+      throw validationError("Unsupported account bootstrap mode", {
+        mode,
+        supported: [...ACCOUNT_BOOTSTRAP_MODES]
+      });
+    }
+    return mode;
+  }
+
+  #normalizeBootstrapRuntime(value) {
+    const mode = String(value || "").trim();
+    if (!["desktop", "web", "android_native", "firecracker_gui", "container", "unknown"].includes(mode)) {
+      throw validationError("Unsupported account bootstrap runtime mode", { mode });
+    }
+    return mode;
+  }
+
+  #normalizeBootstrapResult(value) {
+    const result = String(value || "").trim();
+    if (!ACCOUNT_BOOTSTRAP_RESULTS.has(result)) {
+      throw validationError("Unsupported account bootstrap result", {
+        result,
+        supported: [...ACCOUNT_BOOTSTRAP_RESULTS]
+      });
+    }
+    return result;
+  }
+
+  #normalizeBootstrapChecks(requiredChecks, checks) {
+    if (!checks || typeof checks !== "object" || Array.isArray(checks)) {
+      throw validationError("Account bootstrap checks must be an object", { field: "checks" });
+    }
+    const keys = [...new Set([...requiredChecks, ...Object.keys(checks)])];
+    return Object.fromEntries(keys.map((key) => {
+      const input = checks[key] || {};
+      const asObject = typeof input === "string" ? { status: input } : input;
+      const status = String(asObject.status || "not_run").trim();
+      if (!ACCOUNT_BOOTSTRAP_CHECK_STATUSES.has(status)) {
+        throw validationError("Unsupported account bootstrap check status", {
+          check: key,
+          status,
+          supported: [...ACCOUNT_BOOTSTRAP_CHECK_STATUSES]
+        });
+      }
+      return [key, {
+        status,
+        evidence: asObject.evidence ? String(asObject.evidence).trim().slice(0, 240) : null,
+        mode: asObject.mode ? String(asObject.mode).trim().slice(0, 96) : null,
+        note: asObject.note ? String(asObject.note).trim().slice(0, 240) : null
+      }];
+    }));
+  }
+
+  #assertNoBootstrapSecrets(value, path = []) {
+    if (!value || typeof value !== "object") return;
+    for (const [key, nested] of Object.entries(value)) {
+      const currentPath = [...path, key];
+      if (BOOTSTRAP_SECRET_FIELD_PATTERN.test(key)) {
+        throw validationError("Account bootstrap must not store phone numbers, OTPs, passwords, seeds or token material", {
+          field: currentPath.join("."),
+          allowed: "Use provider refs, artifact refs and pass/fail evidence only."
+        });
+      }
+      if (nested && typeof nested === "object") this.#assertNoBootstrapSecrets(nested, currentPath);
+    }
+  }
+
+  #safeBootstrapArray(value, field) {
+    if (!Array.isArray(value)) throw validationError(`${field} must be an array`, { field });
+    return value.map((item, index) => String(item || "").trim().slice(0, 200) || `empty_${index}`);
+  }
+
+  #publicAccountBootstrapSession(session) {
+    return {
+      id: session.id,
+      operatorId: session.operatorId,
+      tenantId: session.tenantId,
+      terminalMode: session.terminalMode,
+      appKey: session.appKey,
+      appName: session.appName,
+      mode: session.mode,
+      runtimeMode: session.runtimeMode,
+      state: session.state,
+      requiredChecks: session.requiredChecks,
+      checks: session.checks,
+      blockers: session.blockers || [],
+      routeStatus: session.routeStatus,
+      runtimeGate: session.runtimeGate,
+      launchUrl: session.launchUrl,
+      approvedPhoneProviderRef: session.approvedPhoneProviderRef,
+      evidencePolicy: session.evidencePolicy,
+      evidenceArtifactIds: session.evidenceArtifactIds || [],
+      latencyMs: session.latencyMs ?? null,
+      note: session.note || null,
+      factualCandidate: session.factualCandidate === true,
+      adminQaReviewRequired: session.adminQaReviewRequired !== false,
+      promotedFactualTestId: session.promotedFactualTestId || null,
+      reviewedBy: session.reviewedBy || null,
+      reviewedAt: session.reviewedAt || null,
+      terminalDataStored: false,
+      cdrRequired: true,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt || null
+    };
+  }
+
+  #appDefinition(templateKey) {
+    const normalized = this.#normalizeWorkloadTemplate(templateKey);
+    return WORKLOAD_CONTROL_APPS.find((app) => app.key === normalized);
+  }
+
+  #streamHostForTemplate(templateKey) {
+    if (templateKey === "duckduckgo_browser") return "duckduckgo.sylion.internal";
+    if (templateKey === "matrix_client") return "matrix-client.sylion.internal";
+    if (templateKey === "matrix_server") return "matrix-server.sylion.internal";
+    return `${templateKey}.sylion.internal`;
+  }
+
+  #workloadLaunchUrl(templateKey, host = this.#streamHostForTemplate(templateKey)) {
+    if (templateKey === "duckduckgo_browser") return `https://${host}/vnc.html`;
+    return `https://${host}/`;
+  }
+
+  #workloadRouteStatus(templateKey) {
+    const normalized = this.#normalizeWorkloadTemplate(templateKey);
+    const envKey = `SYLION_${normalized.toUpperCase().replaceAll("-", "_")}_LIVE_HTTP_STATUS`;
+    const rawStatus = this.env?.[envKey] || (normalized === "duckduckgo_browser" ? this.env?.SYLION_DUCKDUCKGO_LIVE_HTTP_STATUS : null);
+    const httpStatus = rawStatus ? Number(rawStatus) : null;
+    const evidenceReadyKey = `SYLION_${normalized.toUpperCase().replaceAll("-", "_")}_NATIVE_EVIDENCE_READY`;
+    const evidenceReady = this.env?.[evidenceReadyKey] === "true"
+      || (normalized === "duckduckgo_browser" && this.env?.SYLION_DUCKDUCKGO_NATIVE_EVIDENCE_READY === "true");
+    const ready = httpStatus === 200 || evidenceReady;
+    const notBuilt = httpStatus === 502 || this.env?.[evidenceReadyKey] === "false";
+    return {
+      templateKey: normalized,
+      host: this.#streamHostForTemplate(normalized),
+      launchUrl: this.#workloadLaunchUrl(normalized),
+      httpStatus,
+      evidenceReady,
+      ready,
+      state: ready ? "ready" : notBuilt ? "not_built" : "unknown_or_blocked",
+      blockers: ready ? [] : [notBuilt ? `${normalized}_native_workload_not_built` : `${normalized}_live_route_not_verified`],
+      satisfiedBlockers: ready ? [
+        `${normalized}_workload_slot_missing`,
+        "g1_g2_workload_path_not_ready",
+        "real_firecracker_binary_not_configured",
+        "kvm_device_not_verified",
+        "firecracker_kernel_image_not_configured",
+        `${normalized}_rootfs_image_not_configured`,
+        `approved_${normalized}_workload_image_missing`,
+        "real_ipsec_profile_required",
+        "dns_leak_and_kill_switch_tests_required",
+        "human_production_execution_approval_required"
+      ] : [],
+      privateOnly: true,
+      terminalDataStored: false,
+      cdrRequired: true,
+      productionExecutionAllowed: false
+    };
+  }
+
+  #latestStreamingReadinessForOperator(operatorId) {
+    return [...this.streamingReadinessEvidence.values()]
+      .filter((evidence) => evidence.operatorId === operatorId)
+      .at(-1) || null;
+  }
+
+  #latestStreamingRuntimeManifestForOperator(operatorId) {
+    return [...this.streamingRuntimeManifests.values()]
+      .filter((manifest) => manifest.operatorId === operatorId)
+      .at(-1) || null;
+  }
+
+  #selectedSessionBrokerProtocol() {
+    return this.#normalizeSessionBrokerProtocol(this.env?.SYLION_G2_SESSION_BROKER || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
+  }
+
+  #sessionBrokerCatalog() {
+    return {
+      requiredLayer: "G2",
+      selectedProtocol: this.#selectedSessionBrokerProtocol(),
+      candidates: [
+        {
+          protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
+          name: "Apache Guacamole",
+          status: this.env?.SYLION_GUACAMOLE_BROKER_READY === "true" ? "candidate_ready" : "poc_required",
+          productionCandidate: true,
+          labOnly: false,
+          strengths: ["mature_vnc_rdp_ssh_broker", "central_policy_point", "audit_metadata_point"]
+        },
+        {
+          protocol: SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES,
+          name: "Selkies/WebRTC",
+          status: this.env?.SYLION_SELKIES_GATEWAY_READY === "true" ? "candidate_ready" : "poc_required",
+          productionCandidate: true,
+          labOnly: false,
+          strengths: ["mobile_latency_candidate", "dynamic_resize_candidate", "touch_input_candidate"]
+        },
+        {
+          protocol: SESSION_BROKER_PROTOCOLS.NOVNC_LAB,
+          name: "noVNC/websockify",
+          status: this.env?.SYLION_NOVNC_LAB_READY === "true" ? "lab_ready" : "lab_adapter_only",
+          productionCandidate: false,
+          labOnly: true,
+          strengths: ["quick_vnc_smoke", "firecracker_gui_lab_bridge"]
+        }
+      ],
+      productionApprovalRequired: true,
+      noVncProductionApproved: false
+    };
+  }
+
+  #normalizeSessionBrokerProtocol(value) {
+    const raw = String(value || "").trim().toLowerCase();
+    if (raw === "selkies" || raw === "webrtc" || raw === "selkies_webrtc") return SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES;
+    if (raw === "guac" || raw === "apache_guacamole") return SESSION_BROKER_PROTOCOLS.GUACAMOLE;
+    if (LAB_SESSION_BROKER_PROTOCOLS.has(raw)) return SESSION_BROKER_PROTOCOLS.NOVNC_LAB;
+    if (PRODUCTION_SESSION_BROKER_PROTOCOLS.has(raw)) return raw;
+    return SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES;
+  }
+
+  #sessionBrokerPolicy({ protocol = null, readiness = null, runtimeManifest = null } = {}) {
+    const selected = this.#normalizeSessionBrokerProtocol(protocol || this.#selectedSessionBrokerProtocol());
+    const labOnly = selected === SESSION_BROKER_PROTOCOLS.NOVNC_LAB;
+    const guacamoleReady = this.env?.SYLION_GUACAMOLE_BROKER_READY === "true"
+      || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE)
+      || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE);
+    const webrtcReady = this.env?.SYLION_SELKIES_GATEWAY_READY === "true"
+      || this.env?.SYLION_G2_STREAM_GATEWAY_READY === "true"
+      || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES)
+      || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES)
+      || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES)
+      || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
+    const gatewayReady = selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
+      ? guacamoleReady
+      : selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+        ? webrtcReady
+        : false;
+    const blockers = [
+      ...(labOnly ? ["novnc_lab_only_not_approved_for_production_broker"] : []),
+      ...(selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE && !guacamoleReady ? ["guacamole_broker_poc_not_ready"] : []),
+      ...((selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES) && !webrtcReady
+        ? ["webrtc_selkies_broker_poc_not_ready"]
+        : [])
+    ];
+    return {
+      protocol: selected,
+      requiredLayer: "G2",
+      gatewayReady,
+      labOnly,
+      productionCandidate: !labOnly,
+      productionApproved: false,
+      humanGateRequired: true,
+      blockers,
+      candidates: this.#sessionBrokerCatalog().candidates.map((candidate) => ({
+        protocol: candidate.protocol,
+        status: candidate.status,
+        labOnly: candidate.labOnly,
+        productionCandidate: candidate.productionCandidate
+      }))
+    };
+  }
+
+  #streamGatewayReady(readiness, env) {
+    if (readiness?.gateway?.g2StreamGatewayReady === true
+      && readiness.gateway.publicInternetExposure === false
+      && readiness.gateway.tlsInternalOnly === true
+      && readiness.gateway.inputProxyReady === true) {
+      return true;
+    }
+    return env.SYLION_G2_STREAM_GATEWAY_READY === "true"
+      || env.SYLION_SELKIES_GATEWAY_READY === "true"
+      || env.SYLION_GUACAMOLE_BROKER_READY === "true";
+  }
+
+  #streamSourceBlockers({ templateKey, env, readiness = null }) {
+    const envKey = `SYLION_${templateKey.toUpperCase().replaceAll("-", "_")}_STREAM_SOURCE_READY`;
+    const sourceReady = readiness?.sources?.[templateKey] === true || env.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true" || env[envKey] === "true";
+    return sourceReady ? [] : [`${templateKey}_stream_source_not_ready`];
+  }
+
+  #streamingReadinessBlockers(evidence) {
+    const sourceReady = Object.entries(evidence.sources || {}).filter(([, ready]) => ready === true).map(([key]) => key);
+    return [
+      ...(evidence.gateway.g2StreamGatewayReady ? [] : ["g2_stream_gateway_not_ready"]),
+      ...(evidence.gateway.publicInternetExposure ? ["g2_stream_gateway_public_exposure_forbidden"] : []),
+      ...(evidence.gateway.tlsInternalOnly ? [] : ["g2_stream_gateway_internal_tls_required"]),
+      ...(evidence.gateway.inputProxyReady ? [] : ["g2_input_proxy_not_ready"]),
+      ...(evidence.broker?.blockers || []),
+      ...(sourceReady.length ? [] : ["at_least_one_workload_stream_source_required"])
+    ];
+  }
+
+  #streamingRuntimeManifestBlockers(manifest) {
+    const sourceEntries = Object.entries(manifest.sources || {});
+    return [
+      ...(this.#privateBindAllowed(manifest.gateway.bindAddress) ? [] : ["g2_gateway_private_bind_required"]),
+      ...(manifest.gateway.publicInternetExposure ? ["g2_gateway_public_exposure_forbidden"] : []),
+      ...(manifest.gateway.tlsMode === "internal_tls_only" ? [] : ["g2_gateway_internal_tls_required"]),
+      ...(manifest.broker?.blockers || []),
+      ...(sourceEntries.length ? [] : ["at_least_one_stream_source_manifest_required"]),
+      ...sourceEntries.flatMap(([key, source]) => [
+        ...(this.#privateBindAllowed(source.bindAddress) ? [] : [`${key}_source_private_bind_required`]),
+        ...(source.cdrRequired ? [] : [`${key}_source_cdr_required`]),
+        ...(source.terminalDataStored === false ? [] : [`${key}_terminal_data_storage_forbidden`])
+      ])
+    ];
+  }
+
+  #privateBindAllowed(address) {
+    const value = String(address || "").trim();
+    if (value === "localhost" || value === "127.0.0.1") return true;
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(value)) return true;
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(value)) return true;
+    const match = value.match(/^172\.(\d{1,2})\.\d{1,3}\.\d{1,3}$/);
+    if (match) {
+      const second = Number(match[1]);
+      return second >= 16 && second <= 31;
+    }
+    return false;
+  }
+
+  #publicStreamingRuntimeManifest(manifest) {
+    return {
+      id: manifest.id,
+      operatorId: manifest.operatorId,
+      terminalMode: manifest.terminalMode,
+      deviceId: manifest.deviceId,
+      gateway: manifest.gateway,
+      broker: manifest.broker,
+      sources: manifest.sources,
+      healthChecks: manifest.healthChecks,
+      guardrails: manifest.guardrails,
+      ready: manifest.ready,
+      blockers: manifest.blockers,
+      createdAt: manifest.createdAt,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #publicStreamingReadiness(evidence) {
+    return {
+      id: evidence.id,
+      operatorId: evidence.operatorId,
+      terminalMode: evidence.terminalMode,
+      deviceId: evidence.deviceId,
+      gateway: evidence.gateway,
+      broker: evidence.broker,
+      sources: evidence.sources,
+      ready: evidence.ready,
+      blockers: evidence.blockers,
+      observedAt: evidence.observedAt,
+      contentInspected: false,
+      terminalDataStored: false,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #publicStreamingSession(session) {
+    return {
+      id: session.id,
+      operatorId: session.operatorId,
+      tenantId: session.tenantId,
+      terminalMode: session.terminalMode,
+      deviceId: session.deviceId,
+      templateKey: session.templateKey,
+      appName: session.appName,
+      state: session.state,
+      launchUrl: session.launchUrl,
+      gateway: session.gateway,
+      source: session.source,
+      stream: session.stream,
+      security: session.security,
+      blockers: session.blockers,
+      warnings: session.warnings,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdAt: session.createdAt
+    };
+  }
+
+  #workloadExecutionPlan({ action, rotateApp, desiredCounts, operatorId }) {
+    const totalRequested = Object.values(desiredCounts).reduce((sum, value) => sum + value, 0);
+    const destructive = action !== "scale_to_counts";
+    const nativeFirecracker = this.#nativeFirecrackerRunnerEnabled();
+    const mappedRunnerApp = LIVE_RECREATE_APP_MAP[rotateApp] || "unsupported";
+    const supportedByLiveRunner = destructive && (nativeFirecracker
+      ? action === "rotate_app" && NATIVE_FIRECRACKER_RECREATE_APPS.has(mappedRunnerApp)
+      : action === "recreate_all" || Boolean(LIVE_RECREATE_APP_MAP[rotateApp]));
+    return {
+      mode: action,
+      targetApp: rotateApp,
+      totalRequested,
+      runner: destructive
+        ? nativeFirecracker ? "native_firecracker_gui_runner_pending_gate" : "workload_recreate_runner_pending_gate"
+        : "workload_count_reconcile_runner_pending_gate",
+      stages: [
+        "quota_check_passed",
+        "operator_audit_recorded",
+        "cdr_policy_attached",
+        "panic_policy_checked",
+        destructive ? "delete_recreate_plan_queued" : "desired_count_plan_queued"
+      ],
+      cdr: {
+        required: true,
+        restoreRequiresCleanDecision: true,
+        fileIngressEgressBlockedWithoutDecision: true
+      },
+      panicPolicy: {
+        checked: true,
+        destructiveActionRequiresSessionUnlock: true
+      },
+      liveRunner: destructive ? {
+        command: action === "rotate_app"
+          ? nativeFirecracker
+            ? `SYLION_GUI_APP=${mappedRunnerApp} node scripts/launch-native-firecracker-gui-workload.mjs --apply`
+            : `npm run live:workload-recreate -- --app=${mappedRunnerApp}`
+          : nativeFirecracker ? "unsupported_in_native_firecracker_mode" : "npm run live:workload-recreate -- --app=all",
+        wipeVolumeDefault: false,
+        wipeVolumeRequiresPanicOrFourEyes: true,
+        signalAuthHandoffRequired: action === "recreate_all" || rotateApp === "signal",
+        backendEndpoint: "/operator-api/workload-control/requests/:id/execute",
+        confirmationPhrase: "RUN_LIVE_WORKLOAD_RECREATE",
+        supportedByLiveRunner,
+        expectedEvidence: [
+          nativeFirecracker ? "native_firecracker_gui_workload" : "live_workload_recreate",
+          "cdrRequired=true",
+          "terminalDataStored=false",
+          "privateBindOnly=true",
+          "signalStatus=200 when signal is recreated"
+        ]
+      } : null,
+      targetRefs: destructive
+        ? [`workload-slot://${operatorId}/${action === "rotate_app" ? rotateApp : "all"}`]
+        : Object.entries(desiredCounts).filter(([, count]) => count > 0).map(([app, count]) => `workload-desired://${operatorId}/${app}/${count}`),
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #nativeFirecrackerRunnerEnabled() {
+    return this.env?.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE === "native_firecracker";
   }
 
   #sessionHoursForOperator(operatorId, tier) {
@@ -1230,6 +3429,10 @@ export class OperatorPortalService {
       tenantId: operatorActor.tenantId,
       mode: "disabled",
       regions: [],
+      countries: [],
+      providers: [],
+      frequencyHours: subscription.quota.jurisdictionPolicy?.minFrequencyHours || 168,
+      rotationScopes: [],
       subscriptionMode: subscription.quota.jurisdictionRotationMode,
       state: "not_configured",
       productionExecutionAllowed: false,
@@ -1253,6 +3456,30 @@ export class OperatorPortalService {
     }
   }
 
+  #normalizeJurisdictionFrequency(value, quota) {
+    const min = Number(quota.jurisdictionPolicy?.minFrequencyHours || 168);
+    const frequencyHours = value === undefined || value === null || value === "" ? min : Number(value);
+    if (!Number.isInteger(frequencyHours) || frequencyHours < min || frequencyHours > 8760) {
+      throw validationError("Jurisdiction rotation frequency is outside subscription tier policy", {
+        frequencyHours: value,
+        minFrequencyHours: min,
+        maxFrequencyHours: 8760
+      });
+    }
+    return frequencyHours;
+  }
+
+  #rotationScopesForJurisdictionMode(mode, quota) {
+    if (mode === "disabled") return [];
+    if (mode === "manual") return ["session", "ip_route", "region"];
+    if (mode === "scheduled") return quota.jurisdictionPolicy?.providerRotationAllowed
+      ? ["session", "ip_route", "region", "provider", "workload_vps"]
+      : ["session", "ip_route", "region"];
+    return quota.jurisdictionPolicy?.allVpsRotationAllowed
+      ? ["session", "ip_route", "region", "provider", "workload_vps", "g1", "g2", "all_3_vps", "certificates"]
+      : ["session", "ip_route", "region", "provider", "workload_vps"];
+  }
+
   #publicJurisdictionPolicy(policy) {
     return {
       id: policy.id,
@@ -1260,6 +3487,10 @@ export class OperatorPortalService {
       tenantId: policy.tenantId,
       mode: policy.mode,
       regions: policy.regions,
+      countries: policy.countries || [],
+      providers: policy.providers || [],
+      frequencyHours: policy.frequencyHours || null,
+      rotationScopes: policy.rotationScopes || [],
       subscriptionMode: policy.subscriptionMode,
       state: policy.state,
       productionExecutionAllowed: false,
@@ -1268,11 +3499,66 @@ export class OperatorPortalService {
     };
   }
 
+  #androidRuntimeSubstrate() {
+    const env = this.env || {};
+    const manifest = this.workloadImageManifestResolver?.("zangi") || null;
+    const checkStatus = (key) => manifest?.checks?.find((check) => check.key === key)?.status;
+    const androidImageRef = env.SYLION_ANDROID_WORKLOAD_IMAGE_REF || manifest?.imageRef || null;
+    const zangiApkRef = env.SYLION_ZANGI_APK_REF || manifest?.packageRef || null;
+    const kvmReady = env.SYLION_ANDROID_KVM_READY === "true"
+      || env.SYLION_KVM_READY === "true"
+      || checkStatus("host_lab_ready") === "passed";
+    const binderReady = env.SYLION_ANDROID_BINDER_READY === "true"
+      || env.SYLION_ANDROID_BINDERFS_READY === "true"
+      || checkStatus("android_binderfs_evidence") === "passed";
+    const checks = [
+      {
+        key: "kvm_device",
+        status: kvmReady ? "passed" : "blocked",
+        detail: "/dev/kvm must be present on the WORKLOAD host or a dedicated Android runtime host"
+      },
+      {
+        key: "binder_or_binderfs",
+        status: binderReady ? "passed" : "blocked",
+        detail: "Android workloads require binder/binderfs support"
+      },
+      {
+        key: "approved_android_image",
+        status: androidImageRef ? "passed" : "blocked",
+        detail: "Android system image must be approved and pinned"
+      },
+      {
+        key: "approved_zangi_apk_ref",
+        status: zangiApkRef ? "passed" : "blocked",
+        detail: "Zangi APK/source reference must be approved before native launch"
+      }
+    ];
+    const blockers = checks.filter((check) => check.status !== "passed").map((check) => check.key);
+    return {
+      required: true,
+      runtimeClass: "android_workload",
+      hostRequirement: "kvm_or_bare_metal_with_binderfs",
+      currentProviderFit: blockers.length ? "blocked_on_current_host" : "ready_for_android_runner_review",
+      evidenceSource: manifest ? "workload_image_manifest" : "environment_gate",
+      manifestId: manifest?.id || null,
+      refs: {
+        androidImageRef,
+        zangiApkRef
+      },
+      ready: blockers.length === 0,
+      checks,
+      blockers
+    };
+  }
+
   #workloadExecutionForOperator({ operatorId, terminalMode, deviceId, templateKey }) {
     const path = this.#connectionPathForOperator({ operatorId, terminalMode, deviceId });
-    const normalizedTemplate = String(templateKey || "signal").trim().toLowerCase();
+    const normalizedTemplate = this.#normalizeWorkloadTemplate(templateKey || "signal");
+    const appDefinition = this.#appDefinition(normalizedTemplate);
     const slot = path.microVmSlots.find((item) => item.templateKey === normalizedTemplate)
       || path.microVmSlots.find((item) => item.appName?.toLowerCase() === normalizedTemplate);
+    const androidRuntimeRequired = ANDROID_WORKLOAD_APPS.has(normalizedTemplate);
+    const androidRuntime = this.#androidRuntimeSubstrate();
     const env = this.env || {};
     const runtimeRefs = {
       firecrackerBinary: env.SYLION_FIRECRACKER_BIN || null,
@@ -1281,6 +3567,8 @@ export class OperatorPortalService {
       workloadImageRef: env.SYLION_SIGNAL_WORKLOAD_IMAGE_REF || null,
       signalPackageRef: env.SYLION_SIGNAL_PACKAGE_REF || null,
       signalAccountEnrollmentRef: env.SYLION_SIGNAL_ACCOUNT_REF || null,
+      androidImageRef: env.SYLION_ANDROID_WORKLOAD_IMAGE_REF || null,
+      zangiApkRef: env.SYLION_ZANGI_APK_REF || null,
       cdrPolicyRef: "cdr://mandatory-workload-file-transfer",
       hsmCertificateRef: env.SYLION_OPERATOR_HSM_CERT_REF || null
     };
@@ -1290,15 +3578,17 @@ export class OperatorPortalService {
     const firecrackerReady = Boolean(runtimeRefs.firecrackerBinary && runtimeRefs.kernelImageRef && runtimeRefs.rootfsImageRef && kvmReady);
     const cdrReady = true;
     const blockers = [
-      ...(slot ? [] : ["signal_microvm_slot_missing"]),
+      ...(slot ? [] : [`${normalizedTemplate}_workload_slot_missing`]),
       ...(path.state === "local_lab_connected" ? [] : ["g1_g2_workload_path_not_ready"]),
-      ...(runtimeRefs.firecrackerBinary ? [] : ["real_firecracker_binary_not_configured"]),
-      ...(kvmReady ? [] : ["kvm_device_not_verified"]),
-      ...(runtimeRefs.kernelImageRef ? [] : ["firecracker_kernel_image_not_configured"]),
-      ...(runtimeRefs.rootfsImageRef ? [] : ["signal_rootfs_image_not_configured"]),
-      ...(runtimeRefs.workloadImageRef ? [] : ["approved_signal_workload_image_missing"]),
-      ...(runtimeRefs.signalPackageRef ? [] : ["signal_application_package_not_bound"]),
-      ...(runtimeRefs.signalAccountEnrollmentRef ? [] : ["signal_account_enrollment_not_configured"]),
+      ...(androidRuntimeRequired ? androidRuntime.blockers.map((blocker) => `android_${blocker}_not_ready`) : [
+        ...(runtimeRefs.firecrackerBinary ? [] : ["real_firecracker_binary_not_configured"]),
+        ...(kvmReady ? [] : ["kvm_device_not_verified"]),
+        ...(runtimeRefs.kernelImageRef ? [] : ["firecracker_kernel_image_not_configured"]),
+        ...(runtimeRefs.rootfsImageRef ? [] : [`${normalizedTemplate}_rootfs_image_not_configured`]),
+        ...(runtimeRefs.workloadImageRef ? [] : [`approved_${normalizedTemplate}_workload_image_missing`])
+      ]),
+      ...(normalizedTemplate === "signal" && !runtimeRefs.signalPackageRef ? ["signal_application_package_not_bound"] : []),
+      ...(normalizedTemplate === "signal" && !runtimeRefs.signalAccountEnrollmentRef ? ["signal_account_enrollment_not_configured"] : []),
       ...(runtimeRefs.hsmCertificateRef || hsmFidoDeferred ? [] : ["hsm_backed_operator_certificate_required"]),
       ...(hsmFidoDeferred ? [] : ["fresh_fido2_operator_unlock_required"]),
       ...(vpnReady ? [] : ["real_ipsec_profile_required"]),
@@ -1307,16 +3597,19 @@ export class OperatorPortalService {
     ];
     const warnings = [
       "puli_ax_router_physical_gate_temporarily_out_of_scope_for_this_sprint",
-      "terminal_remains_thin_client_no_signal_data_on_pixel",
+      `terminal_remains_thin_client_no_${normalizedTemplate}_data_on_pixel`,
+      ...(androidRuntimeRequired ? ["native_zangi_requires_android_workload_not_chromium_download_page"] : []),
       ...(hsmFidoDeferred ? ["physical_hsm_fido2_configuration_deferred_but_visible_in_panels"] : [])
     ];
-    const productionFlag = env.SYLION_ENABLE_SIGNAL_PRODUCTION_EXECUTION === "true";
+    const productionFlag = androidRuntimeRequired
+      ? env.SYLION_ENABLE_ANDROID_WORKLOAD_PRODUCTION_EXECUTION === "true"
+      : env.SYLION_ENABLE_SIGNAL_PRODUCTION_EXECUTION === "true";
     const launchAllowed = productionFlag && blockers.length === 0;
     return {
       operatorId,
       tenantId: path.tenantId,
       templateKey: slot?.templateKey || normalizedTemplate,
-      appName: slot?.appName || "Signal",
+      appName: slot?.appName || appDefinition?.name || normalizedTemplate,
       slot: slot || null,
       route: {
         terminalMode,
@@ -1324,10 +3617,10 @@ export class OperatorPortalService {
         segments: path.segments.map((segment) => ({ id: segment.id, from: segment.from, to: segment.to, protocol: segment.protocol, state: segment.state }))
       },
       runtime: {
-        kind: "firecracker_microvm",
+        kind: androidRuntimeRequired ? "android_workload" : "firecracker_microvm",
         targetVpsRole: "WORKLOAD",
         hostMode: "production_contract",
-        runner: "real_firecracker_runner_required",
+        runner: androidRuntimeRequired ? "real_android_workload_runner_required" : "real_firecracker_runner_required",
         runtimeRefs,
         substrate: {
           vpn: {
@@ -1344,6 +3637,7 @@ export class OperatorPortalService {
             kernelConfigured: Boolean(runtimeRefs.kernelImageRef),
             rootfsConfigured: Boolean(runtimeRefs.rootfsImageRef)
           },
+          androidRuntime: androidRuntimeRequired ? androidRuntime : { required: false, ready: true, blockers: [] },
           cdr: {
             required: true,
             ready: cdrReady,
@@ -1362,7 +3656,9 @@ export class OperatorPortalService {
         cdrRequired: true,
         terminalDataStored: false
       },
-      readinessState: launchAllowed ? "ready_for_firecracker_runner" : "blocked_before_execution",
+      readinessState: launchAllowed
+        ? (androidRuntimeRequired ? "ready_for_android_workload_runner" : "ready_for_firecracker_runner")
+        : "blocked_before_execution",
       blockers,
       warnings,
       sideEffectAllowed: launchAllowed,
