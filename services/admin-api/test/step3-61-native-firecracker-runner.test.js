@@ -32,6 +32,7 @@ test("Step 3.61 AX102 Firecracker GUI runner exposes separate app profiles witho
     windowWidth: 960,
     windowHeight: 1680
   });
+  assert.equal(duck.vncBackend, "tigervnc");
   assert.equal(duck.productionExecutionAllowed, false);
 
   const libreOffice = await planFor("libreoffice");
@@ -60,9 +61,33 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
 
   assert.match(source, /haveged -F -w 1024/);
   assert.match(source, /sylion-visible-window=true/);
+  assert.match(source, /Xtigervnc .* -AcceptKeyEvents -AcceptPointerEvents -RawKeyboard/);
+  assert.match(source, /SYLION_GUI_VNC_BACKEND/);
+  assert.match(source, /SYLION_GUI_VNC_DEBUG/);
+  assert.match(source, /SYLION_GUI_SELF_TEST_TEXT/);
+  assert.match(source, /Unsupported GUI VNC backend/);
+  assert.doesNotMatch(source, /MOZ_DISABLE_CONTENT_SANDBOX/);
+  assert.match(source, /kasmvncserver_noble_1\.4\.0_amd64\.deb/);
+  assert.match(source, /vncBackend === "kasmvnc" \? 6901 : 5900/);
+  assert.match(source, /KASMVNC_HTTP/);
+  assert.match(source, /stream-secrets/);
+  assert.match(source, /install -m 0600 "\$stream_secret_file" "\$stream_credential_ref"/);
+  assert.match(source, /stream-credentials\.env/);
+  assert.match(source, /streamCredentialRef:\$streamCredentialRef/);
+  assert.match(source, /weston --backend=vnc-backend\.so/);
+  assert.match(source, /sylion-weston-vnc-plain-proxy\.py/);
+  assert.match(source, /sylion-weston-seat-primer\.py/);
+  assert.match(source, /seat_primer_connected=true/);
+  assert.match(source, /xserver-xorg-video-dummy/);
+  assert.match(source, /sylion-xtest-extension=true/);
+  assert.match(source, /setxkbmap -model pc105 -layout us/);
+  assert.match(source, /xinput test-xi2 --root/);
+  assert.match(source, /x11vnc .* -input KMBCF -allinput -input_eagerly -noxwarppointer -xkb -nomodtweak/);
   assert.match(source, /x11vnc .* -noxdamage -noxfixes -noxrecord -wait 20 -defer 20 -loop/);
   assert.match(source, /vncBannerReady:\$vncBannerReady/);
-  assert.match(source, /ready:\(\$hostCode=="200" and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true and \$vncBannerReady==true/);
+  assert.match(source, /streamReady:\$streamReady/);
+  assert.match(source, /streamAuthRequired:\(\$vncBackend=="kasmvnc" and \$hostCode=="401"\)/);
+  assert.match(source, /ready:\(\$streamReady==true and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true and \$vncBannerReady==true/);
   assert.match(source, /vcpu_count": \$\{profile\.vcpuCount \|\| 2\}/);
   assert.match(source, /mem_size_mib": \$\{profile\.memSizeMib \|\| 4096\}/);
   assert.match(source, /defaultExodusDebSha256/);
