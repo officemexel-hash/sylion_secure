@@ -758,6 +758,8 @@ keyboard:
   raw_keyboard: false
 pointer:
   enabled: true
+runtime_configuration:
+  allow_client_to_override_kasm_server_settings: false
 data_loss_prevention:
   clipboard:
     server_to_client:
