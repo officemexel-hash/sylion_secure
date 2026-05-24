@@ -491,8 +491,9 @@
         : app.workload?.state === "ready" && app.transport?.state !== "blocked"
           ? "status-warn"
           : "status-error";
+      const launchUrl = workloadStreamWrapperUrl(app.key, app.launchUrl || `https://${app.host}/`);
       return `
-        <a class="quick-tile workload-tile ${tone}" href="${escapeHtml(app.launchUrl || `https://${app.host}/`)}" rel="noopener">
+        <a class="quick-tile workload-tile ${tone}" href="${escapeHtml(launchUrl)}" rel="noopener">
           <strong>${escapeHtml(app.name)}</strong>
           <span>${escapeHtml(statusLabel(app))}</span>
           <span class="tile-meta">G2 ${escapeHtml(app.transport?.state || "blocked")} | workload ${escapeHtml(app.workload?.state || "blocked")}</span>
@@ -508,6 +509,30 @@
     if (app.functionalState === "ui_ready_pixel_fit_review_required") return "UI ready, Pixel fit/risk review required";
     if (app.functionalState === "blocked_android_native_provenance") return "blocked: Android-native image/APK provenance";
     return `blocked: ${(app.blockers || []).slice(0, 2).join(", ") || "evidence missing"}`;
+  }
+
+  function workloadStreamWrapperUrl(appKey, fallbackUrl = "") {
+    const normalized = normalizeWorkloadAppKey(appKey);
+    const wrapperApps = new Set([
+      "duckduckgo_browser",
+      "libreoffice",
+      "whatsapp",
+      "telegram",
+      "threema",
+      "signal",
+      "zangi",
+      "exodus"
+    ]);
+    if (wrapperApps.has(normalized)) {
+      return `/operator/stream.html?app=${encodeURIComponent(normalized)}`;
+    }
+    return fallbackUrl || "#app-switcher";
+  }
+
+  function normalizeWorkloadAppKey(appKey) {
+    const clean = String(appKey || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    if (clean === "duckduckgo" || clean === "browser") return "duckduckgo_browser";
+    return clean;
   }
 
   async function recordVpnEvidence(event) {
@@ -919,7 +944,7 @@
     const steps = (handoff.orderedSteps || []).map((step, index) => `<li><strong>${index + 1}.</strong> ${escapeHtml(step)}</li>`).join("");
     const never = (handoff.neverCollect || []).map((item) => `<span class="badge badge-danger">${escapeHtml(item)}</span>`).join("");
     const allowed = (handoff.allowedRecord || []).map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join("");
-    const launchUrl = handoff.currentLaunchUrl || session?.launchUrl || "";
+    const launchUrl = workloadStreamWrapperUrl(handoff.appKey || session?.appKey || session?.templateKey, handoff.currentLaunchUrl || session?.launchUrl || "");
     panel.innerHTML = `
       <div class="handoff-summary">
         <strong>${escapeHtml(session?.appName || handoff.appKey)} - ${escapeHtml(handoff.state)}</strong>
@@ -929,7 +954,7 @@
       <div class="app-tile-meta">${never}</div>
       <div class="app-tile-meta">${allowed}</div>
       <div class="quick-actions">
-        ${launchUrl ? `<a class="button-link" href="${escapeHtml(launchUrl)}" target="_blank" rel="noopener">Open workload stream</a>` : ""}
+        ${launchUrl ? `<a class="button-link" href="${escapeHtml(launchUrl)}" rel="noopener">Open workload stream</a>` : ""}
         <a class="button-link" href="#app-switcher">Return to apps</a>
       </div>
     `;

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src https://session.sylion.internal https://duckduckgo.sylion.internal https://libreoffice.sylion.internal https://whatsapp.sylion.internal https://telegram.sylion.internal https://threema.sylion.internal https://signal.sylion.internal https://zangi.sylion.internal https://exodus.sylion.internal; child-src https://session.sylion.internal https://duckduckgo.sylion.internal https://libreoffice.sylion.internal https://whatsapp.sylion.internal https://telegram.sylion.internal https://threema.sylion.internal https://signal.sylion.internal https://zangi.sylion.internal https://exodus.sylion.internal; frame-ancestors 'none'; base-uri 'none'; form-action 'self'">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="no-referrer">
+  <title>SYLION Workload Stream</title>
+  <link rel="stylesheet" href="/operator/styles.css?v=step3-89c">
+</head>
+<body class="stream-page">
+  <main class="operator-stream">
+    <section class="stream-frame-shell" aria-label="Workload stream">
+      <iframe id="workload-stream-frame" title="SYLION workload stream" referrerpolicy="no-referrer"></iframe>
+      <div id="stream-blocker" class="stream-blocker" hidden>
+        <strong>Stream blocked</strong>
+        <span id="stream-blocker-reason">Unknown app selection.</span>
+        <a class="button-link" href="/operator#app-switcher">Back to apps</a>
+      </div>
+    </section>
+    <nav class="stream-control-bar" aria-label="Pixel stream controls">
+      <div class="stream-control-primary">
+        <strong id="stream-app-label">Workload</strong>
+        <span id="stream-app-state">Loading...</span>
+      </div>
+      <button type="button" class="stream-control-button" data-stream-action="keyboard">Keyboard</button>
+      <button type="button" class="stream-control-button" data-stream-action="keyboard-tools">Input tools</button>
+      <button type="button" class="stream-control-button" data-stream-action="fit">Fit</button>
+      <a class="stream-control-button" href="/operator#app-switcher">Apps</a>
+      <a class="stream-control-button" href="/operator">Panel</a>
+    </nav>
+    <p id="stream-toast" class="stream-toast" role="status" aria-live="polite"></p>
+  </main>
+  <script src="/operator/stream.js?v=step3-89c"></script>
+</body>
+</html>
