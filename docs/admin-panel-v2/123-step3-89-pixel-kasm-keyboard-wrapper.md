@@ -52,5 +52,17 @@ Pass criteria:
 - Field is not hidden by the Kasm side drawer.
 - Pixel keyboard can be summoned without leaving the drawer open.
 - The stream remains scaled to the Pixel viewport.
+- A black framebuffer with only a cursor is a failed visual test, even when the transport is reachable.
+- Workload evidence must require an actual visible window marker; a running process alone is not enough.
 - No secret, OTP, seed, message content, or wallet data is entered during testing.
 
+## 2026-05-24 Repair Note
+
+Pixel testing found a black DuckDuckGo stream with a visible cursor. The transport and VNC controls were reachable, but the previous KasmVNC evidence path could incorrectly mark the workload ready when the app process was running while `sylion-visible-window=false` was present in the serial log.
+
+Repair:
+
+- Recreated DuckDuckGo as a fresh Firecracker GUI workload with TigerVNC/noVNC on AX102.
+- Verified G2 stream route returns `200`, noVNC marker is present, and `visibleWindow=true`.
+- Re-tested from Pixel and confirmed the DuckDuckGo page and search field are visible through `/operator/stream.html?app=duckduckgo_browser`.
+- Tightened the runner so KasmVNC can no longer convert `appRunning=true` into `visibleWindow=true`.

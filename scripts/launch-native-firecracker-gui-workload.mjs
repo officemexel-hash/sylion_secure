@@ -1037,9 +1037,6 @@ app_crashed=false
 grep -q 'sylion-app-running=false' "$run_dir/serial.log" && app_crashed=true || true
 visible_window=false
 grep -q 'sylion-visible-window=true' "$run_dir/serial.log" && visible_window=true || true
-if [ "$vnc_backend" = "kasmvnc" ] && [ "$app_running" = "true" ]; then
-  visible_window=true
-fi
 stream_ready=false
 if [ "$host_code" = "200" ] || { [ "$vnc_backend" = "kasmvnc" ] && [ "$host_code" = "401" ]; }; then
   stream_ready=true

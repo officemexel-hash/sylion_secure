@@ -95,6 +95,7 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /streamReady:\$streamReady/);
   assert.match(source, /streamAuthRequired:\(\$vncBackend=="kasmvnc" and \$hostCode=="401"\)/);
   assert.match(source, /ready:\(\$streamReady==true and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true and \$vncBannerReady==true/);
+  assert.doesNotMatch(source, /\[ "\$vnc_backend" = "kasmvnc" \] && \[ "\$app_running" = "true" \][\s\S]{0,120}visible_window=true/);
   assert.match(source, /vcpu_count": \$\{profile\.vcpuCount \|\| 2\}/);
   assert.match(source, /mem_size_mib": \$\{profile\.memSizeMib \|\| 4096\}/);
   assert.match(source, /defaultExodusDebSha256/);
