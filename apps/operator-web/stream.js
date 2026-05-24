@@ -1,6 +1,7 @@
 // SYLION Pixel-friendly workload stream wrapper.
-// It stores no operational input. It only launches an allowlisted internal
-// workload URL and sends KasmVNC UI control messages to the embedded stream.
+// It stores no operational input. It requests a short-lived Guacamole JSON
+// auth handoff from the operator API, then launches only allowlisted internal
+// workload streams through G2.
 
 (function () {
   "use strict";
@@ -25,6 +26,7 @@
   const $ = (sel) => document.querySelector(sel);
   const params = new URLSearchParams(window.location.search);
   const requestedApp = normalizeApp(params.get("app") || "duckduckgo_browser");
+  const requestedBroker = String(params.get("broker") || "guacamole").toLowerCase();
   const frame = $("#workload-stream-frame");
   const blocker = $("#stream-blocker");
   const blockerReason = $("#stream-blocker-reason");
@@ -39,6 +41,27 @@
 
   function appUrl(app) {
     return `https://${app.host}${app.path}`;
+  }
+
+  async function fetchGuacamoleHandoff(appKey) {
+    const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
+    const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
+    const dpr = Number(window.devicePixelRatio || 1).toFixed(2);
+    const res = await fetch("/operator-api/guacamole-handoff", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_operator_stream_${crypto.randomUUID()}`,
+        "x-sylion-operator-csrf": "same-origin-ui"
+      },
+      body: JSON.stringify({ templateKey: appKey, width, height, dpr })
+    });
+    const payload = await res.json();
+    if (!res.ok) {
+      throw new Error(payload?.error?.message || `HTTP ${res.status}`);
+    }
+    return payload.handoff;
   }
 
   function showToast(message) {
@@ -100,7 +123,7 @@
     });
   }
 
-  function boot() {
+  async function boot() {
     const workload = WORKLOADS[requestedApp];
     if (!workload) {
       frame.hidden = true;
@@ -111,9 +134,26 @@
       return;
     }
     label.textContent = workload.label;
-    state.textContent = "Opening via internal G2 workload gateway...";
-    frame.src = appUrl(workload);
     bindControls();
+    if (requestedBroker === "direct_lab") {
+      state.textContent = "Opening direct lab stream through internal G2 workload gateway...";
+      frame.src = appUrl(workload);
+      return;
+    }
+    state.textContent = "Requesting encrypted Guacamole handoff from G2...";
+    try {
+      const handoff = await fetchGuacamoleHandoff(requestedApp);
+      if (!handoff?.launchUrl || handoff.state !== "guacamole_handoff_ready") {
+        throw new Error(`Handoff blocked: ${(handoff?.blockers || []).join(", ") || "unknown blocker"}`);
+      }
+      state.textContent = `Opening ${handoff.broker.connectionName} through Guacamole.`;
+      frame.src = handoff.launchUrl;
+    } catch (error) {
+      frame.hidden = true;
+      blocker.hidden = false;
+      blockerReason.textContent = String(error.message || error);
+      state.textContent = "Guacamole handoff blocked";
+    }
   }
 
   boot();

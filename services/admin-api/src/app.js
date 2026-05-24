@@ -1017,6 +1017,15 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         return send(res, 201, { session: operatorPortal.requestStreamingSession({ operatorActor, body, correlationId }) });
       }
+      if (req.method === "POST" && url.pathname === "/operator-api/guacamole-handoff") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, {
+          handoff: operatorPortal.createGuacamoleHandoff({ operatorActor, body, correlationId })
+        }, {
+          "cache-control": "no-store"
+        });
+      }
       if (req.method === "POST" && url.pathname === "/operator-api/streaming-readiness") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);

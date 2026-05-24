@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { createCipheriv, createHmac, randomBytes } from "node:crypto";
 import { promisify } from "node:util";
 import { DEVICE_TYPES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { AppError, notFound, validationError } from "../../lib/errors.js";
@@ -131,6 +131,26 @@ const TRAFFIC_MONITOR_SEGMENTS = Object.freeze([
 const TRAFFIC_SEGMENT_IDS = new Set(TRAFFIC_MONITOR_SEGMENTS.map((segment) => segment.id));
 const TRAFFIC_STATUSES = new Set(["healthy", "degraded", "blocked", "missing", "observed"]);
 const TRAFFIC_FORBIDDEN_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms|seed|mnemonic|private[_-]?key|payload|message|chat|packet[_-]?capture|pcap|capture[_-]?file|file[_-]?content|wallet[_-]?secret|cookie|body)/i;
+const GUACAMOLE_HANDOFF_APPS = new Set([
+  "duckduckgo_browser",
+  "libreoffice",
+  "whatsapp",
+  "telegram",
+  "threema",
+  "signal",
+  "zangi",
+  "exodus"
+]);
+const GUACAMOLE_LOCAL_VNC_PORTS = Object.freeze({
+  duckduckgo_browser: 15901,
+  libreoffice: 15902,
+  whatsapp: 15910,
+  telegram: 15911,
+  threema: 15912,
+  signal: 15913,
+  zangi: 15916,
+  exodus: 15915
+});
 
 function isoNow() {
   return new Date().toISOString();
@@ -1647,6 +1667,126 @@ export class OperatorPortalService {
       newValue: this.#publicStreamingSession(session)
     });
     return this.#publicStreamingSession(session);
+  }
+
+  createGuacamoleHandoff({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const templateKey = this.#normalizeStreamingTemplate(body.templateKey || body.app || "duckduckgo_browser");
+    const appDefinition = this.#appDefinition(templateKey);
+    const viewport = {
+      width: body.width,
+      height: body.height,
+      dpr: body.dpr
+    };
+    const profile = this.streamingProfile({
+      operatorActor,
+      width: viewport.width,
+      height: viewport.height,
+      dpr: viewport.dpr,
+      correlationId: corr
+    });
+    const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
+    const env = this.env || {};
+    const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
+    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const brokerPolicy = this.#sessionBrokerPolicy({
+      protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
+      readiness,
+      runtimeManifest
+    });
+    const sourceBlockers = this.#streamSourceBlockers({ templateKey, env, readiness });
+    const key = this.#guacamoleJsonSecretKey();
+    const supported = GUACAMOLE_HANDOFF_APPS.has(templateKey);
+    const blockers = [
+      ...foundation.blockers.map((blocker) => `live_access:${blocker}`),
+      ...(supported ? [] : [`${templateKey}_guacamole_handoff_not_supported`]),
+      ...(key ? [] : ["guacamole_json_auth_secret_missing"]),
+      ...(brokerPolicy.gatewayReady ? [] : ["guacamole_broker_poc_not_ready"]),
+      ...brokerPolicy.blockers,
+      ...sourceBlockers,
+      ...(templateKey === "zangi" && env.SYLION_ZANGI_ANDROID_NATIVE_APPROVED !== "true" ? ["zangi_android_native_provenance_required"] : []),
+      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
+    ];
+    const ready = blockers.length === 0;
+    const expiresAt = new Date(Date.now() + this.#guacamoleHandoffTtlMs()).toISOString();
+    const baseUrl = this.#guacamoleBaseUrl();
+    const connectionName = this.#guacamoleConnectionName(templateKey);
+    const handoff = {
+      id: newId("guac_handoff"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey,
+      appName: appDefinition.name,
+      state: ready ? "guacamole_handoff_ready" : "guacamole_handoff_blocked",
+      launchUrl: null,
+      broker: {
+        protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
+        url: baseUrl,
+        mode: "encrypted_json_auth",
+        connectionName,
+        requiredLayer: "G2",
+        guacdTlsRequired: true,
+        g2ToWorkloadEncryptedRequired: true
+      },
+      stream: {
+        targetWidth: profile.stream.targetWidth,
+        targetHeight: profile.stream.targetHeight,
+        resizeMethod: "display-update",
+        terminalReceives: ["video_pixels", "audio_optional", "input_events"],
+        terminalForbidden: ["workload_files", "app_secrets", "message_database", "wallet_seed", "session_cookies"],
+        terminalDataStored: false
+      },
+      security: {
+        jsonAuthEncrypted: ready,
+        urlContainsPassword: false,
+        plaintextCredentialsReturned: false,
+        tokenMaterialStored: false,
+        auditStoresLaunchUrl: false,
+        clipboardEnabled: false,
+        fileTransfer: "disabled_until_cdr_gate",
+        cdrRequired: true,
+        g1G2BypassAllowed: false
+      },
+      blockers,
+      expiresAt: ready ? expiresAt : null,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdAt: isoNow()
+    };
+
+    if (ready) {
+      const payload = this.#guacamoleJsonAuthPayload({
+        operatorActor,
+        templateKey,
+        connectionName,
+        expiresAt
+      });
+      const encrypted = this.#encryptGuacamoleJsonAuthPayload(payload, key);
+      const url = new URL(baseUrl);
+      url.searchParams.set("data", encrypted);
+      handoff.launchUrl = url.toString();
+    }
+
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.guacamole_handoff_created",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: handoff.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: ready ? "allow" : "deny",
+      result: handoff.state,
+      newValue: {
+        ...handoff,
+        launchUrl: handoff.launchUrl ? "redacted_ephemeral_guacamole_json_auth_url" : null,
+        encryptedDataReturnedToBrowser: ready,
+        tokenMaterialStored: false
+      }
+    });
+    return handoff;
   }
 
   recordStreamingReadiness({ operatorActor, body = {}, correlationId }) {
@@ -3198,6 +3338,79 @@ export class OperatorPortalService {
     return definition ? `SYLION ${definition.name}` : `SYLION ${templateKey}`;
   }
 
+  #guacamoleBaseUrl() {
+    const raw = String(this.env?.SYLION_GUACAMOLE_BASE_URL || "https://session.sylion.internal/guacamole/").trim();
+    try {
+      const url = new URL(raw);
+      if (url.protocol !== "https:") {
+        throw validationError("Guacamole handoff requires HTTPS base URL", {
+          protocol: url.protocol,
+          expected: "https:"
+        });
+      }
+      if (!url.pathname.endsWith("/")) url.pathname = `${url.pathname}/`;
+      return url.toString();
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw validationError("Invalid Guacamole base URL", { url: raw });
+    }
+  }
+
+  #guacamoleJsonSecretKey() {
+    const raw = String(this.env?.SYLION_GUACAMOLE_JSON_SECRET_KEY || this.env?.GUACAMOLE_JSON_SECRET_KEY || "").trim();
+    const hex = raw.replace(/^0x/i, "");
+    if (!/^[0-9a-f]{32}$/i.test(hex)) return null;
+    return Buffer.from(hex, "hex");
+  }
+
+  #guacamoleHandoffTtlMs() {
+    const seconds = Number(this.env?.SYLION_GUACAMOLE_HANDOFF_TTL_SECONDS || 120);
+    const bounded = Number.isFinite(seconds) ? Math.max(30, Math.min(seconds, 300)) : 120;
+    return Math.round(bounded * 1000);
+  }
+
+  #guacamoleJsonAuthPayload({ operatorActor, templateKey, connectionName, expiresAt }) {
+    const username = `sylion-${String(operatorActor.operatorId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48)}`;
+    return {
+      username,
+      expires: Date.parse(expiresAt),
+      connections: {
+        [connectionName]: {
+          protocol: "vnc",
+          parameters: this.#guacamoleConnectionParameters(templateKey)
+        }
+      }
+    };
+  }
+
+  #guacamoleConnectionParameters(templateKey) {
+    const port = GUACAMOLE_LOCAL_VNC_PORTS[templateKey];
+    if (!port) {
+      throw validationError("Unsupported Guacamole handoff app", {
+        templateKey,
+        supported: [...GUACAMOLE_HANDOFF_APPS]
+      });
+    }
+    return {
+      hostname: String(this.env?.SYLION_G2_DOCKER_BRIDGE_IP || "172.18.0.1"),
+      port: String(port),
+      "disable-copy": "true",
+      "disable-paste": "true",
+      "enable-sftp": "false",
+      "autoretry": "3",
+      "resize-method": "display-update"
+    };
+  }
+
+  #encryptGuacamoleJsonAuthPayload(payload, key) {
+    const json = Buffer.from(JSON.stringify(payload), "utf8");
+    const signature = createHmac("sha256", key).update(json).digest();
+    const iv = Buffer.alloc(16, 0);
+    const cipher = createCipheriv("aes-128-cbc", key, iv);
+    const ciphertext = Buffer.concat([cipher.update(Buffer.concat([signature, json])), cipher.final()]);
+    return ciphertext.toString("base64");
+  }
+
   #streamLaunchTarget({ templateKey, brokerPolicy, ready }) {
     if (!ready) {
       return {
@@ -3211,8 +3424,8 @@ export class OperatorPortalService {
     const directProbeUrl = this.#workloadLaunchUrl(templateKey, host);
     if (brokerPolicy.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE) {
       return {
-        url: "https://session.sylion.internal/guacamole/",
-        mode: "guacamole_connection_picker",
+        url: `/operator/stream.html?app=${encodeURIComponent(templateKey)}&broker=guacamole`,
+        mode: "guacamole_json_auth_handoff",
         brokerConnectionName: this.#guacamoleConnectionName(templateKey),
         directProbeUrl
       };

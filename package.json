@@ -31,6 +31,7 @@
     "live:g1-internal-dns": "node scripts/install-g1-internal-dns.mjs",
     "live:g2-workload-gateway": "node scripts/install-g2-workload-gateway.mjs --deploy",
     "live:g2-guacamole-broker": "node scripts/install-g2-guacamole-broker.mjs --deploy",
+    "live:g2-guacamole-secret-sync": "node scripts/sync-guacamole-json-handoff-secret.mjs --apply",
     "live:workload-guacamole-vnc-forwards": "node scripts/install-workload-guacamole-vnc-forwards.mjs --apply",
     "live:g2-guacamole-connections": "node scripts/seed-g2-guacamole-workload-connections.mjs --apply",
     "live:signal-auth-handoff": "node scripts/sync-signal-auth-handoff.mjs --apply",

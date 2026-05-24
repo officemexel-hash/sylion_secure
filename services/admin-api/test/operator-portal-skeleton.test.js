@@ -93,6 +93,7 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.equal(streamJs.status, 200);
     assert.match(streamJs.contentType, /text\/javascript|application\/javascript/);
     assert.match(streamJs.body, /show_keyboard_controls/);
+    assert.match(streamJs.body, /guacamole-handoff/);
     assert.match(streamJs.body, /duckduckgo\.sylion\.internal/);
     assert.doesNotMatch(streamJs.body, /params\.get\("url"\)/);
   } finally {
@@ -111,8 +112,22 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.body, /data-stream-action="keyboard"/);
     assert.match(html.body, /frame-src https:\/\/session\.sylion\.internal/);
     assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal/);
-    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-89c"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-91a"><\/script>/);
     assert.doesNotMatch(html.body, /unsafe-inline/);
+  } finally {
+    await close();
+  }
+});
+
+test("/operator-api/guacamole-handoff requires an operator portal session", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const response = await fetch(`${baseUrl}/operator-api/guacamole-handoff`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-correlation-id": `corr_guac_${crypto.randomUUID()}` },
+      body: JSON.stringify({ templateKey: "signal" })
+    });
+    assert.equal(response.status, 401);
   } finally {
     await close();
   }

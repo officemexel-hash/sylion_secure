@@ -27,9 +27,14 @@ const plan = {
     baseDir: "/opt/sylion-guacamole",
     composePath: "/opt/sylion-guacamole/docker-compose.yml",
     envPath: "/etc/sylion/guacamole.env",
+    extensionsDir: "/opt/sylion-guacamole/extensions",
+    jsonAuthArchiveUrl: "https://archive.apache.org/dist/guacamole/1.6.0/binary/guacamole-auth-json-1.6.0.tar.gz",
+    jsonAuthJar: "/opt/sylion-guacamole/extensions/guacamole-auth-json-1.6.0.jar",
     guacdTlsDir: "/opt/sylion-guacamole/tls",
     guacdTlsCertificate: "/opt/sylion-guacamole/tls/guacd.crt",
     guacdTlsKey: "/opt/sylion-guacamole/tls/guacd.key",
+    guacdTrustDir: "/opt/sylion-guacamole/trust",
+    guacdTrustStore: "/opt/sylion-guacamole/trust/guacd-truststore.p12",
     bindLocalPort: 8081,
     postgresVolume: "sylion-guacamole-postgres",
     guacamoleImage: "guacamole/guacamole:1.6.0",
@@ -51,7 +56,10 @@ const plan = {
     noEmbeddedWorkloadSecrets: true,
     noVncProductionApproved: false,
     guacamoleToGuacdTransport: "tls",
-    guacdPlaintextForbidden: true
+    guacdPlaintextForbidden: true,
+    guacamoleTrustsGuacdCertificate: true,
+    jsonAuthHandoffEnabled: true,
+    jsonAuthSecretPrinted: false
   }
 };
 
@@ -79,14 +87,8 @@ function renderCompose(input = plan) {
     image: ${runtime.guacdImage}
     restart: unless-stopped
     command:
-      - /usr/local/sbin/guacd
-      - -f
-      - -b
-      - 0.0.0.0
       - -l
       - "4822"
-      - -L
-      - info
       - -C
       - /etc/guacamole/tls/guacd.crt
       - -K
@@ -105,10 +107,15 @@ function renderCompose(input = plan) {
     environment:
       GUACD_HOSTNAME: guacd
       GUACD_SSL: "true"
+      JSON_SECRET_KEY: \${GUACAMOLE_JSON_SECRET_KEY}
+      JAVA_OPTS: "-Djavax.net.ssl.trustStore=/etc/guacamole/trust/guacd-truststore.p12 -Djavax.net.ssl.trustStoreType=PKCS12 -Djavax.net.ssl.trustStorePassword=changeit"
       POSTGRESQL_HOSTNAME: postgres
       POSTGRESQL_DATABASE: guacamole_db
       POSTGRESQL_USER: guacamole_user
       POSTGRESQL_PASSWORD: \${GUACAMOLE_POSTGRES_PASSWORD}
+    volumes:
+      - ${runtime.extensionsDir}:/etc/guacamole/extensions:ro
+      - ${runtime.guacdTrustDir}:/etc/guacamole/trust:ro
     ports:
       - "127.0.0.1:${runtime.bindLocalPort}:8080"
     networks:
@@ -171,7 +178,8 @@ export function publicPlan(input = plan) {
     runtime: {
       ...input.runtime,
       envPath: input.runtime.envPath,
-      postgresPasswordPrinted: false
+      postgresPasswordPrinted: false,
+      jsonAuthSecretPrinted: false
     }
   };
 }
@@ -208,17 +216,21 @@ async function deploy(input = plan) {
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update >/dev/null
-sudo apt-get install -y ca-certificates curl gnupg docker.io nginx openssl >/dev/null
+sudo apt-get install -y ca-certificates curl gnupg docker.io nginx openssl tar >/dev/null
 if sudo docker compose version >/dev/null 2>&1; then
   compose_cmd="sudo docker compose"
 else
   sudo apt-get install -y docker-compose >/dev/null
   compose_cmd="sudo docker-compose"
 fi
-sudo mkdir -p ${input.runtime.baseDir}/init ${input.runtime.guacdTlsDir} /etc/sylion
+sudo mkdir -p ${input.runtime.baseDir}/init ${input.runtime.guacdTlsDir} ${input.runtime.extensionsDir} ${input.runtime.guacdTrustDir} /etc/sylion
 if [ ! -f ${input.runtime.envPath} ]; then
   umask 077
   printf 'GUACAMOLE_POSTGRES_PASSWORD=%s\\n' "$(openssl rand -hex 32)" | sudo tee ${input.runtime.envPath} >/dev/null
+fi
+if ! sudo grep -q '^GUACAMOLE_JSON_SECRET_KEY=' ${input.runtime.envPath}; then
+  umask 077
+  printf 'GUACAMOLE_JSON_SECRET_KEY=%s\\n' "$(openssl rand -hex 16)" | sudo tee -a ${input.runtime.envPath} >/dev/null
 fi
 if [ ! -s ${input.runtime.guacdTlsCertificate} ] || [ ! -s ${input.runtime.guacdTlsKey} ]; then
   tmp_key="$(mktemp)"
@@ -231,6 +243,22 @@ if [ ! -s ${input.runtime.guacdTlsCertificate} ] || [ ! -s ${input.runtime.guacd
   sudo install -o root -g root -m 0644 "$tmp_crt" ${input.runtime.guacdTlsCertificate}
   rm -f "$tmp_key" "$tmp_crt"
 fi
+sudo chown 1000:1000 ${input.runtime.guacdTlsKey}
+sudo chmod 0400 ${input.runtime.guacdTlsKey}
+sudo chown root:root ${input.runtime.guacdTlsCertificate}
+sudo chmod 0644 ${input.runtime.guacdTlsCertificate}
+if [ ! -s ${input.runtime.jsonAuthJar} ]; then
+  auth_tmp="$(mktemp -d)"
+  curl -fsSL ${shellQuote(input.runtime.jsonAuthArchiveUrl)} -o "$auth_tmp/auth-json.tar.gz"
+  tar -xzf "$auth_tmp/auth-json.tar.gz" -C "$auth_tmp"
+  auth_jar="$(find "$auth_tmp" -name 'guacamole-auth-json-*.jar' -type f | head -n 1)"
+  if [ -z "$auth_jar" ]; then
+    echo "guacamole_auth_json_jar_not_found" >&2
+    exit 1
+  fi
+  sudo install -o root -g root -m 0644 "$auth_jar" ${input.runtime.jsonAuthJar}
+  rm -rf "$auth_tmp"
+fi
 sudo install -o root -g root -m 0600 /tmp/docker-compose.yml ${input.runtime.composePath}
 if [ ! -s ${input.runtime.baseDir}/init/001-initdb.sql ]; then
   sudo docker run --rm ${input.runtime.guacamoleImage} /opt/guacamole/bin/initdb.sh --postgresql | sudo tee ${input.runtime.baseDir}/init/001-initdb.sql >/dev/null
@@ -239,18 +267,38 @@ sudo install -o root -g root -m 0644 /tmp/sylion-g2-guacamole-broker ${input.gat
 sudo ln -sf ${input.gateway.nginxConfigPath} /etc/nginx/sites-enabled/sylion-g2-guacamole-broker
 cd ${input.runtime.baseDir}
 $compose_cmd --env-file ${input.runtime.envPath} pull >/dev/null
+sudo rm -f ${input.runtime.guacdTrustStore}
+sudo docker run --rm --user 0:0 --entrypoint keytool \
+  -v ${input.runtime.guacdTlsDir}:/tls:ro \
+  -v ${input.runtime.guacdTrustDir}:/trust \
+  ${input.runtime.guacamoleImage} \
+  -importcert -noprompt \
+  -alias sylion-g2-guacd \
+  -file /tls/guacd.crt \
+  -keystore /trust/guacd-truststore.p12 \
+  -storetype PKCS12 \
+  -storepass changeit >/dev/null
+sudo chown root:root ${input.runtime.guacdTrustStore}
+sudo chmod 0644 ${input.runtime.guacdTrustStore}
 if ! $compose_cmd --env-file ${input.runtime.envPath} up -d --remove-orphans >/dev/null; then
   # docker-compose v1 can fail to recreate containers created from newer image metadata.
   # Down removes containers/networks, but preserves the named Postgres volume by default.
   $compose_cmd --env-file ${input.runtime.envPath} down --remove-orphans >/dev/null || true
   $compose_cmd --env-file ${input.runtime.envPath} up -d --remove-orphans >/dev/null
 fi
+postgres_password="$(sudo awk -F= '/^GUACAMOLE_POSTGRES_PASSWORD=/{print substr($0, index($0,$2)); exit}' ${input.runtime.envPath})"
+if [ -n "$postgres_password" ]; then
+  $compose_cmd --env-file ${input.runtime.envPath} exec -T postgres psql -v ON_ERROR_STOP=1 -U guacamole_user -d guacamole_db -v guac_password="$postgres_password" <<'SQL' >/dev/null
+ALTER USER guacamole_user WITH PASSWORD :'guac_password';
+SQL
+  $compose_cmd --env-file ${input.runtime.envPath} restart guacamole >/dev/null
+fi
 sudo nginx -t
 sudo systemctl reload nginx
 sleep 8
 guac_code="$(curl -k -sS -o /tmp/sylion-guacamole-health.html -w "%{http_code}" --resolve ${input.gateway.serverName}:443:${input.gateway.bindAddress} https://${input.gateway.serverName}/guacamole/ || true)"
 sudo ss -ltnp | grep '${input.gateway.bindAddress}:443' >/dev/null
-printf '{"component":"g2_guacamole_session_broker","deployed":true,"httpStatus":%s,"serverName":"%s","privateBind":"%s","guacdSsl":true,"guacamoleToGuacdTransport":"tls","secretsPrinted":false,"terminalDataStored":false,"productionExecutionAllowed":false}\\n' "$guac_code" "${input.gateway.serverName}" "${input.gateway.bindAddress}"
+printf '{"component":"g2_guacamole_session_broker","deployed":true,"httpStatus":%s,"serverName":"%s","privateBind":"%s","guacdSsl":true,"guacamoleToGuacdTransport":"tls","jsonAuthHandoffEnabled":true,"secretsPrinted":false,"terminalDataStored":false,"productionExecutionAllowed":false}\\n' "$guac_code" "${input.gateway.serverName}" "${input.gateway.bindAddress}"
 `;
   const encoded = Buffer.from(remoteScript, "utf8").toString("base64");
   const result = await run("ssh", [
