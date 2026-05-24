@@ -567,8 +567,8 @@
           </label>
           <label>Session broker
             <select name="protocol">
-              <option value="guacamole">Guacamole PoC</option>
-              <option value="webrtc_selkies" selected>Selkies/WebRTC candidate</option>
+              <option value="guacamole" selected>Guacamole production broker</option>
+              <option value="webrtc_selkies">Selkies/WebRTC candidate</option>
               <option value="novnc_lab">noVNC lab only</option>
             </select>
           </label>
@@ -578,12 +578,14 @@
           <label><input name="g2StreamGatewayReady" type="checkbox" checked> G2 stream gateway ready</label>
           <label>Broker protocol
             <select name="protocol">
-              <option value="guacamole">Guacamole</option>
-              <option value="webrtc_selkies" selected>Selkies/WebRTC</option>
+              <option value="guacamole" selected>Guacamole</option>
+              <option value="webrtc_selkies">Selkies/WebRTC</option>
               <option value="novnc_lab">noVNC lab only</option>
             </select>
           </label>
           <label><input name="tlsInternalOnly" type="checkbox" checked> Internal TLS only</label>
+          <label><input name="guacdTls" type="checkbox" checked> Guacamole to guacd TLS</label>
+          <label><input name="g2ToWorkloadEncrypted" type="checkbox" checked> G2 to workload encrypted</label>
           <label><input name="inputProxyReady" type="checkbox" checked> Input proxy ready</label>
           <label>Ready sources <input name="sources" value="signal,duckduckgo_browser,libreoffice"></label>
           <button type="submit">Record stream readiness</button>
@@ -594,11 +596,13 @@
           <label>G2 port <input name="gatewayPort" type="number" min="1" max="65535" value="8443"></label>
           <label>Runtime broker
             <select name="protocol">
-              <option value="guacamole">Guacamole</option>
-              <option value="webrtc_selkies" selected>Selkies/WebRTC</option>
+              <option value="guacamole" selected>Guacamole</option>
+              <option value="webrtc_selkies">Selkies/WebRTC</option>
               <option value="novnc_lab">noVNC lab only</option>
             </select>
           </label>
+          <label><input name="guacdTls" type="checkbox" checked> Guacamole to guacd TLS</label>
+          <label><input name="g2ToWorkloadEncrypted" type="checkbox" checked> G2 to workload encrypted</label>
           <label>Source apps <input name="sources" value="signal:10.42.0.13:7901,duckduckgo_browser:10.42.0.13:7902,libreoffice:10.42.0.13:7903"></label>
           <button type="submit">Record runtime manifest</button>
         </form>

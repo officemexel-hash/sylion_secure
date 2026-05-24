@@ -10,7 +10,7 @@ const defaultSshKey = process.platform === "win32"
 
 const forwardPlan = {
   step: "3.80",
-  component: "workload_guacamole_raw_vnc_forwards",
+  component: "workload_guacamole_tls_vnc_forwards",
   workload: {
     host: process.env.SYLION_WORKLOAD_NATIVE_SSH || "root@65.109.123.72",
     privateAddress: process.env.SYLION_WORKLOAD_NATIVE_PRIVATE_IP || "10.44.0.13",
@@ -108,7 +108,9 @@ const forwardPlan = {
     publicInternetExposure: false,
     terminalDataStored: false,
     noVncProductionApproved: false,
-    guacamoleUsesRawVnc: true,
+    guacamoleUsesRawVnc: false,
+    guacamoleUsesEncryptedVncEgress: true,
+    g2ToWorkloadTransport: "tls_stunnel_private_bind",
     cdrRequiredForFileTransfer: true
   }
 };
@@ -128,7 +130,9 @@ function publicPlan(input = forwardPlan) {
     forwards: input.forwards.map((forward) => ({
       ...forward,
       bindAddress: input.workload.privateAddress,
-      rawVncExposedToPublicInternet: false
+      tlsBindPort: forward.bindPort + 20000,
+      rawVncExposedToPublicInternet: false,
+      g2ToWorkloadTransport: "tls_stunnel_private_bind"
     }))
   };
 }
@@ -141,8 +145,17 @@ function renderRemoteScript(input = forwardPlan) {
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 apt-get update >/dev/null
-apt-get install -y --no-install-recommends socat jq >/dev/null
+apt-get install -y --no-install-recommends jq openssl stunnel4 >/dev/null
 mkdir -p "$(dirname ${shellQuote(evidencePath)})"
+install -d -m 0700 /etc/sylion/guacamole-egress
+if [ ! -s /etc/sylion/guacamole-egress/workload-stunnel.key ] || [ ! -s /etc/sylion/guacamole-egress/workload-stunnel.crt ]; then
+  openssl req -x509 -newkey rsa:3072 -nodes -sha384 -days 90 \
+    -subj '/CN=sylion-workload-guacamole-vnc.internal' \
+    -keyout /etc/sylion/guacamole-egress/workload-stunnel.key \
+    -out /etc/sylion/guacamole-egress/workload-stunnel.crt >/dev/null 2>&1
+  chmod 0600 /etc/sylion/guacamole-egress/workload-stunnel.key
+  chmod 0644 /etc/sylion/guacamole-egress/workload-stunnel.crt
+fi
 forwards_json="$(mktemp)"
 entries_jsonl="$(mktemp)"
 printf %s ${shellQuote(forwardsB64)} | base64 -d > "$forwards_json"
@@ -153,20 +166,22 @@ jq -c '.[]' "$forwards_json" | while IFS= read -r forward; do
   label="$(printf %s "$forward" | jq -r '.label')"
   mode="$(printf %s "$forward" | jq -r '.mode')"
   bind_port="$(printf %s "$forward" | jq -r '.bindPort')"
+  tls_bind_port="$((bind_port + 20000))"
   target_host="$(printf %s "$forward" | jq -r '.targetHost')"
   target_port="$(printf %s "$forward" | jq -r '.targetPort')"
   lab_web_port="$(printf %s "$forward" | jq -r '.labWebPort')"
   required="$(printf %s "$forward" | jq -r '.required')"
   blocker_if_missing="$(printf %s "$forward" | jq -r '.blockerIfMissing // empty')"
-  pid_file="/run/sylion-guacamole-raw-vnc-$key.pid"
-  log_file="/var/log/sylion-guacamole-raw-vnc-$key.log"
+  pid_file="/run/sylion-guacamole-tls-vnc-$key.pid"
+  log_file="/var/log/sylion-guacamole-tls-vnc-$key.log"
+  conf_file="/etc/sylion/guacamole-egress/$key-stunnel.conf"
 
   if [ -s "$pid_file" ]; then
     old_pid="$(cat "$pid_file" || true)"
     if [ -n "$old_pid" ]; then kill "$old_pid" 2>/dev/null || true; fi
     rm -f "$pid_file"
   fi
-  pkill -f "socat.*TCP-LISTEN:\${bind_port},bind=\${bind_address}" 2>/dev/null || true
+  pkill -f "stunnel.*$key-stunnel.conf" 2>/dev/null || true
 
   target_reachable=false
   if timeout 3 bash -lc "cat < /dev/null > /dev/tcp/$target_host/$target_port" 2>/dev/null; then
@@ -177,12 +192,26 @@ jq -c '.[]' "$forwards_json" | while IFS= read -r forward; do
   bind_ready=false
   blocker=""
   if [ "$target_reachable" = true ]; then
-    nohup socat "TCP-LISTEN:\${bind_port},bind=\${bind_address},fork,reuseaddr" "TCP:\${target_host}:\${target_port}" >"$log_file" 2>&1 &
+    cat > "$conf_file" <<EOF_STUNNEL
+foreground = yes
+debug = notice
+output = $log_file
+pid =
+
+[sylion-$key-vnc]
+accept = $bind_address:$tls_bind_port
+connect = $target_host:$target_port
+cert = /etc/sylion/guacamole-egress/workload-stunnel.crt
+key = /etc/sylion/guacamole-egress/workload-stunnel.key
+TIMEOUTclose = 0
+EOF_STUNNEL
+    chmod 0600 "$conf_file"
+    nohup stunnel "$conf_file" >/dev/null 2>&1 &
     pid="$!"
     printf '%s\\n' "$pid" > "$pid_file"
     sleep 0.5
     if kill -0 "$pid" 2>/dev/null; then started=true; fi
-    if ss -ltn | grep -q "\${bind_address}:\${bind_port}"; then bind_ready=true; fi
+    if ss -ltn | grep -q "\${bind_address}:\${tls_bind_port}"; then bind_ready=true; fi
   else
     if [ -n "$blocker_if_missing" ]; then
       blocker="$blocker_if_missing"
@@ -199,6 +228,7 @@ jq -c '.[]' "$forwards_json" | while IFS= read -r forward; do
     --arg mode "$mode" \
     --arg bindAddress "$bind_address" \
     --argjson bindPort "$bind_port" \
+    --argjson tlsBindPort "$tls_bind_port" \
     --arg targetHost "$target_host" \
     --argjson targetPort "$target_port" \
     --argjson labWebPort "$lab_web_port" \
@@ -213,6 +243,7 @@ jq -c '.[]' "$forwards_json" | while IFS= read -r forward; do
       mode: $mode,
       bindAddress: $bindAddress,
       bindPort: $bindPort,
+      tlsBindPort: $tlsBindPort,
       target: { host: $targetHost, port: $targetPort },
       labWebPort: $labWebPort,
       required: $required,
@@ -220,13 +251,16 @@ jq -c '.[]' "$forwards_json" | while IFS= read -r forward; do
       started: $started,
       bindReady: $bindReady,
       publicInternetExposure: false,
+      rawVncPrivateBind: false,
+      g2ToWorkloadTransport: "tls_stunnel_private_bind",
+      serverCertificateVerification: "fingerprint_pinning_required_before_human_gate",
       blocker: (if $blocker == "" then null else $blocker end)
     }' >> "$entries_jsonl"
 done
 
 jq -s \
   --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --arg component "workload_guacamole_raw_vnc_forwards" \
+  --arg component "workload_guacamole_tls_vnc_forwards" \
   '{
     component: $component,
     generatedAt: $generatedAt,
@@ -234,7 +268,9 @@ jq -s \
     publicInternetExposure: false,
     terminalDataStored: false,
     noVncProductionApproved: false,
-    guacamoleUsesRawVnc: true,
+    guacamoleUsesRawVnc: false,
+    guacamoleUsesEncryptedVncEgress: true,
+    g2ToWorkloadTransport: "tls_stunnel_private_bind",
     productionExecutionAllowed: false,
     forwards: .,
     blockers: ([.[].blocker] | map(select(. != null)))
@@ -250,33 +286,35 @@ function renderG2VerificationScript(input = forwardPlan) {
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update >/dev/null
-sudo apt-get install -y --no-install-recommends jq >/dev/null
+sudo apt-get install -y --no-install-recommends jq openssl >/dev/null
 forwards_json="$(mktemp)"
 entries_jsonl="$(mktemp)"
 printf %s ${shellQuote(forwardsB64)} | base64 -d > "$forwards_json"
-target_host=${shellQuote(input.workload.privateAddress)}
+  target_host=${shellQuote(input.workload.privateAddress)}
 jq -c '.[]' "$forwards_json" | while IFS= read -r forward; do
   key="$(printf %s "$forward" | jq -r '.key')"
   bind_port="$(printf %s "$forward" | jq -r '.bindPort')"
+  tls_bind_port="$((bind_port + 20000))"
   banner=""
   reachable=false
-  if banner="$(timeout 4 bash -lc "exec 3<>/dev/tcp/$target_host/$bind_port; dd bs=1 count=12 <&3 2>/dev/null" 2>/dev/null | tr -d '\\r\\n' || true)"; then
+  if banner="$(timeout 6 bash -lc "openssl s_client -connect $target_host:$tls_bind_port -servername sylion-workload-guacamole-vnc.internal -quiet </dev/null 2>/dev/null | dd bs=1 count=12 2>/dev/null" | tr -d '\\r\\n' || true)"; then
     if printf %s "$banner" | grep -q '^RFB'; then reachable=true; fi
   fi
   jq -nc \
     --arg key "$key" \
     --arg host "$target_host" \
-    --argjson port "$bind_port" \
+    --argjson port "$tls_bind_port" \
     --arg banner "$banner" \
     --argjson reachable "$reachable" \
-    '{key:$key, host:$host, port:$port, rfbBanner:$banner, reachable:$reachable}' >> "$entries_jsonl"
+    '{key:$key, host:$host, port:$port, transport:"tls_stunnel_private_bind", rfbBanner:$banner, reachable:$reachable}' >> "$entries_jsonl"
 done
 jq -s --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
-  component: "g2_to_workload_raw_vnc_verification",
+  component: "g2_to_workload_tls_vnc_verification",
   generatedAt: $generatedAt,
+  g2ToWorkloadTransport: "tls_stunnel_private_bind",
   terminalDataStored: false,
   results: .,
-  blockers: ([.[] | select(.reachable != true) | .key + "_raw_vnc_unreachable_from_g2"])
+  blockers: ([.[] | select(.reachable != true) | .key + "_tls_vnc_unreachable_from_g2"])
 }' "$entries_jsonl"
 `;
 }

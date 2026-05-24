@@ -27,6 +27,9 @@ const plan = {
     baseDir: "/opt/sylion-guacamole",
     composePath: "/opt/sylion-guacamole/docker-compose.yml",
     envPath: "/etc/sylion/guacamole.env",
+    guacdTlsDir: "/opt/sylion-guacamole/tls",
+    guacdTlsCertificate: "/opt/sylion-guacamole/tls/guacd.crt",
+    guacdTlsKey: "/opt/sylion-guacamole/tls/guacd.key",
     bindLocalPort: 8081,
     postgresVolume: "sylion-guacamole-postgres",
     guacamoleImage: "guacamole/guacamole:1.6.0",
@@ -46,7 +49,9 @@ const plan = {
     clipboardDefault: "disabled",
     fileTransfer: "disabled_until_cdr_gate",
     noEmbeddedWorkloadSecrets: true,
-    noVncProductionApproved: false
+    noVncProductionApproved: false,
+    guacamoleToGuacdTransport: "tls",
+    guacdPlaintextForbidden: true
   }
 };
 
@@ -73,6 +78,21 @@ function renderCompose(input = plan) {
   guacd:
     image: ${runtime.guacdImage}
     restart: unless-stopped
+    command:
+      - /usr/local/sbin/guacd
+      - -f
+      - -b
+      - 0.0.0.0
+      - -l
+      - "4822"
+      - -L
+      - info
+      - -C
+      - /etc/guacamole/tls/guacd.crt
+      - -K
+      - /etc/guacamole/tls/guacd.key
+    volumes:
+      - ${runtime.guacdTlsDir}:/etc/guacamole/tls:ro
     networks:
       - sylion-guacamole
 
@@ -84,6 +104,7 @@ function renderCompose(input = plan) {
       - guacd
     environment:
       GUACD_HOSTNAME: guacd
+      GUACD_SSL: "true"
       POSTGRESQL_HOSTNAME: postgres
       POSTGRESQL_DATABASE: guacamole_db
       POSTGRESQL_USER: guacamole_user
@@ -133,6 +154,7 @@ server {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     add_header Cache-Control "no-store" always;
     add_header X-Sylion-Session-Broker "guacamole" always;
+    add_header X-Sylion-Guacd-Transport "tls" always;
     add_header X-Sylion-Terminal-Data-Stored "false" always;
     add_header X-Sylion-CDR-Required "true" always;
     add_header X-Sylion-G1-G2-Bypass "false" always;
@@ -193,10 +215,21 @@ else
   sudo apt-get install -y docker-compose >/dev/null
   compose_cmd="sudo docker-compose"
 fi
-sudo mkdir -p ${input.runtime.baseDir}/init /etc/sylion
+sudo mkdir -p ${input.runtime.baseDir}/init ${input.runtime.guacdTlsDir} /etc/sylion
 if [ ! -f ${input.runtime.envPath} ]; then
   umask 077
   printf 'GUACAMOLE_POSTGRES_PASSWORD=%s\\n' "$(openssl rand -hex 32)" | sudo tee ${input.runtime.envPath} >/dev/null
+fi
+if [ ! -s ${input.runtime.guacdTlsCertificate} ] || [ ! -s ${input.runtime.guacdTlsKey} ]; then
+  tmp_key="$(mktemp)"
+  tmp_crt="$(mktemp)"
+  openssl req -x509 -newkey rsa:3072 -nodes -sha384 -days 90 \
+    -subj "/CN=sylion-g2-guacd.internal" \
+    -keyout "$tmp_key" \
+    -out "$tmp_crt" >/dev/null 2>&1
+  sudo install -o root -g root -m 0600 "$tmp_key" ${input.runtime.guacdTlsKey}
+  sudo install -o root -g root -m 0644 "$tmp_crt" ${input.runtime.guacdTlsCertificate}
+  rm -f "$tmp_key" "$tmp_crt"
 fi
 sudo install -o root -g root -m 0600 /tmp/docker-compose.yml ${input.runtime.composePath}
 if [ ! -s ${input.runtime.baseDir}/init/001-initdb.sql ]; then
@@ -206,13 +239,18 @@ sudo install -o root -g root -m 0644 /tmp/sylion-g2-guacamole-broker ${input.gat
 sudo ln -sf ${input.gateway.nginxConfigPath} /etc/nginx/sites-enabled/sylion-g2-guacamole-broker
 cd ${input.runtime.baseDir}
 $compose_cmd --env-file ${input.runtime.envPath} pull >/dev/null
-$compose_cmd --env-file ${input.runtime.envPath} up -d --no-recreate >/dev/null
+if ! $compose_cmd --env-file ${input.runtime.envPath} up -d --remove-orphans >/dev/null; then
+  # docker-compose v1 can fail to recreate containers created from newer image metadata.
+  # Down removes containers/networks, but preserves the named Postgres volume by default.
+  $compose_cmd --env-file ${input.runtime.envPath} down --remove-orphans >/dev/null || true
+  $compose_cmd --env-file ${input.runtime.envPath} up -d --remove-orphans >/dev/null
+fi
 sudo nginx -t
 sudo systemctl reload nginx
 sleep 8
 guac_code="$(curl -k -sS -o /tmp/sylion-guacamole-health.html -w "%{http_code}" --resolve ${input.gateway.serverName}:443:${input.gateway.bindAddress} https://${input.gateway.serverName}/guacamole/ || true)"
 sudo ss -ltnp | grep '${input.gateway.bindAddress}:443' >/dev/null
-printf '{"component":"g2_guacamole_session_broker","deployed":true,"httpStatus":%s,"serverName":"%s","privateBind":"%s","secretsPrinted":false,"terminalDataStored":false,"productionExecutionAllowed":false}\\n' "$guac_code" "${input.gateway.serverName}" "${input.gateway.bindAddress}"
+printf '{"component":"g2_guacamole_session_broker","deployed":true,"httpStatus":%s,"serverName":"%s","privateBind":"%s","guacdSsl":true,"guacamoleToGuacdTransport":"tls","secretsPrinted":false,"terminalDataStored":false,"productionExecutionAllowed":false}\\n' "$guac_code" "${input.gateway.serverName}" "${input.gateway.bindAddress}"
 `;
   const encoded = Buffer.from(remoteScript, "utf8").toString("base64");
   const result = await run("ssh", [

@@ -194,6 +194,8 @@ test("Step 3.29 live evidence clears current path blockers while physical gates 
       g2StreamGatewayReady: true,
       publicInternetExposure: false,
       tlsInternalOnly: true,
+      guacdTls: true,
+      g2ToWorkloadEncrypted: true,
       inputProxyReady: true,
       sources: {
         whatsapp: true,
@@ -210,6 +212,9 @@ test("Step 3.29 live evidence clears current path blockers while physical gates 
         port: 443,
         protocol: "guacamole",
         tlsMode: "internal_tls_only",
+        guacdTls: true,
+        g2ToWorkloadEncrypted: true,
+        workloadMicroVmLink: "host_local_tap_or_vsock",
         publicInternetExposure: false
       },
       sources: {

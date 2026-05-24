@@ -101,9 +101,15 @@ test("Step 3.79 Guacamole deploy plan stays private and does not print secrets",
   assert.equal(plan.gateway.serverName, "session.sylion.internal");
   assert.equal(plan.invariants.privateBindOnly, true);
   assert.equal(plan.invariants.noVncProductionApproved, false);
+  assert.equal(plan.invariants.guacamoleToGuacdTransport, "tls");
+  assert.equal(plan.invariants.guacdPlaintextForbidden, true);
   assert.equal(plan.runtime.postgresPasswordPrinted, false);
   assert.match(compose, /guacamole\/guacamole:1\.6\.0/);
   assert.match(compose, /guacamole\/guacd:1\.6\.0/);
+  assert.match(compose, /GUACD_SSL: "true"/);
+  assert.match(compose, /\/usr\/local\/sbin\/guacd/);
+  assert.match(compose, /- -C\s+- \/etc\/guacamole\/tls\/guacd\.crt/s);
+  assert.match(compose, /- -K\s+- \/etc\/guacamole\/tls\/guacd\.key/s);
   assert.match(compose, /POSTGRES_PASSWORD: \$\{GUACAMOLE_POSTGRES_PASSWORD\}/);
   assert.doesNotMatch(compose, /guacadmin/);
   assert.match(nginx, /listen 10\.42\.0\.12:443 ssl default_server;/);
@@ -111,6 +117,7 @@ test("Step 3.79 Guacamole deploy plan stays private and does not print secrets",
   assert.match(nginx, /ssl_certificate \/etc\/sylion\/tls\/sylion-internal-server-chain\.crt;/);
   assert.match(nginx, /ssl_certificate_key \/etc\/sylion\/tls\/sylion-internal-server\.key;/);
   assert.match(nginx, /X-Sylion-Session-Broker "guacamole"/);
+  assert.match(nginx, /X-Sylion-Guacd-Transport "tls"/);
   assert.match(nginx, /X-Sylion-File-Transfer "disabled_until_cdr_gate"/);
   assert.doesNotMatch(nginx, /listen 0\.0\.0\.0/);
 });
@@ -214,6 +221,8 @@ test("Step 3.79 Guacamole can satisfy the G2 broker candidate gate without termi
       body: {
         g2StreamGatewayReady: true,
         tlsInternalOnly: true,
+        guacdTls: true,
+        g2ToWorkloadEncrypted: true,
         inputProxyReady: true,
         protocol: "guacamole",
         sources: { signal: true }
@@ -227,6 +236,9 @@ test("Step 3.79 Guacamole can satisfy the G2 broker candidate gate without termi
           port: 8443,
           protocol: "guacamole",
           tlsMode: "internal_tls_only",
+          guacdTls: true,
+          g2ToWorkloadEncrypted: true,
+          workloadMicroVmLink: "host_local_tap_or_vsock",
           publicInternetExposure: false
         },
         sources: {
@@ -248,6 +260,8 @@ test("Step 3.79 Guacamole can satisfy the G2 broker candidate gate without termi
     assert.equal(session.session.gateway.broker.productionCandidate, true);
     assert.equal(session.session.gateway.launchMode, "guacamole_connection_picker");
     assert.equal(session.session.gateway.brokerConnectionName, "SYLION Signal");
+    assert.equal(session.session.gateway.broker.encryption.guacamoleWebappToGuacd, "tls_required");
+    assert.equal(session.session.gateway.broker.encryption.g2ToWorkload, "tls_stunnel_or_ipsec_required");
     assert.equal(session.session.launchUrl, "https://session.sylion.internal/guacamole/");
     assert.equal(session.session.source.directProbeUrl, "https://signal.sylion.internal/");
     assert.equal(session.session.security.terminalDataStored, false);

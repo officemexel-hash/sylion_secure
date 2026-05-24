@@ -754,6 +754,8 @@
       body: {
         g2StreamGatewayReady: data.g2StreamGatewayReady === "on",
         tlsInternalOnly: data.tlsInternalOnly === "on",
+        guacdTls: data.guacdTls === "on",
+        g2ToWorkloadEncrypted: data.g2ToWorkloadEncrypted === "on",
         inputProxyReady: data.inputProxyReady === "on",
         publicInternetExposure: false,
         protocol: data.protocol,
@@ -794,6 +796,9 @@
           port: Number(data.gatewayPort || 8443),
           protocol: data.protocol,
           tlsMode: "internal_tls_only",
+          guacdTls: data.guacdTls === "on",
+          g2ToWorkloadEncrypted: data.g2ToWorkloadEncrypted === "on",
+          workloadMicroVmLink: "host_local_tap_or_vsock",
           publicInternetExposure: false
         },
         sources: parseRuntimeSources(data.sources)

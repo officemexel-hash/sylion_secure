@@ -44,7 +44,8 @@ const connectionPlan = {
       maxConnectionsPerUser: configuredMaxConnectionsPerUser(),
       proxyTarget: {
         hostname: process.env.SYLION_WORKLOAD_NATIVE_PRIVATE_IP || "10.44.0.13",
-        port: forward.bindPort
+        port: forward.bindPort + 20000,
+        transport: "tls_stunnel_private_bind"
       },
       required: forward.required
     })),
@@ -57,6 +58,8 @@ const connectionPlan = {
     fileTransferDisabledUntilCdrGate: true,
     defaultAdminPasswordRotated: true,
     guacdUsesG2DockerBridgeProxy: true,
+    g2ToWorkloadTransport: "tls_stunnel_private_bind",
+    rawVncAcrossServerLinkForbidden: true,
     secretsPrinted: false
   }
 };
@@ -146,7 +149,7 @@ function renderRemoteScript(input = connectionPlan) {
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update >/dev/null
-sudo apt-get install -y --no-install-recommends openssl coreutils socat jq >/dev/null
+sudo apt-get install -y --no-install-recommends openssl coreutils stunnel4 jq >/dev/null
 cd ${shellQuote(input.g2.baseDir)}
 if sudo docker compose version >/dev/null 2>&1; then
   compose_cmd="sudo docker compose"
@@ -172,16 +175,31 @@ jq -c '.[]' "$proxies_json" | while IFS= read -r proxy; do
   target_port="$(printf %s "$proxy" | jq -r '.targetPort')"
   pid_file="/run/sylion-guacamole-egress-$key.pid"
   log_file="/var/log/sylion-guacamole-egress-$key.log"
+  conf_dir="/etc/sylion/guacamole-egress"
+  conf_file="$conf_dir/$key-stunnel-client.conf"
+  sudo install -d -o root -g root -m 0700 "$conf_dir"
   if [ -s "$pid_file" ]; then
     old_pid="$(cat "$pid_file" || true)"
     if [ -n "$old_pid" ]; then sudo kill "$old_pid" 2>/dev/null || true; fi
     sudo rm -f "$pid_file"
   fi
-  sudo pkill -f "socat.*TCP-LISTEN:$listen_port,bind=$listen_host" 2>/dev/null || true
-  sudo bash -c 'nohup socat "$1" "$2" > "$3" 2>&1 & echo $! > "$4"' _ \
-    "TCP-LISTEN:$listen_port,bind=$listen_host,fork,reuseaddr" \
-    "TCP:$target_host:$target_port" \
-    "$log_file" \
+  sudo pkill -f "stunnel.*$key-stunnel-client.conf" 2>/dev/null || true
+  sudo tee "$conf_file" >/dev/null <<EOF_STUNNEL
+foreground = yes
+debug = notice
+output = $log_file
+pid =
+
+[sylion-$key-guacd-egress]
+client = yes
+accept = $listen_host:$listen_port
+connect = $target_host:$target_port
+verifyChain = no
+TIMEOUTclose = 0
+EOF_STUNNEL
+  sudo chmod 0600 "$conf_file"
+  sudo bash -c 'nohup stunnel "$1" >/dev/null 2>&1 & echo $! > "$2"' _ \
+    "$conf_file" \
     "$pid_file"
 done
 
@@ -209,7 +227,7 @@ SQL
 
 connection_count="$($compose_cmd --env-file ${shellQuote(input.g2.envPath)} exec -T postgres psql -tA -U guacamole_user -d guacamole_db -c "SELECT count(*) FROM guacamole_connection WHERE connection_name LIKE 'SYLION %';" | tr -d '[:space:]')"
 parameter_count="$($compose_cmd --env-file ${shellQuote(input.g2.envPath)} exec -T postgres psql -tA -U guacamole_user -d guacamole_db -c "SELECT count(*) FROM guacamole_connection_parameter WHERE connection_id IN (SELECT connection_id FROM guacamole_connection WHERE connection_name LIKE 'SYLION %');" | tr -d '[:space:]')"
-printf '{"component":"g2_guacamole_workload_connection_seed","applied":true,"connectionCount":%s,"parameterCount":%s,"g2DockerBridgeProxy":"%s","adminPasswordPrinted":false,"adminSecretPath":"%s","terminalDataStored":false,"publicInternetExposure":false}\\n' "$connection_count" "$parameter_count" ${shellQuote(input.g2.dockerBridgeAddress)} ${shellQuote(input.g2.adminSecretPath)}
+printf '{"component":"g2_guacamole_workload_connection_seed","applied":true,"connectionCount":%s,"parameterCount":%s,"g2DockerBridgeProxy":"%s","g2ToWorkloadTransport":"tls_stunnel_private_bind","rawVncAcrossServerLinkForbidden":true,"adminPasswordPrinted":false,"adminSecretPath":"%s","terminalDataStored":false,"publicInternetExposure":false}\\n' "$connection_count" "$parameter_count" ${shellQuote(input.g2.dockerBridgeAddress)} ${shellQuote(input.g2.adminSecretPath)}
 `;
 }
 

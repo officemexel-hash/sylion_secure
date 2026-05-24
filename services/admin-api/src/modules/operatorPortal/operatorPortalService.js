@@ -1669,6 +1669,9 @@ export class OperatorPortalService {
         publicInternetExposure: body.publicInternetExposure === true,
         tlsInternalOnly: body.tlsInternalOnly === true,
         inputProxyReady: body.inputProxyReady === true,
+        guacdTls: body.guacdTls === true || body.guacdSsl === true,
+        g2ToWorkloadEncrypted: body.g2ToWorkloadEncrypted === true,
+        workloadMicroVmLink: String(body.workloadMicroVmLink || "host_local_tap_or_vsock").slice(0, 64),
         brokerLayer: "G2"
       },
       broker: this.#sessionBrokerPolicy({
@@ -1711,6 +1714,10 @@ export class OperatorPortalService {
     const corr = requireCorrelationId(correlationId);
     const gatewayBind = String(body.gateway?.bindAddress || body.gatewayBindAddress || "").trim();
     const gatewayPort = this.#normalizeInteger(body.gateway?.port ?? body.gatewayPort, "gatewayPort", 1, 65535, 8443);
+    const gatewayProtocol = this.#normalizeSessionBrokerProtocol(body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
+    const guacdTls = body.gateway?.guacdTls === true || body.gateway?.guacdSsl === true;
+    const g2ToWorkloadEncrypted = body.gateway?.g2ToWorkloadEncrypted === true;
+    const workloadMicroVmLink = String(body.gateway?.workloadMicroVmLink || "host_local_tap_or_vsock").slice(0, 64);
     const sourcesInput = body.sources && typeof body.sources === "object" ? body.sources : {};
     const sources = {};
     for (const app of WORKLOAD_CONTROL_APPS) {
@@ -1736,8 +1743,11 @@ export class OperatorPortalService {
         process: String(body.gateway?.process || "sylion-g2-stream-gateway").slice(0, 96),
         bindAddress: gatewayBind,
         port: gatewayPort,
-        protocol: this.#normalizeSessionBrokerProtocol(body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES),
+        protocol: gatewayProtocol,
         tlsMode: String(body.gateway?.tlsMode || "internal_tls_only").slice(0, 64),
+        guacdTls,
+        g2ToWorkloadEncrypted,
+        workloadMicroVmLink,
         publicInternetExposure: body.gateway?.publicInternetExposure === true || body.publicInternetExposure === true,
         inputProxy: "server_side_input_events_only"
       },
@@ -1747,9 +1757,13 @@ export class OperatorPortalService {
           ready: this.#privateBindAllowed(gatewayBind)
             && body.gateway?.publicInternetExposure !== true
             && body.publicInternetExposure !== true
-            && String(body.gateway?.tlsMode || "internal_tls_only") === "internal_tls_only",
+            && String(body.gateway?.tlsMode || "internal_tls_only") === "internal_tls_only"
+            && (
+              gatewayProtocol !== SESSION_BROKER_PROTOCOLS.GUACAMOLE
+              || (guacdTls && g2ToWorkloadEncrypted)
+            ),
           gateway: {
-            protocol: this.#normalizeSessionBrokerProtocol(body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES)
+            protocol: gatewayProtocol
           }
         }
       }),
@@ -1763,6 +1777,9 @@ export class OperatorPortalService {
         terminalDataStored: false,
         cdrRequired: true,
         g1G2BypassAllowed: false,
+        brokerToGuacdEncrypted: gatewayProtocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE ? guacdTls : null,
+        g2ToWorkloadEncrypted,
+        workloadMicroVmLink,
         publicInternetExposureAllowed: false,
         contentInspectionAllowed: false
       },
@@ -3343,6 +3360,15 @@ export class OperatorPortalService {
       productionCandidate: !labOnly,
       productionApproved: false,
       humanGateRequired: true,
+      encryption: selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE ? {
+        terminalToG2: "tls_over_ipsec_required",
+        guacamoleWebappToGuacd: "tls_required",
+        g2ToWorkload: "tls_stunnel_or_ipsec_required",
+        workloadToMicroVm: "host_local_tap_or_vsock_only"
+      } : {
+        terminalToG2: "tls_over_ipsec_required",
+        g2ToWorkload: "approved_broker_transport_required"
+      },
       blockers,
       candidates: this.#sessionBrokerCatalog().candidates.map((candidate) => ({
         protocol: candidate.protocol,
@@ -3377,6 +3403,8 @@ export class OperatorPortalService {
       ...(evidence.gateway.g2StreamGatewayReady ? [] : ["g2_stream_gateway_not_ready"]),
       ...(evidence.gateway.publicInternetExposure ? ["g2_stream_gateway_public_exposure_forbidden"] : []),
       ...(evidence.gateway.tlsInternalOnly ? [] : ["g2_stream_gateway_internal_tls_required"]),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && evidence.gateway.guacdTls !== true ? ["guacamole_guacd_tls_required"] : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && evidence.gateway.g2ToWorkloadEncrypted !== true ? ["g2_workload_stream_transport_encryption_required"] : []),
       ...(evidence.gateway.inputProxyReady ? [] : ["g2_input_proxy_not_ready"]),
       ...(evidence.broker?.blockers || []),
       ...(sourceReady.length ? [] : ["at_least_one_workload_stream_source_required"])
@@ -3389,6 +3417,8 @@ export class OperatorPortalService {
       ...(this.#privateBindAllowed(manifest.gateway.bindAddress) ? [] : ["g2_gateway_private_bind_required"]),
       ...(manifest.gateway.publicInternetExposure ? ["g2_gateway_public_exposure_forbidden"] : []),
       ...(manifest.gateway.tlsMode === "internal_tls_only" ? [] : ["g2_gateway_internal_tls_required"]),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && manifest.gateway.guacdTls !== true ? ["guacamole_guacd_tls_required"] : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && manifest.gateway.g2ToWorkloadEncrypted !== true ? ["g2_workload_stream_transport_encryption_required"] : []),
       ...(manifest.broker?.blockers || []),
       ...(sourceEntries.length ? [] : ["at_least_one_stream_source_manifest_required"]),
       ...sourceEntries.flatMap(([key, source]) => [
