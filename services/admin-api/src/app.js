@@ -777,6 +777,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     store,
     liveWorkloadRunner: liveExecutionOptions.liveWorkloadRunner,
     liveWorkloadStatusProvider: liveExecutionOptions.liveWorkloadStatusProvider,
+    workloadInputRunner: liveExecutionOptions.workloadInputRunner,
     workloadImageManifestResolver: (appKey) => liveExecution.latestReadyWorkloadImageManifestForApp(appKey)
   });
 
@@ -1022,6 +1023,15 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         return send(res, 201, {
           handoff: operatorPortal.createGuacamoleHandoff({ operatorActor, body, correlationId })
+        }, {
+          "cache-control": "no-store"
+        });
+      }
+      if (req.method === "POST" && url.pathname === "/operator-api/workload-input") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, {
+          input: await operatorPortal.sendWorkloadInput({ operatorActor, body, correlationId })
         }, {
           "cache-control": "no-store"
         });

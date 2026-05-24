@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createCipheriv, createHmac, randomBytes } from "node:crypto";
 import { promisify } from "node:util";
 import { DEVICE_TYPES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
@@ -235,6 +235,74 @@ async function defaultLiveWorkloadStatusProvider({ env = process.env } = {}) {
   return JSON.parse(stdout.slice(start, end + 1));
 }
 
+function spawnJsonWithStdin(command, args, { input, timeout, env, cwd } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, timeout);
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (timedOut) {
+        reject(new Error("workload_input_bridge_timeout"));
+        return;
+      }
+      if (code !== 0) {
+        const error = new Error("workload_input_bridge_failed");
+        error.code = code;
+        error.stderr = stderr.trim().slice(0, 400);
+        reject(error);
+        return;
+      }
+      const start = stdout.indexOf("{");
+      const end = stdout.lastIndexOf("}");
+      if (start < 0 || end < start) {
+        reject(new Error("workload_input_bridge_json_not_found"));
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout.slice(start, end + 1)));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    child.stdin.end(input);
+  });
+}
+
+async function defaultWorkloadInputRunner({ app, text, submit = false, env = process.env }) {
+  return spawnJsonWithStdin(process.execPath, ["scripts/workload-input-bridge.mjs", `--app=${app}`], {
+    input: JSON.stringify({ text, submit }),
+    timeout: Number(env.SYLION_WORKLOAD_INPUT_TIMEOUT_MS || 30_000),
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      ...env
+    }
+  });
+}
+
 export class OperatorPortalService {
   constructor({
     audit,
@@ -249,6 +317,7 @@ export class OperatorPortalService {
     store = null,
     liveWorkloadRunner = defaultLiveWorkloadRunner,
     liveWorkloadStatusProvider = defaultLiveWorkloadStatusProvider,
+    workloadInputRunner = defaultWorkloadInputRunner,
     workloadImageManifestResolver = null
   }) {
     this.audit = audit;
@@ -276,6 +345,7 @@ export class OperatorPortalService {
     this.accountBootstrapSessions = new PersistentMap({ store, collection: "operator_account_bootstrap_sessions" });
     this.liveWorkloadRunner = liveWorkloadRunner;
     this.liveWorkloadStatusProvider = liveWorkloadStatusProvider;
+    this.workloadInputRunner = workloadInputRunner;
     this.liveWorkloadStatusCache = null;
     this.workloadImageManifestResolver = workloadImageManifestResolver;
   }
@@ -1797,6 +1867,109 @@ export class OperatorPortalService {
     return handoff;
   }
 
+  async sendWorkloadInput({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const templateKey = this.#normalizeStreamingTemplate(body.templateKey || body.app || "duckduckgo_browser");
+    const appDefinition = this.#appDefinition(templateKey);
+    const text = this.#safeWorkloadInputText(body.text);
+    const submit = body.submit === true;
+    if (!text && !submit) {
+      throw validationError("Workload input requires text or submit=true", {
+        templateKey,
+        allowed: "printable_latin1_text_or_enter_event"
+      });
+    }
+    const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
+    const env = this.env || {};
+    const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
+    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const brokerPolicy = this.#sessionBrokerPolicy({
+      protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
+      readiness,
+      runtimeManifest
+    });
+    const sourceBlockers = this.#streamSourceBlockers({ templateKey, env, readiness });
+    const supported = GUACAMOLE_HANDOFF_APPS.has(templateKey);
+    const blockers = [
+      ...foundation.blockers.map((blocker) => `live_access:${blocker}`),
+      ...(supported ? [] : [`${templateKey}_workload_input_not_supported`]),
+      ...(env.SYLION_WORKLOAD_INPUT_BRIDGE_ENABLED === "true" ? [] : ["workload_input_bridge_not_enabled"]),
+      ...(brokerPolicy.gatewayReady ? [] : ["guacamole_broker_poc_not_ready"]),
+      ...brokerPolicy.blockers,
+      ...sourceBlockers,
+      ...(templateKey === "zangi" && env.SYLION_ZANGI_ANDROID_NATIVE_APPROVED !== "true" ? ["zangi_android_native_provenance_required"] : []),
+      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
+    ];
+    const input = {
+      id: newId("workload_input"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey,
+      appName: appDefinition.name,
+      state: blockers.length ? "workload_input_blocked" : "workload_input_pending",
+      broker: {
+        protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
+        requiredLayer: "G2",
+        target: "vnc_key_event_bridge",
+        g2ToWorkloadEncryptedRequired: true
+      },
+      request: {
+        textLength: text.length,
+        submit,
+        contentStored: false,
+        contentAudited: false,
+        terminalDataStored: false
+      },
+      result: null,
+      blockers,
+      security: {
+        clipboardUsed: false,
+        inputContentReturned: false,
+        inputContentAudited: false,
+        inputContentStoredOnTerminal: false,
+        g1G2BypassAllowed: false,
+        fileTransfer: "disabled_until_cdr_gate"
+      },
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false,
+      createdAt: isoNow()
+    };
+
+    if (!blockers.length) {
+      try {
+        const result = await this.workloadInputRunner({ app: templateKey, text, submit, env });
+        input.state = "workload_input_sent";
+        input.result = this.#publicWorkloadInputRunnerResult(result);
+      } catch (error) {
+        input.state = "workload_input_failed";
+        input.blockers = ["workload_input_bridge_execution_failed"];
+        input.result = {
+          component: "g2_vnc_input_bridge",
+          errorCode: String(error?.message || "workload_input_bridge_failed").slice(0, 120),
+          stderrCaptured: false,
+          inputContentPrinted: false,
+          terminalDataStored: false
+        };
+      }
+    }
+
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.workload_input_events_sent",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: input.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: input.state === "workload_input_sent" ? "allow" : "deny",
+      result: input.state,
+      newValue: input
+    });
+    return input;
+  }
+
   recordStreamingReadiness({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const sourcesInput = body.sources && typeof body.sources === "object" ? body.sources : {};
@@ -3102,6 +3275,42 @@ export class OperatorPortalService {
 
   #normalizeStreamingTemplate(value) {
     return this.#normalizeWorkloadTemplate(value);
+  }
+
+  #safeWorkloadInputText(value) {
+    const text = String(value ?? "");
+    if (text.length > 512) {
+      throw validationError("Workload input text is too long", {
+        maxLength: 512,
+        contentStored: false
+      });
+    }
+    for (const char of text) {
+      const code = char.codePointAt(0);
+      const printableLatin1 = code >= 0x20 && code <= 0x7e;
+      const allowedControl = char === "\n" || char === "\t";
+      if (!printableLatin1 && !allowedControl) {
+        throw validationError("Workload input bridge currently accepts printable ASCII only", {
+          allowed: "printable_ascii_tab_newline",
+          contentStored: false
+        });
+      }
+    }
+    return text;
+  }
+
+  #publicWorkloadInputRunnerResult(result = {}) {
+    return {
+      component: String(result.component || "g2_vnc_input_bridge"),
+      app: result.app || null,
+      port: result.port || null,
+      keysSent: Number(result.keysSent || result.charsSent || 0),
+      submitSent: result.submitSent === true,
+      framebuffer: result.framebuffer || null,
+      securityType: result.securityType || null,
+      inputContentPrinted: false,
+      terminalDataStored: false
+    };
   }
 
   #normalizeWorkloadTemplate(value) {

@@ -34,6 +34,9 @@
   const toast = $("#stream-toast");
   const label = $("#stream-app-label");
   const state = $("#stream-app-state");
+  const inputPanel = $("#stream-input-panel");
+  const inputText = $("#stream-input-text");
+  let inputBusy = false;
 
   function normalizeApp(value) {
     const clean = String(value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
@@ -126,6 +129,35 @@
     return payload.handoff;
   }
 
+  async function sendWorkloadInput({ text = "", submit = false } = {}) {
+    if (inputBusy) return null;
+    inputBusy = true;
+    state.textContent = "Sending keyboard events to workload...";
+    try {
+      const res = await fetch("/operator-api/workload-input", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "content-type": "application/json",
+          "x-correlation-id": `corr_operator_input_${crypto.randomUUID()}`,
+          "x-sylion-operator-csrf": "same-origin-ui",
+          ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
+        },
+        body: JSON.stringify({ templateKey: requestedApp, text, submit })
+      });
+      const payload = await res.json();
+      if (!res.ok || payload?.input?.state !== "workload_input_sent") {
+        const blockers = payload?.input?.blockers?.join(", ") || payload?.error?.message || `HTTP ${res.status}`;
+        throw new Error(blockers);
+      }
+      state.textContent = "Keyboard events sent.";
+      showToast(submit ? "Text and Enter sent to workload." : "Text sent to workload.");
+      return payload.input;
+    } finally {
+      inputBusy = false;
+    }
+  }
+
   function showToast(message) {
     toast.textContent = message;
     window.clearTimeout(showToast.timer);
@@ -147,6 +179,28 @@
     });
   }
 
+  function showInputPanel() {
+    if (!inputPanel) return;
+    inputPanel.hidden = false;
+    window.setTimeout(() => inputText?.focus({ preventScroll: true }), 40);
+  }
+
+  function hideInputPanel() {
+    if (!inputPanel) return;
+    inputPanel.hidden = true;
+    inputText?.blur();
+  }
+
+  function updateKeyboardOffset() {
+    const viewport = window.visualViewport;
+    if (!viewport) {
+      document.documentElement.style.setProperty("--stream-keyboard-offset", "0px");
+      return;
+    }
+    const offset = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
+    document.documentElement.style.setProperty("--stream-keyboard-offset", `${offset}px`);
+  }
+
   function requestFit() {
     postToStream("update_quality", { scaleViewport: true });
     postToStream("set_scale", { scale: "remote" });
@@ -160,16 +214,40 @@
       const action = button.dataset.streamAction;
       if (action === "keyboard") {
         showKeyboardTools("operator_toolbar");
-        showToast("Keyboard tools requested. Tap the small keyboard control inside the stream.");
+        showInputPanel();
+        showToast("Private input panel ready.");
       }
       if (action === "keyboard-tools") {
         showKeyboardTools("operator_toolbar_tools");
-        showToast("Input tools requested without opening the side menu.");
+        showInputPanel();
+        showToast("Private input panel ready.");
+      }
+      if (action === "input-enter") {
+        sendWorkloadInput({ submit: true }).catch((error) => showToast(`Input blocked: ${error.message}`));
+      }
+      if (action === "input-close") {
+        hideInputPanel();
       }
       if (action === "fit") {
         requestFit();
       }
     });
+
+    inputPanel?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const submitter = event.submitter?.dataset?.streamSubmit || "text";
+      const value = inputText?.value || "";
+      const submit = submitter === "text-enter";
+      sendWorkloadInput({ text: value, submit })
+        .then((result) => {
+          if (result && inputText) inputText.value = "";
+        })
+        .catch((error) => showToast(`Input blocked: ${error.message}`));
+    });
+    updateKeyboardOffset();
+    window.visualViewport?.addEventListener("resize", updateKeyboardOffset);
+    window.visualViewport?.addEventListener("scroll", updateKeyboardOffset);
+    window.addEventListener("resize", updateKeyboardOffset);
 
     window.addEventListener("message", (event) => {
       if (event?.data?.action === "noVNC_initialized") {

@@ -7,7 +7,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="Referrer-Policy" content="no-referrer">
   <title>SYLION Workload Stream</title>
-  <link rel="stylesheet" href="/operator/styles.css?v=step3-89c">
+  <link rel="stylesheet" href="/operator/styles.css?v=step3-100a">
 </head>
 <body class="stream-page">
   <main class="operator-stream">
@@ -19,6 +19,14 @@
         <a class="button-link" href="/operator#app-switcher">Back to apps</a>
       </div>
     </section>
+    <form id="stream-input-panel" class="stream-input-panel" autocomplete="off" hidden>
+      <label for="stream-input-text">Private input to workload</label>
+      <input id="stream-input-text" name="streamInput" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false">
+      <button type="submit" class="stream-control-button" data-stream-submit="text">Type</button>
+      <button type="submit" class="stream-control-button" data-stream-submit="text-enter">Type + Enter</button>
+      <button type="button" class="stream-control-button" data-stream-action="input-enter">Enter</button>
+      <button type="button" class="stream-control-button" data-stream-action="input-close">Close</button>
+    </form>
     <nav class="stream-control-bar" aria-label="Pixel stream controls">
       <div class="stream-control-primary">
         <strong id="stream-app-label">Workload</strong>
@@ -32,6 +40,6 @@
     </nav>
     <p id="stream-toast" class="stream-toast" role="status" aria-live="polite"></p>
   </main>
-  <script src="/operator/stream.js?v=step3-98a"></script>
+  <script src="/operator/stream.js?v=step3-100a"></script>
 </body>
 </html>

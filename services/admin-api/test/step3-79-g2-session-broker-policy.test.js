@@ -420,6 +420,138 @@ test("Step 3.91 Guacamole JSON handoff returns encrypted app-scoped launch URL w
   }
 });
 
+test("Step 3.100 workload input bridge sends metadata-only VNC key events", async () => {
+  const calls = [];
+  const secretHex = "00112233445566778899aabbccddeeff";
+  const { app, baseUrl, close } = await startTestServer({
+    liveExecutionOptions: {
+      env: {
+        SYLION_G2_SESSION_BROKER: "guacamole",
+        SYLION_GUACAMOLE_JSON_SECRET_KEY: secretHex,
+        SYLION_GUACAMOLE_BROKER_READY: "true",
+        SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL: "true",
+        SYLION_G1_G2_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_GATEWAY_READY: "true",
+        SYLION_WORKLOAD_INPUT_BRIDGE_ENABLED: "true",
+        SYLION_REAL_IPSEC_READY: "true",
+        SYLION_KVM_READY: "true",
+        SYLION_WORKLOAD_STREAM_SOURCE_READY: "true",
+        SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
+      },
+      workloadInputRunner: async ({ app, text, submit }) => {
+        calls.push({ app, text, submit });
+        return {
+          component: "g2_vnc_input_bridge",
+          app,
+          port: 15901,
+          keysSent: text.length + (submit ? 1 : 0),
+          submitSent: submit,
+          framebuffer: { width: 390, height: 844 },
+          securityType: "none",
+          inputContentPrinted: false,
+          terminalDataStored: false
+        };
+      }
+    }
+  });
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client);
+    await operatorRequest(baseUrl, seeded.session.token, "/operator-api/vpn-evidence", {
+      method: "POST",
+      body: {
+        vpnConnected: true,
+        vpnInterface: "tun1",
+        dnsThroughTunnel: true,
+        certificateTrusted: true,
+        reachableHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "duckduckgo.sylion.internal", "10.42.0.12"]
+      }
+    });
+    await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-readiness", {
+      method: "POST",
+      body: {
+        g2StreamGatewayReady: true,
+        tlsInternalOnly: true,
+        guacdTls: true,
+        g2ToWorkloadEncrypted: true,
+        inputProxyReady: true,
+        protocol: "guacamole",
+        sources: { duckduckgo_browser: true }
+      }
+    });
+
+    const input = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-input", {
+      method: "POST",
+      body: { templateKey: "duckduckgo_browser", text: "sylion secure", submit: true }
+    });
+    assert.equal(input.input.state, "workload_input_sent");
+    assert.equal(input.input.request.textLength, 13);
+    assert.equal(input.input.request.contentStored, false);
+    assert.equal(input.input.request.contentAudited, false);
+    assert.equal(input.input.security.inputContentReturned, false);
+    assert.equal(input.input.security.inputContentAudited, false);
+    assert.equal(input.input.result.keysSent, 14);
+    assert.equal(input.input.result.submitSent, true);
+    assert.equal(JSON.stringify(input).includes("sylion secure"), false);
+    assert.deepEqual(calls, [{ app: "duckduckgo_browser", text: "sylion secure", submit: true }]);
+
+    const event = app.services.audit.list().find((event) => event.action === "operator_portal.workload_input_events_sent");
+    assert.ok(event);
+    assert.equal(JSON.stringify(event).includes("sylion secure"), false);
+    assert.equal(event.newValue.request.textLength, 13);
+    assert.equal(event.newValue.request.contentStored, false);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.100 workload input bridge blocks until explicitly enabled", async () => {
+  const { baseUrl, close } = await startTestServer({
+    liveExecutionOptions: {
+      env: {
+        SYLION_G2_SESSION_BROKER: "guacamole",
+        SYLION_GUACAMOLE_JSON_SECRET_KEY: "00112233445566778899aabbccddeeff",
+        SYLION_GUACAMOLE_BROKER_READY: "true",
+        SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL: "true",
+        SYLION_G1_G2_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_GATEWAY_READY: "true",
+        SYLION_REAL_IPSEC_READY: "true",
+        SYLION_KVM_READY: "true",
+        SYLION_WORKLOAD_STREAM_SOURCE_READY: "true",
+        SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
+      },
+      workloadInputRunner: async () => {
+        throw new Error("runner_should_not_be_called");
+      }
+    }
+  });
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client);
+    await operatorRequest(baseUrl, seeded.session.token, "/operator-api/vpn-evidence", {
+      method: "POST",
+      body: {
+        vpnConnected: true,
+        vpnInterface: "tun1",
+        dnsThroughTunnel: true,
+        certificateTrusted: true,
+        reachableHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "duckduckgo.sylion.internal", "10.42.0.12"]
+      }
+    });
+    const input = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-input", {
+      method: "POST",
+      body: { templateKey: "duckduckgo_browser", text: "shouldnotappear" }
+    });
+    assert.equal(input.input.state, "workload_input_blocked");
+    assert.ok(input.input.blockers.includes("workload_input_bridge_not_enabled"));
+    assert.equal(JSON.stringify(input).includes("shouldnotappear"), false);
+  } finally {
+    await close();
+  }
+});
+
 test("Step 3.91 Guacamole JSON handoff blocks when the shared JSON secret is absent", async () => {
   const { baseUrl, close } = await startTestServer({
     liveExecutionOptions: {

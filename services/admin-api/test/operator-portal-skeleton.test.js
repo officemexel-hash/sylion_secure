@@ -98,6 +98,10 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.equal(streamJs.status, 200);
     assert.match(streamJs.contentType, /text\/javascript|application\/javascript/);
     assert.match(streamJs.body, /show_keyboard_controls/);
+    assert.match(streamJs.body, /workload-input/);
+    assert.match(streamJs.body, /sendWorkloadInput/);
+    assert.match(streamJs.body, /showInputPanel/);
+    assert.match(streamJs.body, /inputText\.value = ""/);
     assert.match(streamJs.body, /guacamole-handoff/);
     assert.match(streamJs.body, /bootstrapOperatorToken/);
     assert.match(streamJs.body, /params\.get\("op_token"\)/);
@@ -124,11 +128,28 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.contentType, /text\/html/);
     assert.match(html.body, /SYLION Workload Stream/);
     assert.match(html.body, /id="workload-stream-frame"/);
+    assert.match(html.body, /id="stream-input-panel"/);
+    assert.match(html.body, /id="stream-input-text"/);
     assert.match(html.body, /data-stream-action="keyboard"/);
+    assert.match(html.body, /data-stream-action="input-enter"/);
     assert.match(html.body, /frame-src https:\/\/session\.sylion\.internal/);
     assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal/);
-    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-98a"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-100a"><\/script>/);
     assert.doesNotMatch(html.body, /unsafe-inline/);
+  } finally {
+    await close();
+  }
+});
+
+test("/operator-api/workload-input requires an operator portal session", async () => {
+  const { baseUrl, close } = await startTestServer();
+  try {
+    const response = await fetch(`${baseUrl}/operator-api/workload-input`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-correlation-id": `corr_input_${crypto.randomUUID()}` },
+      body: JSON.stringify({ templateKey: "duckduckgo_browser", text: "test" })
+    });
+    assert.equal(response.status, 401);
   } finally {
     await close();
   }
