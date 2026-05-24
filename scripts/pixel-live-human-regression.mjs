@@ -110,6 +110,10 @@ function repoRelativePath(path) {
     : path.replace(/\\/g, "/");
 }
 
+function shellSingleQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
 function parseDeviceList(output) {
   return output
     .split(/\r?\n/)
@@ -179,12 +183,7 @@ async function openUrl(serial, url, name, delayMs = 3500) {
     "-s",
     serial,
     "shell",
-    "am",
-    "start",
-    "-a",
-    "android.intent.action.VIEW",
-    "-d",
-    url
+    `am start -a android.intent.action.VIEW -d ${shellSingleQuote(url)}`
   ], { timeout: 20_000 });
   await new Promise((resolve) => setTimeout(resolve, delayMs));
   const screenshot = await screencap(serial, name);

@@ -20,6 +20,10 @@ function repoRelativePath(path) {
     : path.replace(/\\/g, "/");
 }
 
+function shellSingleQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
 async function ensureAdb() {
   try {
     await access(adbPath);
@@ -240,12 +244,7 @@ async function run() {
     "-s",
     pixel.serial,
     "shell",
-    "am",
-    "start",
-    "-a",
-    "android.intent.action.VIEW",
-    "-d",
-    operatorUrl
+    `am start -a android.intent.action.VIEW -d ${shellSingleQuote(operatorUrl)}`
   ]);
 
   const summary = {
