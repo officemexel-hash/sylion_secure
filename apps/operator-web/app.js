@@ -896,6 +896,8 @@
       `).join("") || `<div class="placeholder">No bootstrap-capable apps.</div>`;
     }
     const list = $("#account-bootstrap-list");
+    const latest = (bootstrap.latestSessions || [])[0] || null;
+    renderAccountBootstrapHandoff(latest?.humanHandoff || null, latest);
     if (list) {
       list.innerHTML = (bootstrap.latestSessions || []).map((session) => `
         <li>
@@ -905,6 +907,32 @@
         </li>
       `).join("") || `<li class="placeholder">No bootstrap sessions yet.</li>`;
     }
+  }
+
+  function renderAccountBootstrapHandoff(handoff, session = null) {
+    const panel = $("#account-bootstrap-handoff");
+    if (!panel) return;
+    if (!handoff) {
+      panel.innerHTML = `<p class="placeholder">Create or select a bootstrap session to see the safe handoff steps.</p>`;
+      return;
+    }
+    const steps = (handoff.orderedSteps || []).map((step, index) => `<li><strong>${index + 1}.</strong> ${escapeHtml(step)}</li>`).join("");
+    const never = (handoff.neverCollect || []).map((item) => `<span class="badge badge-danger">${escapeHtml(item)}</span>`).join("");
+    const allowed = (handoff.allowedRecord || []).map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join("");
+    const launchUrl = handoff.currentLaunchUrl || session?.launchUrl || "";
+    panel.innerHTML = `
+      <div class="handoff-summary">
+        <strong>${escapeHtml(session?.appName || handoff.appKey)} - ${escapeHtml(handoff.state)}</strong>
+        <span>${escapeHtml(handoff.operatorInstruction)}</span>
+      </div>
+      <ol class="handoff-steps">${steps}</ol>
+      <div class="app-tile-meta">${never}</div>
+      <div class="app-tile-meta">${allowed}</div>
+      <div class="quick-actions">
+        ${launchUrl ? `<a class="button-link" href="${escapeHtml(launchUrl)}" target="_blank" rel="noopener">Open workload stream</a>` : ""}
+        <a class="button-link" href="#app-switcher">Return to apps</a>
+      </div>
+    `;
   }
 
   async function requestAccountBootstrap(event) {
@@ -924,6 +952,7 @@
       return;
     }
     setText("#account-bootstrap-status", `Bootstrap session created: ${result.session.id}`);
+    renderAccountBootstrapHandoff(result.session.humanHandoff, result.session);
     const evidenceForm = $("#account-bootstrap-evidence-form");
     if (evidenceForm) evidenceForm.elements.sessionId.value = result.session.id;
     await loadAccountBootstrap();

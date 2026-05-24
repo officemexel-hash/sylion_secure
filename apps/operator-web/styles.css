@@ -437,6 +437,59 @@ dd {
   color: var(--accent-warn);
 }
 
+.badge-danger {
+  border-color: var(--accent-error);
+  color: var(--accent-error);
+}
+
+.handoff-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.handoff-summary {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #111620;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.handoff-summary span,
+.handoff-steps {
+  color: var(--text-dim);
+}
+
+.handoff-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.button-link {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #141a25;
+  color: var(--text);
+  padding: 8px 10px;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.button-link:hover,
+.button-link:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
 .workload-preview {
   margin-top: 14px;
   border: 1px solid var(--border);

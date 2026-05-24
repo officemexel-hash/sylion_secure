@@ -104,6 +104,9 @@ test("Step 3.72 operator account bootstrap records pass/fail evidence without se
     assert.equal(created.payload.session.appKey, "signal");
     assert.equal(created.payload.session.state, "awaiting_human_bootstrap");
     assert.ok(created.payload.session.requiredChecks.includes("sendReceive"));
+    assert.equal(created.payload.session.humanHandoff.privateInputEntry, "directly_inside_workload_ui_only");
+    assert.ok(created.payload.session.humanHandoff.neverCollect.includes("otp_or_sms_code"));
+    assert.ok(created.payload.session.humanHandoff.orderedSteps.some((step) => /directly in the workload UI/i.test(step)));
     assert.equal(created.payload.session.productionExecutionAllowed, false);
 
     const incomplete = await operatorRequest(baseUrl, seeded.session.token, `/operator-api/account-bootstrap/sessions/${created.payload.session.id}/evidence`, {
@@ -210,6 +213,20 @@ test("Step 3.72 account bootstrap rejects phone numbers, OTP fields, seeds and i
     });
     assert.equal(rejectedOtp.status, 422);
     assert.match(rejectedOtp.payload.error.message, /must not store phone numbers/i);
+
+    const rejectedSecretNote = await operatorRequest(baseUrl, seeded.session.token, `/operator-api/account-bootstrap/sessions/${created.payload.session.id}/evidence`, {
+      method: "POST",
+      expectOk: false,
+      body: {
+        result: "blocked",
+        checks: {
+          uiVisible: { status: "passed", evidence: "sms code 123456" }
+        },
+        note: "telefon: +48 600 000 000"
+      }
+    });
+    assert.equal(rejectedSecretNote.status, 422);
+    assert.match(rejectedSecretNote.payload.error.message, /must not contain phone numbers/i);
   } finally {
     await close();
   }

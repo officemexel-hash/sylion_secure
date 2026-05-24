@@ -69,6 +69,7 @@ const ACCOUNT_BOOTSTRAP_MODES = new Set([
   "manual_operator_account"
 ]);
 const BOOTSTRAP_SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|phone.*number|panic.*code|seed|mnemonic|private[_-]?key)/i;
+const BOOTSTRAP_SECRET_VALUE_PATTERN = /(^\s*\d{4,8}\s*$)|(\b(otp|sms|verification|code|kod|has[lł]o|password|seed|mnemonic|private[_ -]?key)\b\s*[:=]?\s*[A-Za-z0-9+/_=-]{4,})|(\b(phone|telefon|numer)\b\s*[:=]\s*\+?\d[\d\s().-]{7,}\d)|(\+?\d[\d\s().-]{7,}\d)/i;
 const LIVE_RECREATE_APP_MAP = Object.freeze({
   whatsapp: "whatsapp",
   signal: "signal",
@@ -1303,6 +1304,12 @@ export class OperatorPortalService {
         accountCreationResponsibility: "operator_human_step",
         adminQaReviewRequired: true
       },
+      humanHandoff: this.#bootstrapHumanHandoffPlan({
+        appKey,
+        mode,
+        runtimeMode,
+        launchUrl: this.#workloadLaunchUrl(appKey)
+      }),
       blockers: [
         ...(routeStatus.ready ? [] : routeStatus.blockers),
         ...(androidRuntime && !androidRuntime.ready ? androidRuntime.blockers.map((blocker) => `android_runtime:${blocker}`) : []),
@@ -2956,6 +2963,7 @@ export class OperatorPortalService {
         supportedModes: this.#supportedBootstrapModes(app.key),
         defaultRuntimeMode: this.#defaultBootstrapRuntime(app.key),
         requiresAdminQaReview: true,
+        humanHandoffRequired: this.#bootstrapNeedsPrivateHumanInput(app.key),
         terminalDataStored: false,
         cdrRequired: true,
         productionExecutionAllowed: false
@@ -2986,6 +2994,57 @@ export class OperatorPortalService {
     if (appKey === "signal" || appKey === "whatsapp") return ["physical_mobile_companion", "android_native_workload"];
     if (appKey === "exodus") return ["manual_operator_account"];
     return ["approved_test_number_provider", "desktop_linked_account", "android_native_workload"];
+  }
+
+  #bootstrapNeedsPrivateHumanInput(appKey) {
+    return ["signal", "whatsapp", "telegram", "threema", "zangi", "matrix_client", "exodus"].includes(appKey);
+  }
+
+  #bootstrapHumanHandoffPlan({ appKey, mode, runtimeMode, launchUrl }) {
+    const communicator = appKey !== "exodus";
+    return {
+      state: "awaiting_operator_private_input",
+      privateInputEntry: "directly_inside_workload_ui_only",
+      operatorActionRequired: true,
+      operatorInstruction: communicator
+        ? "Open the workload stream, enter account, phone, SMS or 2FA details only inside the communicator UI, then return here and record pass/fail metadata."
+        : "Open the wallet workload, perform only the approved test workflow directly inside the workload UI, then return here and record metadata plus risk acceptance.",
+      codexRole: "navigate_open_stream_capture_metadata_only",
+      currentLaunchUrl: launchUrl,
+      appKey,
+      mode,
+      runtimeMode,
+      orderedSteps: communicator ? [
+        "Open application stream from the operator app switcher.",
+        "Operator enters phone/account credentials and SMS/2FA code directly in the workload UI.",
+        "Verify account is created or linked without storing the phone number, OTP, password or message content.",
+        "Send and receive a harmless test message with QA contact; store only metadata that the check passed.",
+        "Return to this panel and record evidence refs, latency and pass/fail checks."
+      ] : [
+        "Open the wallet workload stream.",
+        "Operator performs approved test workflow without exposing seed, private key, wallet address or balance.",
+        "Confirm viewport fit and input behavior on Pixel or laptop.",
+        "Return to this panel and record metadata-only evidence plus explicit risk acceptance."
+      ],
+      neverCollect: [
+        "phone_number",
+        "otp_or_sms_code",
+        "password",
+        "message_content",
+        "wallet_seed_or_private_key",
+        "wallet_balance_or_address"
+      ],
+      allowedRecord: [
+        "app_visible_boolean",
+        "account_bootstrap_boolean",
+        "send_receive_boolean",
+        "latency_ms",
+        "artifact_refs",
+        "short_note_without_secrets"
+      ],
+      terminalDataStored: false,
+      productionExecutionAllowed: false
+    };
   }
 
   #normalizeBootstrapMode(value) {
@@ -3053,6 +3112,12 @@ export class OperatorPortalService {
           allowed: "Use provider refs, artifact refs and pass/fail evidence only."
         });
       }
+      if (typeof nested === "string" && BOOTSTRAP_SECRET_VALUE_PATTERN.test(nested)) {
+        throw validationError("Account bootstrap evidence must not contain phone numbers, OTPs, passwords, seeds or token material", {
+          field: currentPath.join("."),
+          allowed: "Record only pass/fail metadata, artifact refs and short non-secret notes."
+        });
+      }
       if (nested && typeof nested === "object") this.#assertNoBootstrapSecrets(nested, currentPath);
     }
   }
@@ -3081,6 +3146,7 @@ export class OperatorPortalService {
       launchUrl: session.launchUrl,
       approvedPhoneProviderRef: session.approvedPhoneProviderRef,
       evidencePolicy: session.evidencePolicy,
+      humanHandoff: session.humanHandoff,
       evidenceArtifactIds: session.evidenceArtifactIds || [],
       latencyMs: session.latencyMs ?? null,
       note: session.note || null,

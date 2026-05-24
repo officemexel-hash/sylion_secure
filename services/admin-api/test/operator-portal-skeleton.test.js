@@ -58,6 +58,8 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.body, /https:\/\/libreoffice\.sylion\.internal\//);
     assert.match(html.body, /Backup & Panic/);
     assert.match(html.body, /Laptop terminal package/);
+    assert.match(html.body, /Private input handoff/);
+    assert.match(html.body, /id="account-bootstrap-handoff"/);
   } finally {
     await close();
   }
@@ -78,6 +80,7 @@ test("Operator portal serves styles.css and app.js", async () => {
     assert.match(js.body, /streaming-profile/);
     assert.match(js.body, /live-workload-status/);
     assert.match(js.body, /laptop-access-package/);
+    assert.match(js.body, /renderAccountBootstrapHandoff/);
     assert.match(js.body, /bootstrapOperatorToken/);
     assert.match(js.body, /\.sylion\.internal/);
 
