@@ -931,6 +931,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { monitoring: operatorPortal.trafficMonitoring({ operatorActor, correlationId }) });
       }
+      if (req.method === "GET" && url.pathname === "/operator-api/terminal-attribution-risk") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { assessment: operatorPortal.terminalAttributionRisk({ operatorActor, correlationId }) });
+      }
       if (req.method === "POST" && url.pathname === "/operator-api/traffic-monitoring/evidence") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);

@@ -1053,6 +1053,203 @@ export class OperatorPortalService {
     };
   }
 
+  terminalAttributionRisk({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const path = this.#connectionPathForOperator({
+      operatorId: operatorActor.operatorId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId
+    });
+    const vpnEvidence = this.#latestVpnEvidenceForOperator(operatorActor.operatorId);
+    const streamingReadiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
+    const streamingRuntime = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const latestTrafficEvidence = this.#latestTrafficEvidenceBySegment(operatorActor.operatorId);
+    const trafficById = Object.fromEntries(TRAFFIC_MONITOR_SEGMENTS.map((definition) => {
+      const view = this.#trafficSegmentView({
+        definition,
+        operatorActor,
+        path,
+        vpnEvidence,
+        streamingReadiness,
+        streamingRuntime,
+        evidence: latestTrafficEvidence.get(definition.id) || null
+      });
+      return [definition.id, view];
+    }));
+    const publicStreamExposure = streamingReadiness?.gateway?.publicInternetExposure === true
+      || streamingRuntime?.gateway?.publicInternetExposure === true;
+    const workloadDnsLeakTestPassed = this.env?.SYLION_WORKLOAD_DNS_LEAK_TEST_PASSED === "true";
+    const controls = [
+      this.#terminalAttributionControl({
+        id: "thin_client_invariant",
+        label: "Terminal stores no operational data",
+        passed: path.terminalOperationalDataStored === false,
+        blockers: ["terminal_operational_data_storage_forbidden"],
+        requiredEvidence: ["connection_path.terminalOperationalDataStored=false"]
+      }),
+      this.#terminalAttributionControl({
+        id: "g1_g2_workload_path",
+        label: "Terminal traffic stays behind G1/G2 before workload",
+        passed: trafficById.g1_g2?.status === "healthy" && trafficById.g2_workload?.status === "healthy",
+        blockers: [
+          ...(trafficById.g1_g2?.status === "healthy" ? [] : ["g1_g2_policy_path_not_healthy"]),
+          ...(trafficById.g2_workload?.status === "healthy" ? [] : ["g2_workload_private_path_not_healthy"])
+        ],
+        requiredEvidence: ["operator traffic monitor g1_g2=healthy", "operator traffic monitor g2_workload=healthy"]
+      }),
+      this.#terminalAttributionControl({
+        id: "matrix_source_ip_canary",
+        label: "Matrix server observes workload egress only",
+        passed: this.env?.SYLION_MATRIX_CANARY_SOURCE_IP_EVIDENCED === "true",
+        blockers: ["matrix_canary_source_ip_probe_required"],
+        requiredEvidence: ["external Matrix/HTTP canary source-IP probe from the workload microVM"]
+      }),
+      this.#terminalAttributionControl({
+        id: "forwarded_headers_stripped",
+        label: "No proxy header carries terminal or private-hop IP",
+        passed: this.env?.SYLION_MATRIX_X_FORWARDED_FOR_STRIPPED === "true",
+        blockers: ["x_forwarded_for_strip_evidence_required"],
+        requiredEvidence: ["canary headers show no X-Forwarded-For/X-Real-IP terminal value"]
+      }),
+      this.#terminalAttributionControl({
+        id: "stream_private_exposure",
+        label: "Workload stream is private and not Internet-bound",
+        passed: publicStreamExposure === false && (
+          streamingReadiness?.ready === true
+          || streamingRuntime?.ready === true
+          || this.env?.SYLION_G2_WORKLOAD_GATEWAY_READY === "true"
+        ),
+        blockers: publicStreamExposure ? ["public_stream_exposure_forbidden"] : ["private_stream_gateway_evidence_required"],
+        requiredEvidence: ["G2 broker bind/private exposure scan", "streaming runtime manifest publicInternetExposure=false"]
+      }),
+      this.#terminalAttributionControl({
+        id: "dns_leak_prevention",
+        label: "DNS does not reveal terminal path",
+        passed: vpnEvidence?.dnsThroughTunnel === true && workloadDnsLeakTestPassed,
+        blockers: [
+          ...(vpnEvidence?.dnsThroughTunnel === true ? [] : ["terminal_dns_tunnel_evidence_required"]),
+          ...(workloadDnsLeakTestPassed ? [] : ["workload_dns_leak_test_required"])
+        ],
+        requiredEvidence: ["Pixel/laptop DNS through tunnel", "workload DNS leak probe"]
+      }),
+      this.#terminalAttributionControl({
+        id: "browser_webrtc_private_ip",
+        label: "Browser/WebRTC does not expose local or terminal candidates",
+        passed: this.env?.SYLION_WORKLOAD_WEBRTC_LEAK_TEST_PASSED === "true",
+        blockers: ["webrtc_ice_candidate_leak_test_required"],
+        requiredEvidence: ["browser workload WebRTC ICE candidate leak test"]
+      }),
+      this.#terminalAttributionControl({
+        id: "browser_geolocation",
+        label: "Browser geolocation cannot reveal Pixel location",
+        passed: this.env?.SYLION_BROWSER_GEOLOCATION_DENIED === "true",
+        blockers: ["browser_geolocation_denial_evidence_required"],
+        requiredEvidence: ["browser permission policy denies geolocation in workload sessions"]
+      }),
+      this.#terminalAttributionControl({
+        id: "matrix_client_metadata",
+        label: "Matrix client metadata is scrubbed of terminal identifiers",
+        passed: this.env?.SYLION_MATRIX_CLIENT_METADATA_REVIEWED === "true",
+        blockers: ["matrix_client_metadata_review_required"],
+        requiredEvidence: ["Matrix client device name/user-agent/profile metadata review"]
+      })
+    ];
+    const blockers = controls.flatMap((control) => control.status === "passed" ? [] : control.blockers);
+    const residualRisks = [
+      {
+        id: "provider_logs",
+        severity: "medium",
+        description: "A provider controlling G1/G2/workload or Matrix infrastructure can correlate account, server, billing, timing, or support logs.",
+        mitigation: "Minimize provider scope per tier, use jurisdiction policy, separate billing identities lawfully, and record provider-log risk acceptance."
+      },
+      {
+        id: "timing_correlation",
+        severity: "medium",
+        description: "A global observer may correlate operator session timing, traffic volume, Matrix activity timing, and workload egress.",
+        mitigation: "Add route padding/cover-traffic only after legal review; do not claim anonymity from current baseline."
+      },
+      {
+        id: "terminal_compromise",
+        severity: "high",
+        description: "If the Pixel/laptop is actively compromised, live screen/input and local network state can expose the operator despite the thin-client design.",
+        mitigation: "GrapheneOS posture checks, locked-down terminal profile, session timeout, FIDO2/HSM unlock, and incident response."
+      },
+      {
+        id: "account_bootstrap_metadata",
+        severity: "medium",
+        description: "Phone-number, payment, contact discovery, or Matrix account bootstrap metadata can identify the operator even when the IP path does not.",
+        mitigation: "Use approved bootstrap workflow, no contact discovery by default, metadata-only audit, and operator risk gates."
+      }
+    ];
+    const canaryReady = controls.find((control) => control.id === "matrix_source_ip_canary")?.status === "passed"
+      && controls.find((control) => control.id === "forwarded_headers_stripped")?.status === "passed";
+    return {
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      mode: "metadata_only_terminal_attribution_risk_assessment",
+      question: "Can someone identify the Pixel/operator location from only a Firecracker/workload IP or Matrix server observation?",
+      decision: blockers.length === 0
+        ? "direct_terminal_attribution_blocked_residual_correlation_risk_remains"
+        : "not_proven_until_required_evidence_passes",
+      shortAnswer: canaryReady
+        ? "A Matrix server should see only workload egress or a configured routing exit, not the Pixel location; residual correlation risks remain."
+        : "From the workload IP alone direct Pixel attribution should be blocked by design, but the required canary/header/DNS/WebRTC evidence is not complete yet.",
+      observerStartingPoint: "firecracker_or_workload_ip_only",
+      route: ["Pixel/laptop", "Puli AX", "G1", "G2", "WORKLOAD", "microVM/container", "Matrix server"],
+      matrixServerObservation: {
+        shouldSee: [
+          "workload_egress_ip_or_tor_exit_if_operator_policy_enabled",
+          "matrix_client_device_and_user_agent_metadata_after_scrub",
+          "message_timing_and_traffic_volume_metadata"
+        ],
+        mustNotSee: [
+          "pixel_public_ip",
+          "pixel_private_ip",
+          "pixel_location",
+          "terminal_device_id",
+          "operator_identity",
+          "g1_private_ip",
+          "g2_private_ip",
+          "workload_private_ip_if_external_matrix"
+        ],
+        forbiddenHeaders: ["x-forwarded-for", "x-real-ip", "forwarded"],
+        contentInspected: false,
+        messageContentStored: false,
+        terminalDataStored: false
+      },
+      controls,
+      blockers,
+      residualRisks,
+      humanGate: {
+        required: true,
+        owner: "security_architect",
+        reason: "Provider logs, account bootstrap metadata, and timing correlation cannot be eliminated by IP routing controls alone."
+      },
+      requiredLiveTests: [
+        "Run Matrix/HTTP canary from each communicator microVM and confirm observed source class is workload/route exit only.",
+        "Confirm X-Forwarded-For, X-Real-IP, Forwarded, Via and proxy protocol do not carry terminal or private-hop addresses.",
+        "Run workload DNS leak probe and Pixel/laptop DNS-through-tunnel probe.",
+        "Run browser WebRTC ICE candidate leak test inside DuckDuckGo/communicator browser workloads.",
+        "Verify browser geolocation is denied and timezone/locale policy is explicit.",
+        "Review Matrix device names, user agent strings, account bootstrap metadata and contact-discovery settings.",
+        "Check G1/G2/workload firewalls for no direct terminal-to-workload or public workload stream binding."
+      ],
+      guardrails: {
+        metadataOnly: true,
+        noOperationalDataOnTerminal: true,
+        baselineTransport: "ipsec_ikev2",
+        g1G2BypassAllowed: false,
+        cdrRequiredForFiles: true,
+        anonymityClaimAllowed: false,
+        productionExecutionAllowed: false
+      },
+      generatedAt: isoNow(),
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
   recordTrafficEvidence({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.#assertNoTrafficSecrets(body);
@@ -3184,6 +3381,21 @@ export class OperatorPortalService {
       ...(evidence.contentInspected === false ? [] : ["content_inspection_forbidden"]),
       ...(evidence.terminalDataStored === false ? [] : ["terminal_data_storage_forbidden"])
     ];
+  }
+
+  #terminalAttributionControl({ id, label, passed, blockers = [], requiredEvidence = [] }) {
+    const controlBlockers = blockers.filter(Boolean);
+    return {
+      id,
+      label,
+      status: passed ? "passed" : "missing_evidence",
+      blockers: passed ? [] : controlBlockers,
+      requiredEvidence,
+      contentInspected: false,
+      messageContentStored: false,
+      terminalDataStored: false,
+      productionExecutionAllowed: false
+    };
   }
 
   #publicTrafficEvidence(evidence) {
