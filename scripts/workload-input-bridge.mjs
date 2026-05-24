@@ -35,7 +35,9 @@ const cfg = {
 const input = await readStdinJson();
 const text = sanitizeInputText(input.text);
 const submit = input.submit === true;
-if (!text && !submit) fail("empty_input", { app });
+const preKeys = sanitizeSpecialKeys(input.preKeys);
+const postKeys = sanitizeSpecialKeys(input.postKeys ?? input.keys);
+if (!text && !submit && preKeys.length + postKeys.length === 0) fail("empty_input", { app });
 
 const remotePayload = JSON.stringify({
   app,
@@ -43,6 +45,8 @@ const remotePayload = JSON.stringify({
   port,
   text,
   submit,
+  preKeys,
+  postKeys,
   connectTimeoutSeconds: cfg.connectTimeoutSeconds
 });
 
@@ -56,9 +60,26 @@ import time
 payload = json.load(sys.stdin)
 text = payload.get("text", "")
 submit = bool(payload.get("submit", False))
+pre_keys = payload.get("preKeys") or []
+post_keys = payload.get("postKeys") or []
 host = payload.get("host", "172.18.0.1")
 port = int(payload["port"])
 timeout = float(payload.get("connectTimeoutSeconds", 8))
+
+SPECIAL_KEYSYMS = {
+    "enter": 0xff0d,
+    "backspace": 0xff08,
+    "delete": 0xffff,
+    "tab": 0xff09,
+    "escape": 0xff1b,
+    "arrow_left": 0xff51,
+    "arrow_up": 0xff52,
+    "arrow_right": 0xff53,
+    "arrow_down": 0xff54,
+    "home": 0xff50,
+    "end": 0xff57,
+}
+CTRL_LEFT = 0xffe3
 
 def recv_exact(sock, size):
     chunks = []
@@ -74,12 +95,30 @@ def recv_exact(sock, size):
 def key_event(sock, down, keysym):
     sock.sendall(struct.pack(">BBHI", 4, 1 if down else 0, 0, keysym))
 
+def tap_key(sock, ks):
+    key_event(sock, True, ks)
+    time.sleep(0.006)
+    key_event(sock, False, ks)
+
 def keysym(char):
     if char == "\n":
         return 0xff0d
     if char == "\t":
         return 0xff09
     return ord(char)
+
+def special_key(sock, key):
+    if key == "select_all":
+        key_event(sock, True, CTRL_LEFT)
+        time.sleep(0.006)
+        tap_key(sock, ord("a"))
+        time.sleep(0.006)
+        key_event(sock, False, CTRL_LEFT)
+        return 2
+    if key not in SPECIAL_KEYSYMS:
+        raise RuntimeError("unsupported_special_key:" + str(key)[:40])
+    tap_key(sock, SPECIAL_KEYSYMS[key])
+    return 1
 
 with socket.create_connection((host, port), timeout) as sock:
     sock.settimeout(timeout)
@@ -106,23 +145,28 @@ with socket.create_connection((host, port), timeout) as sock:
     if name_len:
         recv_exact(sock, name_len)
     keys_sent = 0
+    special_keys_sent = 0
+    for key in pre_keys:
+        keys_sent += special_key(sock, key)
+        special_keys_sent += 1
     for char in text:
         ks = keysym(char)
-        key_event(sock, True, ks)
-        time.sleep(0.006)
-        key_event(sock, False, ks)
+        tap_key(sock, ks)
         keys_sent += 1
     if submit:
-        key_event(sock, True, 0xff0d)
-        time.sleep(0.006)
-        key_event(sock, False, 0xff0d)
+        tap_key(sock, 0xff0d)
         keys_sent += 1
+        special_keys_sent += 1
+    for key in post_keys:
+        keys_sent += special_key(sock, key)
+        special_keys_sent += 1
     print(json.dumps({
         "component": "g2_vnc_input_bridge",
         "app": payload.get("app"),
         "port": port,
         "keysSent": keys_sent,
         "charsSent": len(text),
+        "specialKeysSent": special_keys_sent,
         "submitSent": submit,
         "framebuffer": {"width": width, "height": height},
         "securityType": "none",
@@ -161,6 +205,31 @@ function sanitizeInputText(value) {
     fail("unsupported_character", { allowed: "printable_ascii_tab_newline" });
   }
   return text;
+}
+
+function sanitizeSpecialKeys(value) {
+  if (value == null) return [];
+  const allowed = new Set([
+    "enter",
+    "backspace",
+    "delete",
+    "tab",
+    "escape",
+    "arrow_left",
+    "arrow_right",
+    "arrow_up",
+    "arrow_down",
+    "home",
+    "end",
+    "select_all"
+  ]);
+  const keys = Array.isArray(value) ? value : [value];
+  if (keys.length > 64) fail("too_many_special_keys", { maxKeys: 64 });
+  return keys.map((key) => {
+    const normalized = String(key || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (!allowed.has(normalized)) fail("unsupported_special_key", { key: normalized || "empty" });
+    return normalized;
+  });
 }
 
 function readStdinJson() {

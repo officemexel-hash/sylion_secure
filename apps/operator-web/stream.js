@@ -129,7 +129,7 @@
     return payload.handoff;
   }
 
-  async function sendWorkloadInput({ text = "", submit = false } = {}) {
+  async function sendWorkloadInput({ text = "", submit = false, preKeys = [], postKeys = [] } = {}) {
     if (inputBusy) return null;
     inputBusy = true;
     state.textContent = "Sending keyboard events to workload...";
@@ -143,7 +143,7 @@
           "x-sylion-operator-csrf": "same-origin-ui",
           ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
         },
-        body: JSON.stringify({ templateKey: requestedApp, text, submit })
+        body: JSON.stringify({ templateKey: requestedApp, text, submit, preKeys, postKeys })
       });
       const payload = await res.json();
       if (!res.ok || payload?.input?.state !== "workload_input_sent") {
@@ -151,7 +151,8 @@
         throw new Error(blockers);
       }
       state.textContent = "Keyboard events sent.";
-      showToast(submit ? "Text and Enter sent to workload." : "Text sent to workload.");
+      const keyCount = preKeys.length + postKeys.length + (submit ? 1 : 0);
+      showToast(text ? (keyCount ? "Text and keys sent to workload." : "Text sent to workload.") : "Key sent to workload.");
       return payload.input;
     } finally {
       inputBusy = false;
@@ -225,6 +226,12 @@
       if (action === "input-enter") {
         sendWorkloadInput({ submit: true }).catch((error) => showToast(`Input blocked: ${error.message}`));
       }
+      if (action === "input-backspace") {
+        sendWorkloadInput({ postKeys: ["backspace"] }).catch((error) => showToast(`Input blocked: ${error.message}`));
+      }
+      if (action === "input-clear") {
+        sendWorkloadInput({ preKeys: ["select_all", "backspace"] }).catch((error) => showToast(`Input blocked: ${error.message}`));
+      }
       if (action === "input-close") {
         hideInputPanel();
       }
@@ -243,6 +250,25 @@
           if (result && inputText) inputText.value = "";
         })
         .catch((error) => showToast(`Input blocked: ${error.message}`));
+    });
+    inputText?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const value = inputText.value || "";
+        sendWorkloadInput({ text: value, submit: true })
+          .then((result) => {
+            if (result) inputText.value = "";
+          })
+          .catch((error) => showToast(`Input blocked: ${error.message}`));
+      }
+      if (event.key === "Backspace" && !inputText.value) {
+        event.preventDefault();
+        sendWorkloadInput({ postKeys: ["backspace"] }).catch((error) => showToast(`Input blocked: ${error.message}`));
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        hideInputPanel();
+      }
     });
     updateKeyboardOffset();
     window.visualViewport?.addEventListener("resize", updateKeyboardOffset);

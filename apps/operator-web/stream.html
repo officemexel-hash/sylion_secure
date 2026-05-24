@@ -21,9 +21,11 @@
     </section>
     <form id="stream-input-panel" class="stream-input-panel" autocomplete="off" hidden>
       <label for="stream-input-text">Private input to workload</label>
-      <input id="stream-input-text" name="streamInput" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false">
+      <input id="stream-input-text" name="streamInput" type="text" inputmode="text" enterkeyhint="go" autocomplete="off" autocapitalize="none" spellcheck="false">
       <button type="submit" class="stream-control-button" data-stream-submit="text">Type</button>
       <button type="submit" class="stream-control-button" data-stream-submit="text-enter">Type + Enter</button>
+      <button type="button" class="stream-control-button" data-stream-action="input-backspace">Backspace</button>
+      <button type="button" class="stream-control-button" data-stream-action="input-clear">Clear field</button>
       <button type="button" class="stream-control-button" data-stream-action="input-enter">Enter</button>
       <button type="button" class="stream-control-button" data-stream-action="input-close">Close</button>
     </form>
@@ -40,6 +42,6 @@
     </nav>
     <p id="stream-toast" class="stream-toast" role="status" aria-live="polite"></p>
   </main>
-  <script src="/operator/stream.js?v=step3-100a"></script>
+  <script src="/operator/stream.js?v=step3-101a"></script>
 </body>
 </html>

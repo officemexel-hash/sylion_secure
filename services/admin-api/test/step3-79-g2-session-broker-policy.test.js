@@ -439,13 +439,15 @@ test("Step 3.100 workload input bridge sends metadata-only VNC key events", asyn
         SYLION_WORKLOAD_STREAM_SOURCE_READY: "true",
         SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
       },
-      workloadInputRunner: async ({ app, text, submit }) => {
-        calls.push({ app, text, submit });
+      workloadInputRunner: async ({ app, text, submit, preKeys = [], postKeys = [] }) => {
+        calls.push({ app, text, submit, preKeys, postKeys });
+        const keyEvents = [...preKeys, ...postKeys].reduce((total, key) => total + (key === "select_all" ? 2 : 1), 0);
         return {
           component: "g2_vnc_input_bridge",
           app,
           port: 15901,
-          keysSent: text.length + (submit ? 1 : 0),
+          keysSent: text.length + (submit ? 1 : 0) + keyEvents,
+          specialKeysSent: preKeys.length + postKeys.length + (submit ? 1 : 0),
           submitSent: submit,
           framebuffer: { width: 390, height: 844 },
           securityType: "none",
@@ -483,23 +485,41 @@ test("Step 3.100 workload input bridge sends metadata-only VNC key events", asyn
 
     const input = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-input", {
       method: "POST",
-      body: { templateKey: "duckduckgo_browser", text: "sylion secure", submit: true }
+      body: { templateKey: "duckduckgo_browser", preKeys: ["select_all"], text: "sylion secure", submit: true, postKeys: ["backspace"] }
     });
     assert.equal(input.input.state, "workload_input_sent");
     assert.equal(input.input.request.textLength, 13);
+    assert.equal(input.input.request.preKeyCount, 1);
+    assert.equal(input.input.request.postKeyCount, 1);
+    assert.equal(input.input.request.specialKeyCount, 3);
     assert.equal(input.input.request.contentStored, false);
     assert.equal(input.input.request.contentAudited, false);
     assert.equal(input.input.security.inputContentReturned, false);
     assert.equal(input.input.security.inputContentAudited, false);
-    assert.equal(input.input.result.keysSent, 14);
+    assert.equal(input.input.result.keysSent, 17);
+    assert.equal(input.input.result.specialKeysSent, 3);
     assert.equal(input.input.result.submitSent, true);
     assert.equal(JSON.stringify(input).includes("sylion secure"), false);
-    assert.deepEqual(calls, [{ app: "duckduckgo_browser", text: "sylion secure", submit: true }]);
+
+    const keyOnly = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-input", {
+      method: "POST",
+      body: { templateKey: "duckduckgo_browser", postKeys: ["backspace"] }
+    });
+    assert.equal(keyOnly.input.state, "workload_input_sent");
+    assert.equal(keyOnly.input.request.textLength, 0);
+    assert.equal(keyOnly.input.request.specialKeyCount, 1);
+    assert.equal(keyOnly.input.result.keysSent, 1);
+    assert.equal(keyOnly.input.result.specialKeysSent, 1);
+    assert.deepEqual(calls, [
+      { app: "duckduckgo_browser", text: "sylion secure", submit: true, preKeys: ["select_all"], postKeys: ["backspace"] },
+      { app: "duckduckgo_browser", text: "", submit: false, preKeys: [], postKeys: ["backspace"] }
+    ]);
 
     const event = app.services.audit.list().find((event) => event.action === "operator_portal.workload_input_events_sent");
     assert.ok(event);
     assert.equal(JSON.stringify(event).includes("sylion secure"), false);
     assert.equal(event.newValue.request.textLength, 13);
+    assert.equal(event.newValue.request.specialKeyCount, 3);
     assert.equal(event.newValue.request.contentStored, false);
   } finally {
     await close();

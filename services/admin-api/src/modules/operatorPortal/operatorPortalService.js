@@ -151,6 +151,20 @@ const GUACAMOLE_LOCAL_VNC_PORTS = Object.freeze({
   zangi: 15916,
   exodus: 15915
 });
+const WORKLOAD_INPUT_SPECIAL_KEYS = new Set([
+  "enter",
+  "backspace",
+  "delete",
+  "tab",
+  "escape",
+  "arrow_left",
+  "arrow_right",
+  "arrow_up",
+  "arrow_down",
+  "home",
+  "end",
+  "select_all"
+]);
 
 function isoNow() {
   return new Date().toISOString();
@@ -291,9 +305,9 @@ function spawnJsonWithStdin(command, args, { input, timeout, env, cwd } = {}) {
   });
 }
 
-async function defaultWorkloadInputRunner({ app, text, submit = false, env = process.env }) {
+async function defaultWorkloadInputRunner({ app, text, submit = false, preKeys = [], postKeys = [], env = process.env }) {
   return spawnJsonWithStdin(process.execPath, ["scripts/workload-input-bridge.mjs", `--app=${app}`], {
-    input: JSON.stringify({ text, submit }),
+    input: JSON.stringify({ text, submit, preKeys, postKeys }),
     timeout: Number(env.SYLION_WORKLOAD_INPUT_TIMEOUT_MS || 30_000),
     cwd: process.cwd(),
     env: {
@@ -1873,10 +1887,13 @@ export class OperatorPortalService {
     const appDefinition = this.#appDefinition(templateKey);
     const text = this.#safeWorkloadInputText(body.text);
     const submit = body.submit === true;
-    if (!text && !submit) {
-      throw validationError("Workload input requires text or submit=true", {
+    const preKeys = this.#safeWorkloadInputKeys(body.preKeys, "preKeys");
+    const postKeys = this.#safeWorkloadInputKeys(body.postKeys ?? body.keys, "postKeys");
+    const specialKeyCount = preKeys.length + postKeys.length;
+    if (!text && !submit && specialKeyCount === 0) {
+      throw validationError("Workload input requires text, submit=true, or an allowed special key", {
         templateKey,
-        allowed: "printable_latin1_text_or_enter_event"
+        allowed: "printable_ascii_text_or_allowed_special_key"
       });
     }
     const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
@@ -1918,6 +1935,9 @@ export class OperatorPortalService {
       request: {
         textLength: text.length,
         submit,
+        preKeyCount: preKeys.length,
+        postKeyCount: postKeys.length,
+        specialKeyCount: specialKeyCount + (submit ? 1 : 0),
         contentStored: false,
         contentAudited: false,
         terminalDataStored: false
@@ -1939,7 +1959,7 @@ export class OperatorPortalService {
 
     if (!blockers.length) {
       try {
-        const result = await this.workloadInputRunner({ app: templateKey, text, submit, env });
+        const result = await this.workloadInputRunner({ app: templateKey, text, submit, preKeys, postKeys, env });
         input.state = "workload_input_sent";
         input.result = this.#publicWorkloadInputRunnerResult(result);
       } catch (error) {
@@ -3299,12 +3319,37 @@ export class OperatorPortalService {
     return text;
   }
 
+  #safeWorkloadInputKeys(value, fieldName = "keys") {
+    if (value == null) return [];
+    const keys = Array.isArray(value) ? value : [value];
+    if (keys.length > 64) {
+      throw validationError("Too many workload input special keys", {
+        fieldName,
+        maxKeys: 64,
+        contentStored: false
+      });
+    }
+    return keys.map((key) => {
+      const normalized = String(key || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (!WORKLOAD_INPUT_SPECIAL_KEYS.has(normalized)) {
+        throw validationError("Unsupported workload input special key", {
+          fieldName,
+          key: normalized || "empty",
+          allowed: [...WORKLOAD_INPUT_SPECIAL_KEYS],
+          contentStored: false
+        });
+      }
+      return normalized;
+    });
+  }
+
   #publicWorkloadInputRunnerResult(result = {}) {
     return {
       component: String(result.component || "g2_vnc_input_bridge"),
       app: result.app || null,
       port: result.port || null,
       keysSent: Number(result.keysSent || result.charsSent || 0),
+      specialKeysSent: Number(result.specialKeysSent || 0),
       submitSent: result.submitSent === true,
       framebuffer: result.framebuffer || null,
       securityType: result.securityType || null,

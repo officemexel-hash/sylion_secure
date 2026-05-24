@@ -101,6 +101,12 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(streamJs.body, /workload-input/);
     assert.match(streamJs.body, /sendWorkloadInput/);
     assert.match(streamJs.body, /showInputPanel/);
+    assert.match(streamJs.body, /preKeys/);
+    assert.match(streamJs.body, /postKeys/);
+    assert.match(streamJs.body, /input-backspace/);
+    assert.match(streamJs.body, /select_all/);
+    assert.match(streamJs.body, /event\.key === "Enter"/);
+    assert.match(streamJs.body, /event\.key === "Backspace"/);
     assert.match(streamJs.body, /inputText\.value = ""/);
     assert.match(streamJs.body, /guacamole-handoff/);
     assert.match(streamJs.body, /bootstrapOperatorToken/);
@@ -130,11 +136,14 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.body, /id="workload-stream-frame"/);
     assert.match(html.body, /id="stream-input-panel"/);
     assert.match(html.body, /id="stream-input-text"/);
+    assert.match(html.body, /enterkeyhint="go"/);
     assert.match(html.body, /data-stream-action="keyboard"/);
     assert.match(html.body, /data-stream-action="input-enter"/);
+    assert.match(html.body, /data-stream-action="input-backspace"/);
+    assert.match(html.body, /data-stream-action="input-clear"/);
     assert.match(html.body, /frame-src https:\/\/session\.sylion\.internal/);
     assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal/);
-    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-100a"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-101a"><\/script>/);
     assert.doesNotMatch(html.body, /unsafe-inline/);
   } finally {
     await close();
