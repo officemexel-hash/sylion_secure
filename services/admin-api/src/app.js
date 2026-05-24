@@ -776,6 +776,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     env: runtimeEnv,
     store,
     liveWorkloadRunner: liveExecutionOptions.liveWorkloadRunner,
+    liveWorkloadStatusProvider: liveExecutionOptions.liveWorkloadStatusProvider,
     workloadImageManifestResolver: (appKey) => liveExecution.latestReadyWorkloadImageManifestForApp(appKey)
   });
 
@@ -893,6 +894,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "GET" && url.pathname === "/operator-api/workload-control") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { control: operatorPortal.workloadControl({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/live-workload-status") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { status: await operatorPortal.liveWorkloadStatus({ operatorActor, correlationId }) });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/workload-control/requests") {
         const operatorActor = operatorActorFromRequest(req);

@@ -156,6 +156,27 @@ h2 {
   margin: 6px 0;
 }
 
+.workload-tile {
+  border-left: 4px solid var(--border);
+}
+
+.workload-tile.status-ok {
+  border-left-color: var(--accent-ok);
+}
+
+.workload-tile.status-warn {
+  border-left-color: var(--accent-warn);
+}
+
+.workload-tile.status-error {
+  border-left-color: var(--accent-error);
+}
+
+.tile-meta {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .session-card {
   margin-bottom: 16px;
 }

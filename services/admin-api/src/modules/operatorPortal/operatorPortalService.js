@@ -194,6 +194,26 @@ async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
   } : parsed;
 }
 
+async function defaultLiveWorkloadStatusProvider({ env = process.env } = {}) {
+  const result = await execFileAsync(process.execPath, ["scripts/live-workload-status-snapshot.mjs"], {
+    timeout: Number(env.SYLION_LIVE_WORKLOAD_STATUS_TIMEOUT_MS || 60_000),
+    windowsHide: true,
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      ...env
+    },
+    maxBuffer: 4 * 1024 * 1024
+  });
+  const stdout = result.stdout.trim();
+  const start = stdout.indexOf("{");
+  const end = stdout.lastIndexOf("}");
+  if (start < 0 || end < start) {
+    throw new Error("live_workload_status_json_not_found");
+  }
+  return JSON.parse(stdout.slice(start, end + 1));
+}
+
 export class OperatorPortalService {
   constructor({
     audit,
@@ -207,6 +227,7 @@ export class OperatorPortalService {
     env = process.env,
     store = null,
     liveWorkloadRunner = defaultLiveWorkloadRunner,
+    liveWorkloadStatusProvider = defaultLiveWorkloadStatusProvider,
     workloadImageManifestResolver = null
   }) {
     this.audit = audit;
@@ -233,6 +254,8 @@ export class OperatorPortalService {
     this.workloadControlJobs = new PersistentMap({ store, collection: "operator_workload_control_jobs" });
     this.accountBootstrapSessions = new PersistentMap({ store, collection: "operator_account_bootstrap_sessions" });
     this.liveWorkloadRunner = liveWorkloadRunner;
+    this.liveWorkloadStatusProvider = liveWorkloadStatusProvider;
+    this.liveWorkloadStatusCache = null;
     this.workloadImageManifestResolver = workloadImageManifestResolver;
   }
 
@@ -397,6 +420,60 @@ export class OperatorPortalService {
         androidNativeWorkloadGate: androidRuntime
       }
     };
+  }
+
+  async liveWorkloadStatus({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const cacheTtlMs = Number(this.env?.SYLION_LIVE_WORKLOAD_STATUS_CACHE_MS || 20_000);
+    const now = Date.now();
+    if (this.liveWorkloadStatusCache && now - this.liveWorkloadStatusCache.loadedAt < cacheTtlMs) {
+      return {
+        ...this.liveWorkloadStatusCache.snapshot,
+        operatorId: operatorActor.operatorId,
+        tenantId: operatorActor.tenantId,
+        cached: true
+      };
+    }
+    try {
+      const snapshot = this.#publicLiveWorkloadStatus(await this.liveWorkloadStatusProvider({ env: this.env }));
+      this.liveWorkloadStatusCache = { loadedAt: now, snapshot };
+      return {
+        ...snapshot,
+        operatorId: operatorActor.operatorId,
+        tenantId: operatorActor.tenantId,
+        cached: false
+      };
+    } catch (error) {
+      return {
+        generatedAt: isoNow(),
+        source: "real_g2_and_ax102_metadata_probe",
+        state: "status_probe_failed",
+        operatorId: operatorActor.operatorId,
+        tenantId: operatorActor.tenantId,
+        cached: false,
+        error: error.message,
+        apps: [],
+        summary: {
+          totalApps: 0,
+          transportReady: 0,
+          workloadUiReady: 0,
+          functionalReady: 0,
+          accountTestRequired: [],
+          blocked: WORKLOAD_CONTROL_APPS
+            .filter((app) => ["whatsapp", "signal", "telegram", "threema", "zangi", "duckduckgo_browser", "libreoffice", "exodus"].includes(app.key))
+            .map((app) => app.key),
+          productionExecutionAllowed: false
+        },
+        safety: {
+          contentInspected: false,
+          messageContentStored: false,
+          walletDataStored: false,
+          terminalDataStored: false,
+          cdrRequired: true,
+          secretsPrinted: false
+        }
+      };
+    }
   }
 
   workloadControlEvidenceSummary({ operatorIds = [] } = {}) {
@@ -2116,7 +2193,7 @@ export class OperatorPortalService {
       ...(liveFirecrackerReady ? [] : ["firecracker_host_qualification_required_for_real_launch"]),
       ...(hsmFidoDeferred ? [] : ["fido2_operator_unlock_required"]),
       ...(routerDeferred || routerReadiness.readyForPhysicalSmoke ? [] : ["puli_ax_physical_package_validation_pending"]),
-      ...(routerDeferred ? [] : routerReadiness.blockers)
+      ...(routerReadiness.readyForPhysicalSmoke ? [] : routerReadiness.blockers)
     ];
     const deferredBlockers = [
       ...(hsmFidoDeferred ? ["hsm_or_secure_element_client_certificate_required", "fido2_operator_unlock_required"] : []),
@@ -2429,6 +2506,76 @@ export class OperatorPortalService {
         } : null
       } : null,
       productionExecutionAllowed: false
+    };
+  }
+
+  #publicLiveWorkloadStatus(snapshot = {}) {
+    const apps = Array.isArray(snapshot.apps) ? snapshot.apps : [];
+    return {
+      generatedAt: snapshot.generatedAt || isoNow(),
+      source: snapshot.source || "real_g2_and_ax102_metadata_probe",
+      state: snapshot.state || "observed",
+      workloadHost: snapshot.workloadHost || "AX102",
+      g2Gateway: snapshot.g2Gateway || "G2",
+      apps: apps.map((app) => ({
+        key: String(app.key || ""),
+        evidenceKey: String(app.evidenceKey || app.key || ""),
+        name: String(app.name || app.key || "unknown"),
+        host: String(app.host || ""),
+        launchUrl: String(app.launchUrl || ""),
+        runtime: String(app.runtime || "unknown"),
+        class: String(app.class || "unknown"),
+        transport: {
+          state: app.transport?.state || "blocked",
+          rootHttpStatus: app.transport?.rootHttpStatus ?? null,
+          targetHttpStatus: app.transport?.targetHttpStatus ?? null,
+          authRequired: app.transport?.authRequired === true,
+          sylionHeadersObserved: app.transport?.sylionHeadersObserved === true
+        },
+        workload: {
+          state: app.workload?.state || "blocked",
+          evidencePresent: app.workload?.evidencePresent === true,
+          checkedAt: app.workload?.checkedAt || null,
+          streamReady: app.workload?.streamReady === true,
+          streamAuthRequired: app.workload?.streamAuthRequired === true,
+          appRunning: app.workload?.appRunning === true,
+          appCrashed: app.workload?.appCrashed === true,
+          visibleWindow: app.workload?.visibleWindow === true,
+          vncBannerReady: app.workload?.vncBannerReady === true,
+          targetContentRequired: app.workload?.targetContentRequired === true,
+          targetContentVerified: app.workload?.targetContentVerified === true
+        },
+        functionalState: app.functionalState || "blocked",
+        operatorAction: app.operatorAction || "repair_route_or_workload",
+        blockers: Array.isArray(app.blockers)
+          ? app.blockers.map((blocker) => {
+            const value = String(blocker);
+            return BOOTSTRAP_SECRET_FIELD_PATTERN.test(value) ? "redacted_sensitive_blocker" : value;
+          }).slice(0, 16)
+          : [],
+        cdrRequired: true,
+        terminalDataStored: false,
+        secretsPrinted: false,
+        productionExecutionAllowed: false
+      })),
+      summary: {
+        totalApps: Number(snapshot.summary?.totalApps || apps.length),
+        transportReady: Number(snapshot.summary?.transportReady || 0),
+        workloadUiReady: Number(snapshot.summary?.workloadUiReady || 0),
+        functionalReady: Number(snapshot.summary?.functionalReady || 0),
+        accountTestRequired: Array.isArray(snapshot.summary?.accountTestRequired) ? snapshot.summary.accountTestRequired.map(String) : [],
+        blocked: Array.isArray(snapshot.summary?.blocked) ? snapshot.summary.blocked.map(String) : [],
+        pixelFitReviewRequired: Array.isArray(snapshot.summary?.pixelFitReviewRequired) ? snapshot.summary.pixelFitReviewRequired.map(String) : [],
+        productionExecutionAllowed: false
+      },
+      safety: {
+        contentInspected: false,
+        messageContentStored: false,
+        walletDataStored: false,
+        terminalDataStored: false,
+        cdrRequired: true,
+        secretsPrinted: false
+      }
     };
   }
 

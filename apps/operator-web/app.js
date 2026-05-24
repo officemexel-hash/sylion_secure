@@ -466,6 +466,50 @@
     setText("#workload-broker-status", `${broker.appName}: ${broker.state} | ${broker.authMode} | blockers: ${(broker.blockers || []).join(", ") || "none"} | ${broker.url}`);
   }
 
+  async function loadAppSwitcher() {
+    await loadOverview();
+    await loadLiveWorkloadStatus();
+  }
+
+  async function loadLiveWorkloadStatus() {
+    const launcher = $("#workload-launcher");
+    const summary = $("#live-workload-status-summary");
+    if (!launcher) return;
+    const data = await fetchJson("/operator-api/live-workload-status");
+    if (data.error) {
+      if (summary) summary.textContent = `Live status unavailable: ${data.error}`;
+      return;
+    }
+    const status = data.status || {};
+    const s = status.summary || {};
+    if (summary) {
+      summary.textContent = `Live AX102/G2 evidence ${status.cached ? "cached" : "fresh"}: transport ${s.transportReady ?? 0}/${s.totalApps ?? 0}, workload UI ${s.workloadUiReady ?? 0}/${s.totalApps ?? 0}, functional ${s.functionalReady ?? 0}/${s.totalApps ?? 0}.`;
+    }
+    launcher.innerHTML = (status.apps || []).map((app) => {
+      const tone = app.functionalState === "ui_ready"
+        ? "status-ok"
+        : app.workload?.state === "ready" && app.transport?.state !== "blocked"
+          ? "status-warn"
+          : "status-error";
+      return `
+        <a class="quick-tile workload-tile ${tone}" href="${escapeHtml(app.launchUrl || `https://${app.host}/`)}" rel="noopener">
+          <strong>${escapeHtml(app.name)}</strong>
+          <span>${escapeHtml(statusLabel(app))}</span>
+          <span class="tile-meta">G2 ${escapeHtml(app.transport?.state || "blocked")} | workload ${escapeHtml(app.workload?.state || "blocked")}</span>
+          <span class="tile-meta">action: ${escapeHtml(app.operatorAction || "review")}</span>
+        </a>
+      `;
+    }).join("") || `<div class="placeholder">No live workload evidence available.</div>`;
+  }
+
+  function statusLabel(app) {
+    if (app.functionalState === "ui_ready") return "ready from real AX102/G2 evidence";
+    if (app.functionalState === "ui_ready_account_test_required") return "UI ready, account/send-receive test required";
+    if (app.functionalState === "ui_ready_pixel_fit_review_required") return "UI ready, Pixel fit/risk review required";
+    if (app.functionalState === "blocked_android_native_provenance") return "blocked: Android-native image/APK provenance";
+    return `blocked: ${(app.blockers || []).slice(0, 2).join(", ") || "evidence missing"}`;
+  }
+
   async function recordVpnEvidence(event) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
@@ -1160,7 +1204,7 @@
 
   function loadViewData(viewId) {
     if (viewId === "overview") loadOverview();
-    if (viewId === "app-switcher") loadOverview();
+    if (viewId === "app-switcher") loadAppSwitcher();
     if (viewId === "devices") loadDevices();
     if (viewId === "workloads") loadWorkloads();
     if (viewId === "workload-control") loadWorkloadControl();

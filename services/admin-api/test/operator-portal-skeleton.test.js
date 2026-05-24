@@ -76,6 +76,7 @@ test("Operator portal serves styles.css and app.js", async () => {
     assert.match(js.contentType, /text\/javascript|application\/javascript/);
     assert.match(js.body, /detectTerminalMode/);
     assert.match(js.body, /streaming-profile/);
+    assert.match(js.body, /live-workload-status/);
     assert.match(js.body, /laptop-access-package/);
     assert.match(js.body, /bootstrapOperatorToken/);
     assert.match(js.body, /\.sylion\.internal/);

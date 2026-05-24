@@ -239,7 +239,7 @@ test("Step 3.60 workload broker normalizes DuckDuckGo and reports live route tru
 
     assert.equal(broker.payload.broker.templateKey, "duckduckgo_browser");
     assert.equal(broker.payload.broker.appName, "DuckDuckGo Browser");
-    assert.equal(broker.payload.broker.url, "https://duckduckgo.sylion.internal/vnc.html");
+    assert.equal(broker.payload.broker.url, "https://duckduckgo.sylion.internal/vnc.html?autoconnect=true&resize=remote&path=websockify");
     assert.equal(broker.payload.broker.routeStatus.ready, true);
     assert.equal(broker.payload.broker.routeStatus.httpStatus, 200);
     assert.equal(broker.payload.broker.handoff.storesOperationalDataOnTerminal, false);
