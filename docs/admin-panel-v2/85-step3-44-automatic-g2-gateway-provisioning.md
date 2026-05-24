@@ -13,7 +13,7 @@ When an admin creates an operator with `liveBaseline.enabled=true`, the Admin AP
 - Internal host routes for admin/operator panels and workload apps.
 - Thin-client safety headers.
 - CDR-required headers.
-- Root-only Signal auth handoff include.
+- Root-only per-app KasmVNC auth handoff includes.
 - Production gates for Zangi and Exodus.
 
 The admin can still provide explicit `liveBaseline.userDataByRole.G2` for a specialized deployment, but the default path no longer creates a bare G2.
@@ -23,10 +23,10 @@ The Hetzner live operator script now uses the same artifact builder, so scripted
 ## Security Properties
 
 - No provider API token is returned in the operator creation response.
-- No Signal workload password is embedded in generated G2 cloud-init.
-- No static Signal workload password is embedded in generated WORKLOAD cloud-init.
-- Signal VNC password is generated on the WORKLOAD VPS into a root-only env file.
-- Signal auth is delegated to `/etc/nginx/snippets/sylion-signal-auth.conf`.
+- No KasmVNC workload password is embedded in generated G2 cloud-init.
+- No static workload password is embedded in generated WORKLOAD cloud-init.
+- KasmVNC stream passwords are generated on WORKLOAD into root-only env files.
+- KasmVNC auth is delegated to per-app snippets such as `/etc/nginx/snippets/sylion-kasm-auth-signal.conf` and `/etc/nginx/snippets/sylion-kasm-auth-duckduckgo.conf`.
 - G2 remains the workload access broker.
 - Terminal-side operational data remains forbidden.
 - Workload file ingress/egress remains CDR-gated.
@@ -64,13 +64,13 @@ Assertions:
 - live operator creation passes G2 user-data to the provider adapter,
 - generated G2 user-data includes workload hostnames,
 - generated G2 user-data includes thin-client/CDR headers,
-- generated G2 user-data contains no Signal password,
+- generated G2 user-data contains no KasmVNC workload password,
 - generated WORKLOAD user-data creates private workload containers,
-- generated WORKLOAD user-data creates Signal password on the VPS, not in repo,
+- generated WORKLOAD user-data creates workload stream passwords on the VPS, not in repo,
 - response includes artifact summary for the G2 gateway.
 
 ## Next
 
-1. Add root-only Signal auth handoff automation from WORKLOAD to G2 after both hosts boot.
+1. Run per-app KasmVNC auth handoff automatically after G2 and WORKLOAD both report boot evidence.
 2. Add operator-visible reset/recreate actions wired to live runtime operations.
 3. Extend Pixel regression to click app switching and reset/recreate flows.

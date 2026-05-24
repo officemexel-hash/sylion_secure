@@ -15,9 +15,13 @@ test("Step 3.42 G2 workload gateway plan preserves thin-client security invarian
   assert.equal(plan.invariants.signalNativeNoVncUpstream, true);
 
   const signal = plan.apps.find((app) => app.key === "signal");
-  assert.equal(signal.authMode, "none");
+  assert.equal(signal.authMode, "root_only_nginx_include");
   assert.equal(signal.noVnc, true);
   assert.equal(signal.upstream, "http://10.44.0.13:3013");
+
+  const duck = plan.apps.find((app) => app.key === "duckduckgo");
+  assert.equal(duck.authMode, "root_only_nginx_include");
+  assert.equal(duck.upstream, "http://10.44.0.13:3001");
 
   const zangi = plan.apps.find((app) => app.key === "zangi");
   assert.equal(zangi.noVnc, true);
@@ -40,6 +44,8 @@ test("Step 3.42 rendered gateway config has no embedded workload password and no
   assert.doesNotMatch(config, /a2FzbV91c2VyOnN5bGlvbi1zaWduYWwtbG9jYWw=/);
   assert.match(config, /server_name signal\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=remote&path=websockify;/);
   assert.doesNotMatch(config, /include \/etc\/nginx\/snippets\/sylion-signal-auth\.conf;/);
+  assert.match(config, /server_name duckduckgo\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-duckduckgo\.conf;/);
+  assert.match(config, /server_name signal\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-signal\.conf;/);
   assert.doesNotMatch(config, /proxy_ssl_verify off;/);
   assert.match(config, /server_name signal\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.44\.0\.13:3013;/);
   assert.match(config, /server_name duckduckgo\.sylion\.internal;[\s\S]+return 302 \/vnc\.html\?autoconnect=true&resize=remote&path=websockify;/);

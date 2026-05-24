@@ -62,7 +62,16 @@ Pixel testing found a black DuckDuckGo stream with a visible cursor. The transpo
 
 Repair:
 
-- Recreated DuckDuckGo as a fresh Firecracker GUI workload with TigerVNC/noVNC on AX102.
-- Verified G2 stream route returns `200`, noVNC marker is present, and `visibleWindow=true`.
-- Re-tested from Pixel and confirmed the DuckDuckGo page and search field are visible through `/operator/stream.html?app=duckduckgo_browser`.
+- Recreated DuckDuckGo as a fresh Firecracker GUI workload with TigerVNC/noVNC only as an emergency diagnostic fallback.
 - Tightened the runner so KasmVNC can no longer convert `appRunning=true` into `visibleWindow=true`.
+- Restored KasmVNC as the default Firecracker GUI streaming backend.
+- Added explicit `XAUTHORITY=/home/sylion/.Xauthority` to app launch under KasmVNC so the operator application binds to the real Kasm display.
+- Added a KasmVNC startup background marker so a black framebuffer with only a cursor remains a failed visual test unless the workload window is actually visible.
+- Re-test requirement: DuckDuckGo must pass with `vncBackend=kasmvnc`, `streamAuthRequired=true`, `visibleWindow=true`, and visible Pixel pixels through `/operator/stream.html?app=duckduckgo_browser`.
+
+Live result:
+
+- AX102 DuckDuckGo Firecracker run `gui-duckduckgo-kasmvnc-restore-20260524-1` passed with `vncBackend=kasmvnc`, `streamReady=true`, `streamAuthRequired=true`, `visibleWindow=true`, `targetContentVerified=true`, and no blockers.
+- G2 gateway now uses root-only per-app KasmVNC auth snippets so the Pixel iframe does not stop on a browser Basic Auth prompt.
+- Per-app G2 auth handoff smoke passed for DuckDuckGo, LibreOffice, WhatsApp, Telegram, Threema, Signal, and Exodus with HTTP `200`, stream marker present, `X-Sylion-Terminal-Data-Stored: false`, and `X-Sylion-Workload-Gateway: g2`.
+- Pixel visual retest passed: DuckDuckGo rendered through `operator.sylion.internal/operator/stream.html?app=duckduckgo_browser`, KasmVNC floating keyboard opened the Pixel keyboard, a non-secret probe string was typed, and DuckDuckGo search results loaded.

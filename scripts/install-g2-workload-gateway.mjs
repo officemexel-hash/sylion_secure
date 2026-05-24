@@ -8,17 +8,53 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 const apps = [
-  { key: "duckduckgo", serverName: "duckduckgo.sylion.internal", upstreamScheme: "http", upstreamPort: 3001, noVnc: true },
-  { key: "libreoffice", serverName: "libreoffice.sylion.internal", upstreamScheme: "http", upstreamPort: 3002, noVnc: true },
-  { key: "whatsapp", serverName: "whatsapp.sylion.internal", upstreamScheme: "http", upstreamPort: 3010, noVnc: true },
-  { key: "telegram", serverName: "telegram.sylion.internal", upstreamScheme: "http", upstreamPort: 3011, noVnc: true },
-  { key: "threema", serverName: "threema.sylion.internal", upstreamScheme: "http", upstreamPort: 3012, noVnc: true },
+  {
+    key: "duckduckgo",
+    serverName: "duckduckgo.sylion.internal",
+    upstreamScheme: "http",
+    upstreamPort: 3001,
+    noVnc: true,
+    authInclude: "/etc/nginx/snippets/sylion-kasm-auth-duckduckgo.conf"
+  },
+  {
+    key: "libreoffice",
+    serverName: "libreoffice.sylion.internal",
+    upstreamScheme: "http",
+    upstreamPort: 3002,
+    noVnc: true,
+    authInclude: "/etc/nginx/snippets/sylion-kasm-auth-libreoffice.conf"
+  },
+  {
+    key: "whatsapp",
+    serverName: "whatsapp.sylion.internal",
+    upstreamScheme: "http",
+    upstreamPort: 3010,
+    noVnc: true,
+    authInclude: "/etc/nginx/snippets/sylion-kasm-auth-whatsapp.conf"
+  },
+  {
+    key: "telegram",
+    serverName: "telegram.sylion.internal",
+    upstreamScheme: "http",
+    upstreamPort: 3011,
+    noVnc: true,
+    authInclude: "/etc/nginx/snippets/sylion-kasm-auth-telegram.conf"
+  },
+  {
+    key: "threema",
+    serverName: "threema.sylion.internal",
+    upstreamScheme: "http",
+    upstreamPort: 3012,
+    noVnc: true,
+    authInclude: "/etc/nginx/snippets/sylion-kasm-auth-threema.conf"
+  },
   {
     key: "signal",
     serverName: "signal.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3013,
-    noVnc: true
+    noVnc: true,
+    authInclude: "/etc/nginx/snippets/sylion-kasm-auth-signal.conf"
   },
   {
     key: "zangi",
@@ -33,7 +69,8 @@ const apps = [
     serverName: "exodus.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3015,
-    noVnc: true
+    noVnc: true,
+    authInclude: "/etc/nginx/snippets/sylion-kasm-auth-exodus.conf"
   }
 ];
 
@@ -184,40 +221,24 @@ async function deploy(plan) {
 
   const remoteTemp = "/tmp/sylion-g2-broker.next";
   await run("scp", ["-i", sshKey, "-o", "StrictHostKeyChecking=accept-new", configPath, `${plan.gateway.host}:${remoteTemp}`], { timeout: 60_000 });
+  const authIncludes = plan.apps
+    .filter((app) => app.authInclude)
+    .map((app) => app.authInclude);
+  const ensureAuthSnippets = authIncludes.map((path) => `
+if [ ! -f ${path} ]; then
+  sudo install -o root -g root -m 0600 /dev/null ${path}
+  echo '# Populated by SYLION KasmVNC auth handoff. Do not store workload passwords in generated config.' | sudo tee ${path} >/dev/null
+fi
+sudo chmod 0600 ${path}
+`).join("\n");
   const remoteScript = `
 set -euo pipefail
-existing_auth="$(
-  sudo awk '/proxy_set_header Authorization/ { print; exit }' /etc/nginx/snippets/sylion-signal-auth.conf 2>/dev/null || true
-)"
-if [ -z "$existing_auth" ]; then
-  existing_auth="$(
-    sudo awk '/proxy_set_header Authorization/ { print; exit }' ${plan.gateway.configPath} 2>/dev/null || true
-  )"
-fi
-if [ -z "$existing_auth" ]; then
-  existing_auth="$(
-    sudo grep -R -h 'proxy_set_header Authorization' /etc/nginx/sites-available /etc/nginx/conf.d 2>/dev/null | head -1 || true
-  )"
-fi
 sudo install -o root -g root -m 0600 /dev/null /etc/nginx/snippets/sylion-signal-auth.conf
-if [ -n "$existing_auth" ]; then
-  printf '%s\n' "$existing_auth" | sudo tee /etc/nginx/snippets/sylion-signal-auth.conf >/dev/null
-else
-  echo '# SYLION Signal auth handoff is intentionally provisioned out-of-band by the operator secret flow.' | sudo tee /etc/nginx/snippets/sylion-signal-auth.conf >/dev/null
-fi
+echo '# Legacy Signal auth snippet retained for migration; KasmVNC handoff uses per-app snippets.' | sudo tee /etc/nginx/snippets/sylion-signal-auth.conf >/dev/null
 sudo chmod 0600 /etc/nginx/snippets/sylion-signal-auth.conf
+${ensureAuthSnippets}
 sudo install -o root -g root -m 0644 ${remoteTemp} ${plan.gateway.configPath}
 sudo install -o root -g root -m 0644 /dev/null ${plan.gateway.extraConfigPath}
-if [ ! -f /etc/nginx/snippets/sylion-signal-auth.conf ]; then
-  sudo install -o root -g root -m 0600 /dev/null /etc/nginx/snippets/sylion-signal-auth.conf
-  existing_auth="$(sudo awk '/proxy_set_header Authorization/ { print; exit }' ${plan.gateway.configPath} 2>/dev/null || true)"
-  if [ -n "$existing_auth" ]; then
-    printf '%s\n' "$existing_auth" | sudo tee /etc/nginx/snippets/sylion-signal-auth.conf >/dev/null
-  else
-    echo '# SYLION Signal auth handoff is intentionally provisioned out-of-band by the operator secret flow.' | sudo tee /etc/nginx/snippets/sylion-signal-auth.conf >/dev/null
-  fi
-  sudo chmod 0600 /etc/nginx/snippets/sylion-signal-auth.conf
-fi
 sudo nginx -t
 sudo systemctl reload nginx
 sudo ss -ltnp | grep '${plan.gateway.bindAddress}:443'

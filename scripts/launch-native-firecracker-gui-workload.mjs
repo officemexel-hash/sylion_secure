@@ -246,7 +246,7 @@ const display = {
   windowWidth: Number(process.env.SYLION_GUI_WINDOW_WIDTH || profile.windowWidth || process.env.SYLION_GUI_DISPLAY_WIDTH || profile.displayWidth || 960),
   windowHeight: Number(process.env.SYLION_GUI_WINDOW_HEIGHT || profile.windowHeight || process.env.SYLION_GUI_DISPLAY_HEIGHT || profile.displayHeight || 1680)
 };
-const vncBackend = process.env.SYLION_GUI_VNC_BACKEND || profile.vncBackend || "tigervnc";
+const vncBackend = process.env.SYLION_GUI_VNC_BACKEND || profile.vncBackend || "kasmvnc";
 if (!["tigervnc", "x11vnc", "xorg-x11vnc", "weston-vnc", "kasmvnc"].includes(vncBackend)) {
   throw new Error(`Unsupported GUI VNC backend ${vncBackend}; supported=tigervnc,x11vnc,xorg-x11vnc,weston-vnc,kasmvnc`);
 }
@@ -736,6 +736,7 @@ elif [ "$vnc_backend" = "kasmvnc" ] && command -v kasmvncserver >/dev/null 2>&1;
 #!/bin/sh
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
+xsetroot -solid '#071014' >/tmp/sylion-xsetroot.log 2>&1 || true
 openbox-session >/tmp/sylion-openbox.log 2>&1 &
 EOF_KASM_XSTARTUP
   chmod 0755 /etc/sylion/kasm-xstartup
@@ -856,7 +857,7 @@ else
   if [ "$vnc_backend" = "weston-vnc" ]; then
     su -s /bin/sh sylion -c 'export HOME=/home/sylion USER=sylion LOGNAME=sylion XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=sylion-gui-wayland XDG_SESSION_TYPE=wayland GDK_BACKEND=wayland MOZ_ENABLE_WAYLAND=1; ${launchCommand} >/tmp/sylion-app.log 2>&1' &
   else
-    su -s /bin/sh sylion -c 'export DISPLAY=:1 HOME=/home/sylion USER=sylion LOGNAME=sylion XDG_RUNTIME_DIR=/run/user/1000 XDG_SESSION_TYPE=x11 GDK_BACKEND=x11; ${launchCommand} >/tmp/sylion-app.log 2>&1' &
+    su -s /bin/sh sylion -c 'export DISPLAY=:1 XAUTHORITY=/home/sylion/.Xauthority HOME=/home/sylion USER=sylion LOGNAME=sylion XDG_RUNTIME_DIR=/run/user/1000 XDG_SESSION_TYPE=x11 GDK_BACKEND=x11; ${launchCommand} >/tmp/sylion-app.log 2>&1' &
   fi
 fi
 app_pid="$!"

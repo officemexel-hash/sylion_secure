@@ -34,6 +34,7 @@
     "live:workload-guacamole-vnc-forwards": "node scripts/install-workload-guacamole-vnc-forwards.mjs --apply",
     "live:g2-guacamole-connections": "node scripts/seed-g2-guacamole-workload-connections.mjs --apply",
     "live:signal-auth-handoff": "node scripts/sync-signal-auth-handoff.mjs --apply",
+    "live:kasm-auth-handoff": "node scripts/sync-kasm-auth-handoff.mjs --app=all --apply",
     "live:workload-recreate": "node scripts/live-workload-recreate.mjs --apply",
     "live:android-native-probe": "node scripts/android-native-workload-probe.mjs",
     "live:android-binderfs-gate": "node scripts/install-android-binderfs-host-gate.mjs",

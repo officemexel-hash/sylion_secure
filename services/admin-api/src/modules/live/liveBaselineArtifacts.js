@@ -3,14 +3,14 @@ const DEFAULT_ADMIN_UPSTREAM = "http://10.42.0.10:8080";
 const DEFAULT_WORKLOAD_BIND = "10.42.0.13";
 
 const WORKLOAD_APPS = Object.freeze([
-  { key: "duckduckgo", host: "duckduckgo.sylion.internal", scheme: "http", port: 3001 },
-  { key: "libreoffice", host: "libreoffice.sylion.internal", scheme: "http", port: 3002 },
-  { key: "whatsapp", host: "whatsapp.sylion.internal", scheme: "http", port: 3010 },
-  { key: "telegram", host: "telegram.sylion.internal", scheme: "http", port: 3011 },
-  { key: "threema", host: "threema.sylion.internal", scheme: "http", port: 3012 },
-  { key: "signal", host: "signal.sylion.internal", scheme: "https", port: 3013, authSnippet: true, proxySslVerify: false },
+  { key: "duckduckgo", host: "duckduckgo.sylion.internal", scheme: "http", port: 3001, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-duckduckgo.conf" },
+  { key: "libreoffice", host: "libreoffice.sylion.internal", scheme: "http", port: 3002, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-libreoffice.conf" },
+  { key: "whatsapp", host: "whatsapp.sylion.internal", scheme: "http", port: 3010, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-whatsapp.conf" },
+  { key: "telegram", host: "telegram.sylion.internal", scheme: "http", port: 3011, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-telegram.conf" },
+  { key: "threema", host: "threema.sylion.internal", scheme: "http", port: 3012, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-threema.conf" },
+  { key: "signal", host: "signal.sylion.internal", scheme: "http", port: 3013, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-signal.conf" },
   { key: "zangi", host: "zangi.sylion.internal", scheme: "http", port: 3014, productionGate: "android_native_runner_required" },
-  { key: "exodus", host: "exodus.sylion.internal", scheme: "http", port: 3015, productionGate: "isolated_wallet_runtime_required" }
+  { key: "exodus", host: "exodus.sylion.internal", scheme: "http", port: 3015, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-exodus.conf", productionGate: "isolated_wallet_runtime_required" }
 ]);
 
 function yamlBlock(value, indent = "      ") {
@@ -57,7 +57,7 @@ ${commonProxyHeaders()}
   }
 }`;
   const workloads = WORKLOAD_APPS.map((app) => {
-    const auth = app.authSnippet ? "    include /etc/nginx/snippets/sylion-signal-auth.conf;\n" : "";
+    const auth = app.authSnippet ? `    include ${app.authSnippet};\n` : "";
     const proxySsl = app.proxySslVerify === false ? "    proxy_ssl_verify off;\n" : "";
     const gate = app.productionGate ? `    add_header X-Sylion-Production-Gate "${app.productionGate}" always;\n` : "";
     return `server {
@@ -107,17 +107,18 @@ ${yamlBlock(JSON.stringify({
     noTerminalOperationalData: true,
     noG1G2Bypass: true,
     cdrRequiredForFileTransfer: true,
-    signalAuthMode: "root_only_nginx_include",
+    kasmAuthMode: "root_only_per_app_nginx_include",
     productionExecutionAllowed: false
   }, null, 2))}
   - path: /etc/nginx/sites-available/sylion-g2-broker
     permissions: "0644"
     content: |
 ${yamlBlock(nginxConfig)}
-  - path: /etc/nginx/snippets/sylion-signal-auth.conf
+${WORKLOAD_APPS.filter((app) => app.authSnippet).map((app) => `  - path: ${app.authSnippet}
     permissions: "0600"
     content: |
-      # Populated by the operator secret handoff flow. Do not store Signal workload passwords in cloud-init.
+      # Populated by the operator secret handoff flow. Do not store KasmVNC workload passwords in cloud-init.
+`).join("")}
 runcmd:
   - [ bash, -lc, "install -d -m 0755 /etc/sylion/tls" ]
   - [ bash, -lc, "if [ ! -f /etc/sylion/tls/sylion-internal.key ]; then openssl req -x509 -nodes -newkey rsa:3072 -days 30 -subj '/CN=*.sylion.internal' -keyout /etc/sylion/tls/sylion-internal.key -out /etc/sylion/tls/sylion-internal.crt >/dev/null 2>&1; fi" ]
@@ -260,7 +261,7 @@ export function liveBaselineArtifactSummary({ gatewayBind = DEFAULT_GATEWAY_BIND
         "operator.sylion.internal",
         ...WORKLOAD_APPS.map((app) => app.host)
       ],
-      signalAuthMode: "root_only_nginx_include",
+      kasmAuthMode: "root_only_per_app_nginx_include",
       noTerminalOperationalData: true,
       cdrRequiredForFileTransfer: true,
       productionExecutionAllowed: false

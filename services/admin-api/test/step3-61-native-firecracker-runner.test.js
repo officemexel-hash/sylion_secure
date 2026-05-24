@@ -32,7 +32,7 @@ test("Step 3.61 AX102 Firecracker GUI runner exposes separate app profiles witho
     windowWidth: 960,
     windowHeight: 1680
   });
-  assert.equal(duck.vncBackend, "tigervnc");
+  assert.equal(duck.vncBackend, "kasmvnc");
   assert.equal(duck.productionExecutionAllowed, false);
 
   const libreOffice = await planFor("libreoffice");
@@ -75,6 +75,9 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /stream-secrets/);
   assert.match(source, /install -m 0600 "\$stream_secret_file" "\$stream_credential_ref"/);
   assert.match(source, /allow_client_to_override_kasm_server_settings: false/);
+  assert.match(source, /profile\.vncBackend \|\| "kasmvnc"/);
+  assert.match(source, /xsetroot -solid '#071014'/);
+  assert.match(source, /DISPLAY=:1 XAUTHORITY=\/home\/sylion\/\.Xauthority HOME=\/home\/sylion/);
   assert.match(source, /xhost \+SI:localuser:root/);
   assert.match(source, /Signal\|signal\|LibreOffice\|libreoffice/);
   assert.doesNotMatch(source, /search --name '\\.'/);
@@ -111,4 +114,19 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /--use-gl=swiftshader/);
   assert.match(source, /--disable-features=UseOzonePlatform,VizDisplayCompositor/);
   assert.match(source, /blockers:\$blockers/);
+});
+
+test("Step 3.61 KasmVNC auth handoff is per-app and never prints secrets", async () => {
+  const source = await readFile("scripts/sync-kasm-auth-handoff.mjs", "utf8");
+
+  assert.match(source, /sylion-kasm-auth-duckduckgo\.conf/);
+  assert.match(source, /sylion-kasm-auth-signal\.conf/);
+  assert.match(source, /secretDir: "\/opt\/sylion-firecracker\/stream-secrets"/);
+  assert.match(source, /const secretFile = `\$\{defaults\.secretDir\}\/\$\{appKey\}\.env`/);
+  assert.match(source, /proxy_set_header Authorization "Basic \$\{auth\}"/);
+  assert.match(source, /secretPrinted: false/);
+  assert.match(source, /noSecretInRepo: true/);
+  assert.match(source, /g2BrokerOnly: true/);
+  assert.doesNotMatch(source, /console\.log\([^)]*password/i);
+  assert.doesNotMatch(source, /console\.log\([^)]*auth/i);
 });

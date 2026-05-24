@@ -156,7 +156,8 @@ test("Step 3.33 operator creation can create a gated live G1/G2/WORKLOAD baselin
     assert.match(providerCalls[0].userDataByRole.G2, /server_name signal\.sylion\.internal/);
     assert.match(providerCalls[0].userDataByRole.G2, /X-Sylion-Terminal-Data-Stored/);
     assert.match(providerCalls[0].userDataByRole.G2, /X-Sylion-CDR-Required/);
-    assert.match(providerCalls[0].userDataByRole.G2, /\/etc\/nginx\/snippets\/sylion-signal-auth\.conf/);
+    assert.match(providerCalls[0].userDataByRole.G2, /\/etc\/nginx\/snippets\/sylion-kasm-auth-signal\.conf/);
+    assert.match(providerCalls[0].userDataByRole.G2, /\/etc\/nginx\/snippets\/sylion-kasm-auth-duckduckgo\.conf/);
     assert.doesNotMatch(providerCalls[0].userDataByRole.G2, /sylion-signal-local|a2FzbV91c2Vy/);
     assert.match(providerCalls[0].userDataByRole.WORKLOAD, /sylion-start-workloads\.sh/);
     assert.match(providerCalls[0].userDataByRole.WORKLOAD, /openssl rand -base64 24/);
