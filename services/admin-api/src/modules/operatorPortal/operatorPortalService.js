@@ -1711,6 +1711,7 @@ export class OperatorPortalService {
     const expiresAt = new Date(Date.now() + this.#guacamoleHandoffTtlMs()).toISOString();
     const baseUrl = this.#guacamoleBaseUrl();
     const connectionName = this.#guacamoleConnectionName(templateKey);
+    const clientIdentifier = this.#guacamoleClientIdentifier(connectionName);
     const handoff = {
       id: newId("guac_handoff"),
       operatorId: operatorActor.operatorId,
@@ -1726,6 +1727,7 @@ export class OperatorPortalService {
         url: baseUrl,
         mode: "encrypted_json_auth",
         connectionName,
+        clientIdentifier,
         requiredLayer: "G2",
         guacdTlsRequired: true,
         g2ToWorkloadEncryptedRequired: true
@@ -1744,6 +1746,10 @@ export class OperatorPortalService {
         plaintextCredentialsReturned: false,
         tokenMaterialStored: false,
         auditStoresLaunchUrl: false,
+        guacamoleStateResetBeforeLaunch: ready,
+        jsonAuthDataInBrowserFragmentOnly: ready,
+        guacamoleTokenMintedBySessionOriginShim: ready,
+        guacamoleTokenInBrowserFragmentOnly: ready,
         clipboardEnabled: false,
         fileTransfer: "disabled_until_cdr_gate",
         cdrRequired: true,
@@ -1764,9 +1770,11 @@ export class OperatorPortalService {
         expiresAt
       });
       const encrypted = this.#encryptGuacamoleJsonAuthPayload(payload, key);
-      const url = new URL(baseUrl);
-      url.searchParams.set("data", encrypted);
-      handoff.launchUrl = url.toString();
+      handoff.launchUrl = this.#guacamoleLaunchShimUrl({
+        baseUrl,
+        clientIdentifier,
+        encrypted
+      });
     }
 
     this.audit.record({
@@ -3338,6 +3346,14 @@ export class OperatorPortalService {
     return definition ? `SYLION ${definition.name}` : `SYLION ${templateKey}`;
   }
 
+  #guacamoleClientIdentifier(connectionName) {
+    return Buffer.from(`${connectionName}\0c\0json`, "utf8")
+      .toString("base64")
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replace(/=+$/g, "");
+  }
+
   #guacamoleBaseUrl() {
     const raw = String(this.env?.SYLION_GUACAMOLE_BASE_URL || "https://session.sylion.internal/guacamole/").trim();
     try {
@@ -3354,6 +3370,16 @@ export class OperatorPortalService {
       if (error instanceof AppError) throw error;
       throw validationError("Invalid Guacamole base URL", { url: raw });
     }
+  }
+
+  #guacamoleLaunchShimUrl({ baseUrl, clientIdentifier, encrypted }) {
+    const url = new URL(baseUrl);
+    const shimUrl = new URL("/sylion-launch.html", url.origin);
+    const params = new URLSearchParams();
+    params.set("client", clientIdentifier);
+    params.set("data", encrypted);
+    shimUrl.hash = params.toString();
+    return shimUrl.toString();
   }
 
   #guacamoleJsonSecretKey() {

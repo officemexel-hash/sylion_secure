@@ -525,7 +525,7 @@ async function run() {
   pageResults.admin = await openUrl(pixel.serial, `${adminInternalBaseUrl}/admin`, "pixel-admin-panel");
   pageResults.operator = await openUrl(
     pixel.serial,
-    `${operatorInternalBaseUrl}/operator?op_token=${encodeURIComponent(seed.operatorSession.token)}#app-switcher`,
+    `${operatorInternalBaseUrl}/operator#app-switcher&op_token=${encodeURIComponent(seed.operatorSession.token)}`,
     "pixel-operator-app-switcher"
   );
 

@@ -144,7 +144,7 @@ async function run() {
       issues.push("Laptop browser did not render recognizable admin panel text.");
     }
 
-    const operatorUrl = `${baseUrl}/operator?op_token=${encodeURIComponent(seeded.session.token)}#${operatorView}`;
+    const operatorUrl = `${baseUrl}/operator#${operatorView}&op_token=${encodeURIComponent(seeded.session.token)}`;
     await page.goto(operatorUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
     await page.waitForTimeout(1500);
     screenshots.operator = await screenshot(page, "laptop-operator-panel");

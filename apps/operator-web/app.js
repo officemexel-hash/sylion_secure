@@ -14,16 +14,43 @@
     cookieBound: false
   };
 
+  function parseHashState() {
+    const rawHash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+    if (!rawHash) return { viewId: "overview", params: new URLSearchParams() };
+    const firstPart = rawHash.split("&", 1)[0];
+    if (firstPart && !firstPart.includes("=")) {
+      return {
+        viewId: firstPart,
+        params: new URLSearchParams(rawHash.slice(firstPart.length).replace(/^&/, ""))
+      };
+    }
+    const params = new URLSearchParams(rawHash);
+    return {
+      viewId: params.get("view") || "overview",
+      params
+    };
+  }
+
+  function hashFromState(viewId, hashParams) {
+    const params = new URLSearchParams(hashParams);
+    params.delete("view");
+    const query = params.toString();
+    return `#${viewId || "overview"}${query ? `&${query}` : ""}`;
+  }
+
   async function bootstrapOperatorToken() {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("op_token");
+    const hashState = parseHashState();
+    const token = params.get("op_token") || hashState.params.get("op_token");
     const localhost = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname);
     const internalHost = window.location.protocol === "https:" && window.location.hostname.endsWith(".sylion.internal");
     if (token && (localhost || internalHost) && token.startsWith("op_")) {
       state.operatorToken = token;
       params.delete("op_token");
+      hashState.params.delete("op_token");
       const cleanSearch = params.toString();
-      window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${window.location.hash}`);
+      const cleanHash = hashFromState(hashState.viewId, hashState.params);
+      window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${cleanHash}`);
       const attached = await attachOperatorSessionCookie();
       if (!attached) {
         sessionStorage.setItem("sylion.operator.token", token);
@@ -1316,7 +1343,7 @@
       const source = state.cookieBound ? "cookie-bound" : "active";
       setText("#session-status", `Session ${source} for ${state.session.operatorId} (${state.session.terminalMode})`);
     }
-    const initialView = (location.hash || "#overview").replace("#", "");
+    const initialView = parseHashState().viewId;
     setActiveView(initialView);
     loadViewData(initialView);
     updateSessionCountdown();

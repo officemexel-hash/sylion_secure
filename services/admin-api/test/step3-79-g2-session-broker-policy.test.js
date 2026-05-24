@@ -6,6 +6,8 @@ import { AdminApiClient } from "../src/sdk/adminApiClient.js";
 import {
   publicPlan as guacamolePlan,
   renderCompose as renderGuacamoleCompose,
+  renderLaunchShimHtml,
+  renderLaunchShimJs,
   renderNginx as renderGuacamoleNginx
 } from "../../../scripts/install-g2-guacamole-broker.mjs";
 
@@ -106,10 +108,16 @@ function decryptGuacamoleData(data, secretHex) {
   return JSON.parse(json.toString("utf8"));
 }
 
+function decodeBase64Url(value) {
+  return Buffer.from(value.replaceAll("-", "+").replaceAll("_", "/"), "base64").toString("utf8");
+}
+
 test("Step 3.79 Guacamole deploy plan stays private and does not print secrets", () => {
   const plan = guacamolePlan();
   const compose = renderGuacamoleCompose();
   const nginx = renderGuacamoleNginx();
+  const launchShimHtml = renderLaunchShimHtml();
+  const launchShimJs = renderLaunchShimJs();
 
   assert.equal(plan.gateway.bindAddress, "10.42.0.12");
   assert.equal(plan.gateway.serverName, "session.sylion.internal");
@@ -121,6 +129,7 @@ test("Step 3.79 Guacamole deploy plan stays private and does not print secrets",
   assert.equal(plan.invariants.jsonAuthHandoffEnabled, true);
   assert.equal(plan.runtime.jsonAuthSecretPrinted, false);
   assert.equal(plan.runtime.postgresPasswordPrinted, false);
+  assert.equal(plan.runtime.publicDir, "/opt/sylion-guacamole/public");
   assert.match(compose, /guacamole\/guacamole:1\.6\.0/);
   assert.match(compose, /guacamole\/guacd:1\.6\.0/);
   assert.match(compose, /GUACD_SSL: "true"/);
@@ -140,7 +149,25 @@ test("Step 3.79 Guacamole deploy plan stays private and does not print secrets",
   assert.match(nginx, /X-Sylion-Session-Broker "guacamole"/);
   assert.match(nginx, /X-Sylion-Guacd-Transport "tls"/);
   assert.match(nginx, /X-Sylion-File-Transfer "disabled_until_cdr_gate"/);
+  assert.match(nginx, /location = \/sylion-launch\.html/);
+  assert.match(nginx, /location = \/sylion-launch\.js/);
+  assert.match(nginx, /X-Sylion-Session-Launch-Shim "guacamole_state_reset"/);
+  assert.match(nginx, /Content-Security-Policy "default-src 'none'; script-src 'self'; connect-src 'self'/);
+  assert.match(nginx, /frame-ancestors https:\/\/operator\.sylion\.internal/);
+  assert.doesNotMatch(nginx, /frame-ancestors 'none'/);
   assert.doesNotMatch(nginx, /listen 0\.0\.0\.0/);
+  assert.match(launchShimHtml, /<script src="\/sylion-launch\.js"><\/script>/);
+  assert.match(launchShimJs, /localStorage\.key/);
+  assert.match(launchShimJs, /key\.startsWith\("GUAC_"\)/);
+  assert.match(launchShimJs, /sessionStorage\.clear/);
+  assert.match(launchShimJs, /params\.get\("client"\)/);
+  assert.match(launchShimJs, /params\.get\("data"\)/);
+  assert.match(launchShimJs, /fetch\("\/guacamole\/api\/tokens"/);
+  assert.match(launchShimJs, /credentials: "omit"/);
+  assert.match(launchShimJs, /referrerPolicy: "no-referrer"/);
+  assert.match(launchShimJs, /window\.location\.replace\(`\/guacamole\/#\/client\//);
+  assert.match(launchShimJs, /window\.history\.replaceState/);
+  assert.doesNotMatch(launchShimJs, /http:|https:|eval|innerHTML|document\.cookie/);
 });
 
 test("Step 3.79 noVNC is blocked as lab-only session broker", async () => {
@@ -345,17 +372,38 @@ test("Step 3.91 Guacamole JSON handoff returns encrypted app-scoped launch URL w
       body: { templateKey: "signal", width: 390, height: 844, dpr: 3 }
     });
     assert.equal(handoff.handoff.state, "guacamole_handoff_ready");
-    assert.match(handoff.handoff.launchUrl, /^https:\/\/session\.sylion\.internal\/guacamole\/\?data=/);
+    assert.match(handoff.handoff.launchUrl, /^https:\/\/session\.sylion\.internal\/sylion-launch\.html#client=/);
     assert.equal(handoff.handoff.security.urlContainsPassword, false);
     assert.equal(handoff.handoff.security.plaintextCredentialsReturned, false);
     assert.equal(handoff.handoff.security.tokenMaterialStored, false);
     assert.equal(handoff.handoff.security.auditStoresLaunchUrl, false);
+    assert.equal(handoff.handoff.security.guacamoleStateResetBeforeLaunch, true);
+    assert.equal(handoff.handoff.security.jsonAuthDataInBrowserFragmentOnly, true);
+    assert.equal(handoff.handoff.security.guacamoleTokenMintedBySessionOriginShim, true);
+    assert.equal(handoff.handoff.security.guacamoleTokenInBrowserFragmentOnly, true);
     assert.equal(handoff.handoff.stream.terminalDataStored, false);
     assert.equal(handoff.handoff.broker.connectionName, "SYLION Signal");
+    assert.equal(
+      decodeBase64Url(handoff.handoff.broker.clientIdentifier),
+      "SYLION Signal\0c\0json"
+    );
+    assert.doesNotMatch(handoff.handoff.broker.clientIdentifier, /[+/=]/);
     assert.doesNotMatch(handoff.handoff.launchUrl, /password|guacadmin|otp|phone/i);
 
-    const url = new URL(handoff.handoff.launchUrl);
-    const payload = decryptGuacamoleData(url.searchParams.get("data"), secretHex);
+    const shimUrl = new URL(handoff.handoff.launchUrl);
+    assert.equal(shimUrl.pathname, "/sylion-launch.html");
+    assert.equal(shimUrl.searchParams.has("data"), false);
+    assert.equal(shimUrl.searchParams.has("client"), false);
+    assert.equal(shimUrl.search, "");
+    const shimParams = new URLSearchParams(shimUrl.hash.slice(1));
+    assert.equal(shimParams.get("client"), handoff.handoff.broker.clientIdentifier);
+    assert.equal(shimParams.has("data"), true);
+    const route = `/client/${shimParams.get("client")}`;
+    const query = `data=${encodeURIComponent(shimParams.get("data"))}`;
+    assert.equal(route, `/client/${handoff.handoff.broker.clientIdentifier}`);
+    const hashParams = new URLSearchParams(query);
+    assert.equal(hashParams.has("data"), true);
+    const payload = decryptGuacamoleData(hashParams.get("data"), secretHex);
     assert.equal(payload.connections["SYLION Signal"].protocol, "vnc");
     assert.equal(payload.connections["SYLION Signal"].parameters.hostname, "172.18.0.1");
     assert.equal(payload.connections["SYLION Signal"].parameters.port, "15913");

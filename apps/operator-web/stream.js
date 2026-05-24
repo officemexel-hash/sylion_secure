@@ -27,6 +27,7 @@
   const params = new URLSearchParams(window.location.search);
   const requestedApp = normalizeApp(params.get("app") || "duckduckgo_browser");
   const requestedBroker = String(params.get("broker") || "guacamole").toLowerCase();
+  const operatorToken = bootstrapOperatorToken();
   const frame = $("#workload-stream-frame");
   const blocker = $("#stream-blocker");
   const blockerReason = $("#stream-blocker-reason");
@@ -39,8 +40,68 @@
     return ALIASES[clean] || clean;
   }
 
+  function bootstrapOperatorToken() {
+    const rawHash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+    const hashParams = new URLSearchParams(rawHash);
+    const token = params.get("op_token") || hashParams.get("op_token");
+    if (token && /^op_[A-Za-z0-9]+$/.test(token)) {
+      sessionStorage.setItem("sylion.operator.token", token);
+      params.delete("op_token");
+      hashParams.delete("op_token");
+      const cleanQuery = params.toString();
+      const cleanHash = hashParams.toString() ? `#${hashParams.toString()}` : "";
+      const cleanUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${cleanHash}`;
+      window.history.replaceState(null, "", cleanUrl);
+      return token;
+    }
+    return sessionStorage.getItem("sylion.operator.token");
+  }
+
   function appUrl(app) {
     return `https://${app.host}${app.path}`;
+  }
+
+  function delay(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function waitForFrameLoad(timeoutMs = 5000) {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        frame.removeEventListener("load", finish);
+        resolve();
+      };
+      frame.addEventListener("load", finish);
+      window.setTimeout(finish, timeoutMs);
+    });
+  }
+
+  function splitGuacamoleLaunchUrls(launchUrl) {
+    const url = new URL(launchUrl);
+    if (!url.hash.startsWith("#/client/")) {
+      return { loginUrl: url.toString(), clientUrl: url.toString(), requiresBootstrap: false };
+    }
+
+    const [, hashQuery = ""] = url.hash.slice(1).split("?");
+    if (new URLSearchParams(hashQuery).has("data")) {
+      return { loginUrl: url.toString(), clientUrl: url.toString(), requiresBootstrap: false };
+    }
+
+    const loginUrl = new URL(url.toString());
+    loginUrl.hash = "";
+
+    const clientUrl = new URL(url.toString());
+    clientUrl.search = "";
+    clientUrl.hash = url.hash;
+
+    return {
+      loginUrl: loginUrl.toString(),
+      clientUrl: clientUrl.toString(),
+      requiresBootstrap: true
+    };
   }
 
   async function fetchGuacamoleHandoff(appKey) {
@@ -53,7 +114,8 @@
       headers: {
         "content-type": "application/json",
         "x-correlation-id": `corr_operator_stream_${crypto.randomUUID()}`,
-        "x-sylion-operator-csrf": "same-origin-ui"
+        "x-sylion-operator-csrf": "same-origin-ui",
+        ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
       },
       body: JSON.stringify({ templateKey: appKey, width, height, dpr })
     });
@@ -123,6 +185,22 @@
     });
   }
 
+  async function openGuacamoleHandoff(handoff) {
+    const launch = splitGuacamoleLaunchUrls(handoff.launchUrl);
+    if (!launch.requiresBootstrap) {
+      frame.src = launch.clientUrl;
+      return;
+    }
+
+    state.textContent = `Authenticating ${handoff.broker.connectionName} through Guacamole.`;
+    frame.src = launch.loginUrl;
+    await waitForFrameLoad(5500);
+    await delay(1800);
+
+    state.textContent = `Opening ${handoff.broker.connectionName} through Guacamole.`;
+    frame.src = launch.clientUrl;
+  }
+
   async function boot() {
     const workload = WORKLOADS[requestedApp];
     if (!workload) {
@@ -146,8 +224,7 @@
       if (!handoff?.launchUrl || handoff.state !== "guacamole_handoff_ready") {
         throw new Error(`Handoff blocked: ${(handoff?.blockers || []).join(", ") || "unknown blocker"}`);
       }
-      state.textContent = `Opening ${handoff.broker.connectionName} through Guacamole.`;
-      frame.src = handoff.launchUrl;
+      await openGuacamoleHandoff(handoff);
     } catch (error) {
       frame.hidden = true;
       blocker.hidden = false;

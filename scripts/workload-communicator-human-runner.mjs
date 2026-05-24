@@ -240,7 +240,7 @@ async function visualProbeFromBrowser({ operatorToken, streamSession }) {
     evidenceArtifactIds: []
   };
   try {
-    const operatorUrl = `${baseUrl}/operator?op_token=${encodeURIComponent(operatorToken)}#workload-control`;
+    const operatorUrl = `${baseUrl}/operator#workload-control&op_token=${encodeURIComponent(operatorToken)}`;
     await page.goto(operatorUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
     await page.waitForTimeout(1000);
     screenshots.operator = await screenshot(page, `${appKey}-operator-workload-control`);

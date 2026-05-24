@@ -235,7 +235,7 @@ async function run() {
   ]);
 
   await adb(["-s", pixel.serial, "reverse", `tcp:${basePort}`, `tcp:${basePort}`]);
-  const operatorUrl = `${baseUrl}/operator?op_token=${encodeURIComponent(sessionPayload.session.token)}#${operatorView}`;
+  const operatorUrl = `${baseUrl}/operator#${operatorView}&op_token=${encodeURIComponent(sessionPayload.session.token)}`;
   await adb([
     "-s",
     pixel.serial,

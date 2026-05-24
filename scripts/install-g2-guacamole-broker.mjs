@@ -35,6 +35,7 @@ const plan = {
     guacdTlsKey: "/opt/sylion-guacamole/tls/guacd.key",
     guacdTrustDir: "/opt/sylion-guacamole/trust",
     guacdTrustStore: "/opt/sylion-guacamole/trust/guacd-truststore.p12",
+    publicDir: "/opt/sylion-guacamole/public",
     bindLocalPort: 8081,
     postgresVolume: "sylion-guacamole-postgres",
     guacamoleImage: "guacamole/guacamole:1.6.0",
@@ -148,6 +149,28 @@ server {
     return 302 /guacamole/;
   }
 
+  location = /sylion-launch.html {
+    root ${runtime.publicDir};
+    default_type text/html;
+    try_files /sylion-launch.html =404;
+    add_header Cache-Control "no-store" always;
+    add_header Content-Security-Policy "default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors https://operator.sylion.internal" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Sylion-Session-Launch-Shim "guacamole_state_reset" always;
+  }
+
+  location = /sylion-launch.js {
+    root ${runtime.publicDir};
+    default_type application/javascript;
+    try_files /sylion-launch.js =404;
+    add_header Cache-Control "no-store" always;
+    add_header Content-Security-Policy "default-src 'none'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors https://operator.sylion.internal" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Sylion-Session-Launch-Shim "guacamole_state_reset" always;
+  }
+
   location /guacamole/ {
     proxy_pass http://127.0.0.1:${runtime.bindLocalPort}/guacamole/;
     proxy_http_version 1.1;
@@ -172,6 +195,89 @@ server {
 `;
 }
 
+function renderLaunchShimHtml() {
+  return `<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Referrer-Policy" content="no-referrer">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <title>SYLION Session Launch</title>
+</head>
+<body>
+  <p id="status">Starting SYLION workload session...</p>
+  <script src="/sylion-launch.js"></script>
+</body>
+</html>
+`;
+}
+
+function renderLaunchShimJs() {
+  return `"use strict";
+
+(function () {
+  const status = document.getElementById("status");
+
+  function fail(message) {
+    if (status) status.textContent = message;
+  }
+
+  function resetGuacamoleBrowserState() {
+    try {
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (key && key.startsWith("GUAC_")) localStorage.removeItem(key);
+      }
+    } catch {
+      // Browser state reset is best-effort; the target route still validates the handoff.
+    }
+    try {
+      sessionStorage.clear();
+    } catch {
+      // Session storage can be unavailable in restricted browser modes.
+    }
+  }
+
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+  const params = new URLSearchParams(hash);
+  const client = params.get("client");
+  const data = params.get("data");
+  if (!client || !/^[A-Za-z0-9_-]+$/.test(client) || !data || /[\\r\\n]/.test(data)) {
+    fail("Invalid SYLION workload launch target.");
+    return;
+  }
+
+  async function launch() {
+    resetGuacamoleBrowserState();
+    const body = new URLSearchParams();
+    body.set("data", data);
+    const response = await fetch("/guacamole/api/tokens", {
+      method: "POST",
+      credentials: "omit",
+      referrerPolicy: "no-referrer",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded;charset=UTF-8"
+      },
+      body
+    });
+    if (!response.ok) {
+      throw new Error("guacamole_json_auth_failed");
+    }
+    const payload = await response.json();
+    const token = String(payload?.authToken || "");
+    if (!token) {
+      throw new Error("guacamole_token_missing");
+    }
+    window.history.replaceState(null, "", "/sylion-launch.html#launching");
+    window.location.replace(\`/guacamole/#/client/\${encodeURIComponent(client)}?token=\${encodeURIComponent(token)}\`);
+  }
+
+  launch().catch(() => fail("SYLION workload session launch failed."));
+})();
+`;
+}
+
 export function publicPlan(input = plan) {
   return {
     ...input,
@@ -184,7 +290,7 @@ export function publicPlan(input = plan) {
   };
 }
 
-export { renderCompose, renderNginx };
+export { renderCompose, renderNginx, renderLaunchShimHtml, renderLaunchShimJs };
 
 async function run(command, args, options = {}) {
   const result = await execFileAsync(command, args, {
@@ -200,15 +306,21 @@ async function deploy(input = plan) {
   const tempDir = await mkdtemp(join(tmpdir(), "sylion-guacamole-"));
   const composePath = join(tempDir, "docker-compose.yml");
   const nginxPath = join(tempDir, "sylion-g2-guacamole-broker");
+  const launchHtmlPath = join(tempDir, "sylion-launch.html");
+  const launchJsPath = join(tempDir, "sylion-launch.js");
   await mkdir(tempDir, { recursive: true });
   await writeFile(composePath, renderCompose(input), "utf8");
   await writeFile(nginxPath, renderNginx(input), "utf8");
+  await writeFile(launchHtmlPath, renderLaunchShimHtml(input), "utf8");
+  await writeFile(launchJsPath, renderLaunchShimJs(input), "utf8");
 
   await run("scp", [
     "-i", sshKey,
     "-o", "StrictHostKeyChecking=accept-new",
     composePath,
     nginxPath,
+    launchHtmlPath,
+    launchJsPath,
     `${input.gateway.host}:/tmp/`
   ], { timeout: 90_000 });
 
@@ -223,7 +335,7 @@ else
   sudo apt-get install -y docker-compose >/dev/null
   compose_cmd="sudo docker-compose"
 fi
-sudo mkdir -p ${input.runtime.baseDir}/init ${input.runtime.guacdTlsDir} ${input.runtime.extensionsDir} ${input.runtime.guacdTrustDir} /etc/sylion
+sudo mkdir -p ${input.runtime.baseDir}/init ${input.runtime.guacdTlsDir} ${input.runtime.extensionsDir} ${input.runtime.guacdTrustDir} ${input.runtime.publicDir} /etc/sylion
 if [ ! -f ${input.runtime.envPath} ]; then
   umask 077
   printf 'GUACAMOLE_POSTGRES_PASSWORD=%s\\n' "$(openssl rand -hex 32)" | sudo tee ${input.runtime.envPath} >/dev/null
@@ -260,6 +372,8 @@ if [ ! -s ${input.runtime.jsonAuthJar} ]; then
   rm -rf "$auth_tmp"
 fi
 sudo install -o root -g root -m 0600 /tmp/docker-compose.yml ${input.runtime.composePath}
+sudo install -o root -g root -m 0644 /tmp/sylion-launch.html ${input.runtime.publicDir}/sylion-launch.html
+sudo install -o root -g root -m 0644 /tmp/sylion-launch.js ${input.runtime.publicDir}/sylion-launch.js
 if [ ! -s ${input.runtime.baseDir}/init/001-initdb.sql ]; then
   sudo docker run --rm ${input.runtime.guacamoleImage} /opt/guacamole/bin/initdb.sh --postgresql | sudo tee ${input.runtime.baseDir}/init/001-initdb.sql >/dev/null
 fi
@@ -325,11 +439,16 @@ async function main() {
     console.log(renderNginx());
     return;
   }
+  if (args.has("--render-launch-shim")) {
+    console.log(renderLaunchShimHtml());
+    console.log(renderLaunchShimJs());
+    return;
+  }
   if (args.has("--deploy")) {
     await deploy();
     return;
   }
-  console.error("Usage: node scripts/install-g2-guacamole-broker.mjs --print-plan|--render-compose|--render-nginx|--deploy");
+  console.error("Usage: node scripts/install-g2-guacamole-broker.mjs --print-plan|--render-compose|--render-nginx|--render-launch-shim|--deploy");
   process.exitCode = 2;
 }
 
