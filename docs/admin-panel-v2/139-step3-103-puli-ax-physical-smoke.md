@@ -10,9 +10,9 @@ Secrets are not stored, printed, committed, or passed in command arguments. Rout
 
 ## Current Finding
 
-Status: `blocked`
+Status: `lan_smoke_passed`
 
-The router is reachable on the expected GL.iNet LAN address and exposes the admin UI, but it is not yet a working SYLION access gateway.
+The router is reachable on the expected GL.iNet LAN address, exposes the admin UI, and now has lab WAN/DNS through `Repeater` mode. This is a lab uplink pass, not production router readiness.
 
 Observed non-secret facts:
 
@@ -23,8 +23,8 @@ Observed non-secret facts:
 | GL.iNet admin UI | reachable, title `Admin Panel` |
 | SSH on LAN | reachable |
 | HTTP/HTTPS on LAN | reachable |
-| DNS through router | blocked: resolver refused query |
-| WAN/cellular through router | blocked: timeout from Ethernet-bound probe |
+| DNS through router | reachable |
+| WAN through router | reachable through lab repeater |
 | IPsec UDP ports on LAN | not open, no tunnel expected yet |
 
 ## Mermaid - Physical Smoke State
@@ -34,8 +34,8 @@ flowchart LR
     Laptop["Laptop Ethernet 192.168.8.200"] --> Router["Puli AX 192.168.8.1"]
     Router --> UI["GL.iNet Admin UI: reachable"]
     Router --> SSH["SSH LAN: reachable"]
-    Router -. blocked .-> DNS["DNS query: refused"]
-    Router -. blocked .-> WAN["WAN/cellular egress: timeout"]
+    Router --> DNS["DNS query: reachable"]
+    Router --> WAN["WAN egress: lab repeater"]
     Router -. pending .-> G1["G1 IPsec endpoint"]
     G1 --> G2["G2 broker"]
     G2 --> Workload["WORKLOAD / Firecracker"]
@@ -89,6 +89,21 @@ The artifact is metadata-only and redacts public egress IP. It does not contain 
 
 Do not mark the router as production-ready yet.
 
-Current decision: `NEEDS EVIDENCE`.
+Current decision: `LAB LAN/WAN SMOKE PASSED - NEEDS AUTHENTICATED ROUTER INVENTORY`.
 
-Human gate remains required because firmware provenance, kill-switch behavior, DNS leak prevention, IPsec profile, and WAN/cellular behavior have not passed physical tests yet.
+Human gate remains required because authenticated firmware inventory, firmware provenance, kill-switch behavior, DNS leak prevention, IPsec profile, and production cellular/WAN behavior have not passed physical tests yet.
+
+## 2026-05-26 Repeater Update
+
+After configuring the router as a repeater to the lab Wi-Fi uplink, the non-mutating smoke test returned:
+
+- `status=lan_smoke_passed`
+- GL.iNet admin UI reachable
+- SSH LAN port reachable
+- DNS through router reachable
+- WAN through router reachable
+- no secrets stored or printed
+
+Remaining blocker:
+
+- dedicated SSH key auth is not validated yet, so authenticated inventory and package installation are still blocked.
