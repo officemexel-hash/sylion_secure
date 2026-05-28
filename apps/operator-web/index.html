@@ -122,6 +122,23 @@
           <button type="submit" class="primary">Prepare workload session</button>
         </form>
         <p id="workload-broker-status" class="hint">Broker not prepared in this browser session.</p>
+        <form id="workload-recreate-form" class="dense-form danger-zone">
+          <label>Delete and recreate app
+            <select name="templateKey">
+              <option value="libreoffice">LibreOffice</option>
+              <option value="duckduckgo">DuckDuckGo</option>
+              <option value="signal">Signal</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="telegram">Telegram</option>
+              <option value="threema">Threema</option>
+              <option value="zangi">Zangi</option>
+              <option value="exodus">Exodus</option>
+            </select>
+          </label>
+          <label>Confirmation <input name="confirmation" placeholder="RUN_LIVE_WORKLOAD_RECREATE" autocomplete="off"></label>
+          <button type="submit" class="secondary">Delete and recreate selected app</button>
+        </form>
+        <p id="workload-recreate-status" class="hint">Use this when an app was closed, black-screened, or must start from a clean Firecracker environment.</p>
         <p id="live-workload-status-summary" class="hint">Live workload status not loaded yet.</p>
         <div id="workload-launcher" class="quick-grid workload-launcher">
           <a class="quick-tile" href="/operator/stream.html?app=signal" rel="noopener"><strong>Signal</strong><span>remote desktop workload</span></a>
@@ -767,6 +784,6 @@
     <p>For admin operations: <a href="/admin">/admin</a></p>
   </footer>
 
-  <script src="/operator/app.js?v=step3-106b"></script>
+  <script src="/operator/app.js?v=step3-107"></script>
 </body>
 </html>

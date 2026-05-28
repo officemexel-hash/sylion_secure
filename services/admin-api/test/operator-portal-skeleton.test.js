@@ -60,7 +60,10 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.body, /Laptop terminal package/);
     assert.match(html.body, /Private input handoff/);
     assert.match(html.body, /id="account-bootstrap-handoff"/);
-    assert.match(html.body, /<script src="\/operator\/app\.js\?v=step3-106b"><\/script>/);
+    assert.match(html.body, /id="workload-recreate-form"/);
+    assert.match(html.body, /Delete and recreate selected app/);
+    assert.match(html.body, /RUN_LIVE_WORKLOAD_RECREATE/);
+    assert.match(html.body, /<script src="\/operator\/app\.js\?v=step3-107"><\/script>/);
   } finally {
     await close();
   }
@@ -93,6 +96,9 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(js.body, /rememberStreamLaunchToken/);
     assert.match(js.body, /currentOperatorLaunchToken/);
     assert.match(js.body, /handleWorkloadLaunchClick/);
+    assert.match(js.body, /recreateWorkloadApp/);
+    assert.match(js.body, /workloadControlKey/);
+    assert.match(js.body, /install-workload-guacamole-vnc-forwards|G2 stream forwards refreshed/);
     assert.match(js.body, /Workload stream blocked: missing active operator session/);
     assert.match(js.body, /launchHash\.set\("op_token", token\)/);
     assert.match(js.body, /url\.hash = launchHash\.toString\(\)/);

@@ -228,7 +228,7 @@ for h in ${keys.map(shellSingle).join(" ")}; do
   if [ "$h" = "libreoffice" ]; then host="libreoffice.sylion.internal"; fi
   code="000"
   for attempt in $(seq 1 12); do
-    code=$(curl -k -sS -o /tmp/sylion-recreate-$h -w "%{http_code}" --resolve "$host:443:10.42.0.12" --max-time 12 "https://$host/" || true)
+    code=$(curl -k -L -sS -o /tmp/sylion-recreate-$h -w "%{http_code}" --resolve "$host:443:10.42.0.12" --max-time 12 "https://$host/" || true)
     if [ "$code" = "200" ]; then break; fi
     sleep 5
   done

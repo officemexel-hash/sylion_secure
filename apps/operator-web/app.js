@@ -530,6 +530,81 @@
     setText("#workload-broker-status", `${broker.appName}: ${broker.state} | ${broker.authMode} | blockers: ${(broker.blockers || []).join(", ") || "none"} | ${broker.url}`);
   }
 
+  function workloadControlKey(templateKey) {
+    if (templateKey === "duckduckgo") return "duckduckgo_browser";
+    return templateKey;
+  }
+
+  async function recreateWorkloadApp(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = Object.fromEntries(new FormData(form).entries());
+    const templateKey = String(data.templateKey || "").trim();
+    const rotateApp = workloadControlKey(templateKey);
+    const confirmation = String(data.confirmation || "").trim();
+    if (confirmation !== "RUN_LIVE_WORKLOAD_RECREATE") {
+      setText("#workload-recreate-status", "Type RUN_LIVE_WORKLOAD_RECREATE to delete and recreate the selected environment.");
+      return;
+    }
+    setText("#workload-recreate-status", `Queueing ${rotateApp} recreate request...`);
+    const control = await fetchJson("/operator-api/workload-control");
+    if (control.error) {
+      setText("#workload-recreate-status", control.error);
+      return;
+    }
+    const currentCounts = control.control?.latestDesiredCounts || control.control?.currentCounts || {};
+    const appKeys = [
+      "whatsapp",
+      "signal",
+      "telegram",
+      "threema",
+      "zangi",
+      "matrix_client",
+      "matrix_server",
+      "duckduckgo_browser",
+      "libreoffice",
+      "exodus"
+    ];
+    const desiredCounts = Object.fromEntries(appKeys.map((key) => [key, Number(currentCounts[key] || 0)]));
+    if (desiredCounts[rotateApp] === 0 && Object.prototype.hasOwnProperty.call(desiredCounts, rotateApp)) {
+      desiredCounts[rotateApp] = 1;
+    }
+    const queued = await fetchJson("/operator-api/workload-control/requests", {
+      method: "POST",
+      body: {
+        action: "rotate_app",
+        rotateApp,
+        desiredCounts
+      }
+    });
+    if (queued.error) {
+      setText("#workload-recreate-status", queued.error);
+      return;
+    }
+    setText("#workload-recreate-status", `Recreating ${rotateApp}; this can take a few minutes on AX102...`);
+    const executed = await fetchJson(`/operator-api/workload-control/requests/${encodeURIComponent(queued.request.id)}/execute`, {
+      method: "POST",
+      body: {
+        confirmation,
+        wipeVolume: false,
+        fourEyesApprovalRef: null
+      }
+    });
+    if (executed.error) {
+      setText("#workload-recreate-status", executed.error);
+      return;
+    }
+    renderLiveRunnerJob(executed.job);
+    const ok = executed.job?.state === "completed_live_workload_recreate";
+    setText("#workload-recreate-status", ok
+      ? `${rotateApp} recreated on AX102 and G2 stream forwards refreshed. Open it from Apps.`
+      : `${rotateApp} recreate finished with state: ${executed.job?.state || "unknown"}`);
+    form.elements.confirmation.value = "";
+    await loadWorkloadControl();
+    await loadLiveWorkloadStatus();
+    await loadAudit();
+  }
+
   async function loadAppSwitcher() {
     await loadOverview();
     await loadLiveWorkloadStatus();
@@ -1391,6 +1466,7 @@
     $("#safety-form").addEventListener("submit", saveSafetyPolicy);
     $("#jurisdiction-form").addEventListener("submit", saveJurisdictionPolicy);
     $("#workload-broker-form").addEventListener("submit", prepareWorkloadBroker);
+    $("#workload-recreate-form").addEventListener("submit", recreateWorkloadApp);
     $("#matrix-form").addEventListener("submit", requestMatrixServer);
     $("#subscription-form").addEventListener("submit", requestSubscriptionChange);
     $("#fido2-form").addEventListener("submit", saveFido2);

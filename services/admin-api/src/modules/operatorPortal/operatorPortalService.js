@@ -201,9 +201,9 @@ function publicSessionMetadata(session) {
 
 async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
   const nativeFirecracker = process.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE === "native_firecracker";
-  const command = nativeFirecracker ? "node" : process.platform === "win32" ? "npm.cmd" : "npm";
+  const command = nativeFirecracker ? process.execPath : process.platform === "win32" ? "npm.cmd" : "npm";
   const args = nativeFirecracker
-    ? ["scripts/launch-native-firecracker-gui-workload.mjs", "--apply"]
+    ? ["scripts/launch-native-firecracker-gui-workload.mjs", "--apply", "--require-ready"]
     : ["run", "live:workload-recreate", "--", `--app=${app}`];
   if (!nativeFirecracker && wipeVolume) args.push("--wipe-volume");
   const result = await execFileAsync(command, args, {
@@ -212,21 +212,53 @@ async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      ...(nativeFirecracker ? { SYLION_GUI_APP: app } : {})
+      ...(nativeFirecracker ? {
+        SYLION_GUI_APP: app,
+        SYLION_GUI_VNC_BACKEND: process.env.SYLION_GUI_VNC_BACKEND || "tigervnc"
+      } : {})
     }
   });
   const stdout = result.stdout.trim();
   const json = stdout.slice(stdout.indexOf("{"), stdout.lastIndexOf("}") + 1);
   const parsed = JSON.parse(json);
-  return nativeFirecracker ? {
-    applied: parsed.readyThroughG2 === true,
+  if (!nativeFirecracker) return parsed;
+
+  const forwardResult = await execFileAsync(process.execPath, ["scripts/install-workload-guacamole-vnc-forwards.mjs", "--apply"], {
+    timeout: 420_000,
+    windowsHide: true,
+    cwd: process.cwd(),
+    env: { ...process.env }
+  });
+  const forwardStdout = forwardResult.stdout.trim();
+  const forwardJson = forwardStdout.slice(forwardStdout.indexOf("{"), forwardStdout.lastIndexOf("}") + 1);
+  const forwards = JSON.parse(forwardJson);
+  const forwardKey = app === "duckduckgo" ? "duckduckgo_browser" : app;
+  const workloadForward = (forwards.workloadEvidence?.forwards || []).find((item) => item.key === forwardKey);
+  const g2Forward = (forwards.g2Verification?.results || []).find((item) => item.key === forwardKey);
+  return {
+    applied: parsed.readyThroughG2 === true && workloadForward?.bindReady === true && g2Forward?.reachable === true,
     app,
     mode: "native_firecracker",
     evidence: parsed.evidence,
     g2: parsed.g2,
+    guacamoleVncForward: workloadForward ? {
+      key: workloadForward.key,
+      bindReady: workloadForward.bindReady === true,
+      targetReachable: workloadForward.targetReachable === true,
+      transport: workloadForward.g2ToWorkloadTransport,
+      publicInternetExposure: workloadForward.publicInternetExposure === true,
+      blocker: workloadForward.blocker || null
+    } : null,
+    g2VncVerification: g2Forward ? {
+      key: g2Forward.key,
+      reachable: g2Forward.reachable === true,
+      transport: g2Forward.transport,
+      rfbBannerReady: /^RFB/.test(String(g2Forward.rfbBanner || ""))
+    } : null,
+    forwardBlockers: forwards.workloadEvidence?.blockers || forwards.g2Verification?.blockers || [],
     secretPrinted: false,
     productionExecutionAllowed: false
-  } : parsed;
+  };
 }
 
 async function defaultLiveWorkloadStatusProvider({ env = process.env } = {}) {
@@ -3063,9 +3095,28 @@ export class OperatorPortalService {
           appKey: result.evidence.appKey,
           hostHttpCode: result.evidence.hostHttpCode,
           noVncMarker: result.evidence.noVncMarker === true,
+          appRunning: result.evidence.appRunning === true,
+          appCrashed: result.evidence.appCrashed === true,
+          visibleWindow: result.evidence.visibleWindow === true,
+          vncBannerReady: result.evidence.vncBannerReady === true,
           terminalDataStored: result.evidence.terminalDataStored === true,
           productionExecutionAllowed: result.evidence.productionExecutionAllowed === true
-        } : null
+        } : null,
+        guacamoleVncForward: result.guacamoleVncForward ? {
+          key: result.guacamoleVncForward.key,
+          bindReady: result.guacamoleVncForward.bindReady === true,
+          targetReachable: result.guacamoleVncForward.targetReachable === true,
+          transport: result.guacamoleVncForward.transport || "tls_stunnel_private_bind",
+          publicInternetExposure: result.guacamoleVncForward.publicInternetExposure === true,
+          blocker: result.guacamoleVncForward.blocker || null
+        } : null,
+        g2VncVerification: result.g2VncVerification ? {
+          key: result.g2VncVerification.key,
+          reachable: result.g2VncVerification.reachable === true,
+          transport: result.g2VncVerification.transport || "tls_stunnel_private_bind",
+          rfbBannerReady: result.g2VncVerification.rfbBannerReady === true
+        } : null,
+        forwardBlockers: Array.isArray(result.forwardBlockers) ? result.forwardBlockers.map(String).slice(0, 16) : []
       } : null,
       productionExecutionAllowed: false
     };

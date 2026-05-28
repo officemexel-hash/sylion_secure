@@ -192,6 +192,13 @@ form {
   margin-top: 14px;
 }
 
+.danger-zone {
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(127, 29, 29, 0.12);
+}
+
 label {
   display: grid;
   gap: 6px;
