@@ -10,9 +10,20 @@
 
   const state = {
     operatorToken: sessionStorage.getItem("sylion.operator.token") || null,
+    streamToken: sessionStorage.getItem("sylion.operator.streamToken") || null,
     session: JSON.parse(sessionStorage.getItem("sylion.operator.session") || "null"),
     cookieBound: false
   };
+
+  function isOperatorSessionToken(token) {
+    return /^op_[A-Za-z0-9]+$/.test(String(token || ""));
+  }
+
+  function rememberStreamLaunchToken(token) {
+    if (!isOperatorSessionToken(token)) return;
+    state.streamToken = token;
+    sessionStorage.setItem("sylion.operator.streamToken", token);
+  }
 
   function parseHashState() {
     const rawHash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
@@ -44,8 +55,9 @@
     const token = params.get("op_token") || hashState.params.get("op_token");
     const localhost = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname);
     const internalHost = window.location.protocol === "https:" && window.location.hostname.endsWith(".sylion.internal");
-    if (token && (localhost || internalHost) && token.startsWith("op_")) {
+    if (token && (localhost || internalHost) && isOperatorSessionToken(token)) {
       state.operatorToken = token;
+      rememberStreamLaunchToken(token);
       params.delete("op_token");
       hashState.params.delete("op_token");
       const cleanSearch = params.toString();
@@ -106,6 +118,7 @@
     });
     const payload = await res.json();
     if (!res.ok) return false;
+    rememberStreamLaunchToken(state.operatorToken);
     state.session = payload.session;
     state.operatorToken = null;
     state.cookieBound = true;
@@ -121,6 +134,7 @@
     state.session = payload.session;
     state.operatorToken = null;
     state.cookieBound = true;
+    rememberStreamLaunchToken(payload.session.token || state.streamToken);
     sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
     sessionStorage.removeItem("sylion.operator.token");
     setText("#session-status", `Session restored for ${payload.session.operatorId} (${payload.session.terminalMode}).`);
@@ -154,6 +168,28 @@
     loadViewData(viewId);
   }
 
+  function handleWorkloadLaunchClick(event) {
+    const link = event.target.closest("a[href]");
+    if (!link) return;
+
+    let url;
+    try {
+      url = new URL(link.getAttribute("href"), window.location.origin);
+    } catch {
+      return;
+    }
+    if (url.origin !== window.location.origin || url.pathname !== "/operator/stream.html") return;
+
+    const appKey = url.searchParams.get("app");
+    const launchUrl = workloadStreamWrapperUrl(appKey || "duckduckgo_browser");
+    if (!currentOperatorLaunchToken()) {
+      event.preventDefault();
+      setText("#session-status", "Workload stream blocked: missing active operator session. Reopen the operator package link.");
+      return;
+    }
+    link.setAttribute("href", launchUrl);
+  }
+
   function detectTerminalMode() {
     const ua = navigator.userAgent;
     if (/Android/.test(ua) && /GrapheneOS|Vanadium/.test(ua)) return "Pixel GrapheneOS - Mode M1";
@@ -185,6 +221,7 @@
     }
     state.session = payload.session;
     state.operatorToken = payload.session.token;
+    rememberStreamLaunchToken(payload.session.token);
     sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
     const attached = await attachOperatorSessionCookie();
     if (!attached) {
@@ -551,9 +588,28 @@
       "exodus"
     ]);
     if (wrapperApps.has(normalized)) {
-      return `/operator/stream.html?app=${encodeURIComponent(normalized)}`;
+      const url = new URL("/operator/stream.html", window.location.origin);
+      url.searchParams.set("app", normalized);
+      const token = currentOperatorLaunchToken();
+      if (token) {
+        const launchHash = new URLSearchParams();
+        launchHash.set("op_token", token);
+        url.hash = launchHash.toString();
+      }
+      return `${url.pathname}${url.search}${url.hash}`;
     }
     return fallbackUrl || "#app-switcher";
+  }
+
+  function currentOperatorLaunchToken() {
+    const candidates = [
+      state.operatorToken,
+      state.session?.token,
+      state.streamToken,
+      sessionStorage.getItem("sylion.operator.token"),
+      sessionStorage.getItem("sylion.operator.streamToken")
+    ];
+    return candidates.find(isOperatorSessionToken) || "";
   }
 
   function normalizeWorkloadAppKey(appKey) {
@@ -1319,6 +1375,7 @@
   async function initOperatorPortal() {
     $(".sidebar").addEventListener("click", handleNav);
     $("#app-switcher").addEventListener("click", handleInternalSwitcher);
+    document.addEventListener("click", handleWorkloadLaunchClick, true);
     $("#session-form").addEventListener("submit", createLocalSession);
     $("#workload-control-form").addEventListener("submit", requestWorkloadControl);
     $("#workload-live-runner-form").addEventListener("submit", executeLiveWorkloadRunner);

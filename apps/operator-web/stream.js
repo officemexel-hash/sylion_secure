@@ -49,6 +49,7 @@
     const token = params.get("op_token") || hashParams.get("op_token");
     if (token && /^op_[A-Za-z0-9]+$/.test(token)) {
       sessionStorage.setItem("sylion.operator.token", token);
+      sessionStorage.setItem("sylion.operator.streamToken", token);
       params.delete("op_token");
       hashParams.delete("op_token");
       const cleanQuery = params.toString();
@@ -57,7 +58,7 @@
       window.history.replaceState(null, "", cleanUrl);
       return token;
     }
-    return sessionStorage.getItem("sylion.operator.token");
+    return sessionStorage.getItem("sylion.operator.token") || sessionStorage.getItem("sylion.operator.streamToken");
   }
 
   function appUrl(app) {

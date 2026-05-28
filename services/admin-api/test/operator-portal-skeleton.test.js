@@ -60,7 +60,7 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.body, /Laptop terminal package/);
     assert.match(html.body, /Private input handoff/);
     assert.match(html.body, /id="account-bootstrap-handoff"/);
-    assert.match(html.body, /<script src="\/operator\/app\.js\?v=step3-98a"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/app\.js\?v=step3-106b"><\/script>/);
   } finally {
     await close();
   }
@@ -89,6 +89,14 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(js.body, /hashFromState/);
     assert.match(js.body, /\.sylion\.internal/);
     assert.match(js.body, /workloadStreamWrapperUrl/);
+    assert.match(js.body, /sylion\.operator\.streamToken/);
+    assert.match(js.body, /rememberStreamLaunchToken/);
+    assert.match(js.body, /currentOperatorLaunchToken/);
+    assert.match(js.body, /handleWorkloadLaunchClick/);
+    assert.match(js.body, /Workload stream blocked: missing active operator session/);
+    assert.match(js.body, /launchHash\.set\("op_token", token\)/);
+    assert.match(js.body, /url\.hash = launchHash\.toString\(\)/);
+    assert.doesNotMatch(js.body, /url\.searchParams\.set\("op_token"/);
 
     assert.match(css.body, /quick-grid/);
     assert.match(css.body, /position: fixed/);
@@ -115,6 +123,8 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(streamJs.body, /hashParams\.delete\("op_token"\)/);
     assert.match(streamJs.body, /history\.replaceState/);
     assert.match(streamJs.body, /sessionStorage\.getItem\("sylion\.operator\.token"\)/);
+    assert.match(streamJs.body, /sessionStorage\.setItem\("sylion\.operator\.streamToken", token\)/);
+    assert.match(streamJs.body, /sessionStorage\.getItem\("sylion\.operator\.streamToken"\)/);
     assert.match(streamJs.body, /authorization: `Bearer \$\{operatorToken\}`/);
     assert.match(streamJs.body, /splitGuacamoleLaunchUrls/);
     assert.match(streamJs.body, /waitForFrameLoad/);
@@ -143,7 +153,7 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.body, /data-stream-action="input-clear"/);
     assert.match(html.body, /frame-src https:\/\/session\.sylion\.internal/);
     assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal/);
-    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-101a"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-106a"><\/script>/);
     assert.doesNotMatch(html.body, /unsafe-inline/);
   } finally {
     await close();
