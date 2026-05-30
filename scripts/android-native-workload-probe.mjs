@@ -12,7 +12,7 @@ const defaultSshKey = process.platform === "win32"
 const sshKey = arg("key", process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey);
 const host = arg("host", process.env.SYLION_WORKLOAD_SSH_HOST);
 const user = arg("user", process.env.SYLION_WORKLOAD_SSH_USER || "root");
-const workloadHost = arg("target", process.env.SYLION_WORKLOAD_SSH || (host ? `${user}@${host}` : "sylion@178.105.197.37"));
+const workloadHost = arg("target", process.env.SYLION_WORKLOAD_NATIVE_SSH || process.env.SYLION_WORKLOAD_SSH || (host ? `${user}@${host}` : "root@65.109.123.72"));
 const zangiApkRef = arg("zangi-apk-ref", process.env.SYLION_ZANGI_APK_REF);
 const androidImageRef = arg("android-image-ref", process.env.SYLION_ANDROID_WORKLOAD_IMAGE_REF);
 

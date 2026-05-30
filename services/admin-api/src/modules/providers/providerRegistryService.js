@@ -414,6 +414,71 @@ export class ProviderRegistryService {
       }));
   }
 
+  jurisdictionOptions({ providerPolicy = {}, tier = null } = {}) {
+    const allowedRuntimeClasses = Array.isArray(providerPolicy.allowedRuntimeClasses)
+      ? providerPolicy.allowedRuntimeClasses
+      : [];
+    const needsFirecracker = providerPolicy.firecrackerRequired === true
+      || allowedRuntimeClasses.includes("firecracker")
+      || allowedRuntimeClasses.includes("confidential");
+    const needsConfidential = providerPolicy.confidentialComputeRequired === true
+      || allowedRuntimeClasses.includes("confidential");
+    const needsContainers = !needsFirecracker && !needsConfidential;
+    const providerEligible = (provider) => {
+      const caps = provider.runtimeCapabilities || {};
+      if (needsContainers && caps.containers === false) return false;
+      if (needsFirecracker && caps.firecracker === false) return false;
+      if (needsConfidential && caps.intelTdx === false && caps.amdSevSnp === false) return false;
+      return true;
+    };
+    const regionEligible = (region) => {
+      if (needsFirecracker && region.firecrackerEligible === false) return false;
+      if (needsConfidential && region.confidentialComputeEligible === false) return false;
+      return true;
+    };
+    const providers = [...this.providers.values()]
+      .filter(providerEligible)
+      .map((provider) => {
+        const regions = (provider.regionCatalog || provider.regions?.map((region) => ({ region, country: "UNSPECIFIED", city: null })) || [])
+          .filter(regionEligible)
+          .map((region) => ({
+            region: region.region,
+            country: region.country,
+            city: region.city || null,
+            firecrackerEligible: region.firecrackerEligible ?? provider.runtimeCapabilities?.firecracker !== false,
+            confidentialComputeEligible: region.confidentialComputeEligible ?? (
+              provider.runtimeCapabilities?.intelTdx !== false || provider.runtimeCapabilities?.amdSevSnp !== false
+            ),
+            androidWorkloadEligible: region.androidWorkloadEligible ?? provider.runtimeCapabilities?.androidWorkloads !== false
+          }));
+        return {
+          id: provider.id,
+          providerKey: provider.providerKey,
+          displayName: provider.displayName,
+          countries: [...new Set(regions.map((region) => region.country))],
+          regions,
+          runtimeCapabilities: provider.runtimeCapabilities,
+          requiresAttestationReview: needsConfidential
+            && provider.runtimeCapabilities?.intelTdx !== true
+            && provider.runtimeCapabilities?.amdSevSnp !== true,
+          productionExecutionAllowed: false
+        };
+      })
+      .filter((provider) => provider.regions.length > 0);
+    return {
+      tier,
+      requiredRuntime: needsConfidential ? "confidential" : needsFirecracker ? "firecracker" : "containers",
+      providers,
+      countries: [...new Set(providers.flatMap((provider) => provider.countries))].sort(),
+      regions: [...new Map(providers.flatMap((provider) => provider.regions.map((region) => [
+        `${provider.providerKey}:${region.region}`,
+        { ...region, providerKey: provider.providerKey, providerName: provider.displayName }
+      ]))).values()],
+      providerCatalogConfigured: this.providers.size > 0,
+      productionExecutionAllowed: false
+    };
+  }
+
   get(providerId) {
     return this.providers.get(providerId);
   }

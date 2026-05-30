@@ -121,12 +121,79 @@ test("Step 3.38 provider registry supports country and Firecracker/confidential 
     assert.deepEqual(provider.provider.countries, ["FR", "PL"]);
     assert.equal(provider.provider.regionCatalog[1].country, "PL");
     assert.equal(JSON.stringify(provider).includes("step3-38-provider-secret-never-return"), false);
+    await client.createProvider({
+      providerType: "hetzner",
+      apiSecret: "step3-38-provider-secret-never-return-hetzner",
+      countries: ["DE"],
+      regions: ["fsn1"],
+      regionCatalog: [
+        { region: "fsn1", country: "DE", city: "Falkenstein" }
+      ],
+      runtimeCapabilities: {
+        containers: true,
+        nestedKvm: false,
+        bareMetalKvm: true,
+        firecracker: true,
+        androidWorkloads: true,
+        intelTdx: false,
+        amdSevSnp: false,
+        recommendedTier: "PRO"
+      },
+      testConnection: { mode: "mock", status: "passed" }
+    });
 
     const eligible = await client.request("/providers/eligible?capability=firecracker&country=PL&tier=PRO");
     assert.equal(eligible.providers.length, 1);
     assert.equal(eligible.providers[0].providerKey, "scaleway");
     assert.equal(eligible.providers[0].regions[0].region, "pl-waw");
     assert.equal(eligible.providers[0].productionExecutionAllowed, false);
+
+    const seeded = await seedOperator(client, "PRO");
+    const options = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/jurisdiction/options");
+    assert.equal(options.payload.options.providerCatalogConfigured, true);
+    assert.equal(options.payload.options.requiredRuntime, "firecracker");
+    assert.deepEqual(options.payload.options.countries, ["DE", "FR", "PL"]);
+    assert.ok(options.payload.options.regions.some((region) => region.providerKey === "scaleway" && region.region === "pl-waw"));
+
+    const unavailable = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/jurisdiction", {
+      method: "POST",
+      expectOk: false,
+      body: {
+        mode: "scheduled",
+        countries: ["GB"],
+        providers: ["ovh"],
+        regions: ["lon1"],
+        frequencyHours: 24
+      }
+    });
+    assert.equal(unavailable.status, 422);
+    const incompatible = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/jurisdiction", {
+      method: "POST",
+      expectOk: false,
+      body: {
+        mode: "scheduled",
+        countries: ["DE"],
+        providers: ["scaleway"],
+        regions: ["fsn1"],
+        frequencyHours: 24
+      }
+    });
+    assert.equal(incompatible.status, 422);
+    assert.deepEqual(incompatible.payload.error.details.incompatibleRegions, ["fsn1"]);
+    assert.deepEqual(incompatible.payload.error.details.incompatibleCountries, ["DE"]);
+
+    const saved = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/jurisdiction", {
+      method: "POST",
+      body: {
+        mode: "scheduled",
+        countries: ["PL"],
+        providers: ["scaleway"],
+        regions: ["pl-waw"],
+        frequencyHours: 24
+      }
+    });
+    assert.deepEqual(saved.payload.policy.providers, ["scaleway"]);
+    assert.deepEqual(saved.payload.policy.regions, ["pl-waw"]);
   } finally {
     await close();
   }

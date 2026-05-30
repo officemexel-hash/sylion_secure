@@ -359,6 +359,7 @@ export class OperatorPortalService {
     operatorEnvironments,
     securityProfiles,
     routerReadiness = null,
+    providers = null,
     env = process.env,
     store = null,
     liveWorkloadRunner = defaultLiveWorkloadRunner,
@@ -374,6 +375,7 @@ export class OperatorPortalService {
     this.operatorEnvironments = operatorEnvironments;
     this.securityProfiles = securityProfiles;
     this.routerReadiness = routerReadiness;
+    this.providers = providers;
     this.env = env;
     this.sessions = new PersistentMap({ store, collection: "operator_portal_sessions" });
     this.workloadControlRequests = new PersistentMap({ store, collection: "operator_workload_control_requests" });
@@ -2620,6 +2622,28 @@ export class OperatorPortalService {
     return this.#publicJurisdictionPolicy(this.#jurisdictionPolicyForOperator({ operatorActor, correlationId }));
   }
 
+  jurisdictionOptions({ operatorActor, correlationId }) {
+    requireCorrelationId(correlationId);
+    const subscription = this.subscription({ operatorActor, correlationId });
+    const options = this.#jurisdictionOptionsForSubscription(subscription);
+    return {
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      tier: subscription.plan,
+      subscriptionMode: subscription.quota.jurisdictionRotationMode,
+      allowedModes: this.#allowedJurisdictionModes(subscription.quota.jurisdictionRotationMode),
+      minFrequencyHours: subscription.quota.jurisdictionPolicy?.minFrequencyHours || 168,
+      maxCountries: subscription.quota.jurisdictionPolicy?.maxCountries || subscription.quota.regionCount || 1,
+      requiredRuntime: options.requiredRuntime,
+      providerCatalogConfigured: options.providerCatalogConfigured,
+      providers: options.providers,
+      countries: options.countries,
+      regions: options.regions,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
   updateJurisdictionPolicy({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const subscription = this.subscription({ operatorActor, correlationId: corr });
@@ -2632,6 +2656,13 @@ export class OperatorPortalService {
     const countries = Array.isArray(body.countries) ? [...new Set(body.countries.map((item) => String(item).trim().toUpperCase()).filter(Boolean))] : [];
     const providers = Array.isArray(body.providers) ? [...new Set(body.providers.map((item) => String(item).trim().toLowerCase()).filter(Boolean))] : [];
     const frequencyHours = this.#normalizeJurisdictionFrequency(body.frequencyHours, subscription.quota);
+    this.#assertJurisdictionSelectionsAvailable({
+      subscription,
+      mode,
+      regions,
+      countries,
+      providers
+    });
     const maxCountries = subscription.quota.jurisdictionPolicy?.maxCountries;
     if (maxCountries !== "custom" && countries.length > Number(maxCountries || subscription.quota.regionCount || 1)) {
       throw validationError("Jurisdiction country count exceeds subscription tier", {
@@ -4506,16 +4537,86 @@ export class OperatorPortalService {
   }
 
   #assertJurisdictionModeAllowed(mode, subscriptionMode) {
-    const allowed = subscriptionMode === "full_policy"
-      ? ["disabled", "manual", "scheduled", "full_policy"]
-      : subscriptionMode === "scheduled"
-        ? ["disabled", "manual", "scheduled"]
-        : ["disabled", "manual"];
+    const allowed = this.#allowedJurisdictionModes(subscriptionMode);
     if (!allowed.includes(mode)) {
       throw validationError("Jurisdiction mode is not available in this subscription tier", {
         mode,
         subscriptionMode,
         allowed
+      });
+    }
+  }
+
+  #allowedJurisdictionModes(subscriptionMode) {
+    return subscriptionMode === "full_policy"
+      ? ["disabled", "manual", "scheduled", "full_policy"]
+      : subscriptionMode === "scheduled"
+        ? ["disabled", "manual", "scheduled"]
+        : ["disabled", "manual"];
+  }
+
+  #jurisdictionOptionsForSubscription(subscription) {
+    if (this.providers?.jurisdictionOptions) {
+      return this.providers.jurisdictionOptions({
+        tier: subscription.plan,
+        providerPolicy: subscription.quota.providerPolicy || {}
+      });
+    }
+    return {
+      tier: subscription.plan,
+      requiredRuntime: subscription.quota.providerPolicy?.confidentialComputeRequired
+        ? "confidential"
+        : subscription.quota.providerPolicy?.firecrackerRequired ? "firecracker" : "containers",
+      providers: [],
+      countries: [],
+      regions: [],
+      providerCatalogConfigured: false,
+      productionExecutionAllowed: false
+    };
+  }
+
+  #assertJurisdictionSelectionsAvailable({ subscription, mode, regions, countries, providers }) {
+    if (mode === "disabled") return;
+    const options = this.#jurisdictionOptionsForSubscription(subscription);
+    if (!options.providerCatalogConfigured) return;
+    if (!options.providers.length) {
+      throw validationError("No provider locations are available for this subscription runtime policy", {
+        tier: subscription.plan,
+        requiredRuntime: options.requiredRuntime
+      });
+    }
+    const availableProviders = new Set(options.providers.map((provider) => provider.providerKey));
+    const availableCountries = new Set(options.countries);
+    const availableRegions = new Set(options.regions.map((region) => region.region));
+    const unknownProviders = providers.filter((provider) => !availableProviders.has(provider));
+    const unknownCountries = countries.filter((country) => !availableCountries.has(country));
+    const unknownRegions = regions.filter((region) => !availableRegions.has(region));
+    const regionsByProvider = new Map(options.providers.map((provider) => [
+      provider.providerKey,
+      new Set(provider.regions.map((region) => region.region))
+    ]));
+    const countriesByProvider = new Map(options.providers.map((provider) => [
+      provider.providerKey,
+      new Set(provider.countries)
+    ]));
+    const incompatibleRegions = providers.length && regions.length
+      ? regions.filter((region) => !providers.some((provider) => regionsByProvider.get(provider)?.has(region)))
+      : [];
+    const incompatibleCountries = providers.length && countries.length
+      ? countries.filter((country) => !providers.some((provider) => countriesByProvider.get(provider)?.has(country)))
+      : [];
+    if (unknownProviders.length || unknownCountries.length || unknownRegions.length || incompatibleRegions.length || incompatibleCountries.length) {
+      throw validationError("Jurisdiction selection is not available from configured providers for this tier", {
+        tier: subscription.plan,
+        requiredRuntime: options.requiredRuntime,
+        unknownProviders,
+        unknownCountries,
+        unknownRegions,
+        incompatibleRegions,
+        incompatibleCountries,
+        availableProviders: [...availableProviders],
+        availableCountries: [...availableCountries],
+        availableRegions: [...availableRegions]
       });
     }
   }

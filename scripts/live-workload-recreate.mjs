@@ -7,7 +7,7 @@ const defaultSshKey = process.platform === "win32"
   ? ".deploy\\sylion_hetzner_admin_ed25519"
   : ".deploy/sylion_hetzner_admin_ed25519";
 const sshKey = process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey;
-const workloadHost = process.env.SYLION_WORKLOAD_SSH || "sylion@178.105.197.37";
+const workloadHost = process.env.SYLION_WORKLOAD_NATIVE_SSH || process.env.SYLION_WORKLOAD_SSH || "root@65.109.123.72";
 const g2Host = process.env.SYLION_G2_SSH || "sylion@178.105.203.31";
 
 const apps = {

@@ -394,11 +394,15 @@
   async function loadJurisdictionPolicy() {
     const list = $("#jurisdiction-list");
     if (!list) return;
-    const data = await fetchJson("/operator-api/settings/jurisdiction");
+    const [data, optionsData] = await Promise.all([
+      fetchJson("/operator-api/settings/jurisdiction"),
+      fetchJson("/operator-api/settings/jurisdiction/options")
+    ]);
     if (data.error) {
       list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
       return;
     }
+    renderJurisdictionOptions(optionsData.options, optionsData.error);
     const p = data.policy;
     const form = $("#jurisdiction-form");
     if (form) {
@@ -409,6 +413,30 @@
       form.elements.frequencyHours.value = p.frequencyHours || "";
     }
     list.innerHTML = `<li><strong>${escapeHtml(p.mode)}</strong><span>tier mode: ${escapeHtml(p.subscriptionMode)} | countries: ${escapeHtml((p.countries || []).join(", ") || "none")} | providers: ${escapeHtml((p.providers || []).join(", ") || "none")} | every ${escapeHtml(p.frequencyHours || "-")}h | scopes: ${escapeHtml((p.rotationScopes || []).join(", ") || "none")} | state: ${escapeHtml(p.state)}</span></li>`;
+  }
+
+  function renderJurisdictionOptions(options, error) {
+    const box = $("#jurisdiction-options");
+    if (!box) return;
+    if (error) {
+      box.classList.remove("placeholder");
+      box.textContent = error;
+      return;
+    }
+    if (!options?.providerCatalogConfigured) {
+      box.classList.remove("placeholder");
+      box.textContent = "No provider catalog is configured yet. Admin must add VPS providers before operator can choose real rotation locations.";
+      return;
+    }
+    const providers = options.providers || [];
+    box.classList.remove("placeholder");
+    box.innerHTML = `
+      <strong>Available locations for ${escapeHtml(options.tier)} (${escapeHtml(options.requiredRuntime)})</strong>
+      <span>Allowed modes: ${escapeHtml((options.allowedModes || []).join(", "))} | min frequency: ${escapeHtml(options.minFrequencyHours)}h | max countries: ${escapeHtml(options.maxCountries)}</span>
+      <span>Countries: ${escapeHtml((options.countries || []).join(", ") || "none")}</span>
+      <span>Providers: ${escapeHtml(providers.map((provider) => provider.providerKey).join(", ") || "none")}</span>
+      <span>Regions: ${escapeHtml((options.regions || []).map((region) => `${region.providerKey}:${region.region}/${region.country}`).join(", ") || "none")}</span>
+    `;
   }
 
   async function saveJurisdictionPolicy(event) {

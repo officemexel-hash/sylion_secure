@@ -921,6 +921,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     operatorEnvironments,
     securityProfiles,
     routerReadiness,
+    providers,
     env: runtimeEnv,
     store,
     liveWorkloadRunner: liveExecutionOptions.liveWorkloadRunner,
@@ -1426,6 +1427,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "GET" && url.pathname === "/operator-api/settings/jurisdiction") {
         const operatorActor = operatorActorFromRequest(req);
         return send(res, 200, { policy: operatorPortal.jurisdictionPolicy({ operatorActor, correlationId }) });
+      }
+      if (req.method === "GET" && url.pathname === "/operator-api/settings/jurisdiction/options") {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, { options: operatorPortal.jurisdictionOptions({ operatorActor, correlationId }) });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/settings/jurisdiction") {
         const operatorActor = operatorActorFromRequest(req);
