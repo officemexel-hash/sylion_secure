@@ -287,8 +287,8 @@ conn sylion-g1-router
 
     right=${g1Endpoint}
     rightauth=pubkey
-    rightid=g1.sylion.internal
-    rightsubnet=10.42.0.0/24
+    rightid=@g1.sylion.internal
+    rightsubnet=10.42.0.0/16
 
     ike=aes256gcm16-prfsha384-ecp384,aes256-sha384-ecp384!
     esp=aes256gcm16-ecp384,aes256-sha384-ecp384!
@@ -310,18 +310,22 @@ table inet sylion_killswitch {
     iif "lo" accept
     iifname "br-lan" accept
     meta l4proto icmp limit rate 4/second accept
-    udp sport 67 udp dport 68 accept
+    udp sport 68 udp dport 67 accept
   }
   chain forward {
     type filter hook forward priority -200; policy drop;
     ct state established,related accept
+    iifname "br-lan" ip daddr 10.42.0.0/16 accept
+    ip saddr 10.42.0.0/16 oifname "br-lan" accept
   }
   chain output {
     type filter hook output priority -200; policy drop;
     oif "lo" accept
     ct state established,related accept
+    ip daddr 192.168.8.0/24 accept
+    ip daddr 10.42.0.11 udp dport 53 accept
     udp dport { 500, 4500 } accept
-    udp sport 68 udp dport 67 accept
+    udp sport 67 udp dport 68 accept
     udp dport 123 accept
     meta l4proto icmp limit rate 4/second accept
   }
@@ -329,7 +333,7 @@ table inet sylion_killswitch {
 EOF
 chmod 600 /etc/sylion/killswitch-pre-vpn.nft
 touch /etc/firewall.user
-iptables -t nat -D POSTROUTING -d 10.42.0.0/24 -j ACCEPT 2>/dev/null || true
+iptables -t nat -D POSTROUTING -d 10.42.0.0/16 -j ACCEPT 2>/dev/null || true
 sed -i '/SYLION IPsec NAT bypass/,+1d' /etc/firewall.user 2>/dev/null || true
 sed -i '/SYLION IPsec LAN SNAT/,+2d' /etc/firewall.user 2>/dev/null || true
 sed -i '/SYLION IPsec TCP MSS clamp/,+4d' /etc/firewall.user 2>/dev/null || true
@@ -361,27 +365,27 @@ router_vip="$(ip -4 addr show 2>/dev/null | awk '$2 ~ /^10[.]43[.]/ { split($2,a
 cat >> /etc/firewall.user <<EOF
 
 # SYLION IPsec LAN SNAT: make Pixel LAN traffic match the G1 selector while preserving tunnel-only reachability.
-iptables -t nat -D POSTROUTING -s 192.168.8.0/24 -d 10.42.0.0/24 -j SNAT --to-source \${router_vip} 2>/dev/null || true
-iptables -t nat -I POSTROUTING 1 -s 192.168.8.0/24 -d 10.42.0.0/24 -j SNAT --to-source \${router_vip}
+iptables -t nat -D POSTROUTING -s 192.168.8.0/24 -d 10.42.0.0/16 -j SNAT --to-source \${router_vip} 2>/dev/null || true
+iptables -t nat -I POSTROUTING 1 -s 192.168.8.0/24 -d 10.42.0.0/16 -j SNAT --to-source \${router_vip}
 
 # SYLION IPsec TCP MSS clamp: avoid TLS/WebSocket stalls over repeater + ESP overhead.
-iptables -t mangle -D FORWARD -s 192.168.8.0/24 -d 10.42.0.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || true
-iptables -t mangle -I FORWARD 1 -s 192.168.8.0/24 -d 10.42.0.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
-iptables -t mangle -D FORWARD -s 10.42.0.0/24 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || true
-iptables -t mangle -I FORWARD 1 -s 10.42.0.0/24 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
+iptables -t mangle -D FORWARD -s 192.168.8.0/24 -d 10.42.0.0/16 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || true
+iptables -t mangle -I FORWARD 1 -s 192.168.8.0/24 -d 10.42.0.0/16 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
+iptables -t mangle -D FORWARD -s 10.42.0.0/16 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || true
+iptables -t mangle -I FORWARD 1 -s 10.42.0.0/16 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
 EOF
-iptables -t nat -D POSTROUTING -s 192.168.8.0/24 -d 10.42.0.0/24 -j SNAT --to-source "$router_vip" 2>/dev/null || true
-iptables -t nat -I POSTROUTING 1 -s 192.168.8.0/24 -d 10.42.0.0/24 -j SNAT --to-source "$router_vip"
-iptables -t mangle -D FORWARD -s 192.168.8.0/24 -d 10.42.0.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || true
-iptables -t mangle -I FORWARD 1 -s 192.168.8.0/24 -d 10.42.0.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
-iptables -t mangle -D FORWARD -s 10.42.0.0/24 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || true
-iptables -t mangle -I FORWARD 1 -s 10.42.0.0/24 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
+iptables -t nat -D POSTROUTING -s 192.168.8.0/24 -d 10.42.0.0/16 -j SNAT --to-source "$router_vip" 2>/dev/null || true
+iptables -t nat -I POSTROUTING 1 -s 192.168.8.0/24 -d 10.42.0.0/16 -j SNAT --to-source "$router_vip"
+iptables -t mangle -D FORWARD -s 192.168.8.0/24 -d 10.42.0.0/16 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || true
+iptables -t mangle -I FORWARD 1 -s 192.168.8.0/24 -d 10.42.0.0/16 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
+iptables -t mangle -D FORWARD -s 10.42.0.0/16 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || true
+iptables -t mangle -I FORWARD 1 -s 10.42.0.0/16 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
 echo router_cert_installed=true
 echo router_ipsec_conf_installed=true
 echo router_killswitch_staged=true
 echo router_virtual_ip="$router_vip"
-echo router_lan_snat_installed="$(iptables -t nat -C POSTROUTING -s 192.168.8.0/24 -d 10.42.0.0/24 -j SNAT --to-source "$router_vip" >/dev/null 2>&1 && echo true || echo false)"
-echo router_tcp_mss_clamp_installed="$(iptables -t mangle -C FORWARD -s 192.168.8.0/24 -d 10.42.0.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 >/dev/null 2>&1 && echo true || echo false)"
+echo router_lan_snat_installed="$(iptables -t nat -C POSTROUTING -s 192.168.8.0/24 -d 10.42.0.0/16 -j SNAT --to-source "$router_vip" >/dev/null 2>&1 && echo true || echo false)"
+echo router_tcp_mss_clamp_installed="$(iptables -t mangle -C FORWARD -s 192.168.8.0/24 -d 10.42.0.0/16 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 >/dev/null 2>&1 && echo true || echo false)"
 echo router_tunnel_established="$(echo "$status" | grep -q 'ESTABLISHED' && echo true || echo false)"
 echo router_child_installed="$(echo "$status" | grep -q 'INSTALLED' && echo true || echo false)"
 echo killswitch_loaded="$(nft list table inet sylion_killswitch >/dev/null 2>&1 && echo true || echo false)"

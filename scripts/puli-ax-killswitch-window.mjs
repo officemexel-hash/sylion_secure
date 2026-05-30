@@ -101,7 +101,7 @@ table inet sylion_killswitch {
     ip saddr 192.168.8.0/24 accept
     ip6 saddr fe80::/10 accept
     iifname "br-lan" accept
-    udp sport 67 udp dport 68 accept
+    udp sport 68 udp dport 67 accept
     meta l4proto icmp limit rate 4/second accept
   }
   chain output {
@@ -110,15 +110,17 @@ table inet sylion_killswitch {
     oif "lo" accept
     ip daddr 192.168.8.0/24 accept
     ip6 daddr fe80::/10 accept
-    ip daddr ${g1Ip} udp dport { 500, 4500 } accept
     ip daddr 10.42.0.11 udp dport 53 accept
-    udp sport 68 udp dport 67 accept
+    ip daddr ${g1Ip} udp dport { 500, 4500 } accept
+    udp sport 67 udp dport 68 accept
     udp dport 123 accept
     meta l4proto icmp limit rate 4/second accept
   }
   chain forward {
     type filter hook forward priority -250; policy drop;
     ct state established,related accept
+    iifname "br-lan" ip daddr 10.42.0.0/16 accept
+    ip saddr 10.42.0.0/16 oifname "br-lan" accept
     iifname "br-lan" ip daddr ${g1Ip} udp dport { 500, 4500 } accept
     iifname "br-lan" ip daddr ${g1Ip} ip protocol esp accept
   }

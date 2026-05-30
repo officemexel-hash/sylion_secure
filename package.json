@@ -35,6 +35,7 @@
     "test:hetzner-live-smoke": "node scripts/hetzner-live-smoke.mjs",
     "live:hetzner-operator-baseline": "node scripts/hetzner-live-operator-baseline.mjs",
     "live:g1-internal-dns": "node scripts/install-g1-internal-dns.mjs",
+    "live:g1-ipsec-responder": "node scripts/install-g1-ipsec-responder.mjs --apply",
     "live:g2-workload-gateway": "node scripts/install-g2-workload-gateway.mjs --deploy",
     "live:g2-guacamole-broker": "node scripts/install-g2-guacamole-broker.mjs --deploy",
     "live:g2-guacamole-secret-sync": "node scripts/sync-guacamole-json-handoff-secret.mjs --apply",
