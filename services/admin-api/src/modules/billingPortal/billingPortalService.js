@@ -13,6 +13,9 @@ export const PORTAL_TIERS = Object.freeze({
   pilot: {
     id: "pilot",
     name: "Pilot",
+    tagline: "Entry operator bootstrap for controlled pilots",
+    summary: "One annual B2B activation token for a small operator workspace, including baseline Pixel and Puli AX package generation plus shared dedicated workload placement for pilot use.",
+    badge: "Pilot start",
     monthlyPriceEur: 99,
     minimumMonths: 12,
     annualCommitmentEur: 1188,
@@ -20,11 +23,32 @@ export const PORTAL_TIERS = Object.freeze({
     operatorTier: TIERS.PILOT,
     publicCheckout: true,
     reviewRequired: false,
-    workloadTenancy: "shared_dedicated_pool_allowed"
+    workloadTenancy: "shared_dedicated_pool_allowed",
+    included: [
+      "1 operator activation token",
+      "Pixel GrapheneOS bootstrap package",
+      "Puli AX package placeholder and handoff",
+      "G1, G2 and workload baseline provisioning request",
+      "6 isolated workload app environments",
+      "Mandatory CDR metadata boundary"
+    ],
+    limits: [
+      "Annual B2B commitment",
+      "No jurisdiction rotation add-on by default",
+      "Shared dedicated workload pool allowed"
+    ],
+    addOns: [
+      "Matrix server add-on",
+      "Extra workload capacity",
+      "Jurisdiction credit pack when eligible"
+    ]
   },
   standard: {
     id: "standard",
     name: "Standard",
+    tagline: "Core production tier for regular operators",
+    summary: "Annual operator token with higher workload quota, stronger session controls and standard jurisdiction policy configuration for approved deployments.",
+    badge: "Most practical",
     monthlyPriceEur: 199,
     minimumMonths: 12,
     annualCommitmentEur: 2388,
@@ -32,11 +56,32 @@ export const PORTAL_TIERS = Object.freeze({
     operatorTier: TIERS.STANDARD,
     publicCheckout: true,
     reviewRequired: false,
-    workloadTenancy: "shared_dedicated_pool_allowed"
+    workloadTenancy: "shared_dedicated_pool_allowed",
+    included: [
+      "1 operator activation token",
+      "Pixel and laptop terminal package generation",
+      "Puli AX package placeholder and handoff",
+      "G1, G2 and workload baseline provisioning request",
+      "10 isolated workload app environments",
+      "Operator session policy controls"
+    ],
+    limits: [
+      "Annual B2B commitment",
+      "Shared dedicated workload pool allowed",
+      "Jurisdiction controls limited by policy"
+    ],
+    addOns: [
+      "Matrix server add-on",
+      "Extra workload capacity",
+      "Jurisdiction credit pack when eligible"
+    ]
   },
   pro: {
     id: "pro",
     name: "Pro",
+    tagline: "Expanded workload capacity and policy options",
+    summary: "Annual token for operators that need more app environments, stronger workload rotation controls and broader provider or jurisdiction configuration.",
+    badge: "Expanded",
     monthlyPriceEur: 499,
     minimumMonths: 12,
     annualCommitmentEur: 5988,
@@ -44,11 +89,32 @@ export const PORTAL_TIERS = Object.freeze({
     operatorTier: TIERS.PRO,
     publicCheckout: true,
     reviewRequired: false,
-    workloadTenancy: "shared_dedicated_pool_allowed"
+    workloadTenancy: "shared_dedicated_pool_allowed",
+    included: [
+      "1 operator activation token",
+      "Pixel and laptop terminal package generation",
+      "G1, G2 and workload baseline provisioning request",
+      "20 isolated workload app environments",
+      "Workload rotation request controls",
+      "Enhanced operator monitoring metadata views"
+    ],
+    limits: [
+      "Annual B2B commitment",
+      "Shared dedicated workload pool allowed",
+      "Provider availability depends on live inventory"
+    ],
+    addOns: [
+      "Matrix server add-on",
+      "Extra workload capacity",
+      "Jurisdiction credit pack when eligible"
+    ]
   },
   phantom: {
     id: "phantom",
     name: "Phantom",
+    tagline: "Manual-review tier for sensitive deployments",
+    summary: "Publicly visible tier that requires eligibility review before token claim. It is separated from baseline code paths and does not imply automatic operational approval.",
+    badge: "Manual review",
     monthlyPriceEur: 1000,
     minimumMonths: 12,
     annualCommitmentEur: 12000,
@@ -56,11 +122,32 @@ export const PORTAL_TIERS = Object.freeze({
     operatorTier: TIERS.PHANTOM,
     publicCheckout: true,
     reviewRequired: true,
-    workloadTenancy: "dedicated_or_strongly_isolated_workload_required"
+    workloadTenancy: "dedicated_or_strongly_isolated_workload_required",
+    included: [
+      "1 manual-review activation token",
+      "Pixel and laptop terminal package generation",
+      "40 isolated workload app environments",
+      "Dedicated or strongly isolated workload requirement",
+      "PHANTOM governance evidence package",
+      "Manual eligibility and approval workflow"
+    ],
+    limits: [
+      "Annual B2B commitment",
+      "Token remains manual-review until approved",
+      "No automatic PHANTOM execution claim"
+    ],
+    addOns: [
+      "Matrix server add-on",
+      "Dedicated workload host",
+      "Approved jurisdiction and capacity packs"
+    ]
   },
   sovereign: {
     id: "sovereign",
     name: "Sovereign",
+    tagline: "Dedicated operator infrastructure and governance",
+    summary: "Highest public tier for dedicated operator-only placement, expanded capacity and governance evidence. Requires review before activation material is released.",
+    badge: "Dedicated",
     monthlyPriceEur: 2999,
     minimumMonths: 12,
     annualCommitmentEur: 35988,
@@ -68,7 +155,25 @@ export const PORTAL_TIERS = Object.freeze({
     operatorTier: TIERS.SOVEREIGN,
     publicCheckout: true,
     reviewRequired: true,
-    workloadTenancy: "dedicated_operator_only"
+    workloadTenancy: "dedicated_operator_only",
+    included: [
+      "1 manual-review activation token",
+      "Pixel and laptop terminal package generation",
+      "60 isolated workload app environments",
+      "Dedicated operator-only workload placement",
+      "Expanded jurisdiction policy controls",
+      "Dedicated cost and utilization visibility"
+    ],
+    limits: [
+      "Annual B2B commitment",
+      "Manual eligibility review required",
+      "Dedicated provider capacity must be available"
+    ],
+    addOns: [
+      "Matrix server add-on",
+      "Additional dedicated workload capacity",
+      "Approved jurisdiction and provider packs"
+    ]
   }
 });
 
@@ -204,6 +309,9 @@ function publicTier(tier) {
   return {
     id: tier.id,
     name: tier.name,
+    tagline: tier.tagline,
+    summary: tier.summary,
+    badge: tier.badge,
     monthlyPriceEur: tier.monthlyPriceEur,
     minimumMonths: tier.minimumMonths,
     annualCommitmentEur: tier.annualCommitmentEur,
@@ -212,6 +320,9 @@ function publicTier(tier) {
     publicCheckout: tier.publicCheckout,
     reviewRequired: tier.reviewRequired,
     workloadTenancy: tier.workloadTenancy,
+    included: [...tier.included],
+    limits: [...tier.limits],
+    addOns: [...tier.addOns],
     currency: "EUR",
     cdrMandatory: true,
     terminalDataStored: false
@@ -262,7 +373,56 @@ export class BillingPortalService {
       businessOnly: true,
       refundPolicyCode: "non_refundable_after_provisioning_except_mandatory_law",
       tiers: Object.values(PORTAL_TIERS).map(publicTier),
-      tokenTypes: PORTAL_TOKEN_TYPES
+      tokenTypes: PORTAL_TOKEN_TYPES,
+      tokenCatalog: [
+        {
+          type: PORTAL_TOKEN_TYPES.OPERATOR_BOOTSTRAP,
+          name: "Operator bootstrap token",
+          purpose: "Creates the first operator profile and package handoff after payment or approved review."
+        },
+        {
+          type: PORTAL_TOKEN_TYPES.SUBSCRIPTION_EXTEND,
+          name: "Subscription extension token",
+          purpose: "Extends an existing operator subscription after verification."
+        },
+        {
+          type: PORTAL_TOKEN_TYPES.TIER_UPGRADE,
+          name: "Tier upgrade token",
+          purpose: "Requests upgrade to a higher tier and reconciles capacity before provisioning."
+        },
+        {
+          type: PORTAL_TOKEN_TYPES.JURISDICTION_CREDIT,
+          name: "Jurisdiction credit token",
+          purpose: "Adds approved jurisdiction capacity when the operator tier allows it."
+        },
+        {
+          type: PORTAL_TOKEN_TYPES.WORKLOAD_CAPACITY,
+          name: "Workload capacity token",
+          purpose: "Adds app-environment capacity within policy and provider limits."
+        },
+        {
+          type: PORTAL_TOKEN_TYPES.MATRIX_SERVER,
+          name: "Matrix server token",
+          purpose: "Requests a dedicated Matrix server add-on."
+        },
+        {
+          type: PORTAL_TOKEN_TYPES.PHANTOM_REVIEW,
+          name: "PHANTOM review token",
+          purpose: "Starts the manual PHANTOM eligibility review. It does not enable execution by itself."
+        },
+        {
+          type: PORTAL_TOKEN_TYPES.PHANTOM_ACCESS,
+          name: "PHANTOM access token",
+          purpose: "Reserved for approved manual workflows after governance review."
+        }
+      ],
+      legalNotice: {
+        customerSegment: "Business customers only",
+        minimumCommitment: "12 months",
+        refundPolicy: "Dedicated provisioning costs are non-refundable after provisioning except where mandatory law requires otherwise.",
+        securityClaim: "The portal sells scoped provisioning tokens and package handoff. It does not claim anonymity or impossible security.",
+        reviewNotice: "PHANTOM and Sovereign tiers require manual review before activation material can be claimed."
+      }
     };
   }
 

@@ -50,8 +50,35 @@
         <div class="section-head">
           <p class="eyebrow">Annual tokens</p>
           <h2>Choose tier</h2>
+          <p class="section-copy">Select a tier card to update checkout. Each tier creates a paid token that can bootstrap an operator or, for review tiers, start the manual approval path before activation material is released.</p>
         </div>
-        <div id="tiers" class="tiers" aria-live="polite"></div>
+        <div class="pricing-layout">
+          <div id="tiers" class="tiers" aria-live="polite"></div>
+          <aside class="panel tier-detail" id="tier-detail">
+            <p class="eyebrow">Selected tier</p>
+            <h2 id="selected-tier-name">Loading</h2>
+            <p id="selected-tier-summary" class="hint">Pricing catalog is loading.</p>
+            <dl class="tier-facts">
+              <div><dt>Annual total</dt><dd id="selected-tier-annual">-</dd></div>
+              <div><dt>App environments</dt><dd id="selected-tier-envs">-</dd></div>
+              <div><dt>Workload tenancy</dt><dd id="selected-tier-tenancy">-</dd></div>
+              <div><dt>Review</dt><dd id="selected-tier-review">-</dd></div>
+            </dl>
+            <h3>Included</h3>
+            <ul id="selected-tier-included" class="feature-list"></ul>
+            <h3>Limits</h3>
+            <ul id="selected-tier-limits" class="feature-list muted"></ul>
+          </aside>
+        </div>
+      </section>
+
+      <section class="grid-section" id="tokens">
+        <div class="section-head">
+          <p class="eyebrow">Token types</p>
+          <h2>What can be bought or redeemed</h2>
+          <p class="section-copy">The first production path is the operator bootstrap token. Extension, upgrade, Matrix, jurisdiction and capacity tokens are exposed in the catalog so the portal can grow without changing the operator activation model.</p>
+        </div>
+        <div id="token-catalog" class="token-grid" aria-live="polite"></div>
       </section>
 
       <section class="grid-section" id="gateways">
@@ -72,6 +99,7 @@
             Tier
             <select name="tierId" id="tier-select"></select>
           </label>
+          <div id="checkout-tier-summary" class="checkout-summary">Select a tier to see the annual commitment.</div>
           <label>
             Provider
             <select name="provider" id="provider-select">
@@ -100,6 +128,7 @@
             <label><input name="businessOnlyAccepted" type="checkbox" checked /> B2B purchase</label>
             <label><input name="noRefundAfterProvisioningAccepted" type="checkbox" checked /> Dedicated provisioning cost acknowledged</label>
           </div>
+          <p id="legal-copy" class="hint legal-copy">Business customers only. Dedicated provisioning costs are non-refundable after provisioning except where mandatory law requires otherwise.</p>
           <button type="submit">Create provider checkout</button>
         </form>
 

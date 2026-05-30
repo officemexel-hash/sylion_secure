@@ -142,6 +142,20 @@ When `--network` attaches the portal VPS to the private SYLION network, the scri
 | Exposed public ports | `22`, `80`, `443` |
 | Admin/operator exposure | blocked by public edge route allowlist |
 
+## Public Portal Feature Contract
+
+The public portal must show the customer exactly what can be bought before checkout:
+
+- five selectable annual tiers: Pilot, Standard, Pro, Phantom and Sovereign;
+- monthly price, annual commitment, minimum term, workload app-environment count and tenancy model for every tier;
+- included controls and limits for the selected tier;
+- payment-provider status for Stripe, CoinGate and Mollie without exposing provider secrets;
+- token catalog for operator bootstrap, subscription extension, tier upgrade, jurisdiction credit, workload capacity, Matrix server, PHANTOM review and PHANTOM access;
+- B2B-only, annual-commitment and no-refund-after-provisioning wording, with the mandatory-law exception;
+- explicit wording that the portal sells scoped provisioning tokens and package handoff, not anonymity or impossible security.
+
+Tier cards are active controls. Selecting a tier updates the checkout select and the selected-tier summary, so a user can choose the subscription visually before creating a provider checkout.
+
 ## Network Gate
 
 The public VPS must reach the private control plane through one of:

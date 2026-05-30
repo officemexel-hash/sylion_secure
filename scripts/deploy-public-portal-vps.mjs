@@ -238,7 +238,14 @@ systemctl daemon-reload
 systemctl enable --now sylion-public-portal
 systemctl restart sylion-public-portal
 systemctl reload nginx
-curl -fsS http://127.0.0.1:8088/health >/dev/null
+for attempt in $(seq 1 20); do
+  if curl -fsS http://127.0.0.1:8088/health >/dev/null 2>&1; then
+    exit 0
+  fi
+  sleep 1
+done
+systemctl status sylion-public-portal --no-pager -l || true
+exit 1
 `;
   ssh(host, key, remoteScript);
 }

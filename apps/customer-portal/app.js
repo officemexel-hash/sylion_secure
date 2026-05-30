@@ -1,6 +1,9 @@
 const state = {
   tiers: [],
+  tokenCatalog: [],
+  legalNotice: {},
   providers: {},
+  selectedTierId: "",
   selectedProvider: "stripe",
   lastActivation: null
 };
@@ -39,10 +42,34 @@ function show(value) {
   $("#output").textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
 }
 
+function correlationId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  if (globalThis.crypto?.getRandomValues) {
+    const buffer = new Uint32Array(4);
+    globalThis.crypto.getRandomValues(buffer);
+    return [...buffer].map((part) => part.toString(16).padStart(8, "0")).join("");
+  }
+  return `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+}
+
+function formatMoney(value) {
+  return `${Number(value || 0).toLocaleString("en-US")} EUR`;
+}
+
+function selectedTier() {
+  return state.tiers.find((tier) => tier.id === state.selectedTierId) || state.tiers[0] || null;
+}
+
+function tenancyLabel(value) {
+  return String(value || "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 async function api(path, { method = "GET", body } = {}) {
   const response = await fetch(path, {
     method,
-    headers: { "content-type": "application/json", "x-correlation-id": `corr_portal_${crypto.randomUUID()}` },
+    headers: { "content-type": "application/json", "x-correlation-id": `corr_portal_${correlationId()}` },
     body: body ? JSON.stringify(body) : undefined
   });
   const payload = await response.json();
@@ -54,30 +81,81 @@ async function api(path, { method = "GET", body } = {}) {
   return payload;
 }
 
+function selectTier(tierId) {
+  state.selectedTierId = tierId;
+  $("#tier-select").value = tierId;
+  renderTiers();
+  renderSelectedTier();
+}
+
 function renderTiers() {
   const target = $("#tiers");
   const select = $("#tier-select");
   target.innerHTML = "";
   select.innerHTML = "";
   for (const tier of state.tiers) {
-    const article = document.createElement("article");
-    article.className = "tier";
-    article.innerHTML = `
-      <strong>${escapeHtml(tier.name)}</strong>
-      <div class="price">${escapeHtml(tier.monthlyPriceEur)} EUR<span>/mo</span></div>
+    const isSelected = tier.id === state.selectedTierId;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = `tier-card ${isSelected ? "selected" : ""}`;
+    card.dataset.tier = tier.id;
+    card.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    card.innerHTML = `
+      <span class="tier-head">
+        <span class="tier-title">
+          <strong>${escapeHtml(tier.name)}</strong>
+          <span>${escapeHtml(tier.tagline || tier.operatorTier)}</span>
+        </span>
+        <span class="pill ${tier.reviewRequired ? "blocked" : "ok"}">${escapeHtml(tier.badge || (tier.reviewRequired ? "Review" : "Token"))}</span>
+      </span>
+      <span class="price">${escapeHtml(tier.monthlyPriceEur)} EUR<span>/mo</span></span>
       <ul>
         <li>${escapeHtml(tier.minimumMonths)} month minimum</li>
-        <li>${escapeHtml(tier.annualCommitmentEur)} EUR annual</li>
-        <li>${escapeHtml(tier.appEnvironments)} app environments</li>
-        <li>${escapeHtml(tier.operatorTier)} operator tier</li>
+        <li>${escapeHtml(formatMoney(tier.annualCommitmentEur))} annual commitment</li>
+        <li>${escapeHtml(tier.appEnvironments)} isolated app environments</li>
         <li>${tier.reviewRequired ? "Manual eligibility review" : "Self-service token"}</li>
       </ul>
+      <span class="tier-cta">${isSelected ? "Selected" : "Select tier"}</span>
     `;
-    target.appendChild(article);
+    card.addEventListener("click", () => selectTier(tier.id));
+    target.appendChild(card);
     const option = document.createElement("option");
     option.value = tier.id;
     option.textContent = `${tier.name} - ${tier.annualCommitmentEur} EUR / year`;
     select.appendChild(option);
+  }
+  select.value = state.selectedTierId;
+}
+
+function renderSelectedTier() {
+  const tier = selectedTier();
+  if (!tier) return;
+  $("#selected-tier-name").textContent = tier.name;
+  $("#selected-tier-summary").textContent = tier.summary || "";
+  $("#selected-tier-annual").textContent = formatMoney(tier.annualCommitmentEur);
+  $("#selected-tier-envs").textContent = String(tier.appEnvironments);
+  $("#selected-tier-tenancy").textContent = tenancyLabel(tier.workloadTenancy);
+  $("#selected-tier-review").textContent = tier.reviewRequired ? "Manual review required" : "Self-service token";
+  $("#checkout-tier-summary").textContent = `${tier.name}: ${formatMoney(tier.annualCommitmentEur)} annual B2B commitment, ${tier.appEnvironments} app environments, ${tier.reviewRequired ? "manual review before token claim" : "self-service claim after paid webhook"}.`;
+  $("#selected-tier-included").innerHTML = (tier.included || [])
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+  $("#selected-tier-limits").innerHTML = (tier.limits || [])
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+}
+
+function renderTokenCatalog() {
+  const target = $("#token-catalog");
+  target.innerHTML = "";
+  for (const item of state.tokenCatalog) {
+    const article = document.createElement("article");
+    article.className = "token-card";
+    article.innerHTML = `
+      <strong>${escapeHtml(item.name)}</strong>
+      <p>${escapeHtml(item.purpose)}</p>
+    `;
+    target.appendChild(article);
   }
 }
 
@@ -112,6 +190,15 @@ function renderProviderStatus() {
   $("#stripe-status").textContent = state.providers.stripe?.configured ? "configured" : "needs keys";
   $("#coingate-status").textContent = state.providers.coingate?.configured ? "configured" : "needs keys";
   $("#mollie-status").textContent = state.providers.mollie?.configured ? "configured" : "needs keys";
+}
+
+function renderLegalNotice() {
+  const notice = state.legalNotice || {};
+  $("#legal-copy").textContent = [
+    notice.customerSegment || "Business customers only",
+    notice.refundPolicy || "Dedicated provisioning costs are non-refundable after provisioning except where mandatory law requires otherwise.",
+    notice.securityClaim || "The portal sells scoped provisioning tokens and package handoff."
+  ].map((item) => String(item).replace(/\.$/, "")).join(". ");
 }
 
 function collectForm(form) {
@@ -162,12 +249,22 @@ async function load() {
     api("/portal-api/payment-providers")
   ]);
   state.tiers = pricing.tiers;
+  state.tokenCatalog = pricing.tokenCatalog || [];
+  state.legalNotice = pricing.legalNotice || {};
+  state.selectedTierId = state.tiers[0]?.id || "";
   state.providers = providers.providers;
   renderTiers();
+  renderSelectedTier();
+  renderTokenCatalog();
   renderProviders();
   renderProviderStatus();
+  renderLegalNotice();
   autofillFromUrl();
 }
+
+$("#tier-select").addEventListener("change", (event) => {
+  selectTier(event.currentTarget.value);
+});
 
 $("#provider-select").addEventListener("change", (event) => {
   state.selectedProvider = event.currentTarget.value;
