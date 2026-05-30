@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, relative, resolve } from "node:path";
@@ -234,6 +235,21 @@ function assertCookieMutationCsrf(req, source) {
   if (source !== "cookie" || ["GET", "HEAD", "OPTIONS"].includes(req.method)) return;
   if (req.headers["x-sylion-operator-csrf"] === "same-origin-ui") return;
   throw new AppError("csrf_required", "Cookie-bound operator session requires same-origin CSRF header for mutations", 403);
+}
+
+function constantTimeStringEqual(left, right) {
+  const leftBuffer = Buffer.from(String(left || ""), "utf8");
+  const rightBuffer = Buffer.from(String(right || ""), "utf8");
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function assertPublicPortalProxy(req, env) {
+  const expected = env.SYLION_PUBLIC_PORTAL_SHARED_SECRET;
+  if (!expected) return;
+  const provided = req.headers["x-sylion-public-portal-secret"];
+  if (constantTimeStringEqual(provided, expected)) return;
+  throw new AppError("portal_proxy_required", "Public portal mutations must arrive through the approved portal edge", 403);
 }
 
 function latestPromotableLocalBaseline(pipelines = []) {
@@ -992,6 +1008,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       }
 
       if (req.method === "POST" && url.pathname === "/portal-api/checkouts") {
+        assertPublicPortalProxy(req, runtimeEnv);
         const body = await readJson(req);
         const checkout = await billingPortal.createCheckout({
           ...body,
@@ -1003,6 +1020,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       const portalClaimMatch = url.pathname.match(/^\/portal-api\/checkouts\/([^/]+)\/claim-token$/);
       if (req.method === "POST" && portalClaimMatch) {
+        assertPublicPortalProxy(req, runtimeEnv);
         const body = await readJson(req);
         const token = billingPortal.claimToken({
           checkoutId: portalClaimMatch[1],
@@ -1013,6 +1031,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       }
 
       if (req.method === "POST" && url.pathname === "/portal-api/operator-bootstrap") {
+        assertPublicPortalProxy(req, runtimeEnv);
         const body = await readJson(req);
         const activationProfile = body.activationProfile || body.operatorProfile || {};
         const preflight = billingPortal.prepareOperatorBootstrapToken({
@@ -1141,6 +1160,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       const portalWebhookMatch = url.pathname.match(/^\/portal-api\/webhooks\/([^/]+)$/);
       if (req.method === "POST" && portalWebhookMatch) {
+        assertPublicPortalProxy(req, runtimeEnv);
         const rawBody = await readRaw(req);
         const result = await billingPortal.handleWebhook({
           provider: portalWebhookMatch[1],
