@@ -180,7 +180,7 @@ test("Step 3.27 rejects live promotion when subscription blocks automatic local 
       tenantId: tenant.tenant.id,
       displayName: "Step 3.27 Limit Operator",
       tier: "STANDARD",
-      requestedTemplates: ["whatsapp", "signal", "telegram", "threema"]
+      requestedTemplates: ["whatsapp", "signal", "telegram", "threema", "zangi", "duckduckgo_browser", "libreoffice", "exodus", "matrix_client", "matrix_server", "signal"]
     });
     assert.equal(operator.baselineProvisioning, null);
     const provider = await client.createProvider({

@@ -4329,8 +4329,10 @@ export class OperatorPortalService {
   }
 
   #tierSessionMax(tier) {
+    if (tier === TIERS.PHANTOM) return 24;
     if (tier === TIERS.SOVEREIGN) return 24;
     if (tier === TIERS.PRO) return 12;
+    if (tier === TIERS.STANDARD) return 12;
     return 8;
   }
 

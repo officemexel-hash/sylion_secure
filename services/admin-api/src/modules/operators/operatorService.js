@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { OPERATOR_STATUSES, RESOURCE_TYPES } from "../../domain/constants.js";
+import { OPERATOR_STATUSES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
@@ -113,8 +113,8 @@ export class OperatorService {
         vpsPerOperator: 3,
         router: "GL.iNet GL-XE3000 Puli AX",
         cdrMandatory: true,
-        workloadTenancy: tier === "SOVEREIGN" ? "dedicated_operator_only" : "shared_dedicated_pool_allowed",
-        dedicatedWorkloadPerOperatorRequired: tier === "SOVEREIGN",
+        workloadTenancy: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier) ? "dedicated_operator_only" : "shared_dedicated_pool_allowed",
+        dedicatedWorkloadPerOperatorRequired: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier),
         phantomWorkloadDedicatedRequired: true
       },
       createdAt: isoNow()

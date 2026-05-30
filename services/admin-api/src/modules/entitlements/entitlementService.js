@@ -2,9 +2,18 @@ import { TIERS } from "../../domain/constants.js";
 import { validationError } from "../../lib/errors.js";
 
 export const TIER_LIMITS = Object.freeze({
-  [TIERS.STANDARD]: {
-    maxWorkloadEnvironments: 3,
+  [TIERS.PILOT]: {
+    maxWorkloadEnvironments: 6,
     maxAppsPerOperator: 3,
+    regionCount: 1,
+    jurisdictionRotation: "disabled",
+    matrixAddonAvailable: true,
+    phantomAdminLifecycleAvailable: false,
+    cdrMandatory: true
+  },
+  [TIERS.STANDARD]: {
+    maxWorkloadEnvironments: 10,
+    maxAppsPerOperator: 5,
     regionCount: 2,
     jurisdictionRotation: "limited_manual",
     matrixAddonAvailable: true,
@@ -12,17 +21,26 @@ export const TIER_LIMITS = Object.freeze({
     cdrMandatory: true
   },
   [TIERS.PRO]: {
-    maxWorkloadEnvironments: 10,
-    maxAppsPerOperator: 5,
+    maxWorkloadEnvironments: 20,
+    maxAppsPerOperator: 10,
     regionCount: 5,
     jurisdictionRotation: "scheduled",
     matrixAddonAvailable: true,
     phantomAdminLifecycleAvailable: true,
     cdrMandatory: true
   },
+  [TIERS.PHANTOM]: {
+    maxWorkloadEnvironments: 40,
+    maxAppsPerOperator: 20,
+    regionCount: "custom",
+    jurisdictionRotation: "full_policy",
+    matrixAddonAvailable: true,
+    phantomAdminLifecycleAvailable: true,
+    cdrMandatory: true
+  },
   [TIERS.SOVEREIGN]: {
-    maxWorkloadEnvironments: 30,
-    maxAppsPerOperator: 10,
+    maxWorkloadEnvironments: 60,
+    maxAppsPerOperator: 30,
     regionCount: "custom",
     jurisdictionRotation: "full_policy",
     matrixAddonAvailable: true,

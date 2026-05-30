@@ -35,6 +35,7 @@ import { SecurityProfileService } from "./modules/security/securityProfileServic
 import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
 import { RouterReadinessService } from "./modules/router/routerReadinessService.js";
 import { BillingPortalService } from "./modules/billingPortal/billingPortalService.js";
+import { ROLES } from "./domain/constants.js";
 import { AppError, validationError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -62,6 +63,105 @@ function send(res, status, payload, headers = {}) {
 function sendRaw(res, status, contentType, payload) {
   res.writeHead(status, { "content-type": contentType });
   res.end(payload);
+}
+
+const PORTAL_BOOTSTRAP_TEMPLATE_SEQUENCE = Object.freeze([
+  "whatsapp",
+  "signal",
+  "telegram",
+  "threema",
+  "zangi",
+  "duckduckgo_browser",
+  "libreoffice",
+  "exodus",
+  "matrix_client",
+  "matrix_server"
+]);
+
+function portalProvisionerActor() {
+  return {
+    id: "portal_operator_bootstrap_service",
+    email: "portal-provisioner@sylion.local",
+    role: ROLES.GLOBAL_SUPER_ADMIN,
+    portalServiceActor: true
+  };
+}
+
+function portalTemplatePlan(appEnvironments) {
+  const count = Math.max(1, Math.min(Number(appEnvironments) || 1, 60));
+  return Array.from({ length: count }, (_, index) => PORTAL_BOOTSTRAP_TEMPLATE_SEQUENCE[index % PORTAL_BOOTSTRAP_TEMPLATE_SEQUENCE.length]);
+}
+
+function portalDownloadPackages({ activation, tenant, operator, provisioningDraft, routerPackage, pixelPackage, laptopPackage }) {
+  const packageRefs = {
+    pixel: `portal-pixel-package://${operator.id}/${activation.token.id}`,
+    puliAx: `portal-puli-ax-package://${operator.id}/${activation.token.id}`,
+    laptop: `portal-laptop-package://${operator.id}/${activation.token.id}`
+  };
+  return {
+    packageRefs,
+    pixel: {
+      fileName: `sylion-${operator.id}-pixel-bootstrap.json`,
+      kind: "pixel_grapheneos_bootstrap",
+      operatorId: operator.id,
+      tenantId: tenant.id,
+      tier: operator.tier,
+      internalHosts: ["admin.sylion.internal", "operator.sylion.internal", "session.sylion.internal"],
+      caCertificateRef: pixelPackage.caCertificateRef,
+      caFingerprintSha256: pixelPackage.caFingerprintSha256 || null,
+      caCertificatePem: pixelPackage.caCertificatePem || null,
+      installMethods: pixelPackage.installMethods,
+      vpnProfile: {
+        transport: "ipsec_ikev2_certificate_auth",
+        firstHop: "G1",
+        puliAxRecommended: true,
+        privateKeyIncluded: false
+      },
+      terminalDataStored: false,
+      secretMaterialIncluded: false
+    },
+    puliAx: {
+      fileName: `sylion-${operator.id}-puli-ax-package.json`,
+      kind: "puli_ax_router_bootstrap",
+      operatorId: operator.id,
+      tenantId: tenant.id,
+      status: routerPackage.status,
+      model: routerPackage.model,
+      manifest: routerPackage.manifest,
+      blockers: routerPackage.blockers,
+      secretMaterialIncluded: false,
+      privateKeyMaterialIncluded: false
+    },
+    laptop: {
+      fileName: `sylion-${operator.id}-laptop-access.json`,
+      kind: "laptop_web_terminal_bootstrap",
+      operatorId: operator.id,
+      tenantId: tenant.id,
+      packageType: laptopPackage.packageType,
+      entrypoints: laptopPackage.browserThinClient.entrypoints,
+      validation: laptopPackage.validation,
+      secretMaterialIncluded: false
+    },
+    provisioning: {
+      pipelineId: provisioningDraft.id,
+      status: provisioningDraft.status,
+      requestedTemplates: provisioningDraft.requestedTemplates,
+      g1g2WorkloadBaseline: provisioningDraft.baseline,
+      firecrackerPlan: provisioningDraft.firecrackerPlan,
+      liveProvisioning: {
+        requested: true,
+        mode: "portal_token_bootstrap_request",
+        targetPath: ["Pixel or laptop", "Puli AX", "G1", "G2", "WORKLOAD", "Firecracker microVMs"],
+        sideEffectAllowed: false,
+        productionExecutionAllowed: false,
+        blockers: [
+          "live_provider_mutation_requires_admin_approval",
+          "provider_cost_gate_required",
+          "hsm_fido2_physical_ceremony_deferred"
+        ]
+      }
+    }
+  };
 }
 
 function bearerToken(req) {
@@ -910,6 +1010,133 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           correlationId
         });
         return send(res, 201, token);
+      }
+
+      if (req.method === "POST" && url.pathname === "/portal-api/operator-bootstrap") {
+        const body = await readJson(req);
+        const activationProfile = body.activationProfile || body.operatorProfile || {};
+        const preflight = billingPortal.prepareOperatorBootstrapToken({
+          redemptionToken: body.redemptionToken,
+          vaultPublicId: body.vaultPublicId,
+          activationProfile,
+          correlationId
+        });
+        const actor = portalProvisionerActor();
+        const tenantName = preflight.activationProfile.companyName
+          || `${preflight.activationProfile.operatorDisplayName} Tenant`;
+        const tenant = tenants.create({
+          actor,
+          name: tenantName,
+          tier: preflight.tier.operatorTier,
+          correlationId
+        });
+        const subscription = subscriptions.ensureForTenant({ actor, tenant, correlationId });
+        const operator = operators.create({
+          actor,
+          tenantId: tenant.id,
+          displayName: preflight.activationProfile.operatorDisplayName,
+          tier: preflight.tier.operatorTier,
+          labels: [
+            "PORTAL_TOKEN_BOOTSTRAP",
+            preflight.activationProfile.fulfillmentMode === "reseller_preconfigured_hardware" ? "RESELLER_KIT" : "SELF_SERVICE_KIT"
+          ],
+          correlationId
+        });
+        let provisioningDraft = operatorProvisioning.createDraft({
+          actor,
+          operatorId: operator.id,
+          requestedTemplates: portalTemplatePlan(preflight.tier.appEnvironments),
+          autoCreated: true,
+          correlationId
+        });
+        if (provisioningDraft.blockers.length === 0) {
+          provisioningDraft = operatorProvisioning.createLocalLabVpsSet({
+            actor,
+            pipelineId: provisioningDraft.id,
+            correlationId
+          });
+        }
+        const operatorActor = {
+          id: `operator:${operator.id}`,
+          role: "Operator Portal",
+          operatorId: operator.id,
+          tenantId: tenant.id,
+          terminalMode: preflight.activationProfile.terminalMode,
+          deviceId: null
+        };
+        const routerPackage = routerReadiness.generatePackage({
+          actor,
+          operatorId: operator.id,
+          packageVersion: "portal-bootstrap-v1",
+          evidenceRefs: [`portal-payment://${preflight.token.checkoutId}`],
+          correlationId
+        });
+        const pixelPackage = operatorPortal.pixelCaProvisioning({ operatorActor, correlationId });
+        const laptopPackage = operatorPortal.laptopAccessPackage({
+          operatorActor: { ...operatorActor, terminalMode: "laptop_web_terminal" },
+          correlationId
+        });
+        const firstSession = operatorPortal.createLocalSession({
+          actor,
+          operatorId: operator.id,
+          terminalMode: preflight.activationProfile.terminalMode,
+          deviceId: null,
+          correlationId
+        });
+        const activation = billingPortal.redeemOperatorBootstrapToken({
+          redemptionToken: body.redemptionToken,
+          vaultPublicId: body.vaultPublicId,
+          activationProfile,
+          correlationId
+        });
+        const downloadPackages = portalDownloadPackages({
+          activation,
+          tenant,
+          operator,
+          provisioningDraft,
+          routerPackage,
+          pixelPackage,
+          laptopPackage
+        });
+        audit.record({
+          actorId: actor.id,
+          action: "portal.operator_bootstrap_completed",
+          resourceType: "operator",
+          resourceId: operator.id,
+          tenantId: tenant.id,
+          operatorId: operator.id,
+          correlationId,
+          result: "operator_created_from_portal_token",
+          newValue: {
+            tokenId: activation.token.id,
+            tierId: activation.token.tierId,
+            operatorTier: activation.token.operatorTier,
+            provisioningPipelineId: provisioningDraft.id,
+            sessionId: firstSession.id,
+            rawTokenStored: false,
+            sessionTokenStoredInAudit: false
+          }
+        });
+        return send(res, 201, {
+          activation: {
+            status: "operator_created",
+            token: activation.token,
+            fulfillmentMode: preflight.activationProfile.fulfillmentMode
+          },
+          tenant,
+          subscription,
+          operator,
+          provisioningDraft,
+          downloadPackages,
+          firstSession: {
+            id: firstSession.id,
+            terminalMode: firstSession.terminalMode,
+            expiresAt: firstSession.expiresAt,
+            operatorPortalUrl: `/operator?op_token=${encodeURIComponent(firstSession.token)}#overview`,
+            tokenMaterialReturnedOnce: true,
+            tokenStoredInAudit: false
+          }
+        }, { "set-cookie": operatorSessionCookie(req, firstSession) });
       }
 
       const portalWebhookMatch = url.pathname.match(/^\/portal-api\/webhooks\/([^/]+)$/);

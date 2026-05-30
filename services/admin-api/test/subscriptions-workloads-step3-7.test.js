@@ -78,7 +78,7 @@ test("Step 3.7 subscription plans and tenant ledger are initialized and guarded"
     const readonlyToken = await login(baseUrl, "readonly@sylion.local", "ReadOnly-LocalOnly-1!");
     const plans = await request(baseUrl, "/subscription/plans", { token });
     assert.equal(plans.status, 200);
-    assert.equal(plans.payload.plans.length, 3);
+    assert.equal(plans.payload.plans.length, 5);
     assert.ok(plans.payload.plans.every((plan) => plan.cdrMandatory === true));
     assert.ok(plans.payload.plans.every((plan) => plan.phantomExecutionAllowed === false));
 
@@ -116,7 +116,7 @@ test("Step 3.7 subscription plans and tenant ledger are initialized and guarded"
     const subscription = await request(baseUrl, `/tenants/${tenant.id}/subscription`, { token });
     assert.equal(subscription.status, 200);
     assert.equal(subscription.payload.subscription.tier, "STANDARD");
-    assert.equal(subscription.payload.subscription.effectiveLimits.maxWorkloadEnvironments, 3);
+    assert.equal(subscription.payload.subscription.effectiveLimits.maxWorkloadEnvironments, 10);
     assert.equal(subscription.payload.subscription.effectiveLimits.phantomExecutionAllowed, false);
   } finally {
     await close();
@@ -166,7 +166,7 @@ test("Step 3.7 workload allocation quote, allocation and placement are quota con
     const denied = await request(baseUrl, `/operators/${operator.id}/workload-allocations`, {
       method: "POST",
       token,
-      body: { appId: app.id, requestedCount: 2 }
+      body: { appId: app.id, requestedCount: 9 }
     });
     assert.equal(denied.status, 422);
     assert.ok(denied.payload.error.details.blockers.includes("max_workload_environments_exceeded"));

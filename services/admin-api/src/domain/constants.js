@@ -10,8 +10,10 @@ export const ROLES = Object.freeze({
 });
 
 export const TIERS = Object.freeze({
+  PILOT: "PILOT",
   STANDARD: "STANDARD",
   PRO: "PRO",
+  PHANTOM: "PHANTOM",
   SOVEREIGN: "SOVEREIGN"
 });
 

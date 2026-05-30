@@ -128,13 +128,13 @@ test("entitlements block workload count above STANDARD limit", async () => {
       method: "POST",
       token,
       body: {
-        requestedApps: ["WhatsApp", "Signal", "Telegram", "Threema"]
+        requestedApps: ["WhatsApp", "Signal", "Telegram", "Threema", "Zangi", "DuckDuckGo", "LibreOffice", "Exodus", "Matrix Client", "Matrix Server", "Signal 2"]
       }
     });
 
     assert.equal(plan.status, 422);
     assert.equal(plan.payload.error.code, "validation_error");
-    assert.equal(plan.payload.error.details.maxWorkloadEnvironments, 3);
+    assert.equal(plan.payload.error.details.maxWorkloadEnvironments, 10);
   } finally {
     await close();
   }
@@ -165,4 +165,3 @@ test("support readonly cannot create tenants", async () => {
     await close();
   }
 });
-

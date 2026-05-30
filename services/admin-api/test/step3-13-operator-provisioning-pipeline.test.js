@@ -92,7 +92,7 @@ test("Step 3.13 blocks pipeline drafts above subscription workload limits", asyn
       tenantId: tenant.tenant.id,
       displayName: "Limit Operator",
       tier: "STANDARD",
-      requestedTemplates: ["whatsapp", "signal", "telegram", "threema"]
+      requestedTemplates: ["whatsapp", "signal", "telegram", "threema", "zangi", "duckduckgo_browser", "libreoffice", "exodus", "matrix_client", "matrix_server", "signal"]
     });
 
     assert.equal(created.provisioningDraft.status, "blocked_draft");

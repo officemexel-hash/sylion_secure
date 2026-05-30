@@ -13,17 +13,17 @@ const PAYMENT_STATUSES = new Set(["paid_sandbox", "paid_external_reference", "pa
 
 const DEFAULT_PLANS = Object.freeze([
   {
-    id: "plan_standard",
-    tier: TIERS.STANDARD,
-    name: "STANDARD",
-    maxWorkloadEnvironments: 3,
+    id: "plan_pilot",
+    tier: TIERS.PILOT,
+    name: "PILOT",
+    maxWorkloadEnvironments: 6,
     maxAppsPerOperator: 3,
-    regionCount: 2,
-    jurisdictionRotationMode: "limited_manual",
+    regionCount: 1,
+    jurisdictionRotationMode: "disabled",
     jurisdictionPolicy: {
-      allowedModes: ["disabled", "manual"],
-      minFrequencyHours: 168,
-      maxCountries: 2,
+      allowedModes: ["disabled"],
+      minFrequencyHours: 720,
+      maxCountries: 1,
       providerRotationAllowed: false,
       allVpsRotationAllowed: false
     },
@@ -44,14 +44,48 @@ const DEFAULT_PLANS = Object.freeze([
     matrixAddonAvailable: true,
     phantomAdminLifecycleAvailable: false,
     cdrMandatory: true,
+    supportLevel: "pilot"
+  },
+  {
+    id: "plan_standard",
+    tier: TIERS.STANDARD,
+    name: "STANDARD",
+    maxWorkloadEnvironments: 10,
+    maxAppsPerOperator: 5,
+    regionCount: 2,
+    jurisdictionRotationMode: "limited_manual",
+    jurisdictionPolicy: {
+      allowedModes: ["disabled", "manual"],
+      minFrequencyHours: 168,
+      maxCountries: 2,
+      providerRotationAllowed: false,
+      allVpsRotationAllowed: false
+    },
+    providerPolicy: {
+      allowedRuntimeClasses: ["containers"],
+      confidentialComputeRequired: false,
+      firecrackerRequired: false,
+      allowedProviderCount: 1,
+      workloadTenancy: "shared_dedicated_pool_allowed",
+      dedicatedWorkloadPerOperatorRequired: false,
+      phantomWorkloadDedicatedRequired: true
+    },
+    sessionPolicy: {
+      defaultHours: 12,
+      maxHours: 12,
+      fido2RequiredAtSessionEnd: true
+    },
+    matrixAddonAvailable: true,
+    phantomAdminLifecycleAvailable: false,
+    cdrMandatory: true,
     supportLevel: "standard"
   },
   {
     id: "plan_pro",
     tier: TIERS.PRO,
     name: "PRO",
-    maxWorkloadEnvironments: 10,
-    maxAppsPerOperator: 5,
+    maxWorkloadEnvironments: 20,
+    maxAppsPerOperator: 10,
     regionCount: 5,
     jurisdictionRotationMode: "scheduled",
     jurisdictionPolicy: {
@@ -81,11 +115,45 @@ const DEFAULT_PLANS = Object.freeze([
     supportLevel: "priority"
   },
   {
+    id: "plan_phantom",
+    tier: TIERS.PHANTOM,
+    name: "PHANTOM",
+    maxWorkloadEnvironments: 40,
+    maxAppsPerOperator: 20,
+    regionCount: "custom",
+    jurisdictionRotationMode: "full_policy",
+    jurisdictionPolicy: {
+      allowedModes: ["disabled", "manual", "scheduled", "full_policy"],
+      minFrequencyHours: 4,
+      maxCountries: "custom",
+      providerRotationAllowed: true,
+      allVpsRotationAllowed: true
+    },
+    providerPolicy: {
+      allowedRuntimeClasses: ["containers", "firecracker", "confidential"],
+      confidentialComputeRequired: true,
+      firecrackerRequired: true,
+      allowedProviderCount: "custom",
+      workloadTenancy: "dedicated_operator_only",
+      dedicatedWorkloadPerOperatorRequired: true,
+      phantomWorkloadDedicatedRequired: true
+    },
+    sessionPolicy: {
+      defaultHours: 12,
+      maxHours: 24,
+      fido2RequiredAtSessionEnd: true
+    },
+    matrixAddonAvailable: true,
+    phantomAdminLifecycleAvailable: true,
+    cdrMandatory: true,
+    supportLevel: "phantom"
+  },
+  {
     id: "plan_sovereign",
     tier: TIERS.SOVEREIGN,
     name: "SOVEREIGN",
-    maxWorkloadEnvironments: 30,
-    maxAppsPerOperator: 10,
+    maxWorkloadEnvironments: 60,
+    maxAppsPerOperator: 30,
     regionCount: "custom",
     jurisdictionRotationMode: "full_policy",
     jurisdictionPolicy: {
@@ -254,8 +322,8 @@ export class SubscriptionService {
         confidentialComputeRequired: providerPolicy.confidentialComputeRequired === true,
         firecrackerRequired: providerPolicy.firecrackerRequired === true,
         allowedProviderCount: providerPolicy.allowedProviderCount === "custom" ? "custom" : requirePositiveInteger(providerPolicy.allowedProviderCount || 1, "providerPolicy.allowedProviderCount"),
-        workloadTenancy: providerPolicy.workloadTenancy || (tier === TIERS.SOVEREIGN ? "dedicated_operator_only" : "shared_dedicated_pool_allowed"),
-        dedicatedWorkloadPerOperatorRequired: tier === TIERS.SOVEREIGN || providerPolicy.dedicatedWorkloadPerOperatorRequired === true,
+        workloadTenancy: providerPolicy.workloadTenancy || ([TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier) ? "dedicated_operator_only" : "shared_dedicated_pool_allowed"),
+        dedicatedWorkloadPerOperatorRequired: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier) || providerPolicy.dedicatedWorkloadPerOperatorRequired === true,
         phantomWorkloadDedicatedRequired: providerPolicy.phantomWorkloadDedicatedRequired !== false
       },
       sessionPolicy: {

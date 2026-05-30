@@ -1,11 +1,13 @@
 import { createHmac, createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { TIERS } from "../../domain/constants.js";
 import { AppError, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const PROVIDERS = new Set(["stripe", "coingate", "mollie"]);
 const CHECKOUT_STATUSES = new Set(["created", "provider_redirect_ready", "paid", "failed", "expired", "chargeback_hold"]);
-const TOKEN_STATUSES = new Set(["claimable", "claimed", "revoked", "manual_review"]);
+const TOKEN_STATUSES = new Set(["claimable", "claimed", "provisioned", "revoked", "manual_review"]);
+const SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|seed|mnemonic|private[_-]?key|wallet|panic)/i;
 
 export const PORTAL_TIERS = Object.freeze({
   pilot: {
@@ -15,6 +17,7 @@ export const PORTAL_TIERS = Object.freeze({
     minimumMonths: 12,
     annualCommitmentEur: 1188,
     appEnvironments: 6,
+    operatorTier: TIERS.PILOT,
     publicCheckout: true,
     reviewRequired: false,
     workloadTenancy: "shared_dedicated_pool_allowed"
@@ -26,6 +29,7 @@ export const PORTAL_TIERS = Object.freeze({
     minimumMonths: 12,
     annualCommitmentEur: 2388,
     appEnvironments: 10,
+    operatorTier: TIERS.STANDARD,
     publicCheckout: true,
     reviewRequired: false,
     workloadTenancy: "shared_dedicated_pool_allowed"
@@ -37,6 +41,7 @@ export const PORTAL_TIERS = Object.freeze({
     minimumMonths: 12,
     annualCommitmentEur: 5988,
     appEnvironments: 20,
+    operatorTier: TIERS.PRO,
     publicCheckout: true,
     reviewRequired: false,
     workloadTenancy: "shared_dedicated_pool_allowed"
@@ -48,6 +53,7 @@ export const PORTAL_TIERS = Object.freeze({
     minimumMonths: 12,
     annualCommitmentEur: 12000,
     appEnvironments: 40,
+    operatorTier: TIERS.PHANTOM,
     publicCheckout: true,
     reviewRequired: true,
     workloadTenancy: "dedicated_or_strongly_isolated_workload_required"
@@ -59,6 +65,7 @@ export const PORTAL_TIERS = Object.freeze({
     minimumMonths: 12,
     annualCommitmentEur: 35988,
     appEnvironments: 60,
+    operatorTier: TIERS.SOVEREIGN,
     publicCheckout: true,
     reviewRequired: true,
     workloadTenancy: "dedicated_operator_only"
@@ -154,6 +161,45 @@ function safeCompanyProfile(input = {}) {
   };
 }
 
+function rejectSecrets(value, path = "profile") {
+  if (value === null || value === undefined) return;
+  if (typeof value === "string") {
+    if (/-----BEGIN|private[_ -]?key|api[_ -]?key|password|secret|token|seed|mnemonic|otp|sms/i.test(value)) {
+      throw validationError("Portal activation profile must not contain secret material", { field: path });
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => rejectSecrets(item, `${path}[${index}]`));
+    return;
+  }
+  if (typeof value === "object") {
+    for (const [key, nested] of Object.entries(value)) {
+      const nestedPath = `${path}.${key}`;
+      if (SECRET_FIELD_PATTERN.test(key)) {
+        throw validationError("Portal activation profile must not contain secret material", { field: nestedPath });
+      }
+      rejectSecrets(nested, nestedPath);
+    }
+  }
+}
+
+function safeActivationProfile(input = {}) {
+  rejectSecrets(input, "activationProfile");
+  return {
+    operatorDisplayName: String(input.operatorDisplayName || "").trim().slice(0, 120) || "SYLION Operator",
+    companyName: input.companyName ? String(input.companyName).trim().slice(0, 160) : null,
+    resellerReference: input.resellerReference ? String(input.resellerReference).trim().slice(0, 160) : null,
+    hardwareBundleId: input.hardwareBundleId ? String(input.hardwareBundleId).trim().slice(0, 160) : null,
+    fulfillmentMode: ["self_service_download", "reseller_preconfigured_hardware"].includes(input.fulfillmentMode)
+      ? input.fulfillmentMode
+      : "self_service_download",
+    terminalMode: ["pixel_grapheneos", "laptop_web_terminal"].includes(input.terminalMode)
+      ? input.terminalMode
+      : "pixel_grapheneos"
+  };
+}
+
 function publicTier(tier) {
   return {
     id: tier.id,
@@ -162,6 +208,7 @@ function publicTier(tier) {
     minimumMonths: tier.minimumMonths,
     annualCommitmentEur: tier.annualCommitmentEur,
     appEnvironments: tier.appEnvironments,
+    operatorTier: tier.operatorTier,
     publicCheckout: tier.publicCheckout,
     reviewRequired: tier.reviewRequired,
     workloadTenancy: tier.workloadTenancy,
@@ -285,6 +332,7 @@ export class BillingPortalService {
       provider: selectedProvider,
       tierId: tier.id,
       tierName: tier.name,
+      operatorTier: tier.operatorTier,
       tokenType,
       amountEur: tier.annualCommitmentEur,
       monthlyPriceEur: tier.monthlyPriceEur,
@@ -444,6 +492,78 @@ export class BillingPortalService {
     };
   }
 
+  prepareOperatorBootstrapToken({ redemptionToken, vaultPublicId, activationProfile = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const { record, profile } = this.#requireRedeemableBootstrapToken({ redemptionToken, vaultPublicId, activationProfile });
+    this.audit.record({
+      actorId: "portal_vault",
+      action: "portal.operator_bootstrap_token_preflight",
+      resourceType: "portal_service_token",
+      resourceId: record.id,
+      correlationId: corr,
+      result: "operator_bootstrap_preflight_ok",
+      newValue: {
+        token: this.#publicToken(record),
+        activationProfile: profile,
+        rawTokenStored: false
+      }
+    });
+    return {
+      token: this.#publicToken(record),
+      tier: publicTier(PORTAL_TIERS[record.tierId]),
+      activationProfile: profile
+    };
+  }
+
+  redeemOperatorBootstrapToken({ redemptionToken, vaultPublicId, activationProfile = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const { record, profile } = this.#requireRedeemableBootstrapToken({ redemptionToken, vaultPublicId, activationProfile });
+    const updated = {
+      ...record,
+      status: "provisioned",
+      provisionedAt: isoNow(),
+      provisionRequest: profile,
+      productionExecutionAllowed: false
+    };
+    this.tokens.set(updated.id, updated);
+    this.audit.record({
+      actorId: "portal_vault",
+      action: "portal.operator_bootstrap_token_redeemed",
+      resourceType: "portal_service_token",
+      resourceId: updated.id,
+      correlationId: corr,
+      result: "operator_bootstrap_requested",
+      newValue: {
+        token: this.#publicToken(updated),
+        activationProfile: profile,
+        rawTokenStored: false
+      }
+    });
+    return {
+      token: this.#publicToken(updated),
+      tier: publicTier(PORTAL_TIERS[record.tierId]),
+      activationProfile: profile
+    };
+  }
+
+  #requireRedeemableBootstrapToken({ redemptionToken, vaultPublicId, activationProfile = {} }) {
+    const rawToken = requireText(redemptionToken, "redemptionToken", 32);
+    const record = [...this.tokens.values()].find((item) => item.tokenHash === tokenHash(rawToken));
+    if (!record) {
+      throw validationError("Portal token was not found", { tokenMaterialLogged: false });
+    }
+    if (record.tokenType !== PORTAL_TOKEN_TYPES.OPERATOR_BOOTSTRAP) {
+      throw validationError("Portal token cannot bootstrap an operator", { tokenId: record.id, tokenType: record.tokenType });
+    }
+    if (record.vaultPublicId !== requireText(vaultPublicId, "vaultPublicId", 16)) {
+      throw validationError("Vault identity does not match portal token", { tokenId: record.id, vaultPublicIdMatched: false });
+    }
+    if (record.status !== "claimed") {
+      throw validationError("Portal token is not ready for operator activation", { tokenId: record.id, status: record.status });
+    }
+    return { record, profile: safeActivationProfile(activationProfile) };
+  }
+
   #ensureClaimableToken(checkout) {
     const existing = [...this.tokens.values()].find((item) => item.checkoutId === checkout.id);
     if (existing) return existing;
@@ -454,6 +574,7 @@ export class BillingPortalService {
       providerPaymentId: checkout.providerPaymentId || checkout.providerSessionId,
       tierId: checkout.tierId,
       tierName: checkout.tierName,
+      operatorTier: checkout.operatorTier,
       tokenType: checkout.tokenType,
       amountEur: checkout.amountEur,
       minimumMonths: checkout.minimumMonths,
@@ -464,6 +585,8 @@ export class BillingPortalService {
       tokenPreview: "[unclaimed]",
       issuedAt: isoNow(),
       claimedAt: null,
+      provisionedAt: null,
+      provisionRequest: null,
       claimMaterialReturnedOnce: false,
       terminalDataStored: false,
       productionExecutionAllowed: false
@@ -675,6 +798,7 @@ export class BillingPortalService {
       provider: record.provider,
       tierId: record.tierId,
       tierName: record.tierName,
+      operatorTier: record.operatorTier,
       tokenType: record.tokenType,
       amountEur: record.amountEur,
       monthlyPriceEur: record.monthlyPriceEur,
@@ -707,6 +831,7 @@ export class BillingPortalService {
       providerPaymentId: record.providerPaymentId,
       tierId: record.tierId,
       tierName: record.tierName,
+      operatorTier: record.operatorTier,
       tokenType: record.tokenType,
       amountEur: record.amountEur,
       minimumMonths: record.minimumMonths,
@@ -715,6 +840,7 @@ export class BillingPortalService {
       tokenPreview: record.tokenPreview,
       issuedAt: record.issuedAt,
       claimedAt: record.claimedAt,
+      provisionedAt: record.provisionedAt || null,
       tokenStoredPlaintext: false,
       terminalDataStored: false,
       productionExecutionAllowed: false

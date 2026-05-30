@@ -152,7 +152,7 @@ test("Step 3.32 operator can queue communicator environment counts within tier q
     const seeded = await seedOperator(client, "PRO");
 
     const before = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control");
-    assert.equal(before.payload.control.quota.maxWorkloadEnvironments, 10);
+    assert.equal(before.payload.control.quota.maxWorkloadEnvironments, 20);
     assert.equal(before.payload.control.guardrails.cdrRequired, true);
     assert.equal(before.payload.control.guardrails.terminalDataStored, false);
     const zangiCatalog = before.payload.control.catalog.find((app) => app.key === "zangi");
@@ -403,15 +403,15 @@ test("Step 3.32 operator workload control denies counts above subscription quota
       body: {
         action: "scale_to_counts",
         desiredCounts: {
-          whatsapp: 3,
-          signal: 2,
-          telegram: 1
+          whatsapp: 5,
+          signal: 4,
+          telegram: 2
         }
       }
     });
     assert.equal(denied.status, 422);
     assert.match(denied.payload.error.message, /quota/i);
-    assert.equal(denied.payload.error.details.maxWorkloadEnvironments, 3);
+    assert.equal(denied.payload.error.details.maxWorkloadEnvironments, 10);
   } finally {
     await close();
   }

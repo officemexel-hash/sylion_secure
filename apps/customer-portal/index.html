@@ -12,10 +12,10 @@
         <div class="hero-copy">
           <p class="eyebrow">B2B annual access</p>
           <h1>SYLION Secure</h1>
-          <p class="lede">Buy a service token, redeem it from a vault identity, and trigger an audited operator environment request.</p>
+          <p class="lede">Buy a paid token, generate the one-time operator activation material, then create a scoped operator profile with Pixel, Puli AX and workload bootstrap packages.</p>
           <div class="actions">
             <a href="#pricing" class="primary">Buy token</a>
-            <a href="#redeem" class="secondary">Redeem</a>
+            <a href="#activate" class="secondary">Activate operator</a>
           </div>
         </div>
         <div class="path-visual" aria-label="SYLION secure path">
@@ -33,15 +33,15 @@
 
       <section class="status-band" id="status">
         <div>
-          <span class="label">Stripe</span>
+          <span class="label">Fiat primary</span>
           <strong id="stripe-status">checking</strong>
         </div>
         <div>
-          <span class="label">CoinGate</span>
+          <span class="label">Crypto primary</span>
           <strong id="coingate-status">checking</strong>
         </div>
         <div>
-          <span class="label">Mollie backup</span>
+          <span class="label">Fiat backup</span>
           <strong id="mollie-status">checking</strong>
         </div>
       </section>
@@ -52,6 +52,14 @@
           <h2>Choose tier</h2>
         </div>
         <div id="tiers" class="tiers" aria-live="polite"></div>
+      </section>
+
+      <section class="grid-section" id="gateways">
+        <div class="section-head">
+          <p class="eyebrow">Payment gateways</p>
+          <h2>Select payment rail</h2>
+        </div>
+        <div id="provider-cards" class="provider-grid" aria-live="polite"></div>
       </section>
 
       <section class="checkout-layout">
@@ -66,7 +74,7 @@
           </label>
           <label>
             Provider
-            <select name="provider">
+            <select name="provider" id="provider-select">
               <option value="stripe">Stripe</option>
               <option value="coingate">CoinGate</option>
               <option value="mollie">Mollie backup</option>
@@ -90,26 +98,87 @@
           </label>
           <div class="checks">
             <label><input name="businessOnlyAccepted" type="checkbox" checked /> B2B purchase</label>
-            <label><input name="noRefundAfterProvisioningAccepted" type="checkbox" checked /> Provisioning cost acknowledgement</label>
+            <label><input name="noRefundAfterProvisioningAccepted" type="checkbox" checked /> Dedicated provisioning cost acknowledged</label>
           </div>
-          <button type="submit">Create checkout</button>
+          <button type="submit">Create provider checkout</button>
         </form>
 
-        <form id="redeem" class="panel">
+        <form id="token-form" class="panel">
           <div class="section-head compact">
-            <p class="eyebrow">Redeem</p>
-            <h2>Claim service token</h2>
+            <p class="eyebrow">Token generator</p>
+            <h2>Generate paid token</h2>
           </div>
           <label>
-            Checkout id
-            <input name="checkoutId" autocomplete="off" />
+            Paid checkout id
+            <input name="checkoutId" id="claim-checkout-id" autocomplete="off" />
           </label>
           <label>
             Vault public id
             <input name="vaultPublicId" value="vault_demo_public_id_0001" autocomplete="off" />
           </label>
-          <button type="submit">Claim token</button>
+          <button type="submit">Generate service token</button>
+          <p class="hint">The token is returned once. Store it in the customer vault, not on the terminal.</p>
         </form>
+      </section>
+
+      <section class="activation-layout" id="activate">
+        <form id="activation-form" class="panel activation-panel">
+          <div class="section-head compact">
+            <p class="eyebrow">First operator login</p>
+            <h2>Activate operator from token</h2>
+          </div>
+          <div class="activation-grid">
+            <label>
+              Service token
+              <textarea name="redemptionToken" id="activation-token" rows="3" autocomplete="off" spellcheck="false"></textarea>
+            </label>
+            <label>
+              Vault public id
+              <input name="vaultPublicId" value="vault_demo_public_id_0001" autocomplete="off" />
+            </label>
+            <label>
+              Operator display name
+              <input name="operatorDisplayName" value="First Portal Operator" autocomplete="off" />
+            </label>
+            <label>
+              Company or organization
+              <input name="companyName" value="SYLION Test Company" autocomplete="organization" />
+            </label>
+            <label>
+              Fulfillment mode
+              <select name="fulfillmentMode">
+                <option value="self_service_download">Self-service package download</option>
+                <option value="reseller_preconfigured_hardware">Reseller preconfigured Pixel and Puli AX</option>
+              </select>
+            </label>
+            <label>
+              First terminal
+              <select name="terminalMode">
+                <option value="pixel_grapheneos">Pixel GrapheneOS</option>
+                <option value="laptop_web_terminal">Laptop web terminal</option>
+              </select>
+            </label>
+            <label>
+              Reseller reference
+              <input name="resellerReference" placeholder="optional" autocomplete="off" />
+            </label>
+            <label>
+              Hardware bundle id
+              <input name="hardwareBundleId" placeholder="optional" autocomplete="off" />
+            </label>
+          </div>
+          <button type="submit">Create operator and packages</button>
+        </form>
+
+        <aside class="panel result-panel">
+          <div class="section-head compact">
+            <p class="eyebrow">Activation result</p>
+            <h2>Packages</h2>
+          </div>
+          <div id="download-actions" class="download-actions">
+            <p class="hint">After activation, package download buttons and the operator panel link appear here.</p>
+          </div>
+        </aside>
       </section>
 
       <section class="output">

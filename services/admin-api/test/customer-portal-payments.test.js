@@ -62,6 +62,7 @@ test("customer portal exposes annual B2B pricing and provider status without sec
     assert.deepEqual(pricing.payload.tiers.map((tier) => tier.id), ["pilot", "standard", "pro", "phantom", "sovereign"]);
     assert.equal(pricing.payload.tiers.find((tier) => tier.id === "pilot").annualCommitmentEur, 1188);
     assert.equal(pricing.payload.tiers.find((tier) => tier.id === "sovereign").appEnvironments, 60);
+    assert.equal(pricing.payload.tiers.find((tier) => tier.id === "phantom").operatorTier, "PHANTOM");
 
     const providers = await request(baseUrl, "/portal-api/payment-providers");
     assert.equal(providers.status, 200);
@@ -80,7 +81,9 @@ test("customer portal static shell is served under /portal", async () => {
     const html = await response.text();
     assert.equal(response.status, 200);
     assert.match(html, /SYLION Secure Portal/);
-    assert.match(html, /Create checkout/);
+    assert.match(html, /Payment gateways/);
+    assert.match(html, /Generate service token/);
+    assert.match(html, /Activate operator from token/);
   } finally {
     await close();
   }
@@ -176,6 +179,132 @@ test("Stripe paid webhook makes token claimable and claim returns token material
     });
     assert.equal(secondClaim.status, 422);
     assert.equal(JSON.stringify(app.services.billingPortal.listTokens()).includes(claim.payload.redemptionToken), false);
+  } finally {
+    await close();
+  }
+});
+
+test("Portal activation redeems paid token into operator, packages and first session without audit secret leakage", async () => {
+  const secret = "whsec_test_redacted";
+  const { app, baseUrl, close } = await startTestServer({
+    env: {
+      STRIPE_SECRET_KEY: "sk_test_redacted",
+      STRIPE_WEBHOOK_SECRET: secret,
+      SYLION_INTERNAL_CA_CERT_PEM: "-----BEGIN CERTIFICATE-----\nPUBLIC TEST CERT\n-----END CERTIFICATE-----",
+      SYLION_INTERNAL_CA_SHA256: "sha256-test"
+    },
+    fetcher: async () => new Response(JSON.stringify({ id: "cs_activate", url: "https://checkout.stripe.test/activate" }), { status: 200 })
+  });
+  try {
+    const checkout = await request(baseUrl, "/portal-api/checkouts", {
+      method: "POST",
+      body: checkoutBody({ tierId: "pro", vaultPublicId: "vault_activation_public_id" })
+    });
+    assert.equal(checkout.status, 201);
+    const raw = JSON.stringify({
+      id: "evt_activate_paid",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_activate",
+          payment_status: "paid",
+          metadata: { checkout_id: checkout.payload.checkout.id }
+        }
+      }
+    });
+    const timestamp = "1760000002";
+    const signature = createHmac("sha256", secret).update(`${timestamp}.${raw}`).digest("hex");
+    const webhook = await request(baseUrl, "/portal-api/webhooks/stripe", {
+      method: "POST",
+      rawBody: raw,
+      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
+    });
+    assert.equal(webhook.status, 200);
+
+    const claim = await request(baseUrl, `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`, {
+      method: "POST",
+      body: { vaultPublicId: "vault_activation_public_id" }
+    });
+    assert.equal(claim.status, 201);
+
+    const activation = await request(baseUrl, "/portal-api/operator-bootstrap", {
+      method: "POST",
+      body: {
+        redemptionToken: claim.payload.redemptionToken,
+        vaultPublicId: "vault_activation_public_id",
+        activationProfile: {
+          operatorDisplayName: "Portal Activated Operator",
+          companyName: "Portal Activated LLC",
+          fulfillmentMode: "reseller_preconfigured_hardware",
+          terminalMode: "pixel_grapheneos",
+          resellerReference: "reseller-order-123",
+          hardwareBundleId: "kit-123"
+        }
+      }
+    });
+    assert.equal(activation.status, 201);
+    assert.equal(activation.payload.operator.displayName, "Portal Activated Operator");
+    assert.equal(activation.payload.operator.tier, "PRO");
+    assert.equal(activation.payload.subscription.effectiveLimits.maxWorkloadEnvironments, 20);
+    assert.equal(activation.payload.provisioningDraft.firecrackerPlan.workloads.length, 20);
+    assert.equal(activation.payload.downloadPackages.pixel.secretMaterialIncluded, false);
+    assert.equal(activation.payload.downloadPackages.puliAx.privateKeyMaterialIncluded, false);
+    assert.match(activation.payload.firstSession.operatorPortalUrl, /^\/operator\?op_token=op_/);
+    assert.equal(activation.payload.activation.token.status, "provisioned");
+
+    const secondActivation = await request(baseUrl, "/portal-api/operator-bootstrap", {
+      method: "POST",
+      body: {
+        redemptionToken: claim.payload.redemptionToken,
+        vaultPublicId: "vault_activation_public_id",
+        activationProfile: { operatorDisplayName: "Should Not Work" }
+      }
+    });
+    assert.equal(secondActivation.status, 422);
+    assert.equal(JSON.stringify(app.services.audit.list()).includes(claim.payload.redemptionToken), false);
+    assert.ok(app.services.audit.list().some((event) => event.action === "portal.operator_bootstrap_completed"));
+  } finally {
+    await close();
+  }
+});
+
+test("Portal activation rejects secret-like profile material before provisioning", async () => {
+  const secret = "whsec_test_redacted";
+  const { app, baseUrl, close } = await startTestServer({
+    env: { STRIPE_SECRET_KEY: "sk_test_redacted", STRIPE_WEBHOOK_SECRET: secret },
+    fetcher: async () => new Response(JSON.stringify({ id: "cs_secret", url: "https://checkout.stripe.test/secret" }), { status: 200 })
+  });
+  try {
+    const checkout = await request(baseUrl, "/portal-api/checkouts", {
+      method: "POST",
+      body: checkoutBody({ vaultPublicId: "vault_secret_public_id_0001" })
+    });
+    const raw = JSON.stringify({
+      id: "evt_secret_paid",
+      type: "checkout.session.completed",
+      data: { object: { payment_status: "paid", metadata: { checkout_id: checkout.payload.checkout.id } } }
+    });
+    const timestamp = "1760000003";
+    const signature = createHmac("sha256", secret).update(`${timestamp}.${raw}`).digest("hex");
+    await request(baseUrl, "/portal-api/webhooks/stripe", {
+      method: "POST",
+      rawBody: raw,
+      headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
+    });
+    const claim = await request(baseUrl, `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`, {
+      method: "POST",
+      body: { vaultPublicId: "vault_secret_public_id_0001" }
+    });
+    const activation = await request(baseUrl, "/portal-api/operator-bootstrap", {
+      method: "POST",
+      body: {
+        redemptionToken: claim.payload.redemptionToken,
+        vaultPublicId: "vault_secret_public_id_0001",
+        activationProfile: { operatorDisplayName: "Secret Test", routerPassword: "do-not-accept" }
+      }
+    });
+    assert.equal(activation.status, 422);
+    assert.equal(app.services.operators.list().length, 0);
   } finally {
     await close();
   }
