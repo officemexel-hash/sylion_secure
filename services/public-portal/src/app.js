@@ -115,11 +115,26 @@ async function proxyPublicApi(req, res, url, { controlPlaneBaseUrl, portalSecret
   }
   const target = new URL(url.pathname + url.search, controlPlaneBaseUrl);
   const rawBody = ["GET", "HEAD"].includes(req.method) ? null : await readRaw(req);
-  const upstream = await fetcher(target, {
-    method: req.method,
-    headers: publicRequestHeaders(req, { portalSecret }),
-    body: rawBody
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  let upstream;
+  try {
+    upstream = await fetcher(target, {
+      method: req.method,
+      headers: publicRequestHeaders(req, { portalSecret }),
+      body: rawBody,
+      signal: controller.signal
+    });
+  } catch {
+    return sendJson(res, 502, {
+      error: {
+        code: "control_plane_unreachable",
+        message: "Public portal could not reach the private control plane"
+      }
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   const contentType = upstream.headers.get("content-type") || "application/json";
   const text = await upstream.text();
   res.writeHead(upstream.status, securityHeaders({ "content-type": contentType }));
@@ -144,7 +159,7 @@ export function createPublicPortalApp({
         return sendJson(res, 404, { error: { code: "not_found", message: "Not found" } });
       }
       if (url.pathname.startsWith("/portal-api/")) {
-        return proxyPublicApi(req, res, url, { controlPlaneBaseUrl, portalSecret, fetcher });
+        return await proxyPublicApi(req, res, url, { controlPlaneBaseUrl, portalSecret, fetcher });
       }
       if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/portal" || url.pathname.startsWith("/portal/"))) {
         if (await servePortalStatic(url, res)) return;

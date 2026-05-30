@@ -106,8 +106,9 @@ Create and deploy a new Hetzner Cloud public portal VPS:
 node scripts/deploy-public-portal-vps.mjs `
   --create-hetzner `
   --name=sylion-public-portal-01 `
-  --server-type=cx22 `
+  --server-type=cx23 `
   --location=fsn1 `
+  --network=12247599 `
   --ssh-public-key=.deploy/sylion_hetzner_admin_ed25519.pub `
   --key=.deploy/sylion_hetzner_admin_ed25519 `
   --control-plane=http://10.42.0.10:8080 `
@@ -125,6 +126,21 @@ node scripts/deploy-public-portal-vps.mjs `
 ```
 
 `--admin-host` installs the same shared edge secret into the private admin API systemd drop-in and restarts `sylion-admin-api`.
+When `--network` attaches the portal VPS to the private SYLION network, the script also allows only the portal private IP to reach the private admin API listener on TCP `8080`.
+
+## Current Live Lab Deployment
+
+| Field | Value |
+| --- | --- |
+| Public portal VPS | `sylion-public-portal-01` |
+| Hetzner server type | `cx23` |
+| Public IP | `46.224.34.121` |
+| Private IP | `10.42.0.2` |
+| Private network | `sylion-prod-op-01-private` / `10.42.0.0/16` |
+| Control-plane URL from portal edge | `http://10.42.0.10:8080` |
+| Public service | `sylion-public-portal` |
+| Exposed public ports | `22`, `80`, `443` |
+| Admin/operator exposure | blocked by public edge route allowlist |
 
 ## Network Gate
 

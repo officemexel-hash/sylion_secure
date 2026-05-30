@@ -64,6 +64,15 @@ async function ensureSshKey({ token, name, publicKeyPath }) {
   return created.ssh_key;
 }
 
+async function resolveNetworkId({ token, network }) {
+  if (!network) return null;
+  if (/^\d+$/.test(String(network))) return Number(network);
+  const networks = await hcloud("/networks", { token });
+  const match = networks.networks?.find((item) => item.name === network);
+  if (!match) throw new Error(`Hetzner network was not found: ${network}`);
+  return match.id;
+}
+
 async function createHetznerServer(args) {
   const token = requiredEnv("HCLOUD_TOKEN");
   const name = args.get("name") || "sylion-public-portal-01";
@@ -73,27 +82,33 @@ async function createHetznerServer(args) {
   const sshKeyName = args.get("ssh-key-name") || "sylion-public-portal-deploy";
   const sshPublicKey = args.get("ssh-public-key") || ".deploy/sylion_hetzner_admin_ed25519.pub";
   const sshKey = await ensureSshKey({ token, name: sshKeyName, publicKeyPath: sshPublicKey });
+  const networkId = await resolveNetworkId({ token, network: args.get("network") || args.get("network-id") || "" });
+  const createBody = {
+    name,
+    server_type: serverType,
+    image,
+    location,
+    ssh_keys: [sshKey.id],
+    labels: {
+      app: "sylion-public-portal",
+      zone: "public-edge"
+    },
+    start_after_create: true
+  };
+  if (networkId) createBody.networks = [networkId];
   const created = await hcloud("/servers", {
     method: "POST",
     token,
-    body: {
-      name,
-      server_type: serverType,
-      image,
-      location,
-      ssh_keys: [sshKey.id],
-      labels: {
-        app: "sylion-public-portal",
-        zone: "public-edge"
-      },
-      start_after_create: true
-    }
+    body: createBody
   });
   const serverId = created.server.id;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     const current = await hcloud(`/servers/${serverId}`, { token });
     const ip = current.server?.public_net?.ipv4?.ip;
-    if (ip && current.server.status === "running") return { id: serverId, ip };
+    if (ip && current.server.status === "running") {
+      const privateIps = current.server.private_net?.map((net) => net.ip).filter(Boolean) || [];
+      return { id: serverId, ip, privateIps };
+    }
     await new Promise((resolveWait) => setTimeout(resolveWait, 5000));
   }
   throw new Error("Hetzner server did not become running in time");
@@ -169,7 +184,14 @@ install -d -m 0755 /opt/sylion-public-portal /etc/sylion
 tar -xf /tmp/sylion-public-portal.tar -C /opt/sylion-public-portal
 install -m 0600 /tmp/public-portal.env /etc/sylion/public-portal.env
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs nginx ca-certificates
+DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs nginx ca-certificates ufw curl
+ufw --force reset
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw --force enable
 cat >/etc/systemd/system/sylion-public-portal.service <<'UNIT'
 [Unit]
 Description=SYLION Public Customer Portal
@@ -221,7 +243,7 @@ curl -fsS http://127.0.0.1:8088/health >/dev/null
   ssh(host, key, remoteScript);
 }
 
-async function installAdminPortalSecret({ adminHost, adminKey }) {
+async function installAdminPortalSecret({ adminHost, adminKey, portalPrivateIp = "" }) {
   if (!adminHost) return;
   const tmp = await mkdtemp(join(tmpdir(), "sylion-admin-portal-secret-"));
   try {
@@ -229,7 +251,10 @@ async function installAdminPortalSecret({ adminHost, adminKey }) {
     const envPath = join(tmp, "50-public-portal-secret.conf");
     await writeFile(envPath, `[Service]\nEnvironment=\"SYLION_PUBLIC_PORTAL_SHARED_SECRET=${secret}\"\n`, { mode: 0o600 });
     scp(adminHost, adminKey, envPath, "/tmp/50-public-portal-secret.conf");
-    ssh(adminHost, adminKey, "set -e; install -m 0600 /tmp/50-public-portal-secret.conf /etc/systemd/system/sylion-admin-api.service.d/50-public-portal-secret.conf; rm -f /tmp/50-public-portal-secret.conf; systemctl daemon-reload; systemctl restart sylion-admin-api; sleep 2; systemctl is-active sylion-admin-api >/dev/null");
+    const firewall = portalPrivateIp
+      ? `; ufw allow from ${portalPrivateIp} to any port 8080 proto tcp comment 'SYLION public portal edge to private admin portal-api' || true`
+      : "";
+    ssh(adminHost, adminKey, `set -e; install -m 0600 /tmp/50-public-portal-secret.conf /etc/systemd/system/sylion-admin-api.service.d/50-public-portal-secret.conf; rm -f /tmp/50-public-portal-secret.conf${firewall}; systemctl daemon-reload; systemctl restart sylion-admin-api; sleep 2; systemctl is-active sylion-admin-api >/dev/null`);
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }
@@ -243,9 +268,11 @@ async function main() {
   const adminHost = args.get("admin-host") || "";
   const adminKey = args.get("admin-key") || key;
   let host = args.get("host") || "";
+  let portalPrivateIp = args.get("portal-private-ip") || "";
   if (args.get("create-hetzner") === "true") {
     const created = await createHetznerServer(args);
     host = created.ip;
+    portalPrivateIp = portalPrivateIp || created.privateIps?.[0] || "";
   }
   if (!host) throw new Error("Provide --host=<ip> or --create-hetzner");
   await waitForSsh(host, key);
@@ -256,7 +283,7 @@ async function main() {
     scp(host, key, tarPath, "/tmp/sylion-public-portal.tar");
     scp(host, key, envPath, "/tmp/public-portal.env");
     installRemotePortal(host, key);
-    await installAdminPortalSecret({ adminHost, adminKey });
+    await installAdminPortalSecret({ adminHost, adminKey, portalPrivateIp });
     console.log(JSON.stringify({
       status: "ok",
       service: "sylion-public-portal",
