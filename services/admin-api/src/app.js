@@ -106,7 +106,7 @@ function portalDownloadPackages({ activation, tenant, operator, provisioningDraf
       operatorId: operator.id,
       tenantId: tenant.id,
       tier: operator.tier,
-      internalHosts: ["admin.sylion.internal", "operator.sylion.internal", "session.sylion.internal"],
+      internalHosts: ["admin.sylion.internal", "operator.sylion.internal", "portal.sylion.internal", "session.sylion.internal"],
       caCertificateRef: pixelPackage.caCertificateRef,
       caFingerprintSha256: pixelPackage.caFingerprintSha256 || null,
       caCertificatePem: pixelPackage.caCertificatePem || null,
