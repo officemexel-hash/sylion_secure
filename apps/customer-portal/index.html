@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SYLION Secure Portal</title>
+    <link rel="stylesheet" href="/portal/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">B2B annual access</p>
+          <h1>SYLION Secure</h1>
+          <p class="lede">Buy a service token, redeem it from a vault identity, and trigger an audited operator environment request.</p>
+          <div class="actions">
+            <a href="#pricing" class="primary">Buy token</a>
+            <a href="#redeem" class="secondary">Redeem</a>
+          </div>
+        </div>
+        <div class="path-visual" aria-label="SYLION secure path">
+          <div class="node terminal">Pixel</div>
+          <div class="line"></div>
+          <div class="node router">Puli AX</div>
+          <div class="line"></div>
+          <div class="node gateway">G1</div>
+          <div class="line"></div>
+          <div class="node broker">G2</div>
+          <div class="line"></div>
+          <div class="node workload">Firecracker</div>
+        </div>
+      </section>
+
+      <section class="status-band" id="status">
+        <div>
+          <span class="label">Stripe</span>
+          <strong id="stripe-status">checking</strong>
+        </div>
+        <div>
+          <span class="label">CoinGate</span>
+          <strong id="coingate-status">checking</strong>
+        </div>
+        <div>
+          <span class="label">Mollie backup</span>
+          <strong id="mollie-status">checking</strong>
+        </div>
+      </section>
+
+      <section class="grid-section" id="pricing">
+        <div class="section-head">
+          <p class="eyebrow">Annual tokens</p>
+          <h2>Choose tier</h2>
+        </div>
+        <div id="tiers" class="tiers" aria-live="polite"></div>
+      </section>
+
+      <section class="checkout-layout">
+        <form id="checkout-form" class="panel">
+          <div class="section-head compact">
+            <p class="eyebrow">Checkout</p>
+            <h2>Company vault purchase</h2>
+          </div>
+          <label>
+            Tier
+            <select name="tierId" id="tier-select"></select>
+          </label>
+          <label>
+            Provider
+            <select name="provider">
+              <option value="stripe">Stripe</option>
+              <option value="coingate">CoinGate</option>
+              <option value="mollie">Mollie backup</option>
+            </select>
+          </label>
+          <label>
+            Vault public id
+            <input name="vaultPublicId" value="vault_demo_public_id_0001" autocomplete="off" />
+          </label>
+          <label>
+            Company name
+            <input name="companyName" value="SYLION Test Company" autocomplete="organization" />
+          </label>
+          <label>
+            Billing email
+            <input name="billingEmail" value="billing@example.com" type="email" autocomplete="email" />
+          </label>
+          <label>
+            Country
+            <input name="country" value="PL" autocomplete="country" />
+          </label>
+          <div class="checks">
+            <label><input name="businessOnlyAccepted" type="checkbox" checked /> B2B purchase</label>
+            <label><input name="noRefundAfterProvisioningAccepted" type="checkbox" checked /> Provisioning cost acknowledgement</label>
+          </div>
+          <button type="submit">Create checkout</button>
+        </form>
+
+        <form id="redeem" class="panel">
+          <div class="section-head compact">
+            <p class="eyebrow">Redeem</p>
+            <h2>Claim service token</h2>
+          </div>
+          <label>
+            Checkout id
+            <input name="checkoutId" autocomplete="off" />
+          </label>
+          <label>
+            Vault public id
+            <input name="vaultPublicId" value="vault_demo_public_id_0001" autocomplete="off" />
+          </label>
+          <button type="submit">Claim token</button>
+        </form>
+      </section>
+
+      <section class="output">
+        <p class="eyebrow">Portal event</p>
+        <pre id="output">ready</pre>
+      </section>
+    </main>
+    <script src="/portal/app.js"></script>
+  </body>
+</html>

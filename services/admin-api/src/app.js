@@ -34,6 +34,7 @@ import { buildLiveBaselineUserData, liveBaselineArtifactSummary } from "./module
 import { SecurityProfileService } from "./modules/security/securityProfileService.js";
 import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
 import { RouterReadinessService } from "./modules/router/routerReadinessService.js";
+import { BillingPortalService } from "./modules/billingPortal/billingPortalService.js";
 import { AppError, validationError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -43,6 +44,14 @@ async function readJson(req) {
   }
   const raw = Buffer.concat(chunks).toString("utf8");
   return raw ? JSON.parse(raw) : {};
+}
+
+async function readRaw(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 function send(res, status, payload, headers = {}) {
@@ -628,6 +637,7 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
 
 const WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/admin-web/", import.meta.url)));
 const OPERATOR_WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/operator-web/", import.meta.url)));
+const CUSTOMER_PORTAL_ROOT = resolve(fileURLToPath(new URL("../../../apps/customer-portal/", import.meta.url)));
 const STATIC_TYPES = Object.freeze({
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -681,7 +691,29 @@ async function serveOperatorWeb(url, res) {
   }
 }
 
-export function createApp({ store = null, authOptions = {}, liveExecutionOptions = {} } = {}) {
+async function serveCustomerPortal(url, res) {
+  const pathname = url.pathname === "/portal"
+    ? "/index.html"
+    : url.pathname.replace(/^\/portal/, "");
+  const filePath = resolve(CUSTOMER_PORTAL_ROOT, `.${decodeURIComponent(pathname)}`);
+  const relativePath = relative(CUSTOMER_PORTAL_ROOT, filePath);
+  if (relativePath.startsWith("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+    return false;
+  }
+  const ext = extname(filePath);
+  if (!STATIC_TYPES[ext]) {
+    return false;
+  }
+  try {
+    const file = await readFile(filePath);
+    sendRaw(res, 200, STATIC_TYPES[ext], file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function createApp({ store = null, authOptions = {}, liveExecutionOptions = {}, billingOptions = {} } = {}) {
   const runtimeEnv = liveExecutionOptions.env || process.env;
   const audit = new AuditService({ store });
   const auth = new AuthService({ audit, store, ...authOptions });
@@ -780,6 +812,12 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     workloadInputRunner: liveExecutionOptions.workloadInputRunner,
     workloadImageManifestResolver: (appKey) => liveExecution.latestReadyWorkloadImageManifestForApp(appKey)
   });
+  const billingPortal = new BillingPortalService({
+    audit,
+    store,
+    env: billingOptions.env || runtimeEnv,
+    fetcher: billingOptions.fetcher || globalThis.fetch
+  });
 
   const services = {
     audit,
@@ -811,7 +849,8 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     operatorEnvironments,
     securityProfiles,
     routerReadiness,
-    operatorPortal
+    operatorPortal,
+    billingPortal
   };
 
   function operatorActorFromRequest(req) {
@@ -836,6 +875,53 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         if (await serveOperatorWeb(url, res)) {
           return;
         }
+      }
+
+      if (req.method === "GET" && (url.pathname === "/portal" || url.pathname.startsWith("/portal/"))) {
+        if (await serveCustomerPortal(url, res)) {
+          return;
+        }
+      }
+
+      if (req.method === "GET" && url.pathname === "/portal-api/pricing") {
+        return send(res, 200, billingPortal.pricingCatalog());
+      }
+
+      if (req.method === "GET" && url.pathname === "/portal-api/payment-providers") {
+        return send(res, 200, { providers: billingPortal.providerStatus() });
+      }
+
+      if (req.method === "POST" && url.pathname === "/portal-api/checkouts") {
+        const body = await readJson(req);
+        const checkout = await billingPortal.createCheckout({
+          ...body,
+          correlationId,
+          idempotencyKey: req.headers["idempotency-key"] || body.idempotencyKey
+        });
+        return send(res, 201, { checkout });
+      }
+
+      const portalClaimMatch = url.pathname.match(/^\/portal-api\/checkouts\/([^/]+)\/claim-token$/);
+      if (req.method === "POST" && portalClaimMatch) {
+        const body = await readJson(req);
+        const token = billingPortal.claimToken({
+          checkoutId: portalClaimMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, token);
+      }
+
+      const portalWebhookMatch = url.pathname.match(/^\/portal-api\/webhooks\/([^/]+)$/);
+      if (req.method === "POST" && portalWebhookMatch) {
+        const rawBody = await readRaw(req);
+        const result = await billingPortal.handleWebhook({
+          provider: portalWebhookMatch[1],
+          rawBody,
+          headers: req.headers,
+          correlationId
+        });
+        return send(res, 200, result);
       }
 
       if (req.method === "GET" && url.pathname === "/operator-api/about") {
