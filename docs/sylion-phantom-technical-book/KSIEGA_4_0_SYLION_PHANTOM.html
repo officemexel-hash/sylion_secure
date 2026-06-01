@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>Księga 4.0 - SYLION + PHANTOM</title>
+  <style>
+    @page { size: A4; margin: 14mm 14mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      color: #172033;
+      background: #ffffff;
+      font-size: 10.5pt;
+      line-height: 1.45;
+    }
+    h1, h2, h3 { color: #0a2342; page-break-after: avoid; }
+    h1 {
+      margin: 0 0 12px;
+      padding-top: 10px;
+      font-size: 24pt;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 24px 0 8px;
+      font-size: 15pt;
+      border-bottom: 1px solid #d7dee8;
+      padding-bottom: 5px;
+    }
+    h3 { margin: 16px 0 6px; font-size: 12pt; }
+    p { margin: 7px 0; }
+    ul { margin: 6px 0 9px 18px; padding: 0; }
+    li { margin: 3px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      page-break-inside: avoid;
+      font-size: 8.8pt;
+    }
+    th, td {
+      border: 1px solid #c9d3df;
+      padding: 6px 7px;
+      vertical-align: top;
+    }
+    th {
+      background: #edf3f8;
+      color: #0a2342;
+      text-align: left;
+      font-weight: 700;
+    }
+    code {
+      font-family: "Cascadia Mono", Consolas, monospace;
+      background: #eef2f6;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 0.92em;
+    }
+    pre {
+      white-space: pre-wrap;
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      overflow: hidden;
+      page-break-inside: avoid;
+    }
+    hr {
+      border: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #0a2342, #2f80ed, #25a18e);
+      margin: 18px 0;
+    }
+    .diagram {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 12px 0;
+      padding: 12px;
+      border: 1px solid #c9d3df;
+      border-radius: 10px;
+      background: #f7fafc;
+      page-break-inside: avoid;
+    }
+    .diagram-node {
+      min-height: 38px;
+      border: 1px solid #b7c7d6;
+      border-left: 4px solid #2f80ed;
+      border-radius: 7px;
+      background: #ffffff;
+      padding: 8px;
+      font-weight: 650;
+      color: #102a43;
+    }
+    .diagram-edges {
+      grid-column: 1 / -1;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 8pt;
+      color: #52616f;
+      border-top: 1px dashed #c9d3df;
+      padding-top: 8px;
+    }
+    .mermaid-fallback {
+      background: #f3f6fa;
+      color: #172033;
+      border: 1px solid #d7dee8;
+    }
+    strong { color: #081f3a; }
+  </style>
+</head>
+<body>
+<h1>Księga 4.0: SYLION + PHANTOM</h1>
+<h2>Aktualny baseline techniczny systemu i profilu PHANTOM</h2>
+<p><strong>Wersja:</strong> 2026-06-01</p>
+<p><strong>Nazwa normatywna:</strong> Księga 4.0</p>
+<p><strong>Zakres:</strong> SYLION Secure, PHANTOM v3.0, panel administratora, panel operatora, publiczny portal zakupowo-tokenowy, G1/G2, Puli AX, Pixel/GrapheneOS, workloady, Firecracker, CDR, rotacje jurysdykcyjne, tiering, zasady używania i aktualny stan wdrożenia.</p>
+<p><strong>Charakter dokumentu:</strong> aktualny baseline techniczny. Dokument opisuje architekturę, moduły, zasady, zagrożenia, mechanizmy obrony, ograniczenia i roadmapę. Nie jest instrukcją obchodzenia zabezpieczeń telekomunikacyjnych, nie zawiera sekretów, haseł, tokenów, kluczy API ani procedur manipulacji publicznymi identyfikatorami sieci komórkowej.</p>
+<hr>
+<h1>1. Czym jest Księga 4.0</h1>
+<p>Księga 4.0 jest aktualnym dokumentem bazowym systemu SYLION i profilu PHANTOM. Jej zadaniem jest zamrożenie najbardziej aktualnego rozumienia architektury, zasad bezpieczeństwa, podziału modułów, uprawnień paneli, tierów, rotacji, threat modelu i stanu wdrożenia.</p>
+<p>Ten dokument nie jest materiałem marketingowym. Jest dokumentem technicznym, który ma służyć do:</p>
+<ul>
+<li>prowadzenia implementacji;</li>
+<li>weryfikowania, czy kod i infrastruktura nie odchodzą od architektury;</li>
+<li>planowania testów;</li>
+<li>odróżniania funkcji gotowych od częściowych i roadmap;</li>
+<li>rozmowy z developerami i operatorami infrastruktury;</li>
+<li>oceny ryzyka;</li>
+<li>wyznaczania granicy między SYLION baseline a PHANTOM.</li>
+</ul>
+<p>Księga 4.0 przyjmuje, że SYLION i PHANTOM są jednym spójnym systemem, ale nie wszystkie funkcje PHANTOM są częścią podstawowego produktu. Baseline SYLION musi być możliwy do wdrożenia legalnie, audytowalnie i produkcyjnie. PHANTOM jest profilem rozszerzonym, z ostrzejszymi warstwami sprzętowymi, proceduralnymi i rotacyjnymi, ale z wyraźnymi bramkami human gate i lab-only tam, gdzie funkcje dotykają warstw regulowanych albo wysokiego ryzyka.</p>
+<hr>
+<h1>2. Założenia nadrzędne</h1>
+<p>SYLION jest platformą do tworzenia i obsługi izolowanych środowisk operatorskich. Operator nie pracuje bezpośrednio na swoim urządzeniu końcowym. Terminal, na przykład Pixel z GrapheneOS albo laptop, pełni rolę cienkiego klienta. Właściwe aplikacje, komunikatory, przeglądarka, narzędzia biurowe i środowiska specjalne działają po stronie zdalnych workloadów, najlepiej w izolowanych mikroVM Firecracker albo w mniej zaawansowanych tierach w kontenerach.</p>
+<p>PHANTOM jest rozszerzeniem architektury SYLION dla profili wysokiego ryzyka. Dodaje ostrzejszą separację sprzętową, polityki rotacji, silniejsze wymagania wobec terminala, routera, ścieżki transmisji, workloadów, audytu i zasad operacyjnych. PHANTOM nie może być traktowany jako pojedyncza funkcja. To profil architektoniczny obejmujący terminal, router, G1, G2, workload, CDR, policy engine, monitoring, procedury awaryjne oraz rygor użycia.</p>
+<p>Podstawowy model:</p>
+<ul>
+<li>terminal nie przechowuje danych roboczych;</li>
+<li>obraz aplikacji jest strumieniowany do terminala;</li>
+<li>wejście użytkownika jest przesyłane do zdalnego środowiska;</li>
+<li>G1 odpowiada za wejście i pierwszą warstwę dostępu;</li>
+<li>G2 odpowiada za broker sesji, kontrolę połączenia i dostęp do workloadów;</li>
+<li>workloady uruchamiają aplikacje w oddzielnych środowiskach;</li>
+<li>CDR kontroluje i sanitizuje przepływ plików;</li>
+<li>panel administratora zarządza systemem, providerami, tierami, operatorami i monitoringiem;</li>
+<li>panel operatora pozwala operatorowi kontrolować własne środowiska w granicach subskrypcji;</li>
+<li>portal publiczny sprzedaje tokeny, pozwala je claimować i uruchamia proces tworzenia operatora.</li>
+</ul>
+<hr>
+<h1>3. Status normatywny elementów</h1>
+<p>W całej księdze obowiązują cztery statusy:</p>
+<table>
+<thead><tr><th>Status</th><th>Znaczenie</th></tr></thead>
+<tbody>
+<tr><td><strong>Baseline</strong></td><td>Element wymagany w każdym tierze produkcyjnym.</td></tr>
+<tr><td><strong>PHANTOM</strong></td><td>Element wymagany dla profili Phantom i Sovereign albo dla operacji wysokiego ryzyka.</td></tr>
+<tr><td><strong>Lab-only</strong></td><td>Element może istnieć wyłącznie jako kontrolowany test laboratoryjny, z rejestrem, zatwierdzeniami i bez automatycznego wykonania w produkcie.</td></tr>
+<tr><td><strong>Roadmap</strong></td><td>Element zaplanowany, częściowo zaprojektowany lub częściowo zaimplementowany, ale nie może być komunikowany jako gotowy produkcyjnie.</td></tr>
+</tbody></table>
+<p>Szczególnie istotne ograniczenie: funkcje dotyczące warstwy telekomunikacyjnej, identyfikatorów radiowych, kart SIM i modemów mogą być opisane w systemie wyłącznie jako polityka, kwalifikacja sprzętu, test laboratoryjny i mechanizm governance. System produkcyjny nie powinien oferować użytkownikowi wykonawczych funkcji służących do manipulowania identyfikatorami w publicznych sieciach telekomunikacyjnych.</p>
+<h2>3.1. Baseline Księgi 4.0: wymagania nienegocjowalne</h2>
+<table>
+<thead><tr><th>Obszar</th><th>Wymaganie baseline</th></tr></thead>
+<tbody>
+<tr><td>Terminal</td><td>Terminal jest cienkim klientem. Nie przechowuje danych roboczych, historii komunikacji, kluczy workloadów ani plików operatora.</td></tr>
+<tr><td>G1/G2</td><td>Każdy operator dostaje indywidualne G1 i G2. Nie wolno łączyć operatorów na wspólnej bramie bez formalnego ADR.</td></tr>
+<tr><td>Workload</td><td>Aplikacje działają poza terminalem. W Pro i wyżej wymagany jest Firecracker albo silniejsza izolacja.</td></tr>
+<tr><td>CDR</td><td>CDR jest obowiązkowe dla każdego tieru i każdego przepływu plików między strefami.</td></tr>
+<tr><td>Providerzy</td><td>Providerzy są wybierani z rejestru administratora, z opisem krajów, kosztów i capabilities.</td></tr>
+<tr><td>Rotacja</td><td>Rotacja jest funkcją polityki subskrypcji, nie dowolną akcją operatora.</td></tr>
+<tr><td>Tokeny</td><td>Token nie zawiera sekretów, jest jednorazowy albo limitowany, claim jest atomowy, a płatności są idempotentne.</td></tr>
+<tr><td>Portal</td><td>Portal publiczny jest odseparowany od panelu admina, operatora i workload streamów.</td></tr>
+<tr><td>Panel admina</td><td>Panel admina działa wyłącznie jako prywatna konsola zarządzania, monitoringu i audytu.</td></tr>
+<tr><td>Panel operatora</td><td>Operator widzi wyłącznie swoje środowiska, limity, sesje i polityki.</td></tr>
+<tr><td>PHANTOM</td><td>PHANTOM nie jest automatycznie częścią baseline. Wymaga dodatkowych gate'ów, testów i ograniczeń.</td></tr>
+<tr><td>RF lab</td><td>Funkcje RF/telecom pozostają lab-only governance i nie są executorami produktu.</td></tr>
+<tr><td>Audyt</td><td>Operacje krytyczne mają ślad audytowy. Operacje destrukcyjne wymagają polityki four-eyes albo równoważnego gate'u.</td></tr>
+</tbody></table>
+<hr>
+<h1>4. Architektura logiczna</h1>
+<div class="diagram"><div class="diagram-node" data-node="Portal">Publiczny portal zakupowy</div><div class="diagram-node" data-node="Token">Token / voucher / claim</div><div class="diagram-node" data-node="AdminAPI">Admin API prywatne</div><div class="diagram-node" data-node="AdminPanel">Panel administratora</div><div class="diagram-node" data-node="OperatorRecord">Operator + subskrypcja + pakiety</div><div class="diagram-node" data-node="PixelPkg">Paczka Pixel / GrapheneOS</div><div class="diagram-node" data-node="RouterPkg">Paczka Puli AX</div><div class="diagram-node" data-node="G1">G1 - brama wejściowa</div><div class="diagram-node" data-node="G2">G2 - broker sesji</div><div class="diagram-node" data-node="Workload">Workload bare metal / VPS</div><div class="diagram-node" data-node="Pixel">Pixel / laptop terminal</div><div class="diagram-node" data-node="Router">Puli AX / router dostępowy</div><div class="diagram-node" data-node="FC1">Firecracker: Signal</div><div class="diagram-node" data-node="FC2">Firecracker: Telegram</div><div class="diagram-node" data-node="FC3">Firecracker: WhatsApp</div><div class="diagram-node" data-node="FC4">Firecracker: Threema</div><div class="diagram-node" data-node="FC5">Firecracker: Zangi</div><div class="diagram-node" data-node="FC6">Firecracker: DuckDuckGo</div><div class="diagram-node" data-node="FC7">Firecracker: LibreOffice</div><div class="diagram-node" data-node="Matrix">Matrix server opcjonalny</div><div class="diagram-node" data-node="Stream">Szyfrowany streaming pikseli</div><div class="diagram-node" data-node="CDR">CDR / sanitizacja plików</div><div class="diagram-node" data-node="Audit">Audit / metadane / monitoring</div><div class="diagram-edges">Portal -&gt; Token · Token -&gt; AdminAPI · AdminAPI -&gt; AdminPanel · AdminAPI -&gt; OperatorRecord · OperatorRecord -&gt; PixelPkg · OperatorRecord -&gt; RouterPkg · OperatorRecord -&gt; G1 · OperatorRecord -&gt; G2 · OperatorRecord -&gt; Workload · Pixel -&gt; Router · Router -&gt; G1 · G1 -&gt; G2 · G2 -&gt; Workload · Workload -&gt; FC1 · Workload -&gt; FC2 · Workload -&gt; FC3 · Workload -&gt; FC4 · Workload -&gt; FC5 · Workload -&gt; FC6 · Workload -&gt; FC7 · Workload -&gt; Matrix · FC1 -&gt; Stream · FC2 -&gt; Stream · FC3 -&gt; Stream · FC4 -&gt; Stream · FC5 -&gt; Stream · FC6 -&gt; Stream · FC7 -&gt; Stream · Stream -&gt; G2 · G2 -&gt; G1 · G1 -&gt; Router · Router -&gt; Pixel · Workload -&gt; CDR · G1 -&gt; Audit · G2 -&gt; Audit · Workload -&gt; Audit · AdminPanel -&gt; Audit</div></div>
+<p>Architektura jest warstwowa. Kompromitacja jednej warstwy nie powinna automatycznie oznaczać kompromitacji pozostałych. Każdy operator ma osobny rekord tożsamości operatorskiej, osobne sekrety, osobne certyfikaty, osobne polityki i osobne ścieżki sesji. W baseline każdy operator otrzymuje indywidualne G1 i G2. Warstwa workload może być współdzielona w niższych tierach, ale tylko przy spełnieniu izolacji środowiskowej, kwot, audytu, wipe/rebuild i braku współdzielenia sekretów.</p>
+<hr>
+<h1>5. Granica baseline SYLION i PHANTOM</h1>
+<p>Baseline SYLION to minimalny produkcyjny rdzeń. Musi działać stabilnie, audytowalnie i bez funkcji, których nie da się obronić prawnie albo technicznie. Baseline obejmuje:</p>
+<ul>
+<li>portal publiczny z tokenami;</li>
+<li>panel administratora;</li>
+<li>panel operatora;</li>
+<li>indywidualne G1 i G2 dla operatora;</li>
+<li>workloady zgodne z tierem;</li>
+<li>CDR;</li>
+<li>audyt;</li>
+<li>provider registry;</li>
+<li>politykę subskrypcji;</li>
+<li>tworzenie paczek terminal/router;</li>
+<li>streaming pikseli;</li>
+<li>rotację w zakresie dopuszczonym przez tier;</li>
+<li>testy stanu faktycznego aplikacji.</li>
+</ul>
+<p>PHANTOM dodaje:</p>
+<ul>
+<li>ostrzejsze wymagania terminala;</li>
+<li>korelację Pixel - Puli AX - FIDO2;</li>
+<li>silniejszy posture check;</li>
+<li>dedykowane albo operator-only workloady;</li>
+<li>pełną politykę jurysdykcyjną;</li>
+<li>wyższe wymagania izolacji;</li>
+<li>docelowy blind broker/E2EE streaming;</li>
+<li>silniejsze monitorowanie i reakcję na incydenty;</li>
+<li>bardziej rygorystyczne OPSEC;</li>
+<li>lab-only governance dla elementów RF/telecom.</li>
+</ul>
+<p>Zasada Księgi 4.0: nie wolno promować funkcji PHANTOM do baseline, jeśli nie ma testu, audytu, legalnego modelu użycia i jasno zdefiniowanych bramek bezpieczeństwa.</p>
+<hr>
+<h1>6. Strefy systemu</h1>
+<h2>6.1. Strefa publiczna: portal zakupowy</h2>
+<p>Portal publiczny jest jedyną częścią systemu, która powinna być publicznie dostępna bez VPN. Jego zadaniem jest sprzedaż dostępu, przyjmowanie płatności, generowanie tokenów i uruchamianie procesu bootstrapu operatora. Portal nie powinien hostować panelu administratora, panelu operatora, workload streamów ani endpointów zarządzających infrastrukturą.</p>
+<p>Portal działa na oddzielnym VPS. Do prywatnego Admin API komunikuje się wyłącznie przez wąski, allowlistowany zestaw endpointów <code>portal-api</code>. Wymagany jest edge secret, walidacja webhooków płatności, idempotencja i zapis audytowy.</p>
+<p>Funkcje portalu:</p>
+<ul>
+<li>wybór tieru;</li>
+<li>wybór typu zakupu: nowy operator, przedłużenie, upgrade, dodatkowa jurysdykcja, dodatkowa pojemność workload, Matrix, przegląd PHANTOM;</li>
+<li>płatność kartą lub przelewem przez Stripe/Mollie;</li>
+<li>płatność krypto przez CoinGate albo równoważnego providera;</li>
+<li>wygenerowanie tokenu po skutecznej płatności;</li>
+<li>wpisanie tokenu i claim;</li>
+<li>uruchomienie procesu tworzenia operatora;</li>
+<li>pobranie paczek startowych dla Pixela i Puli AX;</li>
+<li>obsługa ścieżki resellerów;</li>
+<li>informacja o minimalnym okresie subskrypcji;</li>
+<li>informacja o braku zwrotu po alokacji dedykowanej infrastruktury.</li>
+</ul>
+<p>Publicznie zabronione:</p>
+<ul>
+<li><code>/admin</code>;</li>
+<li><code>/operator</code>;</li>
+<li>endpointy providerów VPS;</li>
+<li>endpointy live execution;</li>
+<li>endpointy workload stream;</li>
+<li>endpointy audytu;</li>
+<li>endpointy HSM/FIDO2;</li>
+<li>jakiekolwiek sekrety, konfiguracje VPN, klucze prywatne lub tokeny providerów.</li>
+</ul>
+<h2>6.2. Strefa administratora</h2>
+<p>Panel administratora jest prywatnym centrum sterowania platformą. Nie powinien być wystawiony publicznie. Dostęp powinien wymagać VPN, uprawnień administracyjnych, MFA/FIDO2 w produkcji, RBAC i audytu.</p>
+<p>Główne funkcje administratora:</p>
+<ul>
+<li>tworzenie i edycja operatorów;</li>
+<li>przypisywanie tierów;</li>
+<li>przegląd kosztów operatora;</li>
+<li>zarządzanie długością subskrypcji;</li>
+<li>zarządzanie tokenami i voucherami;</li>
+<li>zarządzanie resellerami;</li>
+<li>konfiguracja providerów VPS i bare metal;</li>
+<li>opis krajów, regionów, lokalizacji i możliwości providerów;</li>
+<li>oznaczanie providerów jako wspierających KVM, Firecracker, TDX, SEV-SNP, bare metal, vSwitch, prywatne VLAN;</li>
+<li>definiowanie polityk rotacji jurysdykcyjnej;</li>
+<li>zatwierdzanie operacji wysokiego ryzyka;</li>
+<li>obserwowanie metadanych i anomalii;</li>
+<li>przegląd ścieżki Pixel - router - G1 - G2 - workload;</li>
+<li>monitoring CDR;</li>
+<li>wykrywanie zmian kluczy, nietypowych sesji, prób logowania, naruszeń polityki;</li>
+<li>zarządzanie autoryzowanymi aplikacjami i obrazami workloadów;</li>
+<li>zarządzanie politykami backupu, panic code i destrukcji danych;</li>
+<li>przygotowanie interfejsów pod HSM/FIDO2;</li>
+<li>przegląd PHANTOM hardening gates;</li>
+<li>przegląd RF lab governance bez funkcji wykonawczych w produkcie.</li>
+</ul>
+<p>Panel administratora powinien jasno rozdzielać:</p>
+<ul>
+<li>konfigurację produkcyjną;</li>
+<li>testy laboratoryjne;</li>
+<li>symulacje;</li>
+<li>funkcje roadmap;</li>
+<li>funkcje zablokowane prawnie albo operacyjnie.</li>
+</ul>
+<h2>6.3. Strefa operatora</h2>
+<p>Panel operatora jest prywatnym panelem użytkownika końcowego. Operator widzi tylko własne środowiska, własną sesję, własny tier, własne limity i własne polityki.</p>
+<p>Funkcje operatora:</p>
+<ul>
+<li>wybór terminala: Pixel albo laptop;</li>
+<li>status sesji i licznik czasu do ponownego odblokowania;</li>
+<li>ustawienie czasu sesji w zakresie dopuszczonym przez tier;</li>
+<li>konfiguracja haseł do warstw G1, G2 i workload;</li>
+<li>konfiguracja FIDO2/HSM jako interfejs przygotowany na późniejsze podpięcie sprzętu;</li>
+<li>wybór i kontrola środowisk aplikacji;</li>
+<li>reset, recreate, prepare new session dla aplikacji;</li>
+<li>wybór trybu aplikacji: desktop, web, Android-native, jeśli obraz jest dostępny;</li>
+<li>wgląd w własny ruch i metadane bezpieczeństwa;</li>
+<li>backup operatora;</li>
+<li>panic code z poziomami skutku;</li>
+<li>ustawianie auto-wipe po braku aktywności;</li>
+<li>wniosek o Matrix server;</li>
+<li>konfiguracja rotacji jurysdykcyjnej w granicach tieru;</li>
+<li>zakup rozszerzeń, przedłużenie lub upgrade przez token;</li>
+<li>pobranie paczek startowych, jeśli token i polityka na to pozwalają.</li>
+</ul>
+<p>Operator nie powinien móc:</p>
+<ul>
+<li>zmieniać globalnych providerów;</li>
+<li>dodawać globalnie autoryzowanych aplikacji;</li>
+<li>widzieć innych operatorów;</li>
+<li>widzieć kosztów innych operatorów;</li>
+<li>ingerować w CDR poza własną polityką;</li>
+<li>wymuszać operacji niezgodnych z tierem;</li>
+<li>uruchamiać funkcji laboratoryjnych PHANTOM bez zatwierdzeń.</li>
+</ul>
+<h2>6.4. Strefa terminala: Pixel i laptop</h2>
+<p>Terminal służy do wyświetlania obrazu i przekazywania wejścia. W modelu bezpieczeństwa terminal nie jest miejscem przechowywania danych roboczych. Dla Pixela zakładanym profilem jest GrapheneOS, tryb samolotowy, wyłączona warstwa GSM oraz łączność Wi-Fi wyłącznie do dedykowanego routera.</p>
+<p>W docelowym profilu PHANTOM:</p>
+<ul>
+<li>Pixel ma być skorelowany z routerem i FIDO2;</li>
+<li>Pixel nie powinien widzieć opcji połączenia z G1 bez spełnienia polityki terminala;</li>
+<li>router i Pixel powinny używać sparowanej konfiguracji sieciowej;</li>
+<li>zaufanie nie opiera się na samym SSID i haśle Wi-Fi;</li>
+<li>terminal powinien mieć certyfikaty urządzenia i profil CA;</li>
+<li>całość powinna mieć możliwość cofnięcia dostępu po zmianie polityki albo utracie urządzenia.</li>
+</ul>
+<p>Laptop jest drugim typem terminala. Ma dostać analogiczną ścieżkę dostępu, ale inny profil ryzyka. Laptop jest wygodniejszy dla pracy biurowej i administracyjnej, natomiast Pixel jest docelowym terminalem mobilnym. Oba typy terminali muszą mieć odrębne polityki urządzenia, certyfikaty, posture checks i limity sesji.</p>
+<h2>6.5. Strefa routera: Puli AX</h2>
+<p>Puli AX jest routerem dostępowym między terminalem a światem zewnętrznym. W PHANTOM router jest elementem pary sprzętowej z Pixelem i FIDO2. Jego zadania:</p>
+<ul>
+<li>utrzymanie łączności WAN;</li>
+<li>zestawienie tunelu do G1;</li>
+<li>kill switch;</li>
+<li>blokada DNS leak;</li>
+<li>ograniczenie ruchu terminala wyłącznie do dopuszczonych tuneli;</li>
+<li>obsługa paczki konfiguracyjnej z portalu/panelu;</li>
+<li>raportowanie stanu do panelu operatora i administratora;</li>
+<li>rozdzielenie ruchu operatorskiego od lokalnego internetu;</li>
+<li>przyszłe wsparcie dla profili laboratoryjnych RF governance.</li>
+</ul>
+<p>Router nie powinien być traktowany jako pełna strefa zaufana. Nawet jeśli router zostanie skompromitowany, ruch z terminala do G1 powinien pozostać szyfrowany i uwierzytelniony. Router jest bramą transportową, nie miejscem przechowywania sekretów operatora.</p>
+<h2>6.6. Strefa G1</h2>
+<p>G1 jest pierwszą bramą systemu. Odpowiada za wejście operatora do ścieżki SYLION, weryfikację terminala, polityki dostępu, VPN, certyfikaty i wstępne bramkowanie ruchu.</p>
+<p>Wymagania G1:</p>
+<ul>
+<li>indywidualne dla operatora;</li>
+<li>rotowalne zgodnie z tierem;</li>
+<li>certyfikaty generowane per operator/per sesja według polityki;</li>
+<li>ograniczony zakres funkcji;</li>
+<li>brak danych aplikacyjnych;</li>
+<li>logowanie metadanych do audytu;</li>
+<li>możliwość odcięcia i rebuild;</li>
+<li>współpraca z G2 przez drugi tunel.</li>
+</ul>
+<h2>6.7. Strefa G2</h2>
+<p>G2 jest brokerem sesji i warstwą dostępu do workloadów. Obecny projekt dopuszcza użycie brokerów typu Guacamole/Kasm/noVNC jako warstwy testowej, ale docelowy PHANTOM wymaga modelu, w którym broker nie widzi strumienia pikseli w postaci jawnej.</p>
+<p>Ryzyko G2 jest wysokie, ponieważ broker sesji znajduje się blisko obrazu i wejścia użytkownika. Dlatego docelowy plan PHANTOM zakłada:</p>
+<ul>
+<li>szyfrowanie strumienia możliwie blisko mikroVM;</li>
+<li>model blind broker;</li>
+<li>ograniczenie funkcji G2 do routingu i kontroli sesji;</li>
+<li>brak trwałego zapisu obrazu;</li>
+<li>brak logowania treści wejścia;</li>
+<li>ścisłe limity sesji;</li>
+<li>per-user session cap;</li>
+<li>audyt zdarzeń bez treści.</li>
+</ul>
+<h2>6.8. Strefa workloadów</h2>
+<p>Workload jest miejscem uruchamiania aplikacji. Może działać jako:</p>
+<ul>
+<li>kontenery w niższych tierach;</li>
+<li>Firecracker microVM w Pro i wyższych;</li>
+<li>workload dedykowany operatorowi w Phantom i Sovereign;</li>
+<li>workload na bare metal dla wyższych wymagań izolacji;</li>
+<li>workload z confidential computing, gdy provider i sprzęt to wspierają.</li>
+</ul>
+<p>Aplikacje docelowe:</p>
+<ul>
+<li>Signal;</li>
+<li>Telegram;</li>
+<li>WhatsApp;</li>
+<li>Threema;</li>
+<li>Zangi;</li>
+<li>DuckDuckGo / przeglądarka;</li>
+<li>LibreOffice;</li>
+<li>Exodus;</li>
+<li>Matrix server jako opcjonalny własny komunikator;</li>
+<li>inne aplikacje autoryzowane globalnie przez superadmina.</li>
+</ul>
+<p>Każda aplikacja może mieć różne tryby:</p>
+<ul>
+<li>desktop;</li>
+<li>web;</li>
+<li>Android-native;</li>
+<li>headless/service;</li>
+<li>Matrix/self-hosted.</li>
+</ul>
+<p>Tryb aplikacji musi być jawnie widoczny w panelu operatora. Nie wolno prezentować aplikacji web jako pełnego zamiennika aplikacji native, jeśli nie pozwala na rejestrację konta albo ma ograniczenia funkcjonalne.</p>
+<hr>
+<h1>7. Modułowość systemu</h1>
+<div class="diagram"><div class="diagram-node" data-node="A">Portal publiczny</div><div class="diagram-node" data-node="B">Billing i tokeny</div><div class="diagram-node" data-node="C">Operator bootstrap</div><div class="diagram-node" data-node="D">Provisioning G1/G2</div><div class="diagram-node" data-node="E">Provisioning workloadów</div><div class="diagram-node" data-node="F">Paczki Pixel/Puli AX</div><div class="diagram-node" data-node="G">Panel administratora</div><div class="diagram-node" data-node="H">Provider registry</div><div class="diagram-node" data-node="I">Subscription policy</div><div class="diagram-node" data-node="J">Operator registry</div><div class="diagram-node" data-node="K">Blue team monitoring</div><div class="diagram-node" data-node="L">Audit / WORM</div><div class="diagram-node" data-node="M">Authorized apps</div><div class="diagram-node" data-node="N">Panel operatora</div><div class="diagram-node" data-node="O">Session manager</div><div class="diagram-node" data-node="P">Workload control</div><div class="diagram-node" data-node="Q">Security settings</div><div class="diagram-node" data-node="R">Rotation settings</div><div class="diagram-node" data-node="S">Backup / panic</div><div class="diagram-node" data-node="T">Firecracker orchestrator</div><div class="diagram-node" data-node="U">Container orchestrator</div><div class="diagram-node" data-node="V">App image catalog</div><div class="diagram-node" data-node="W">CDR</div><div class="diagram-node" data-node="X">Streaming broker</div><div class="diagram-node" data-node="Y">Anomaly detection</div><div class="diagram-node" data-node="Z">Incident response</div><div class="diagram-edges">A -&gt; B · B -&gt; C · C -&gt; D · C -&gt; E · C -&gt; F · G -&gt; H · G -&gt; I · G -&gt; J · G -&gt; K · G -&gt; L · G -&gt; M · N -&gt; O · N -&gt; P · N -&gt; Q · N -&gt; R · N -&gt; S · E -&gt; T · E -&gt; U · T -&gt; V · U -&gt; V · V -&gt; W · V -&gt; X · K -&gt; Y · K -&gt; Z</div></div>
+<p>Główne moduły:</p>
+<table>
+<thead><tr><th>Moduł</th><th>Odpowiedzialność</th></tr></thead>
+<tbody>
+<tr><td>Portal publiczny</td><td>Sprzedaż, wybór tieru, płatność, claim tokenu, bootstrap.</td></tr>
+<tr><td>Billing/token service</td><td>Tokeny, vouchery, upgrade, przedłużenia, dodatki, resellerzy.</td></tr>
+<tr><td>Admin API</td><td>Prywatne API systemowe, sterowanie operatorami, providerami i audytem.</td></tr>
+<tr><td>Operator API</td><td>API operatora, sesje, workloady, konfiguracje własne.</td></tr>
+<tr><td>Provider registry</td><td>Kraje, regiony, capabilities, koszty, limity, availability.</td></tr>
+<tr><td>Subscription policy</td><td>Tiers, limity, rotacje, dodatki, session TTL, app quotas.</td></tr>
+<tr><td>Provisioning</td><td>Tworzenie G1, G2, workloadów, certyfikatów, paczek.</td></tr>
+<tr><td>Workload orchestrator</td><td>Kontenery, Firecracker, obrazy, recreate, reset, capacity.</td></tr>
+<tr><td>Streaming broker</td><td>Pixel streaming, input bridge, session gate.</td></tr>
+<tr><td>CDR</td><td>Sanitizacja plików, kontrola przepływu danych, dowody audytowe.</td></tr>
+<tr><td>Blue team</td><td>Monitoring, anomalia, alerty, metadane, incident response.</td></tr>
+<tr><td>RF lab governance</td><td>Tylko kontrolowane testy laboratoryjne, bez automatyzacji produkcyjnej.</td></tr>
+<tr><td>PHANTOM policy</td><td>Wymogi terminala, routera, rotacji, izolacji i zatwierdzeń.</td></tr>
+<tr><td>HSM/FIDO2</td><td>Interfejsy i docelowe wiązanie kluczy sprzętowych.</td></tr>
+</tbody></table>
+<hr>
+<h1>8. Portal zakupowy, tokeny i resellerzy</h1>
+<h2>8.1. Model bez konta klienta</h2>
+<p>Założenie produktowe mówi, że użytkownik nie powinien mieć klasycznego konta klienta w portalu. Portal powinien działać podobnie do portfela: dowodem prawa do akcji jest token, seed/recovery material albo inny silny artefakt kryptograficzny. W obecnym kodzie istnieje model tokenów i profili/vault ID, natomiast pełny model odzyskiwania przez seed jest wymaganiem projektowym, nie w pełni skończonym elementem produkcyjnym.</p>
+<p>Minimalny bezpieczny model:</p>
+<ul>
+<li>token nie jest przechowywany jawnie;</li>
+<li>w bazie znajduje się hash/token digest;</li>
+<li>token jest jednorazowy albo ma jednoznaczny limit użycia;</li>
+<li>claim tokenu jest atomowy;</li>
+<li>webhook płatności jest podpisany i idempotentny;</li>
+<li>token ma typ, tier, datę ważności i zakres;</li>
+<li>po claimie token uruchamia workflow bootstrap;</li>
+<li>token nie może nadawać uprawnień administracyjnych;</li>
+<li>token nie powinien sam zawierać sekretów infrastruktury.</li>
+</ul>
+<h2>8.2. Typy tokenów</h2>
+<table>
+<thead><tr><th>Typ tokenu</th><th>Zastosowanie</th></tr></thead>
+<tbody>
+<tr><td><code>operator_bootstrap_annual</code></td><td>Utworzenie nowego operatora z subskrypcją roczną.</td></tr>
+<tr><td><code>subscription_extend_12m</code></td><td>Przedłużenie subskrypcji o 12 miesięcy.</td></tr>
+<tr><td><code>tier_upgrade</code></td><td>Upgrade tieru i przeliczenie limitów.</td></tr>
+<tr><td><code>jurisdiction_credit</code></td><td>Dokupienie prawa do dodatkowej jurysdykcji albo rotacji.</td></tr>
+<tr><td><code>workload_capacity</code></td><td>Dokupienie pojemności aplikacyjnej/workload.</td></tr>
+<tr><td><code>matrix_server</code></td><td>Uruchomienie własnego serwera Matrix.</td></tr>
+<tr><td><code>phantom_review</code></td><td>Wniosek o weryfikację PHANTOM.</td></tr>
+<tr><td><code>phantom_access</code></td><td>Dostęp PHANTOM po pozytywnej weryfikacji.</td></tr>
+</tbody></table>
+<h2>8.3. Płatności</h2>
+<p>Rekomendowany zestaw bramek:</p>
+<ul>
+<li><strong>Stripe</strong> jako główny provider kart, faktur i B2B;</li>
+<li><strong>CoinGate</strong> jako provider płatności krypto;</li>
+<li><strong>Mollie</strong> jako backup dla kart/przelewów w UE;</li>
+<li>opcjonalnie provider lokalny zależny od jurysdykcji sprzedaży.</li>
+</ul>
+<p>Wariant anonimowy przez crypto różni się od zakupu na firmę:</p>
+<ul>
+<li>zakup krypto może ograniczać ilość danych rozliczeniowych, ale nie powinien być komunikowany jako pełna anonimowość;</li>
+<li>zakup firmowy wymaga danych do faktury, VAT, rozliczenia i compliance;</li>
+<li>zakup firmowy pozwala na resellerów, faktury, support i większą przewidywalność płatności;</li>
+<li>zakup krypto powinien mieć jednoznaczny regulamin braku zwrotu po alokacji infrastruktury;</li>
+<li>oba typy płatności muszą prowadzić do tego samego bezpiecznego mechanizmu tokenu.</li>
+</ul>
+<h2>8.4. Resellerzy</h2>
+<p>Reseller ma własną ścieżkę portalu. Może kupować pulę tokenów z rabatem, na przykład 20%, oraz przygotowywać klientowi sprzęt startowy. Reseller nie powinien otrzymywać dostępu do danych operatora po aktywacji profilu.</p>
+<p>Scenariusze resellerów:</p>
+<p>1. Reseller sprzedaje sam token. Klient sam pobiera paczki i wykonuje bootstrap.</p>
+<p>2. Reseller sprzedaje router i Pixel już przygotowane technicznie, ale bez profilu operatora.</p>
+<p>3. Reseller dostarcza paczki do wgrania na Pixel i Puli AX, a klient aktywuje je własnym tokenem.</p>
+<p>4. Reseller sprzedaje usługę onboardingową, ale FIDO2/HSM i właściwe sekrety końcowe muszą być skonfigurowane przez klienta/operatora.</p>
+<p>Wymogi bezpieczeństwa resellerów:</p>
+<ul>
+<li>reseller nie może znać końcowego sekretu operatora;</li>
+<li>tokeny resellera mają limit, termin ważności i ślad audytowy;</li>
+<li>rabat i marża są księgowane w billing module;</li>
+<li>tokeny mogą być cofane przed claimem;</li>
+<li>po claimie tokenu powstaje relacja operator - system, nie operator - reseller;</li>
+<li>reseller nie powinien mieć wglądu w sesje operatora.</li>
+</ul>
+<hr>
+<h1>9. Tiers i limity</h1>
+<p>Minimalny okres subskrypcji w portalu publicznym: <strong>12 miesięcy</strong>. W starszej części kodu istnieje jeszcze dolny guard 6 miesięcy dla niektórych tokenów administracyjnych. To wymaga harmonizacji, ponieważ reguła produktowa mówi obecnie o roku.</p>
+<table>
+<thead><tr><th>Tier</th><th>Cena / miesiąc</th><th>Cena roczna</th><th>Środowiska aplikacji</th><th>Model workload</th><th>Rotacja</th><th>Przeznaczenie</th></tr></thead>
+<tbody>
+<tr><td>Pilot</td><td>99 EUR</td><td>1 188 EUR</td><td>6</td><td>shared pool / kontenery</td><td>brak albo minimalna</td><td>test, mała skala</td></tr>
+<tr><td>Standard</td><td>199 EUR</td><td>2 388 EUR</td><td>10</td><td>shared pool / kontenery</td><td>manualna ograniczona</td><td>podstawowa produkcja</td></tr>
+<tr><td>Pro</td><td>499 EUR</td><td>5 988 EUR</td><td>20</td><td>Firecracker wymagany</td><td>harmonogram, provider rotation</td><td>intensywna praca</td></tr>
+<tr><td>Phantom</td><td>1 000 EUR</td><td>12 000 EUR</td><td>40</td><td>dedykowany/ściśle izolowany workload</td><td>pełna polityka</td><td>wysoki profil ryzyka</td></tr>
+<tr><td>Sovereign</td><td>2 999 EUR</td><td>35 988 EUR</td><td>60</td><td>operator-only dedicated workload</td><td>pełna polityka</td><td>najwyższa izolacja</td></tr>
+</tbody></table>
+<p>Wspólne wymagania:</p>
+<ul>
+<li>CDR obowiązkowe w każdym tierze;</li>
+<li>każdy operator ma indywidualne G1 i G2;</li>
+<li>każdy operator ma osobną subskrypcję, limity, certyfikaty i polityki;</li>
+<li>operator nie może przekroczyć liczby środowisk aplikacyjnych wynikającej z tieru;</li>
+<li>globalny superadmin zarządza listą autoryzowanych aplikacji;</li>
+<li>operator wybiera i replikuje aplikacje w granicach limitu.</li>
+</ul>
+<p>Przykład limitów aplikacji:</p>
+<ul>
+<li>Pilot: 6 środowisk, na przykład 2 Signal, 2 Telegram, 1 DuckDuckGo, 1 LibreOffice;</li>
+<li>Standard: 10 środowisk;</li>
+<li>Pro: 20 środowisk z Firecracker;</li>
+<li>Phantom: 40 środowisk, dedykowany workload;</li>
+<li>Sovereign: 60 środowisk, dedykowany workload i najwyższe wymagania izolacji.</li>
+</ul>
+<hr>
+<h1>10. Zaktualizowana polityka rotacji i wykorzystania VPS</h1>
+<h2>10.1. Zasada bazowa</h2>
+<p>Każdy operator niezależnie od tieru dostaje indywidualne G1 i G2. Te warstwy są osobnymi punktami bezpieczeństwa. Kompromitacja jednego operatora nie powinna odsłaniać G1/G2 innego operatora.</p>
+<p>Warstwa workload jest droższa, bo wymaga KVM, Firecracker, bare metal, confidential computing albo większych zasobów. Dlatego polityka jest zależna od tieru:</p>
+<ul>
+<li>Pilot i Standard mogą korzystać z kontrolowanej puli workloadów współdzielonych;</li>
+<li>Pro może korzystać z puli dedykowanych hostów Firecracker z izolacją per operator/per microVM;</li>
+<li>Phantom i Sovereign wymagają workloadów dedykowanych albo operator-only;</li>
+<li>Sovereign powinien mieć najostrzejsze reguły braku współdzielenia.</li>
+</ul>
+<h2>10.2. Rotacja niskich tierów</h2>
+<p>W niższych tierach system może rotować operatorów między już kupionymi VPS albo hostami workload, pod warunkiem że:</p>
+<ul>
+<li>poprzedni operator został bezpiecznie odłączony;</li>
+<li>sekrety poprzedniej sesji zostały zniszczone;</li>
+<li>volume/workdir zostały wyczyszczone albo odtworzone od zera;</li>
+<li>certyfikaty i klucze zostały wygenerowane ponownie;</li>
+<li>nie ma współdzielenia danych aplikacyjnych;</li>
+<li>audyt pokazuje pełny lifecycle cleanup;</li>
+<li>CDR i monitoring potwierdzają zamknięcie poprzedniej ścieżki;</li>
+<li>nowy operator dostaje nową tożsamość infrastrukturalną.</li>
+</ul>
+<p>Taki model obniża koszt, ale nie wolno go mylić z izolacją dedykowaną.</p>
+<h2>10.3. Rotacja wyższych tierów</h2>
+<p>W wyższych tierach system może tworzyć nowe, indywidualne VPS albo dedykowane workloady przy każdej zmianie jurysdykcji. Operator z wyższego tieru może opuścić daną jurysdykcję, a zasoby po nim mogą wrócić do puli, ale tylko po przejściu twardej ścieżki sanitizacji.</p>
+<p>Zasada reuse:</p>
+<ul>
+<li>operator Phantom/Sovereign może dostać wyłącznie host spełniający jego profil dedykacji;</li>
+<li>zasób użyty wcześniej przez innego operatora nie może być przekazany do Phantom/Sovereign bez pełnej rekwalifikacji, wipe, reinstall, attestation i ręcznego zatwierdzenia;</li>
+<li>zasób opuszczony przez wysokotierowego operatora może po sanitizacji zostać przydzielony niższemu tierowi;</li>
+<li>niższy tier nie może automatycznie wejść na host bez potwierdzenia cleanup gates;</li>
+<li>koszt i historia alokacji muszą być widoczne w panelu administratora.</li>
+</ul>
+<h2>10.4. Polityka per tier</h2>
+<table>
+<thead><tr><th>Tier</th><th>G1/G2</th><th>Workload</th><th>Rotacja jurysdykcji</th><th>Reuse zasobów</th></tr></thead>
+<tbody>
+<tr><td>Pilot</td><td>indywidualne</td><td>współdzielona pula</td><td>brak domyślnie</td><td>może wejść na oczyszczony zasób z puli</td></tr>
+<tr><td>Standard</td><td>indywidualne</td><td>współdzielona pula</td><td>manualna, ograniczona</td><td>może korzystać z oczyszczonych VPS</td></tr>
+<tr><td>Pro</td><td>indywidualne</td><td>Firecracker pool</td><td>harmonogram, max kilka krajów</td><td>może korzystać z oczyszczonych hostów Firecracker</td></tr>
+<tr><td>Phantom</td><td>indywidualne</td><td>dedykowany/ściśle izolowany</td><td>pełna polityka</td><td>reuse tylko po rekwalifikacji jako dedicated</td></tr>
+<tr><td>Sovereign</td><td>indywidualne</td><td>operator-only dedicated</td><td>pełna polityka</td><td>zasadniczo brak współdzielenia; reuse tylko po formalnej rekwalifikacji</td></tr>
+</tbody></table>
+<h2>10.5. Provider registry</h2>
+<p>Panel administratora musi mieć provider registry zawierające:</p>
+<ul>
+<li>nazwę providera;</li>
+<li>typ: VPS, bare metal, cloud, colocation, dedicated;</li>
+<li>kraje i regiony;</li>
+<li>dostępność IPv4/IPv6;</li>
+<li>support dla prywatnych sieci/VLAN/vSwitch;</li>
+<li>KVM;</li>
+<li>Firecracker;</li>
+<li>Intel TDX;</li>
+<li>AMD SEV-SNP;</li>
+<li>możliwość własnego ISO;</li>
+<li>możliwość własnego kernela;</li>
+<li>możliwość boot/reinstall API;</li>
+<li>model rozliczeń;</li>
+<li>minimalny czas zamówienia;</li>
+<li>czas provisioningu;</li>
+<li>koszt miesięczny;</li>
+<li>status compliance;</li>
+<li>status produkcyjny, testowy albo zablokowany.</li>
+</ul>
+<p>Operator nie wybiera dowolnego providera z internetu. Operator wybiera tylko spośród providerów zatwierdzonych przez administratora i tylko w zakresie swojego tieru.</p>
+<hr>
+<h1>11. Streaming pikseli i cienki klient</h1>
+<p>Streaming pikseli jest kluczowy. W modelu bezpieczeństwa operator nie pobiera danych aplikacji na terminal. Widzi obraz i wysyła wejście. To ogranicza skutki przejęcia terminala, ale nie eliminuje wszystkich ryzyk.</p>
+<p>Wymagania:</p>
+<ul>
+<li>sesja musi być uwierzytelniona;</li>
+<li>strumień musi być szyfrowany;</li>
+<li>broker nie powinien widzieć treści w docelowym PHANTOM;</li>
+<li>terminal nie powinien zapisywać danych aplikacyjnych;</li>
+<li>input bridge musi działać stabilnie na Pixel i laptopie;</li>
+<li>rozdzielczość musi dopasowywać się do Pixela;</li>
+<li>użytkownik musi móc przełączać się między panelem operatora i aplikacjami;</li>
+<li>aplikacje muszą mieć test faktycznego działania, a nie tylko test portu;</li>
+<li>każda aplikacja musi mieć status: running, reachable, usable, authenticated, broken, needs account, needs SMS, blocked.</li>
+</ul>
+<p>Obecny wniosek techniczny: Guacamole daje standardowy model brokerowania, ale dla PHANTOM docelowo trzeba dążyć do blind-broker/E2EE streaming. KasmVNC bywa praktyczniejszy dla Firecracker i mobile input, ale problem menu/klawiatury musi zostać rozwiązany systemowo. noVNC nie rozwiązuje automatycznie problemu mobile keyboard. Wybór brokera musi wynikać z testu: bezpieczeństwo, input bridge, mobile UX, stabilność sesji, rozdzielczość, możliwość E2EE i integracja z CDR/audytem.</p>
+<hr>
+<h1>12. CDR i przepływ danych</h1>
+<p>CDR jest obowiązkowe u każdego operatora. CDR ma kontrolować przepływ plików między terminalem, workloadem, aplikacjami i światem zewnętrznym. W modelu cienkiego klienta pliki nie powinny swobodnie przechodzić z workloadu na terminal.</p>
+<p>CDR powinno obejmować:</p>
+<ul>
+<li>upload pliku do środowiska;</li>
+<li>download pliku ze środowiska;</li>
+<li>przejście pliku między aplikacjami;</li>
+<li>eksport dokumentów z LibreOffice;</li>
+<li>załączniki komunikatorów;</li>
+<li>próbę skopiowania danych;</li>
+<li>kontrolę typu pliku;</li>
+<li>rozbrojenie dokumentów aktywnych;</li>
+<li>usuwanie makr;</li>
+<li>konwersję do bezpiecznego formatu;</li>
+<li>hash wejścia i wyjścia;</li>
+<li>decyzję allow/deny/quarantine;</li>
+<li>dowód audytowy bez ujawniania treści.</li>
+</ul>
+<p>CDR nie zastępuje E2EE komunikatorów. CDR chroni granicę środowiska i przepływ plików.</p>
+<hr>
+<h1>13. Blue team, monitoring i audyt</h1>
+<p>Panel administratora powinien działać jak konsola blue team dla całego systemu. Administrator nie powinien widzieć treści wiadomości ani danych operatora, ale powinien widzieć metadane bezpieczeństwa:</p>
+<ul>
+<li>status G1/G2/workload;</li>
+<li>status tuneli;</li>
+<li>status certyfikatów;</li>
+<li>zmiany kluczy;</li>
+<li>próby logowania;</li>
+<li>odchylenia od typowego czasu sesji;</li>
+<li>reset środowisk;</li>
+<li>błędy CDR;</li>
+<li>restart mikroVM;</li>
+<li>naruszenia polityki;</li>
+<li>alerty providerów;</li>
+<li>anomalia ruchu;</li>
+<li>próby dostępu do niedozwolonych endpointów;</li>
+<li>panic events;</li>
+<li>wipe events;</li>
+<li>rotacje jurysdykcji;</li>
+<li>koszt i obciążenie infrastruktury.</li>
+</ul>
+<p>Docelowe funkcje:</p>
+<ul>
+<li>eBPF runtime monitoring;</li>
+<li>Falco/Tetragon;</li>
+<li>SIEM;</li>
+<li>playbooki incident response;</li>
+<li>WORM audit;</li>
+<li>hash-chain dla zdarzeń;</li>
+<li>four-eyes dla destrukcyjnych operacji;</li>
+<li>rozdzielenie ról administratorów.</li>
+</ul>
+<p>Monitoring nie powinien logować:</p>
+<ul>
+<li>haseł;</li>
+<li>treści wiadomości;</li>
+<li>seedów;</li>
+<li>kluczy prywatnych;</li>
+<li>danych portfeli;</li>
+<li>zawartości dokumentów;</li>
+<li>tokenów providerów;</li>
+<li>payloadów aplikacyjnych.</li>
+</ul>
+<hr>
+<h1>14. HSM, FIDO2 i wiązanie sprzętowe</h1>
+<p>HSM/FIDO2 są zaplanowane jako warstwa sprzętowej kontroli dostępu. Fizyczne testy mogą być wykonane później, ale interfejs musi istnieć w panelu administratora i operatora.</p>
+<p>FIDO2:</p>
+<ul>
+<li>operator konfiguruje klucz przy pierwszym uruchomieniu albo później;</li>
+<li>po upływie sesji operator ponownie potwierdza obecność;</li>
+<li>docelowo wymagany jest user presence/user verification;</li>
+<li>administrator może wymagać FIDO2 dla tieru;</li>
+<li>zgubiony klucz wymaga procedury odzyskiwania i reautoryzacji.</li>
+</ul>
+<p>HSM:</p>
+<ul>
+<li>przechowuje lub chroni klucze systemowe;</li>
+<li>obsługuje polityki BYO-HSM dla wysokich tierów;</li>
+<li>wymaga audytu;</li>
+<li>nie powinien być opcjonalnym dodatkiem dla krytycznych operacji administracyjnych;</li>
+<li>w Sovereign może być wymagany model klient-controlled/on-prem.</li>
+</ul>
+<hr>
+<h1>15. PHANTOM v3.0: szczegółowy profil techniczny</h1>
+<p>PHANTOM v3.0 jest profilem rozszerzonym systemu SYLION. Jego celem nie jest dodanie jednej funkcji, tylko zmiana całego poziomu rygoru. PHANTOM obejmuje sprzęt operatora, router, FIDO2/HSM, terminal admission, rotacje, izolację workloadów, audyt, reakcję na incydenty i zasady używania.</p>
+<h2>15.1. Trójca sprzętowa</h2>
+<p>W profilu PHANTOM terminal nie jest samodzielnym urządzeniem dostępowym. Dostęp do G1 powinien wymagać spełnienia warunków:</p>
+<ul>
+<li>Pixel z właściwym profilem;</li>
+<li>GrapheneOS i polityka terminala;</li>
+<li>router Puli AX z właściwą paczką;</li>
+<li>certyfikaty urządzeń;</li>
+<li>zaufany profil CA;</li>
+<li>FIDO2;</li>
+<li>aktywna subskrypcja;</li>
+<li>zgodny tier;</li>
+<li>pozytywny posture check.</li>
+</ul>
+<p>Cel bezpieczeństwa: uniemożliwić sytuację, w której skradziony Pixel, podłożona sieć Wi-Fi albo sam router wystarczy do dostępu do G1.</p>
+<p>Warstwa GSM na Pixelu powinna być wyłączona w profilu PHANTOM. Pixel łączy się przez Wi-Fi z dedykowanym routerem. Router utrzymuje WAN. To zmniejsza ekspozycję Pixela na ataki baseband i IMSI catcher, ale nie znosi całkowicie ryzyk RF, supply chain i kompromitacji routera.</p>
+<p>Wszystkie funkcje związane z identyfikatorami telekomunikacyjnymi, kartami programowalnymi i modemami muszą pozostać w domenie lab-only governance. System może mieć rejestr testu, kwalifikację sprzętu, checklistę, wynik preflight i zatwierdzenia, ale nie powinien wykonywać operacji manipulujących identyfikatorami w produkcie.</p>
+<hr>
+<h2>15.2. PHANTOM gateway policy</h2>
+<p>PHANTOM gateway policy wymaga, aby operator nie mógł zobaczyć G1 bez spełnienia warunku urządzenia i sesji. Sam adres, samo hasło albo sam VPN nie wystarcza. Docelowy dostęp wymaga:</p>
+<ul>
+<li>poprawnego profilu terminala;</li>
+<li>poprawnego profilu routera;</li>
+<li>aktywnej subskrypcji;</li>
+<li>poprawnego certyfikatu;</li>
+<li>zgodności z posture policy;</li>
+<li>potwierdzenia FIDO2;</li>
+<li>braku aktywnego alertu bezpieczeństwa;</li>
+<li>braku blokady panic/incident.</li>
+</ul>
+<h2>15.3. PHANTOM workload policy</h2>
+<p>PHANTOM nie powinien współdzielić workloadów w sposób typowy dla niższych tierów. Dopuszczalne są tylko modele:</p>
+<ul>
+<li>dedykowany bare metal;</li>
+<li>dedykowany workload node;</li>
+<li>operator-only pool;</li>
+<li>Firecracker per aplikacja;</li>
+<li>osobne storage namespaces;</li>
+<li>osobne klucze i certyfikaty;</li>
+<li>pełny rebuild po rotacji;</li>
+<li>ręcznie zatwierdzone reuse po rekwalifikacji.</li>
+</ul>
+<h2>15.4. PHANTOM broker policy</h2>
+<p>Obecne technologie typu Guacamole, KasmVNC albo noVNC mogą być etapem testowym. Dla PHANTOM docelowy broker powinien być ślepy. To znaczy: broker może routować, autoryzować i limitować sesję, ale nie powinien mieć dostępu do jawnego strumienia pikseli ani treści wejścia.</p>
+<p>Docelowe wymaganie:</p>
+<ul>
+<li>szyfrowanie strumienia w albo przy mikroVM;</li>
+<li>oddzielenie kluczy streamingu od G2;</li>
+<li>brak trwałego zapisu sesji;</li>
+<li>brak logowania tekstu wejściowego;</li>
+<li>możliwość odcięcia sesji;</li>
+<li>dowód integralności strumienia;</li>
+<li>test mobile input bridge.</li>
+</ul>
+<h2>15.5. PHANTOM RF i telecom governance</h2>
+<p>PHANTOM zakłada ograniczenie ekspozycji radiowej Pixela przez pracę w trybie samolotowym i używanie routera jako kontrolowanej warstwy WAN. Jednocześnie Księga 4.0 jasno rozdziela defensywny model architektoniczny od funkcji wykonawczych. Testy RF, modemy, karty programowalne i identyfikatory sieciowe są obszarem laboratoryjnym i wymagają governance.</p>
+<p>Dozwolone w systemie:</p>
+<ul>
+<li>rejestr sprzętu;</li>
+<li>rejestr testu laboratoryjnego;</li>
+<li>preflight obecności narzędzi;</li>
+<li>checklisty zgodności;</li>
+<li>wynik pass/fail;</li>
+<li>human gate;</li>
+<li>dokumentacja ryzyka.</li>
+</ul>
+<p>Niedozwolone jako zwykła funkcja produktu:</p>
+<ul>
+<li>automatyczne wykonywanie operacji na identyfikatorach publicznych sieci;</li>
+<li>instrukcje obchodzenia zasad operatorów telekomunikacyjnych;</li>
+<li>ukrywanie funkcji wykonawczych w panelu operatora;</li>
+<li>deklaracje anonimowości bez residual risk.</li>
+</ul>
+<h2>15.6. Macierz PHANTOM v3.0</h2>
+<table>
+<thead><tr><th>Warstwa</th><th>Wymaganie PHANTOM</th><th>Status Księgi 4.0</th></tr></thead>
+<tbody>
+<tr><td>Pixel</td><td>GrapheneOS, tryb samolotowy, brak GSM jako domyślny profil pracy, profil CA, posture check.</td><td>PHANTOM / częściowo wdrożone</td></tr>
+<tr><td>Router</td><td>Puli AX, kill switch, brak DNS leak, paczka konfiguracyjna, tunel do G1, status w panelu.</td><td>PHANTOM / częściowo wdrożone</td></tr>
+<tr><td>FIDO2</td><td>Fizyczne potwierdzenie operatora przy sesji i odnowieniu sesji.</td><td>PHANTOM / interfejs gotowy do sprzętu</td></tr>
+<tr><td>G1</td><td>Indywidualna brama wejściowa, certyfikaty, tunel, możliwość rebuild i revoke.</td><td>Baseline</td></tr>
+<tr><td>G2</td><td>Broker sesji, limit per user, brak trwałego zapisu, docelowo blind broker.</td><td>Baseline + PHANTOM roadmap</td></tr>
+<tr><td>Workload</td><td>Dedykowany albo operator-only, Firecracker per aplikacja, rebuild po rotacji.</td><td>PHANTOM / częściowo wdrożone</td></tr>
+<tr><td>Streaming</td><td>Szyfrowany stream, docelowo E2EE od mikroVM do terminala.</td><td>Roadmap dla pełnego PHANTOM</td></tr>
+<tr><td>Rotacja</td><td>Pełna polityka jurysdykcyjna, provider rotation, zasady reuse po sanitizacji.</td><td>PHANTOM / policy implemented, live gates wymagane</td></tr>
+<tr><td>CDR</td><td>Obowiązkowe rozbrojenie i kontrola plików.</td><td>Baseline</td></tr>
+<tr><td>Blue team</td><td>Monitoring metadanych, alerty, incident response, eBPF roadmap.</td><td>Baseline + roadmap</td></tr>
+<tr><td>RF lab</td><td>Preflight i rejestr testu, bez wykonawczych funkcji produktu.</td><td>Lab-only</td></tr>
+<tr><td>OPSEC</td><td>Szkolenie, procedury, panic, duress, brak magicznych gwarancji anonimowości.</td><td>PHANTOM / proceduralne</td></tr>
+</tbody></table>
+<hr>
+<h1>16. Analiza zagrożeń</h1>
+<h2>16.1. Atak na portal publiczny</h2>
+<p>Scenariusz: atakujący próbuje sfałszować token, podrobić webhook płatności albo użyć tokenu wiele razy.</p>
+<p>Obrona:</p>
+<ul>
+<li>podpisy webhooków;</li>
+<li>idempotencja płatności;</li>
+<li>hash tokenu w bazie;</li>
+<li>atomowy claim;</li>
+<li>termin ważności;</li>
+<li>zakres tokenu;</li>
+<li>binding tokenu do typu operacji;</li>
+<li>audit;</li>
+<li>brak sekretów w tokenie;</li>
+<li>oddzielenie portalu od Admin API.</li>
+</ul>
+<p>Ryzyko resztkowe: błędna integracja providera płatności, błędna walidacja webhooka, wyciek tokenu przed claimem.</p>
+<h2>16.2. Przejęcie konta administratora</h2>
+<p>Scenariusz: ktoś zdobywa dostęp do panelu administratora i próbuje tworzyć operatorów, zmieniać providerów albo wyciągać sekrety.</p>
+<p>Obrona:</p>
+<ul>
+<li>MFA/FIDO2;</li>
+<li>RBAC;</li>
+<li>least privilege;</li>
+<li>four-eyes dla operacji destrukcyjnych;</li>
+<li>WORM audit;</li>
+<li>brak sekretów jawnych w UI;</li>
+<li>osobny VPN;</li>
+<li>alerty anomalii;</li>
+<li>rotacja kluczy po incydencie.</li>
+</ul>
+<p>Ryzyko resztkowe: insider z wysokimi uprawnieniami, błąd RBAC, kompromitacja urządzenia admina.</p>
+<h2>16.3. Kompromitacja terminala</h2>
+<p>Scenariusz: Pixel albo laptop zostaje przejęty fizycznie lub malware przechwytuje ekran/wejście.</p>
+<p>Obrona:</p>
+<ul>
+<li>brak danych roboczych na terminalu;</li>
+<li>sesje czasowe;</li>
+<li>FIDO2;</li>
+<li>panic code;</li>
+<li>wipe terminal policy;</li>
+<li>GrapheneOS;</li>
+<li>ograniczony profil sieciowy;</li>
+<li>możliwość odcięcia certyfikatu urządzenia.</li>
+</ul>
+<p>Ryzyko resztkowe: aktywna sesja, screen capture, shoulder surfing, keylogging po stronie terminala, kompromitacja przed uruchomieniem sesji.</p>
+<h2>16.4. Podłożona sieć Wi-Fi albo atak na router</h2>
+<p>Scenariusz: atakujący podstawia fałszywy AP albo kompromituje router.</p>
+<p>Obrona:</p>
+<ul>
+<li>sparowanie Pixela z routerem;</li>
+<li>certyfikaty urządzeń;</li>
+<li>IPsec/VPN do G1;</li>
+<li>kill switch;</li>
+<li>DNS leak prevention;</li>
+<li>brak zaufania do routera jako końca szyfrowania aplikacji;</li>
+<li>posture check;</li>
+<li>router package signing.</li>
+</ul>
+<p>Ryzyko resztkowe: kompromitacja firmware routera, supply chain, błędna konfiguracja Wi-Fi, wyciek certyfikatu.</p>
+<h2>16.5. Kompromitacja G1</h2>
+<p>Scenariusz: atakujący przejmuje G1 operatora.</p>
+<p>Obrona:</p>
+<ul>
+<li>G1 indywidualny per operator;</li>
+<li>brak danych aplikacyjnych na G1;</li>
+<li>drugi tunel do G2;</li>
+<li>rotacja/rebuild G1;</li>
+<li>cert revoke;</li>
+<li>monitoring anomalii;</li>
+<li>izolacja od innych operatorów.</li>
+</ul>
+<p>Ryzyko resztkowe: korelacja metadanych, DoS, próba pivotu do G2.</p>
+<h2>16.6. Kompromitacja G2</h2>
+<p>Scenariusz: broker sesji jest przejęty albo ma podatność RCE.</p>
+<p>Obrona obecna:</p>
+<ul>
+<li>ograniczenie sesji;</li>
+<li>brak trwałego zapisu;</li>
+<li>audit;</li>
+<li>izolacja użytkowników;</li>
+<li>limity połączeń;</li>
+<li>szybki rebuild.</li>
+</ul>
+<p>Obrona docelowa PHANTOM:</p>
+<ul>
+<li>blind broker;</li>
+<li>E2EE pixel streaming;</li>
+<li>szyfrowanie blisko mikroVM;</li>
+<li>minimalizacja informacji widocznej przez G2.</li>
+</ul>
+<p>Ryzyko resztkowe: dopóki broker widzi jawny obraz albo wejście, G2 pozostaje krytycznym punktem zaufania.</p>
+<h2>16.7. Kompromitacja workloadu albo aplikacji</h2>
+<p>Scenariusz: podatność w komunikatorze, przeglądarce albo dokumencie przejmuje środowisko.</p>
+<p>Obrona:</p>
+<ul>
+<li>Firecracker microVM per aplikacja;</li>
+<li>kontener jako minimum w niższych tierach;</li>
+<li>recreate/reset środowiska;</li>
+<li>CDR;</li>
+<li>brak danych innych operatorów;</li>
+<li>brak sekretów terminala;</li>
+<li>ograniczenia sieciowe;</li>
+<li>monitoring runtime.</li>
+</ul>
+<p>Ryzyko resztkowe: exploit ucieczki z VM/kontenera, luka w kernelu hosta, błędna polityka sieciowa, shared host side channel.</p>
+<h2>16.8. Złośliwy albo nieuczciwy provider VPS</h2>
+<p>Scenariusz: provider ma dostęp do hypervisora, logów, sieci albo snapshotów.</p>
+<p>Obrona:</p>
+<ul>
+<li>rozdzielenie G1/G2/workload;</li>
+<li>certyfikaty i klucze generowane per operator;</li>
+<li>minimalizacja danych na VPS;</li>
+<li>rotacja providerów;</li>
+<li>dedicated bare metal dla wyższych tierów;</li>
+<li>confidential computing tam, gdzie możliwe;</li>
+<li>własne obrazy;</li>
+<li>audit i attestation.</li>
+</ul>
+<p>Ryzyko resztkowe: provider widzi metadane, może wpływać na dostępność, może obserwować wzorce ruchu.</p>
+<h2>16.9. Atak na płatności i resellerów</h2>
+<p>Scenariusz: reseller generuje token poza limitem, klient używa skradzionego tokenu, ktoś próbuje refund fraud.</p>
+<p>Obrona:</p>
+<ul>
+<li>token inventory;</li>
+<li>rabaty przypisane do resellera;</li>
+<li>limity puli;</li>
+<li>revoke przed claimem;</li>
+<li>no refund po alokacji;</li>
+<li>fakturowanie B2B;</li>
+<li>audyt tokenu od emisji do claimu.</li>
+</ul>
+<p>Ryzyko resztkowe: nadużycie resellera, phishing tokenu, chargeback przed pełną alokacją.</p>
+<h2>16.10. Analiza metadanych i korelacja</h2>
+<p>Scenariusz: przeciwnik nie łamie kryptografii, ale koreluje czas, objętość, lokalizację, IP, sesje i zachowanie.</p>
+<p>Obrona:</p>
+<ul>
+<li>rotacja jurysdykcji;</li>
+<li>rozdzielenie G1/G2/workload;</li>
+<li>traffic shaping jako roadmap;</li>
+<li>OPSEC training;</li>
+<li>ograniczenie powtarzalnych wzorców;</li>
+<li>różne providery i kraje w wyższych tierach.</li>
+</ul>
+<p>Ryzyko resztkowe: pattern-of-life, błędy operatora, globalny przeciwnik sieciowy.</p>
+<hr>
+<h1>17. Przykładowe scenariusze obrony</h1>
+<h2>17.1. Próba użycia skradzionego Pixela</h2>
+<p>Atakujący ma Pixel, ale nie ma FIDO2, sesja wygasła, certyfikat urządzenia może zostać cofnięty, a dane robocze nie są lokalne. System powinien zablokować dostęp do G1 i wymusić procedurę odzyskania albo wipe.</p>
+<h2>17.2. Próba podszycia się pod router</h2>
+<p>Atakujący podstawia AP z podobną nazwą. Pixel w profilu PHANTOM nie powinien ufać samej nazwie sieci. Wymagane jest sparowanie, certyfikat, polityka terminala i poprawny tunel. Nawet przy błędzie Wi-Fi ruch do G1 powinien pozostać szyfrowany.</p>
+<h2>17.3. Komunikator otrzymuje złośliwy plik</h2>
+<p>Plik trafia do mikroVM aplikacji. CDR kontroluje eksport albo przejście do innych stref. Jeżeli exploit przejmuje aplikację, reset środowiska powinien odtworzyć ją z czystego obrazu. Inne aplikacje operatora i inni operatorzy nie powinni być naruszeni.</p>
+<h2>17.4. Atak na G2 broker</h2>
+<p>W obecnym modelu G2 jest krytyczny. System ogranicza sesje, loguje metadane i może odtworzyć host. Docelowo PHANTOM wymaga blind broker, gdzie G2 nie widzi jawnego streamu.</p>
+<h2>17.5. Operator chce zmienić jurysdykcję</h2>
+<p>Panel operatora pokazuje kraje dostępne dla jego tieru. Policy engine sprawdza limity, provider registry, koszty i dostępność. W niskim tierze operator może zostać przeniesiony na oczyszczony już istniejący VPS. W wysokim tierze system tworzy albo rekwalifikuje dedykowany zasób.</p>
+<hr>
+<h1>18. Zasady używania</h1>
+<h2>18.1. Zasady administratora</h2>
+<p>Administrator:</p>
+<ul>
+<li>dodaje providerów;</li>
+<li>opisuje kraje i capabilities;</li>
+<li>ustawia ceny, koszty i limity;</li>
+<li>tworzy albo zatwierdza operatorów;</li>
+<li>przegląda status infrastruktury;</li>
+<li>zatwierdza operacje destrukcyjne;</li>
+<li>widzi alerty i metadane;</li>
+<li>nie powinien widzieć treści pracy operatora;</li>
+<li>nie powinien mieć bezpośredniego dostępu do sekretów operatora;</li>
+<li>nie uruchamia funkcji lab-only poza rejestrem testu.</li>
+</ul>
+<h2>18.2. Zasady operatora</h2>
+<p>Operator:</p>
+<ul>
+<li>pracuje przez Pixel albo laptop;</li>
+<li>nie pobiera danych lokalnie poza polityką CDR;</li>
+<li>sam ustawia własne hasła i docelowo FIDO2;</li>
+<li>widzi czas trwania sesji;</li>
+<li>resetuje własne środowiska;</li>
+<li>wybiera liczbę aplikacji w granicach limitu;</li>
+<li>wybiera jurysdykcję w granicach tieru;</li>
+<li>używa panic code tylko zgodnie z polityką;</li>
+<li>nie widzi infrastruktury innych operatorów.</li>
+</ul>
+<h2>18.3. Zasady testowania</h2>
+<p>Każda funkcja musi mieć test stanu faktycznego. Test portu nie wystarczy.</p>
+<p>Przykład dla DuckDuckGo:</p>
+<ul>
+<li>środowisko uruchomione;</li>
+<li>stream widoczny na Pixel;</li>
+<li>rozdzielczość dopasowana;</li>
+<li>mysz/touch działa;</li>
+<li>klawiatura działa;</li>
+<li>można wpisać adres;</li>
+<li>strona się ładuje;</li>
+<li>przewijanie działa;</li>
+<li>zamknięcie i recreate odtwarza środowisko.</li>
+</ul>
+<p>Przykład dla komunikatora:</p>
+<ul>
+<li>wybrany tryb desktop/web/native;</li>
+<li>aplikacja uruchomiona;</li>
+<li>można przejść przez ekran startowy;</li>
+<li>wiadomo, czy wymaga numeru telefonu/SMS;</li>
+<li>jeżeli konto nie jest skonfigurowane, status to <code>needs account</code>, a nie <code>works</code>;</li>
+<li>po restarcie środowiska status jest spójny.</li>
+</ul>
+<hr>
+<h1>19. Stan obecny</h1>
+<h2>19.1. Działa albo jest zaimplementowane w kodzie</h2>
+<ul>
+<li>model tierów i limitów;</li>
+<li>publiczny portal jako moduł koncepcyjno-frontendowy;</li>
+<li>ceny tierów w portalu;</li>
+<li>typy tokenów;</li>
+<li>model checkout przez Stripe, CoinGate i Mollie jako integracja do spięcia;</li>
+<li>Admin API dla operatorów, subskrypcji i providerów;</li>
+<li>panel operatora z sesjami, workload control i politykami;</li>
+<li>CDR jako wymaganie systemowe;</li>
+<li>RF lab governance jako bezpieczny model bez wykonania produkcyjnego;</li>
+<li>PHANTOM hardening plan;</li>
+<li>terminal admission policy;</li>
+<li>provider registry i rotacja lokalizacji jako model;</li>
+<li>część workflow dla Pixel/Puli/G1/G2/workload;</li>
+<li>live bare metal AX102 jako host testowy;</li>
+<li>ścieżka testowa do aplikacji w zdalnych środowiskach została częściowo uruchamiana;</li>
+<li>DuckDuckGo było testowane ręcznie na Pixel i działało częściowo jako stream z dopasowaniem ekranu.</li>
+</ul>
+<h2>19.2. Działa częściowo albo wymaga naprawy</h2>
+<ul>
+<li>stabilny mobile input bridge dla Pixela;</li>
+<li>zachowanie klawiatury ekranowej w brokerze streamingu;</li>
+<li>scroll/touch UX;</li>
+<li>recreate aplikacji po zamknięciu;</li>
+<li>pełny test każdej aplikacji jako realnej aplikacji, nie tylko portu;</li>
+<li>jasny wybór desktop/web/Android-native per komunikator;</li>
+<li>pełna ścieżka Pixel - Puli AX - G1 - G2 - workload jako potwierdzony test end-to-end;</li>
+<li>router package i SSH/preflight;</li>
+<li>live monitoring blue team dla całej ścieżki;</li>
+<li>publiczny deploy portalu zakupowego na oddzielnym VPS;</li>
+<li>spięcie prawdziwych bramek płatności;</li>
+<li>produkcyjny flow token -&gt; operator -&gt; paczki -&gt; G1/G2/workload;</li>
+<li>realna kontrola kosztów operatora w panelu;</li>
+<li>Matrix server provisioning jako produktowy addon;</li>
+<li>eBPF runtime monitoring.</li>
+</ul>
+<h2>19.3. Nie jest jeszcze produkcyjne</h2>
+<ul>
+<li>PHANTOM blind broker E2EE streaming;</li>
+<li>HSM/FIDO2 fizycznie przetestowane;</li>
+<li>Puli AX jako finalnie utwardzony router;</li>
+<li>pełny Firecracker per aplikacja potwierdzony dla wszystkich komunikatorów;</li>
+<li>Android-native workloady dla komunikatorów;</li>
+<li>Exodus jako bezpiecznie zweryfikowany workload;</li>
+<li>pełna PQC migration;</li>
+<li>full autonomous perimeter;</li>
+<li>formalny WORM audit;</li>
+<li>produktowe RF/telecom identity execution, które nie powinno być funkcją produktu.</li>
+</ul>
+<hr>
+<h1>20. Roadmap produkcyjna</h1>
+<div class="diagram"><div class="diagram-node" data-node="A">1. Ustabilizować live path</div><div class="diagram-node" data-node="B">2. Naprawić streaming input</div><div class="diagram-node" data-node="C">3. Firecracker recreate per aplikacja</div><div class="diagram-node" data-node="D">4. Testy factual app usability</div><div class="diagram-node" data-node="E">5. Portal płatności i token claim</div><div class="diagram-node" data-node="F">6. Provider registry i koszt operatora</div><div class="diagram-node" data-node="G">7. Blue team monitoring</div><div class="diagram-node" data-node="H">8. Router Puli AX hardening</div><div class="diagram-node" data-node="I">9. FIDO2/HSM</div><div class="diagram-node" data-node="J">10. PHANTOM blind broker / E2EE</div><div class="diagram-edges">A -&gt; B · B -&gt; C · C -&gt; D · D -&gt; E · E -&gt; F · F -&gt; G · G -&gt; H · H -&gt; I · I -&gt; J</div></div>
+<p>Priorytet 1: ustalić faktyczny status Pixel - Puli AX - G1 - G2 - workload. Każda warstwa musi mieć dowód: tunel, adres, certyfikat, ścieżka, test aplikacji.</p>
+<p>Priorytet 2: naprawić input i UX na Pixelu. Bez klawiatury, scrolla i stabilnego recreate system nie jest używalny.</p>
+<p>Priorytet 3: doprowadzić workload control do stanu, w którym zamknięcie aplikacji i <code>prepare new session</code> naprawdę niszczy i odtwarza środowisko.</p>
+<p>Priorytet 4: przetestować aplikacje jak człowiek:</p>
+<ul>
+<li>DuckDuckGo: wyszukiwanie, scroll, cookies, input;</li>
+<li>LibreOffice: otwarcie, edycja, zapis testowego dokumentu, zamknięcie, recreate;</li>
+<li>Signal/Telegram/WhatsApp/Threema/Zangi: uruchomienie, ekran startowy, tryb rejestracji, status konta, wejście SMS jeśli użytkownik poda kod;</li>
+<li>Exodus: uruchomienie bez ujawniania seedów ani danych portfela.</li>
+</ul>
+<p>Priorytet 5: uruchomić portal publiczny na osobnym VPS i spiąć token lifecycle.</p>
+<p>Priorytet 6: dokończyć admin panel jako realną konsolę providerów, kosztów, tierów, rotacji i monitoringu.</p>
+<p>Priorytet 7: dokończyć Puli AX po dostępie do sprzętu, bez obchodzenia prawnych i telekomunikacyjnych ograniczeń.</p>
+<hr>
+<h1>21. Kryteria produkcyjności</h1>
+<p>System można nazwać produkcyjnie gotowym dopiero wtedy, gdy:</p>
+<ul>
+<li>panel administratora działa na właściwym VPS, nie lokalnie;</li>
+<li>portal publiczny działa na oddzielnym VPS;</li>
+<li>operator może zostać utworzony tokenem;</li>
+<li>po utworzeniu operatora powstają G1, G2 i workload zgodnie z tierem;</li>
+<li>Pixel i laptop mają oddzielne ścieżki terminali;</li>
+<li>Puli AX ma działającą paczkę i kill switch;</li>
+<li>aplikacje uruchamiają się w faktycznych izolowanych środowiskach;</li>
+<li>każda aplikacja ma test używalności;</li>
+<li>workload recreate działa powtarzalnie;</li>
+<li>CDR działa na przepływach plików;</li>
+<li>monitoring pokazuje metadane ścieżki;</li>
+<li>koszty operatora są policzalne;</li>
+<li>tokeny są odporne na podrabianie;</li>
+<li>HSM/FIDO2 są przetestowane albo oznaczone jako wymaganie przed release;</li>
+<li>PHANTOM nie deklaruje gotowości tam, gdzie ma tylko roadmap.</li>
+</ul>
+<hr>
+<h1>22. Podsumowanie Księgi 4.0</h1>
+<p>SYLION powinien być traktowany jako platforma izolowanych środowisk operatorskich z cienkim klientem, warstwami G1/G2, workloadami i CDR. PHANTOM jest profilem wysokiego ryzyka, który wymaga nie tylko większej liczby funkcji, ale ostrzejszej dyscypliny architektonicznej: dedykowanych zasobów, silniejszego terminal admission, routera jako kontrolowanego elementu, FIDO2/HSM, rotacji, audytu i ograniczania widoczności brokera sesji.</p>
+<p>Najważniejszy kierunek techniczny na teraz jest prosty: mniej deklaracji, więcej testów stanu faktycznego. Każda aplikacja, każdy tunel, każda rotacja i każdy reset środowiska muszą mieć test, wynik i kryterium przejścia. Tylko wtedy system przestanie być zbiorem modułów i stanie się przewidywalną platformą produkcyjną.</p>
+</body>
+</html>
