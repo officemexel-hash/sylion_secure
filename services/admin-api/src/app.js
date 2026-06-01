@@ -2946,6 +2946,18 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { test: labTest });
       }
 
+      const rfLabRouterPreflightMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)\/router-preflight$/);
+      if (req.method === "POST" && rfLabRouterPreflightMatch) {
+        const body = await readJson(req);
+        const labTest = rfLab.recordRouterSoftwarePreflight({
+          actor,
+          testId: rfLabRouterPreflightMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { test: labTest });
+      }
+
       const rfLabProductExecutionMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)\/execute-product-runtime$/);
       if (req.method === "POST" && rfLabProductExecutionMatch) {
         const labTest = rfLab.assertNoProductExecution({

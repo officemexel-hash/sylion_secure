@@ -18,6 +18,40 @@ const IMEI_KEY_PATTERN = /imei/i;
 const HASH_KEY_PATTERN = /hash$/i;
 const OPERATIONAL_VALUE_PATTERN = /(AT\+|EGMR|QCDM|QFirehose|EDL|NV\s*item|diagnostic\s+port|write\s+imei|unlock\s+modem)/i;
 const RAW_CELLULAR_IDENTIFIER_PATTERN = /\b\d{14,20}\b/;
+const ROUTER_PREFLIGHT_COMPONENT = "puli_ax_rf_lab_router_preflight";
+const ROUTER_PREFLIGHT_STATUSES = new Set([
+  "blocked_ssh_key_auth_required",
+  "preflight_captured_with_blockers",
+  "preflight_ready_for_human_gate",
+  "failed"
+]);
+const ROUTER_PREFLIGHT_CAPABILITY_FIELDS = Object.freeze([
+  "opkgPresent",
+  "python3Present",
+  "pip3Present",
+  "pcscdPresent",
+  "pcscScanPresent",
+  "openscToolPresent",
+  "pcscLibraryPresent",
+  "ccidPackagePresent",
+  "openscPackagePresent",
+  "pysimShellPresent",
+  "usbBusPresent",
+  "lsusbPresent",
+  "smartcardReaderHint",
+  "usbDeviceCount"
+]);
+const ROUTER_PREFLIGHT_CONTROL_FIELDS = Object.freeze([
+  "readOnly",
+  "rawCellularIdentifiersRead",
+  "simSecretMaterialRead",
+  "mutationCommandsExecuted",
+  "productRuntimeExecutorAvailable",
+  "sideEffectAllowed",
+  "productionExecutionAllowed",
+  "passwordPrinted",
+  "secretsStored"
+]);
 
 function isoNow() {
   return new Date().toISOString();
@@ -59,6 +93,90 @@ function rejectOperationalRadioDetails(value, path = "payload") {
     }
     rejectOperationalRadioDetails(nested, nextPath);
   }
+}
+
+function rejectOperationalRadioValueOnly(value, path = "payload") {
+  if (value === null || value === undefined) return;
+  if (typeof value === "string") {
+    if (OPERATIONAL_VALUE_PATTERN.test(value) || RAW_CELLULAR_IDENTIFIER_PATTERN.test(value)) {
+      throw validationError("RF lab records must not contain operational radio identity details", { field: path });
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => rejectOperationalRadioValueOnly(item, `${path}[${index}]`));
+    return;
+  }
+  if (typeof value !== "object") return;
+  for (const [key, nested] of Object.entries(value)) {
+    rejectOperationalRadioValueOnly(nested, `${path}.${key}`);
+  }
+}
+
+function safeBooleanMap(source, fields) {
+  const result = {};
+  for (const field of fields) {
+    if (field === "usbDeviceCount") {
+      const parsed = Number(source?.[field] || 0);
+      result[field] = Number.isFinite(parsed) ? parsed : 0;
+    } else {
+      result[field] = source?.[field] === true;
+    }
+  }
+  return result;
+}
+
+function normalizeRouterPreflight(preflight) {
+  if (!preflight || typeof preflight !== "object" || Array.isArray(preflight)) {
+    throw validationError("router preflight must be an object", { field: "preflight" });
+  }
+  rejectOperationalRadioValueOnly(preflight, "preflight");
+  if (preflight.component !== ROUTER_PREFLIGHT_COMPONENT) {
+    throw validationError("Unsupported RF lab router preflight component", {
+      component: preflight.component,
+      expected: ROUTER_PREFLIGHT_COMPONENT
+    });
+  }
+  if (!ROUTER_PREFLIGHT_STATUSES.has(preflight.status)) {
+    throw validationError("Unsupported RF lab router preflight status", { status: preflight.status });
+  }
+  const capabilities = safeBooleanMap(preflight.facts?.capabilities || {}, ROUTER_PREFLIGHT_CAPABILITY_FIELDS);
+  const controls = safeBooleanMap(preflight.controls || {}, ROUTER_PREFLIGHT_CONTROL_FIELDS);
+  if (controls.rawCellularIdentifiersRead
+    || controls.simSecretMaterialRead
+    || controls.mutationCommandsExecuted
+    || controls.productRuntimeExecutorAvailable
+    || controls.sideEffectAllowed
+    || controls.productionExecutionAllowed
+    || controls.passwordPrinted
+    || controls.secretsStored
+  ) {
+    throw validationError("RF lab router preflight indicates forbidden side effects or secret exposure", {
+      field: "preflight.controls"
+    });
+  }
+  return {
+    component: ROUTER_PREFLIGHT_COMPONENT,
+    status: preflight.status,
+    routerIpRef: preflight.routerIp ? "redacted-router-ip-ref" : null,
+    startedAt: preflight.startedAt || null,
+    completedAt: preflight.completedAt || null,
+    facts: {
+      hostname: preflight.facts?.hostname || "unknown",
+      kernel: preflight.facts?.kernel || "unknown",
+      arch: preflight.facts?.arch || "unknown",
+      capabilities
+    },
+    controls,
+    blockers: safeArray(preflight.blockers || [], "preflight.blockers"),
+    nextActions: safeArray(preflight.nextActions || [], "preflight.nextActions"),
+    rawIdentifiersRedacted: true,
+    simSecretMaterialRedacted: true,
+    readOnly: controls.readOnly === true,
+    productRuntimeExecutorAvailable: false,
+    productionExecutionAllowed: false,
+    sideEffectAllowed: false
+  };
 }
 
 function publicRecord(record) {
@@ -225,6 +343,44 @@ export class RfLabService {
     };
     this.tests.set(testId, next);
     this.#audit(actor, "rf_lab.imei_test_evidence_recorded", next, corr, "evidence_recorded");
+    return publicRecord(next);
+  }
+
+  recordRouterSoftwarePreflight({
+    actor,
+    testId,
+    preflight,
+    evidenceRefs = [],
+    correlationId
+  }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "rf_lab.test.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.RF_LAB_TEST
+    });
+    const test = this.#requireTest(testId);
+    if (test.status === "rejected" || test.status === "closed") {
+      throw validationError("RF lab router preflight cannot be attached to a closed or rejected test", {
+        status: test.status
+      });
+    }
+    rejectOperationalRadioDetails({ evidenceRefs });
+    const normalized = normalizeRouterPreflight(preflight);
+    const record = {
+      id: newId("rf_lab_router_preflight"),
+      ...normalized,
+      evidenceRefs: safeArray(evidenceRefs, "evidenceRefs"),
+      recordedAt: isoNow(),
+      recordedBy: actor.id
+    };
+    const next = {
+      ...test,
+      routerSoftwarePreflights: [...(test.routerSoftwarePreflights || []), record],
+      updatedAt: isoNow(),
+      updatedBy: actor.id
+    };
+    this.tests.set(testId, next);
+    this.#audit(actor, "rf_lab.router_software_preflight_recorded", next, corr, record.status);
     return publicRecord(next);
   }
 
