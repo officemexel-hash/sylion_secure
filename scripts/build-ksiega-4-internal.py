@@ -988,6 +988,343 @@ def tiered_threat_analysis_appendix() -> str:
     ])
 
 
+def portal_commerce_token_appendix() -> str:
+    perspective_rows = [
+        (
+            "B2C privacy-first",
+            "Użytkownik prywatny kupuje token bez klasycznego konta klienta. Portal pokazuje tier, cenę roczną, dodatki, ograniczenia i ryzyka prywatności.",
+            "Zakup crypto lub karta/alternatywna metoda przez PSP, odbiór tokenu, wpisanie tokenu w claim flow, pobranie paczki Pixel/Puli AX albo aktywacja sprzętu od resellera.",
+            "Brak konta email-first. Odzyskanie dostępu przez recovery seed/operator wallet seed, jeżeli użytkownik go sam zapisał. Portal nie przechowuje seed.",
+            "Nie wolno obiecywać anonimowości. PSP, blockchain, bank albo reseller mogą posiadać własne dane i obowiązki prawne.",
+        ),
+        (
+            "B2B company",
+            "Firma kupuje subskrypcję, chce fakturę, VAT, dane nabywcy, możliwość wielu tokenów i rozliczalność.",
+            "Wybór tieru, dane firmy, checkout/invoice, tokeny dla operatorów, panel rozliczeniowy albo eksport faktur.",
+            "Odzyskanie przez firmowy proces finansowy i uprawnionego reprezentanta, nie przez prywatny seed operatora.",
+            "B2B ma więcej danych osobowych/firmowych i dłuższą retencję księgową. Prywatność jest mniejsza niż w ścieżce crypto/private.",
+        ),
+        (
+            "Reseller",
+            "Partner kupuje pule tokenów z rabatem, może sprzedawać skonfigurowany Pixel/Puli AX i przekazać paczki startowe.",
+            "Reseller console: batch order, rabat 20%, inventory tokenów, status unclaimed/claimed/expired, download paczek tylko dla tokenów przypisanych.",
+            "Reseller nie zna sekretów operatora, FIDO2, HSM ani recovery seed klienta. Może mieć tylko dane handlowe i sprzętowe.",
+            "Wymaga umowy, KYC/KYB resellera, limitów, audytu i możliwości odcięcia puli tokenów przy nadużyciu.",
+        ),
+        (
+            "Admin / finance",
+            "Zespół wewnętrzny rozlicza płatności, webhooki, tokeny, resellerów, faktury i spójność z provisioningiem.",
+            "Monitoring płatności, reconciliation, ręczne oznaczenie sporu, revoke unclaimed token, retry webhook, export księgowy.",
+            "Admin nie widzi pełnych danych kart, seedów, prywatnych kluczy ani sekretów operatora.",
+            "Każda ręczna ingerencja w token albo płatność wymaga WORM audit i powiązania z payment event.",
+        ),
+    ]
+
+    gateway_rows = [
+        (
+            "Stripe",
+            "Główna bramka kart, walletów i metod lokalnych; używać Stripe Checkout/Payment Element i oficjalnych webhooków.",
+            "Karty, portfele i lokalne metody zależne od kraju, waluty i konfiguracji konta. Stablecoin/crypto tylko jeśli dostępne po onboardingu i prawnie zatwierdzone.",
+            "Webhook signature verification, idempotency key, fetch payment/session from Stripe API before token mint.",
+            "Nie przechowywać danych kart w SYLION. PCI scope ma pozostać po stronie Stripe-hosted UI.",
+        ),
+        (
+            "CoinGate",
+            "Primary crypto payment adapter dla BTC/ETH/LN/stablecoin i innych walut obsługiwanych przez providera.",
+            "Crypto checkout/order API, statusy płatności, settlement zgodnie z konfiguracją merchant.",
+            "Callback/webhook verification, paid/confirmed status, exchange-rate lock window, under/overpayment handling.",
+            "Crypto nie oznacza pełnej anonimowości. Blockchain i provider mogą umożliwiać korelację i compliance review.",
+        ),
+        (
+            "Mollie",
+            "Backup PSP dla UE i metod lokalnych, szczególnie gdy Stripe jest niedostępny albo wymagana jest metoda lokalna.",
+            "Hosted checkout, karty, przelewy i metody regionalne zależne od kraju i aktywacji.",
+            "Webhook + API status verification, idempotency, payment state machine.",
+            "Mollie jest fallback, ale nie może generować innego tokenu dla tego samego order bez ledger lock.",
+        ),
+        (
+            "Manual/invoice wire",
+            "Opcja B2B enterprise, gdy firma wymaga faktury pro-forma, przelewu lub procurement process.",
+            "Token generowany dopiero po ręcznym/księgowym potwierdzeniu płatności albo po zatwierdzonej polityce kredytu.",
+            "Four-eyes dla ręcznego paid override, dokument księgowy, WORM audit.",
+            "Nie używać dla B2C automatycznego self-service bez procedury antyfraud.",
+        ),
+    ]
+
+    token_type_rows = [
+        (
+            "BOOTSTRAP",
+            "Pierwsze utworzenie operatora.",
+            "tier, okres minimum 12 miesięcy, limity aplikacji, entitlement rotacji, provider policy, hardware package policy.",
+            "Jednorazowy. Po claimie przechodzi w provisioning_pending/active.",
+            "Tworzy operatora, G1/G2, workload plan, paczki Pixel/Puli AX i stan pierwszego logowania.",
+        ),
+        (
+            "RENEWAL",
+            "Przedłużenie subskrypcji.",
+            "operator_id albo recovery identity, okres, cena, data ważności.",
+            "Jednorazowy, możliwy tylko dla istniejącego operatora.",
+            "Wydłuża expiry, nie zmienia tieru ani infrastruktury poza billing state.",
+        ),
+        (
+            "UPGRADE",
+            "Podniesienie tieru.",
+            "old_tier, new_tier, cost delta, nowe limity, wymagane migracje zasobów.",
+            "Jednorazowy, wymaga symulacji kosztu i capacity przed apply.",
+            "Uruchamia zmianę entitlement i opcjonalną migrację workload/puli.",
+        ),
+        (
+            "ADDON_JURISDICTION",
+            "Dokupienie rotacji, kraju albo capacity.",
+            "kraje, częstotliwość, provider allowlist, liczba rotacji lub okres.",
+            "Zużywalny albo okresowy, zależnie od produktu.",
+            "Zwiększa policy rotacji w panelu operatora bez zmiany bazowego tieru.",
+        ),
+        (
+            "ADDON_APP_CAPACITY",
+            "Dokupienie dodatkowych środowisk aplikacyjnych.",
+            "liczba środowisk, app families, tryb desktop/native, okres.",
+            "Okresowy, powiązany z subskrypcją.",
+            "Zwiększa quota w Workload Control.",
+        ),
+        (
+            "RESELLER_BATCH",
+            "Pula kodów dla resellera.",
+            "reseller_id, discount, liczba tokenów, tier allowlist, expiry, hardware bundle flag.",
+            "Tokeny potomne jednorazowe; batch ma limit i reconciliation.",
+            "Reseller wydaje token klientowi lub wiąże token ze skonfigurowanym sprzętem.",
+        ),
+        (
+            "HARDWARE_BUNDLE",
+            "Token sprzętowy dla Pixela/Puli AX sprzedanego przez resellera.",
+            "device_batch_id, package profile, tier allowlist, reseller_id.",
+            "Jednorazowy, wiąże claim ze sprzętem/paczką.",
+            "Pozwala klientowi aktywować profil bez ujawniania sekretów resellerowi.",
+        ),
+        (
+            "SERVICE_RECOVERY",
+            "Kontrolowane odzyskanie albo support flow.",
+            "scope, operator/recovery identity, expiry krótkie, support case.",
+            "Krótko żyjący, wymaga ręcznej autoryzacji.",
+            "Nie może omijać FIDO2/HSM ani panic policy.",
+        ),
+    ]
+
+    token_lifecycle_rows = [
+        ("quoted", "Użytkownik wybrał tier/dodatki. Nie istnieje token.", "quote_id, price, currency, tax estimate", "Quote expires."),
+        ("payment_pending", "Order utworzony u PSP.", "order_id, provider, provider_session_id", "No token yet."),
+        ("paid_unverified", "Webhook deklaruje płatność, ale system jeszcze nie wykonał API fetch.", "webhook_id, signature status", "No token mint before verification."),
+        ("paid_verified", "Provider API potwierdził finalny paid/confirmed status.", "provider status, amount, currency, idempotency key", "Token mint allowed."),
+        ("token_issued", "Token wygenerowany i pokazany/pobrany raz.", "token_id, token_hash, type, scope, expiry", "Plaintext token not stored."),
+        ("claim_started", "Użytkownik wpisał token.", "claim_id, device/browser metadata, risk score", "Rate limit and anti-bruteforce."),
+        ("claimed", "Token związany z recovery identity/operator identity.", "claim timestamp, public recovery id", "Token cannot be reused."),
+        ("provisioning_pending", "Admin API dostał bootstrap event.", "plan_id, package manifest", "Async provisioning."),
+        ("active", "Operator działa albo subskrypcja została zmieniona.", "operator_id, entitlement version", "Audit event."),
+        ("expired/revoked", "Token nieaktywny.", "reason, actor, time", "Rejected on claim."),
+    ]
+
+    token_security_rows = [
+        (
+            "Format",
+            "Token jest opaque secret: losowy materiał >= 256 bitów plus publiczny prefix i checksum dla UX. Entitlement nie jest kodowany jako prawda w samym tokenie.",
+            "Atakujący nie może odgadnąć ani zmienić tieru przez edycję tokenu.",
+        ),
+        (
+            "Storage",
+            "Baza przechowuje tylko token_hash z pepper/HMAC po stronie serwera, publiczny token_id, typ, scope i status.",
+            "Wyciek bazy nie daje tokenów do użycia.",
+        ),
+        (
+            "Display",
+            "Plaintext token pokazany tylko raz po opłaceniu albo w paczce resellera. Potem możliwe jest tylko revoke/regenerate.",
+            "Ogranicza wycieki przez panel admina i support.",
+        ),
+        (
+            "Claim",
+            "Claim wymaga rate limit, proof-of-work/CAPTCHA gdzie legalne, risk scoring, device binding i jednoznacznego locka transakcyjnego.",
+            "Chroni przed brute force, replay i race condition.",
+        ),
+        (
+            "Webhook",
+            "Każdy payment webhook wymaga weryfikacji podpisu, raw body, timestamp tolerance, idempotency i ponownego odczytu statusu z API providera.",
+            "Chroni przed sfałszowanym paid event.",
+        ),
+        (
+            "Ledger",
+            "Token events, payment events, claim events i provisioning events są zapisywane w append-only ledger/WORM audit.",
+            "Pozwala rozliczyć fraud, support i spory bez ujawniania sekretów.",
+        ),
+        (
+            "Package binding",
+            "Paczka Pixel/Puli AX ma package_manifest, hash, signature i powiązanie z token claim/operator identity.",
+            "Chroni przed podmianą paczki startowej.",
+        ),
+        (
+            "Recovery seed",
+            "Recovery seed/operator wallet seed jest generowany i trzymany przez użytkownika. Portal przechowuje tylko pochodny publiczny recovery identifier.",
+            "Brak klasycznego konta nie oznacza braku odzyskania, ale utrata seed może być nieodwracalna.",
+        ),
+    ]
+
+    ui_rows = [
+        (
+            "Landing/pricing",
+            "Pierwszy ekran pokazuje ofertę, porównanie tierów, ceny roczne, minimum 12 miesięcy, limity aplikacji, rotację, dedicated rules.",
+            "CTA: Buy private, Buy as company, Reseller portal, Redeem token.",
+            "Zero marketingowych obietnic anonimowości. Jasne residual risks i legal wording.",
+        ),
+        (
+            "Tier configurator",
+            "Karty Pilot/Standard/Pro/Phantom/Sovereign, add-ons, liczba środowisk, rotacje, Matrix, hardware bundle.",
+            "Dynamiczny koszt: subskrypcja, dodatki, hardware, szacunkowy koszt utrzymania infrastruktury.",
+            "Phantom/Sovereign mogą wymagać verification gate przed finalną aktywacją.",
+        ),
+        (
+            "Payment choice",
+            "Stripe/Mollie dla fiat, CoinGate dla crypto, manual invoice dla B2B.",
+            "Każda metoda pokazuje prywatność, retencję, settlement time, ryzyka i dostępność.",
+            "Nie generować tokenu przed verified paid.",
+        ),
+        (
+            "Token delivery",
+            "Po płatności użytkownik widzi token tylko raz, może pobrać zaszyfrowany receipt/package manifest i instrukcję claim.",
+            "Opcja zapisania recovery seed i test zapisu seed przez użytkownika.",
+            "Portal nie odzyska seed ani plaintext tokenu.",
+        ),
+        (
+            "Redeem/claim token",
+            "Pole wpisania tokenu, weryfikacja statusu, wybór trybu: mam sprzęt od resellera / pobierz paczki / aktywuj z Pixel.",
+            "Po claim: provisioning status, paczka Pixel, paczka Puli AX, QR/deep link, status G1/G2/workload.",
+            "Nie pokazywać publicznie 127.0.0.1 jako adresu produkcyjnego.",
+        ),
+        (
+            "Reseller console",
+            "Login resellera, batch tokenów, rabat, urządzenia, statusy, zwroty nieclaimed, eksport rozliczeń.",
+            "Reseller może widzieć stan handlowy, ale nie może wejść w operator panel klienta.",
+            "Każdy batch ma limit, expiry, audit i możliwość revoke.",
+        ),
+        (
+            "B2B billing",
+            "Dane firmy, VAT, faktury, purchase order, wielokrotne tokeny, role finansowe.",
+            "Firma może zarządzać zakupami, ale nie treścią operatorów.",
+            "Retencja księgowa zgodna z jurysdykcją i polityką prywatności.",
+        ),
+    ]
+
+    privacy_rows = [
+        (
+            "B2C crypto",
+            "Minimalne dane portalu, brak klasycznego konta, token/recovery seed.",
+            "CoinGate i blockchain mogą przetwarzać lub ujawniać metadane płatności.",
+            "Nie obiecujemy anonimowości; obiecujemy minimalizację danych w SYLION i jawne granice.",
+        ),
+        (
+            "B2C fiat",
+            "Portal może nie wymagać konta, ale PSP przetwarza dane płatności.",
+            "Stripe/Mollie/bank mogą mieć dane karty, IP, kraj, fraud signals.",
+            "SYLION nie przechowuje danych kart i używa hosted checkout.",
+        ),
+        (
+            "B2B",
+            "Dane firmy, faktury, VAT, kontakty finansowe.",
+            "Retencja prawna/księgowa dłuższa niż B2C privacy-first.",
+            "Oddzielić finance account od operator identity.",
+        ),
+        (
+            "Reseller",
+            "Reseller może znać klienta, sprzęt, numer zamówienia i token status.",
+            "Reseller nie zna FIDO2/HSM/recovery seed/operator secrets.",
+            "Umowa resellerska musi wymagać privacy handling i breach notification.",
+        ),
+        (
+            "Analytics",
+            "Tylko techniczne metryki, consent-aware analytics, bez tracking pixel do reklam.",
+            "Ryzyko korelacji marketingowej i wycieku referrer.",
+            "Preferować self-hosted analytics i krótką retencję.",
+        ),
+    ]
+
+    data_model_rows = [
+        ("orders", "order_id, channel, customer_type, tier, amount, currency, status", "Nie trzymać plaintext tokenu."),
+        ("payment_attempts", "provider, provider_session_id, status, webhook_id, amount, currency", "Webhook raw payload tylko jeśli retention/legal pozwala; redakcja sekretów."),
+        ("tokens", "token_id, token_hash, type, scope, tier, expiry, status, reseller_id", "Hash + pepper/HMAC; no plaintext."),
+        ("token_claims", "claim_id, token_id, recovery_public_id, device posture, risk score, timestamp", "Bez seed, bez haseł."),
+        ("entitlements", "operator_id, tier_version, quotas, rotation policy, addon flags", "Wersjonować policy."),
+        ("packages", "package_id, operator_id/token_id, manifest_hash, signature, device profile", "Paczki podpisane; download short TTL."),
+        ("resellers", "reseller_id, agreement status, discount, limits, KYB status", "No operator secrets."),
+        ("audit_events", "actor, action, object, before/after safe diff, time, reason", "Append-only/WORM."),
+    ]
+
+    acceptance_rows = [
+        ("Payment webhooks", "Forged webhook denied; replay denied; valid paid creates exactly one token.", "automated integration test"),
+        ("Token brute force", "Random token guessing is rate-limited and never reveals whether prefix exists beyond generic error.", "negative security test"),
+        ("Double claim", "Two concurrent claims result in one success and one deterministic deny.", "race test"),
+        ("Reseller limit", "Reseller cannot exceed batch quota or create unsupported tier token.", "RBAC/quota test"),
+        ("B2B invoice", "Invoice order can create token only after approved payment state.", "finance workflow test"),
+        ("Crypto status", "Underpaid/expired/unconfirmed crypto order does not mint token.", "CoinGate sandbox/status test"),
+        ("Package integrity", "Modified Pixel/Puli package is rejected by signature/hash check.", "tamper test"),
+        ("Privacy", "No card data, seed, plaintext token or provider secret appears in logs/admin UI.", "log grep + UI inspection"),
+        ("Portal isolation", "Portal VPS cannot reach operator stream/admin routes except narrow token/provisioning API.", "network negative test"),
+    ]
+
+    portal_flow = base.svg(
+        [
+            {"id": "visitor", "label": "Visitor\nB2C / B2B / reseller", "x": 35, "y": 85, "w": 190, "h": 80},
+            {"id": "portal", "label": "Public Portal\npricing + checkout", "x": 285, "y": 85, "w": 210, "h": 80, "fill": "#eef5ff"},
+            {"id": "psp", "label": "Payment adapters\nStripe / CoinGate / Mollie", "x": 555, "y": 85, "w": 250, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+            {"id": "ledger", "label": "Payment + Token Ledger\nappend-only", "x": 335, "y": 260, "w": 245, "h": 90, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "claim", "label": "Token Claim\none-time + scoped", "x": 655, "y": 260, "w": 220, "h": 90},
+            {"id": "admin", "label": "Admin API\nprovisioning event", "x": 145, "y": 260, "w": 160, "h": 90},
+            {"id": "packages", "label": "Packages\nPixel + Puli AX", "x": 895, "y": 260, "w": 145, "h": 90},
+        ],
+        [
+            ("visitor", "portal", "select tier"),
+            ("portal", "psp", "checkout"),
+            ("psp", "ledger", "verified paid webhook"),
+            ("ledger", "claim", "issue token"),
+            ("claim", "admin", "bootstrap event"),
+            ("claim", "packages", "download"),
+            ("admin", "packages", "manifest"),
+        ],
+        "X1. Portal zakupowy, płatność, token i bootstrap operatora",
+    )
+
+    source_rows = [
+        ("Stripe", "Payment methods and webhooks", "https://docs.stripe.com/payments/payment-methods/overview ; https://docs.stripe.com/webhooks"),
+        ("CoinGate", "Crypto payment API/callbacks/status", "https://developer.coingate.com/"),
+        ("Mollie", "Payments API, hosted checkout, webhooks", "https://docs.mollie.com/"),
+    ]
+
+    return "\n".join([
+        '<section class="appendix-portal">',
+        '<h1>ZAŁĄCZNIK X - Portal zakupowy, płatności, tokeny i resellerzy</h1>',
+        '<p>Ten aneks definiuje portal jako oddzielny publiczny moduł Zone 0. Portal sprzedaje tokeny i dodatki, obsługuje płatności oraz inicjuje bootstrap operatora, ale nie jest panelem administratora, panelem operatora ani brokerem streamingu. Portal ma być odseparowany sieciowo od G1/G2/workload stream i komunikować się z Admin API wyłącznie przez wąski, audytowany kanał provisioning/token.</p>',
+        portal_flow,
+        '<h2>X1. Perspektywy użytkownika i biznesu</h2>',
+        _table(["Perspektywa", "Cel", "Funkcje portalu", "Odzyskanie/obsługa", "Granice prywatności"], perspective_rows, "wide"),
+        '<h2>X2. Bramki płatności i model adapterów</h2>',
+        _table(["Provider", "Rola", "Zakres", "Kontrole", "Uwagi"], gateway_rows, "wide"),
+        '<h2>X3. Typy tokenów</h2>',
+        _table(["Typ tokenu", "Cel", "Scope", "Użycie", "Efekt"], token_type_rows, "wide"),
+        '<h2>X4. Lifecycle tokenu i płatności</h2>',
+        _table(["Stan", "Opis", "Dowody/metadane", "Reguła"], token_lifecycle_rows, "wide"),
+        '<h2>X5. Bezpieczeństwo tokenów</h2>',
+        _table(["Kontrola", "Wymaganie", "Dlaczego"], token_security_rows, "wide"),
+        '<h2>X6. UI/UX portalu</h2>',
+        _table(["Widok", "Zawartość", "Akcje", "Wymóg"], ui_rows, "wide"),
+        '<h2>X7. Prywatność, B2C, B2B i crypto</h2>',
+        _table(["Ścieżka", "Co wie SYLION", "Co może wiedzieć strona trzecia", "Wording"], privacy_rows, "wide"),
+        '<h2>X8. Minimalny model danych</h2>',
+        _table(["Tabela/encja", "Pola", "Zakaz"], data_model_rows, "wide"),
+        '<h2>X9. Kryteria odbioru portalu</h2>',
+        _table(["Obszar", "Warunek przejścia", "Test"], acceptance_rows, "wide"),
+        '<h2>X10. Źródła adapterów płatności</h2>',
+        '<p>Źródła sprawdzone na potrzeby aneksu w dniu 2026-06-01. Warunki dostępności metod płatności i crypto zależą od onboardingu merchant, jurysdykcji, walut, risk review i aktualnych zasad providera.</p>',
+        _table(["Provider", "Zakres źródła", "URL"], source_rows, "wide"),
+        '</section>',
+    ])
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     baseline_html, baseline_meta = base.extract_docx_html(
@@ -1020,6 +1357,7 @@ def main() -> None:
         baseline_html,
         base.phantom_safe_profile(),
         phantom_index,
+        portal_commerce_token_appendix(),
         final_comparison_and_admin_deep_dive(),
         tiered_threat_analysis_appendix(),
     ])
