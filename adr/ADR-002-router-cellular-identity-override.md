@@ -65,8 +65,11 @@ RF lab work is out of product scope. Any future closed-lab modem research requir
 - explicit legal approval,
 - CISO approval,
 - architect approval,
+- hardware lead approval,
 - separate private lab repository or evidence bundle,
 - no product deployment path.
+
+SYLION may store a governance record for such a test through the RF Lab module. That record is metadata-only: it stores evidence references, approvals and hashed result identifiers, but no raw identifiers, SIM secrets, operational modem commands or product runtime executor.
 
 ## Baseline Impact
 

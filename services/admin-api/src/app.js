@@ -36,6 +36,7 @@ import { SecurityProfileService } from "./modules/security/securityProfileServic
 import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
 import { RouterReadinessService } from "./modules/router/routerReadinessService.js";
 import { TerminalAdmissionPolicyService } from "./modules/terminalAdmission/terminalAdmissionPolicyService.js";
+import { RfLabService } from "./modules/rfLab/rfLabService.js";
 import { BillingPortalService } from "./modules/billingPortal/billingPortalService.js";
 import { ROLES } from "./domain/constants.js";
 import { AppError, validationError } from "./lib/errors.js";
@@ -921,6 +922,13 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     routerReadiness,
     store
   });
+  const rfLab = new RfLabService({
+    audit,
+    rbac,
+    operators,
+    devices,
+    store
+  });
   const operatorPortal = new OperatorPortalService({
     audit,
     rbac,
@@ -976,6 +984,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     securityProfiles,
     routerReadiness,
     terminalAdmission,
+    rfLab,
     operatorPortal,
     billingPortal
   };
@@ -2879,6 +2888,72 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           correlationId
         });
         return send(res, 201, { admission });
+      }
+
+      if (req.method === "GET" && url.pathname === "/rf-lab/imei-change-tests") {
+        return send(res, 200, {
+          tests: rfLab.list({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            status: url.searchParams.get("status"),
+            correlationId
+          })
+        });
+      }
+
+      if (req.method === "POST" && url.pathname === "/rf-lab/imei-change-tests") {
+        const body = await readJson(req);
+        const labTest = rfLab.createImeiChangeTestRequest({
+          actor,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { test: labTest });
+      }
+
+      const rfLabTestMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)$/);
+      if (req.method === "GET" && rfLabTestMatch) {
+        return send(res, 200, {
+          test: rfLab.get({
+            actor,
+            testId: rfLabTestMatch[1],
+            correlationId
+          })
+        });
+      }
+
+      const rfLabApproveMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)\/approve$/);
+      if (req.method === "POST" && rfLabApproveMatch) {
+        const body = await readJson(req);
+        const labTest = rfLab.approve({
+          actor,
+          testId: rfLabApproveMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { test: labTest });
+      }
+
+      const rfLabEvidenceMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)\/evidence$/);
+      if (req.method === "POST" && rfLabEvidenceMatch) {
+        const body = await readJson(req);
+        const labTest = rfLab.recordEvidence({
+          actor,
+          testId: rfLabEvidenceMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { test: labTest });
+      }
+
+      const rfLabProductExecutionMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)\/execute-product-runtime$/);
+      if (req.method === "POST" && rfLabProductExecutionMatch) {
+        const labTest = rfLab.assertNoProductExecution({
+          actor,
+          testId: rfLabProductExecutionMatch[1],
+          correlationId
+        });
+        return send(res, 200, { test: labTest });
       }
 
       if (req.method === "POST" && url.pathname === "/devices") {
