@@ -70,6 +70,8 @@ const ROLE_PERMISSIONS = Object.freeze({
     "rf_lab.test.read",
     "rf_lab.test.manage",
     "rf_lab.test.approve",
+    "phantom.hardening.read",
+    "phantom.hardening.manage",
     "operator.portal.session.create",
     "provisioning.plan.generate"
   ],
@@ -117,14 +119,16 @@ const ROLE_PERMISSIONS = Object.freeze({
     "cellular.inventory.manage",
     "rf_lab.test.read",
     "rf_lab.test.manage",
+    "phantom.hardening.read",
+    "phantom.hardening.manage",
     "operator.portal.session.create",
     "provisioning.plan.generate"
   ],
   [ROLES.TENANT_ADMIN]: ["tenant.read", "operator.read", "operator.create", "operator.provisioning_pipeline.read", "operator.provisioning_pipeline.manage", "operator.environment.read", "operator.environment.manage", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "audit.read", "security.profile.read", "security.profile.manage", "operator.portal.session.create"],
   [ROLES.BILLING_ADMIN]: ["tenant.read", "subscription.read", "subscription.manage"],
-  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "release.read", "live_execution.read", "security.profile.read", "secret.backend.read", "router.package.read", "cellular.inventory.read", "rf_lab.test.read"],
+  [ROLES.AUDITOR]: ["audit.read", "tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "release.read", "live_execution.read", "security.profile.read", "secret.backend.read", "router.package.read", "cellular.inventory.read", "rf_lab.test.read", "phantom.hardening.read"],
   [ROLES.INCIDENT_COMMANDER]: ["incident.manage", "operator.suspend"],
-  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "release.read", "live_execution.read", "security.profile.read", "secret.backend.read", "router.package.read", "cellular.inventory.read", "rf_lab.test.read"]
+  [ROLES.SUPPORT_READONLY]: ["tenant.read", "operator.read", "operator.provisioning_pipeline.read", "operator.environment.read", "provider.read", "subscription.read", "workload.allocation.read", "operator.readiness.read", "provisioning.approval.read", "release.read", "live_execution.read", "security.profile.read", "secret.backend.read", "router.package.read", "cellular.inventory.read", "rf_lab.test.read", "phantom.hardening.read"]
 });
 
 export class RbacService {

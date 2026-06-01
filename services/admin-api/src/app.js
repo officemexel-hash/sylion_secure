@@ -2523,6 +2523,21 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { summary });
       }
 
+      if (req.method === "GET" && url.pathname === "/phantom/hardening-plan") {
+        const plan = phantom.getHardeningPlan({ actor, correlationId });
+        return send(res, 200, { plan });
+      }
+
+      if (req.method === "POST" && url.pathname === "/phantom/hardening-plan/evaluate") {
+        const body = await readJson(req);
+        const evaluation = phantom.evaluateHardeningPlan({
+          actor,
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { evaluation });
+      }
+
       if (req.method === "GET" && url.pathname === "/audit/events") {
         rbac.assert(actor, "audit.read", { correlationId });
         return send(res, 200, { events: audit.list() });

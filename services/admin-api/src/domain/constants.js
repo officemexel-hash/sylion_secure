@@ -53,6 +53,7 @@ export const RESOURCE_TYPES = Object.freeze({
   PHANTOM_REVIEW_BOARD_ITEM: "phantom_review_board_item",
   PHANTOM_POLICY_SIMULATION: "phantom_policy_simulation",
   PHANTOM_EXCEPTION: "phantom_exception",
+  PHANTOM_HARDENING_PLAN: "phantom_hardening_plan",
   SUBSCRIPTION_PLAN: "subscription_plan",
   TENANT_SUBSCRIPTION: "tenant_subscription",
   WORKLOAD_ALLOCATION: "workload_allocation",

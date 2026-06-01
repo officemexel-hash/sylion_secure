@@ -53,6 +53,117 @@ const PROHIBITED_TERMS = [
   "unauthorized access"
 ];
 
+const HARDENING_PLAN_VERSION = "sylion-3.0-phantom-v3.0-hardening-2026-06";
+const HARDENING_DECISIONS = new Set([
+  "implement_baseline_with_tests",
+  "roadmap_human_gate",
+  "phantom_human_gate",
+  "lab_only_no_product_executor",
+  "legal_review_only",
+  "rejected_for_baseline"
+]);
+const DEFAULT_HARDENING_MILESTONES = Object.freeze([
+  {
+    id: "hs_01_streaming_broker_e2ee",
+    title: "G2 streaming broker E2EE replacement track",
+    layer: "application",
+    decision: "roadmap_human_gate",
+    baselineImpact: "Current broker can remain only with explicit residual-risk visibility until an approved end-to-end frame encryption design is proven.",
+    implementationScope: "Evaluate a native pixel-stream path where G2 forwards encrypted frames and cannot inspect session content.",
+    requiredEvidenceTypes: ["ADR", "threat model", "frame encryption proof", "broker visibility negative test"],
+    blockers: ["architecture_adr_required", "latency_and_input_tests_required", "broker_migration_plan_required"],
+    allowedInBaseline: false
+  },
+  {
+    id: "hs_02_pqc_transport_migration",
+    title: "Hybrid PQC transport migration roadmap",
+    layer: "crypto",
+    decision: "roadmap_human_gate",
+    baselineImpact: "IPsec IKEv2 certificate auth remains baseline; PQC is a staged migration topic until algorithm support and compliance targets are approved.",
+    implementationScope: "Create hybrid key-exchange policy, downgrade tests, compatibility matrix and crypto approval records.",
+    requiredEvidenceTypes: ["crypto ADR", "algorithm support matrix", "downgrade test", "HSM impact note"],
+    blockers: ["crypto_board_approval_required", "strongswan_feature_evidence_required", "compliance_target_required"],
+    allowedInBaseline: false
+  },
+  {
+    id: "hs_03_autonomous_perimeter",
+    title: "SOVEREIGN autonomous perimeter qualification",
+    layer: "hardware",
+    decision: "phantom_human_gate",
+    baselineImpact: "SOVEREIGN/PHANTOM perimeter is not a baseline shortcut; dedicated hardware and HSM custody require customer-specific approvals.",
+    implementationScope: "Qualify bare-metal tenancy, data-center class, HSM custody, Shamir ceremony and audit evidence.",
+    requiredEvidenceTypes: ["hardware qualification", "data-center evidence", "HSM ceremony", "customer risk acceptance"],
+    blockers: ["customer_specific_scope_required", "hsm_ceremony_required", "physical_control_evidence_required"],
+    allowedInBaseline: false
+  },
+  {
+    id: "hs_04_terminal_radio_isolation",
+    title: "Pixel and Puli AX terminal admission hardening",
+    layer: "terminal",
+    decision: "implement_baseline_with_tests",
+    baselineImpact: "Terminal admission must require Pixel posture, router pairing evidence, FIDO2 readiness and no local operational data.",
+    implementationScope: "Extend terminal admission tests for airplane-mode posture, WiFi pairing evidence, router path evidence and session-only thin client use.",
+    requiredEvidenceTypes: ["Pixel posture evidence", "router pairing evidence", "FIDO2 readiness evidence", "path test"],
+    blockers: ["pixel_posture_probe_required", "router_pairing_probe_required", "adb_human_regression_required"],
+    allowedInBaseline: true
+  },
+  {
+    id: "hs_05_esim_and_rf_lab_governance",
+    title: "eSIM exclusion and RF lab telecom identity governance",
+    layer: "telecom",
+    decision: "lab_only_no_product_executor",
+    baselineImpact: "Product runtime must not execute cellular identity mutation; lab characterization is record-only and approval-gated.",
+    implementationScope: "Keep eSIM exclusion policy, RF lab request workflow, router software preflight and raw identifier redaction.",
+    requiredEvidenceTypes: ["legal memo", "RF lab approval pack", "router software preflight", "Faraday cage evidence"],
+    blockers: ["lab_only_boundary_required", "legal_ciso_architect_hardware_approval_required"],
+    allowedInBaseline: false
+  },
+  {
+    id: "hs_06_transport_camouflage_review",
+    title: "Transport camouflage and traffic-shaping review",
+    layer: "network",
+    decision: "legal_review_only",
+    baselineImpact: "Baseline must not claim invisibility or censorship circumvention; any traffic shaping must be legally reviewed and customer-disclosed.",
+    implementationScope: "Record legal review, customer disclosure language, route policy limits and residual metadata risk.",
+    requiredEvidenceTypes: ["legal memo", "network policy ADR", "customer disclosure", "metadata risk note"],
+    blockers: ["legal_review_required", "product_claim_review_required", "metadata_risk_acceptance_required"],
+    allowedInBaseline: false
+  },
+  {
+    id: "hs_07_ebpf_runtime_monitoring",
+    title: "eBPF runtime monitoring and incident automation",
+    layer: "ops",
+    decision: "implement_baseline_with_tests",
+    baselineImpact: "Host and workload monitoring can enter baseline if it emits metadata-only alerts and destructive actions stay approval-gated.",
+    implementationScope: "Add Tetragon/Falco evidence, immutable host checks, SIEM records and incident playbooks.",
+    requiredEvidenceTypes: ["agent install evidence", "kernel event test", "SIEM event", "incident playbook"],
+    blockers: ["host_agent_rollout_required", "metadata_only_alert_schema_required", "destructive_action_gate_required"],
+    allowedInBaseline: true
+  },
+  {
+    id: "hs_08_safe_rotation_orchestration",
+    title: "Safe rotation orchestration policy",
+    layer: "orchestration",
+    decision: "phantom_human_gate",
+    baselineImpact: "Jurisdiction, certificate and workload placement rotation can be policy-driven; telecom identity changes remain lab-only/no product executor.",
+    implementationScope: "Implement tier-gated provider/location rotation, certificate lifecycle evidence and safe router/Pixel MAC-pair simulation records.",
+    requiredEvidenceTypes: ["provider policy", "certificate rotation evidence", "placement audit", "MAC-pair simulation"],
+    blockers: ["tier_policy_required", "provider_capacity_model_required", "rollback_plan_required"],
+    allowedInBaseline: false
+  },
+  {
+    id: "hs_09_opsec_training_and_drills",
+    title: "OPSEC training and emergency workflow drills",
+    layer: "people",
+    decision: "implement_baseline_with_tests",
+    baselineImpact: "Training, checklist evidence and emergency workflows are baseline-compatible when they avoid unsafe claims and store no sensitive content.",
+    implementationScope: "Create certification syllabus, quarterly exercise records, panic-code tests and operator acknowledgement evidence.",
+    requiredEvidenceTypes: ["training syllabus", "exercise record", "panic-code negative test", "operator acknowledgement"],
+    blockers: ["syllabus_required", "exercise_evidence_required", "operator_ack_required"],
+    allowedInBaseline: true
+  }
+]);
+
 const DEFAULT_POLICY_TEMPLATES = Object.freeze([
   {
     id: "phantom_template_legal_ciso_architect",
@@ -1087,6 +1198,133 @@ export class PhantomGovernanceService {
       newValue: summary
     });
     return summary;
+  }
+
+  getHardeningPlan({ actor, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.hardening.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_HARDENING_PLAN
+    });
+    const plan = this.#hardeningPlanRecord();
+    this.audit.record({
+      actorId: actor.id,
+      action: "phantom.hardening_plan_read",
+      resourceType: RESOURCE_TYPES.PHANTOM_HARDENING_PLAN,
+      resourceId: plan.id,
+      correlationId: corr,
+      newValue: plan
+    });
+    return plan;
+  }
+
+  evaluateHardeningPlan({ actor, evidenceRefsByMilestone = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "phantom.hardening.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_HARDENING_PLAN
+    });
+    if (!evidenceRefsByMilestone || typeof evidenceRefsByMilestone !== "object" || Array.isArray(evidenceRefsByMilestone)) {
+      throw validationError("evidenceRefsByMilestone must be an object", { field: "evidenceRefsByMilestone" });
+    }
+    const knownIds = new Set(DEFAULT_HARDENING_MILESTONES.map((milestone) => milestone.id));
+    for (const key of Object.keys(evidenceRefsByMilestone)) {
+      if (!knownIds.has(key)) {
+        throw validationError("Unknown hardening milestone", { field: `evidenceRefsByMilestone.${key}` });
+      }
+    }
+    const evaluations = DEFAULT_HARDENING_MILESTONES.map((milestone) => {
+      const evidenceRefs = safeArray(evidenceRefsByMilestone[milestone.id] || [], `evidenceRefsByMilestone.${milestone.id}`);
+      const evidenceComplete = evidenceRefs.length >= milestone.requiredEvidenceTypes.length;
+      const blockedByPolicy = milestone.decision === "legal_review_only" || milestone.decision === "lab_only_no_product_executor";
+      const state = evidenceComplete
+        ? "ready_for_human_gate"
+        : blockedByPolicy
+          ? "blocked_by_policy_pending_evidence"
+          : "evidence_required";
+      return {
+        milestoneId: milestone.id,
+        decision: requireEnum(milestone.decision, HARDENING_DECISIONS, "decision"),
+        state,
+        evidenceRefs,
+        evidenceComplete,
+        missingEvidenceTypes: evidenceComplete ? [] : milestone.requiredEvidenceTypes.slice(evidenceRefs.length),
+        blockers: evidenceComplete ? [] : milestone.blockers,
+        humanGateRequired: true,
+        sideEffectAllowed: false,
+        executionAllowed: false,
+        executionEnabled: false,
+        productionExecutionAllowed: false
+      };
+    });
+    const evaluation = {
+      id: newId("phantom_hardening_eval"),
+      planId: HARDENING_PLAN_VERSION,
+      evaluations,
+      summary: {
+        milestones: evaluations.length,
+        readyForHumanGate: evaluations.filter((item) => item.state === "ready_for_human_gate").length,
+        evidenceRequired: evaluations.filter((item) => item.state === "evidence_required").length,
+        blockedByPolicyPendingEvidence: evaluations.filter((item) => item.state === "blocked_by_policy_pending_evidence").length,
+        executionAllowed: false,
+        productionExecutionAllowed: false
+      },
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      productionExecutionAllowed: false,
+      evaluatedAt: isoNow(),
+      evaluatedBy: actor.id
+    };
+    this.audit.record({
+      actorId: actor.id,
+      action: "phantom.hardening_plan_evaluated",
+      resourceType: RESOURCE_TYPES.PHANTOM_HARDENING_PLAN,
+      resourceId: evaluation.id,
+      correlationId: corr,
+      policyDecision: "deny",
+      result: "human_gate_required",
+      newValue: evaluation
+    });
+    return evaluation;
+  }
+
+  #hardeningPlanRecord() {
+    const milestones = DEFAULT_HARDENING_MILESTONES.map((milestone) => ({
+      ...milestone,
+      decision: requireEnum(milestone.decision, HARDENING_DECISIONS, "decision"),
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      productionExecutionAllowed: false
+    }));
+    return {
+      id: HARDENING_PLAN_VERSION,
+      title: "SYLION 3.0 / PHANTOM v3.0 hardening control plan",
+      posture: "policy_as_code_review_only",
+      milestones,
+      summary: {
+        milestones: milestones.length,
+        baselineImplementable: milestones.filter((item) => item.allowedInBaseline).length,
+        nonBaseline: milestones.filter((item) => !item.allowedInBaseline).length,
+        labOnlyNoProductExecutor: milestones.filter((item) => item.decision === "lab_only_no_product_executor").length,
+        legalReviewOnly: milestones.filter((item) => item.decision === "legal_review_only").length,
+        roadmapHumanGate: milestones.filter((item) => item.decision === "roadmap_human_gate").length,
+        phantomHumanGate: milestones.filter((item) => item.decision === "phantom_human_gate").length,
+        executionAllowed: false,
+        productionExecutionAllowed: false
+      },
+      legalReviewRequired: true,
+      cisoReviewRequired: true,
+      architectReviewRequired: true,
+      humanGateRequired: true,
+      sideEffectAllowed: false,
+      executionAllowed: false,
+      executionEnabled: false,
+      productionExecutionAllowed: false
+    };
   }
 
   #publicBoundary(record) {

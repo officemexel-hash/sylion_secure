@@ -36,6 +36,7 @@
     "test:terminal-admission-cellular-policy": "node --test services/admin-api/test/step3-106-terminal-admission-cellular-policy.test.js",
     "test:rf-lab-imei-governance": "node --test services/admin-api/test/step3-107-rf-lab-imei-governance.test.js",
     "test:rf-lab-router-preflight": "node --test services/admin-api/test/step3-108-rf-lab-router-preflight.test.js",
+    "test:phantom-hardening-plan": "node --test services/admin-api/test/step3-109-phantom-hardening-plan.test.js",
     "test:pixel-puli-ax-network-smoke": "node scripts/pixel-puli-ax-network-smoke.mjs",
     "test:hetzner-live-smoke": "node scripts/hetzner-live-smoke.mjs",
     "live:hetzner-operator-baseline": "node scripts/hetzner-live-operator-baseline.mjs",
