@@ -40,3 +40,7 @@ infrastructure/puli-ax/inventory-*.txt
 
 # Python cache
 __pycache__/
+
+
+# NSFW
+phantom-router/
