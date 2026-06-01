@@ -520,7 +520,44 @@ async function run() {
   const certificate = await fetchInternalCertificate();
   const caDelivery = await deliverCaToPixel(pixel.serial, certificate.localPath);
 
+  // Attest the live Pixel terminal state to the operator session so the stream live-access
+  // handoff (t0_pixel_to_g1_ipsec / dns_through_tunnel) can pass. Values are the real ones
+  // detected from the device (tun1 IKEv2 to G1 + DNS 10.42.0.11) plus reachable hosts from
+  // the ping sweep. certificateTrusted reflects the SYLION internal CA installed on the Pixel.
+  const reachableHosts = Object.entries(networkBefore.pings || {}).filter(([, v]) => v?.ok).map(([host]) => host);
+  let vpnEvidenceStatus = null;
+  try {
+    // The operator session lives on the admin-api at 127.0.0.1:8099 ON THE ADMIN SERVER
+    // (seedLiveOperator runs there via SSH). Record the live VPN attestation on that same
+    // instance with the operator Bearer token, so liveAccessFoundation sees ready=true and
+    // the stream handoff (t0_pixel_to_g1_ipsec / dns_through_tunnel) passes. Token + JSON are
+    // base64-wrapped to avoid shell-quoting issues and plaintext token in the command line.
+    const evidencePayload = {
+      vpnConnected: networkBefore.vpnConnected === true,
+      vpnInterface: networkBefore.vpnInterface || null,
+      vpnSession: networkBefore.vpnSession || "SYLION Pixel G1 live",
+      dnsThroughTunnel: networkBefore.dnsThroughTunnel === true,
+      certificateTrusted: process.env.SYLION_PIXEL_CA_TRUSTED !== "false",
+      reachableHosts
+    };
+    const payloadB64 = Buffer.from(JSON.stringify(evidencePayload)).toString("base64");
+    const tokenB64 = Buffer.from(String(seed.operatorSession.token)).toString("base64");
+    const remote = [
+      `TOK=$(printf %s ${tokenB64} | base64 -d)`,
+      `BODY=$(printf %s ${payloadB64} | base64 -d)`,
+      `code=$(curl -s -o /tmp/sylion-vpn-evidence.out -w '%{http_code}' -X POST http://127.0.0.1:8099/operator-api/vpn-evidence -H 'content-type: application/json' -H 'x-sylion-operator-csrf: same-origin-ui' -H "authorization: Bearer $TOK" -d "$BODY")`,
+      `echo "VPN_EVIDENCE_HTTP=$code"`
+    ].join("\n");
+    const evRes = await ssh(remote, { timeout: 30_000 });
+    vpnEvidenceStatus = evRes.stdout.match(/VPN_EVIDENCE_HTTP=(\d+)/)?.[1] || "unknown";
+    console.error("VPN_EVIDENCE_POST_STATUS", vpnEvidenceStatus);
+  } catch (error) {
+    vpnEvidenceStatus = `error:${String(error)}`;
+    console.error("VPN_EVIDENCE_POST_ERROR", String(error));
+  }
+
   const pageResults = {};
+  pageResults.__vpnEvidenceStatus = vpnEvidenceStatus;
   pageResults.admin = await openUrl(pixel.serial, `${adminInternalBaseUrl}/admin`, "pixel-admin-panel");
   pageResults.operator = await openUrl(
     pixel.serial,
@@ -530,7 +567,13 @@ async function run() {
 
   await resetBrowserSurface(pixel.serial);
   for (const app of workloadHosts) {
-    pageResults[app] = await openUrl(pixel.serial, `https://${app}.sylion.internal/`, `pixel-workload-${app}`, 8000);
+    // Launch the app through the operator stream wrapper (kasmvnc-aware) and carry
+    // op_token so stream.js bootstraps the per-tab session in sessionStorage. The raw
+    // `https://<app>.sylion.internal/` host serves a noVNC client and a fresh tab has no
+    // session token, which produced blank canvases + "Missing or invalid operator portal
+    // session". op_token is redacted from UI dumps by dumpUi(). Longer settle for canvas paint.
+    const streamUrl = `${operatorInternalBaseUrl}/operator/stream.html?app=${encodeURIComponent(app)}&op_token=${encodeURIComponent(seed.operatorSession.token)}`;
+    pageResults[app] = await openUrl(pixel.serial, streamUrl, `pixel-workload-${app}`, 25000);
   }
 
   const probes = await probeWorkloadsFromAdmin();

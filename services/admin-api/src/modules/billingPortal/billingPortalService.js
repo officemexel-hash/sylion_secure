@@ -374,6 +374,54 @@ export class BillingPortalService {
       refundPolicyCode: "non_refundable_after_provisioning_except_mandatory_law",
       tiers: Object.values(PORTAL_TIERS).map(publicTier),
       tokenTypes: PORTAL_TOKEN_TYPES,
+      purchaseRoutes: [
+        {
+          id: "company_invoice",
+          name: "Company invoice",
+          summary: "B2B checkout with company details, invoice trail and provider payment reconciliation."
+        },
+        {
+          id: "crypto_vault_token",
+          name: "Crypto vault token",
+          summary: "No customer account is created in SYLION. The buyer receives a one-time token tied to the declared vault public id; payment-provider compliance still applies."
+        },
+        {
+          id: "reseller_preconfigured_hardware",
+          name: "Reseller hardware route",
+          summary: "Approved reseller issues or hands off a paid token with preconfigured Pixel and Puli AX hardware; FIDO2/HSM pairing remains customer-side."
+        }
+      ],
+      resellerProgram: {
+        defaultDiscountPercent: 20,
+        allowedFulfillmentModes: ["self_service_download", "reseller_preconfigured_hardware"],
+        obligations: [
+          "Reseller tokens must remain scoped to one activation.",
+          "Reseller may prepare Pixel and Puli AX packages but must not retain customer secrets.",
+          "FIDO2 and HSM binding stays under customer/operator control."
+        ]
+      },
+      tokenSecurity: {
+        entropy: "192-bit random token material returned once",
+        storage: "Only SHA-256 token hash and short preview are stored server-side",
+        binding: "Claim and redemption require matching checkout, vault public id, status and tier policy",
+        audit: "Payment webhook, token claim and operator activation events are audited without raw token material"
+      },
+      rotationPolicy: {
+        global: [
+          "Every operator receives dedicated G1 and G2 gateway identity.",
+          "Pilot, Standard and Pro can use shared dedicated workload pools on bare metal with per-operator isolation.",
+          "Phantom requires dedicated or strongly isolated workload placement after manual review.",
+          "Sovereign requires dedicated operator-only workload placement.",
+          "When higher-tier operators rotate away from a jurisdiction, freed capacity can be reused for lower-tier operators only after teardown, evidence and policy checks."
+        ],
+        byTier: {
+          pilot: "No default jurisdiction rotation; capacity can be placed in an approved shared dedicated pool.",
+          standard: "Limited provider and jurisdiction controls; rotation uses existing approved pools where policy allows.",
+          pro: "Broader provider/jurisdiction controls and workload rotation requests within live inventory.",
+          phantom: "Manual-review rotation with dedicated or strongly isolated workload requirement.",
+          sovereign: "Dedicated operator-only placement and strongest governance/cost visibility."
+        }
+      },
       tokenCatalog: [
         {
           type: PORTAL_TOKEN_TYPES.OPERATOR_BOOTSTRAP,

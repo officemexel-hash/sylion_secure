@@ -1,6 +1,6 @@
 {
-  "baseUrl": "http://127.0.0.1:18111",
-  "operatorId": "op_14d872be-219e-40c8-ae6c-50153c47b487",
+  "baseUrl": "http://127.0.0.1:50916",
+  "operatorId": "op_5f2eeec5-972b-4061-8026-15a38f7fd3a0",
   "status": "passed",
   "actions": [
     "operator_session_loaded",
@@ -8,6 +8,8 @@
     "view_workload_control",
     "view_connection_path",
     "view_signal_preview",
+    "view_runtime_gate",
+    "view_account_bootstrap",
     "view_vpn_status",
     "view_security_unlock",
     "view_backup_&_panic",
@@ -18,6 +20,7 @@
     "view_subscription",
     "view_my_audit",
     "operator_workload_control_queued",
+    "operator_account_bootstrap_evidence_recorded",
     "operator_unlock_policy_saved",
     "operator_safety_policy_saved",
     "operator_jurisdiction_policy_saved",
@@ -26,5 +29,5 @@
     "operator_hsm_refs_saved"
   ],
   "issues": [],
-  "checkedAt": "2026-05-22T15:56:28.869Z"
+  "checkedAt": "2026-06-01T20:03:48.478Z"
 }

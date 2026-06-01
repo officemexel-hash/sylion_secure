@@ -46,6 +46,73 @@
         </div>
       </section>
 
+      <section class="grid-section" id="model">
+        <div class="section-head">
+          <p class="eyebrow">Księga 4.0 operating model</p>
+          <h2>Public sale, private activation, isolated runtime</h2>
+          <p class="section-copy">The portal sells scoped access tokens. It does not become the operator workspace and it does not store terminal data. After a paid token is claimed, the activation flow creates an operator profile, download packages and a provisioning request for G1, G2 and workload capacity.</p>
+        </div>
+        <div class="model-grid">
+          <article class="info-card">
+            <span class="step-mark">01</span>
+            <h3>Public portal</h3>
+            <p>Shows tiers, payment rails, legal notices and token types. The public edge exposes only portal assets and allowlisted portal APIs.</p>
+          </article>
+          <article class="info-card">
+            <span class="step-mark">02</span>
+            <h3>Paid token</h3>
+            <p>Stripe, CoinGate or Mollie confirms payment. The raw token is returned once and only a hash is retained.</p>
+          </article>
+          <article class="info-card">
+            <span class="step-mark">03</span>
+            <h3>Operator bootstrap</h3>
+            <p>The token creates a scoped operator profile plus Pixel, Puli AX and laptop packages. FIDO2/HSM pairing remains a later operator-controlled step.</p>
+          </article>
+          <article class="info-card">
+            <span class="step-mark">04</span>
+            <h3>Runtime path</h3>
+            <p>Operator sessions are designed for Pixel or laptop terminal access through Puli AX, G1, G2 and workload isolation, with CDR metadata monitoring.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="grid-section" id="purchase-routes">
+        <div class="section-head">
+          <p class="eyebrow">Purchase routes</p>
+          <h2>Crypto, company invoice and reseller delivery</h2>
+          <p class="section-copy">SYLION does not create a classic customer account. The durable customer-side recovery object is the vault identity and token material controlled by the buyer. Payment providers and local law can still require compliance checks.</p>
+        </div>
+        <div class="route-grid">
+          <article class="route-card">
+            <h3>Crypto vault token</h3>
+            <p>CoinGate is the primary crypto rail. The buyer uses a vault public id and receives token material after paid reconciliation. The portal must not store wallet seed phrases, private keys or operator secrets.</p>
+          </article>
+          <article class="route-card">
+            <h3>Company invoice</h3>
+            <p>Stripe is the primary fiat rail for cards, SEPA and business payments. Company data is used for checkout and billing context; provisioning remains token-scoped.</p>
+          </article>
+          <article class="route-card">
+            <h3>Reseller route</h3>
+            <p>Approved resellers operate with a 20% commercial discount and can deliver preconfigured Pixel and Puli AX hardware. They may hand off packages, but must not retain FIDO2, HSM, wallet or operator secrets.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="grid-section" id="token-security">
+        <div class="section-head">
+          <p class="eyebrow">Token security</p>
+          <h2>How fake or reused tokens are blocked</h2>
+        </div>
+        <div class="security-grid">
+          <div class="security-item"><strong>One-time material</strong><span>Raw token value is returned once after payment or approved review.</span></div>
+          <div class="security-item"><strong>Server hash only</strong><span>The backend stores token hash, short preview, checkout id, tier and status.</span></div>
+          <div class="security-item"><strong>Vault binding</strong><span>Claim and redemption require the same vault public id used at checkout.</span></div>
+          <div class="security-item"><strong>Status machine</strong><span>created → paid → claimable/manual review → claimed → provisioned. Reuse is rejected.</span></div>
+          <div class="security-item"><strong>Manual review</strong><span>Phantom and Sovereign tokens remain blocked until the approval path releases them.</span></div>
+          <div class="security-item"><strong>Audit without secrets</strong><span>Payment, claim and activation are logged without raw tokens or package secrets.</span></div>
+        </div>
+      </section>
+
       <section class="grid-section" id="pricing">
         <div class="section-head">
           <p class="eyebrow">Annual tokens</p>
@@ -69,6 +136,70 @@
             <h3>Limits</h3>
             <ul id="selected-tier-limits" class="feature-list muted"></ul>
           </aside>
+        </div>
+      </section>
+
+      <section class="grid-section" id="comparison">
+        <div class="section-head">
+          <p class="eyebrow">Tier comparison</p>
+          <h2>Capacity, tenancy and rotation policy</h2>
+          <p class="section-copy">Every operator receives its own G1 and G2. Workload bare-metal capacity is tiered: lower plans can share approved dedicated pools, while higher plans require stronger isolation or dedicated operator-only placement.</p>
+        </div>
+        <div class="table-wrap">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th>Tier</th>
+                <th>Price</th>
+                <th>App environments</th>
+                <th>G1/G2</th>
+                <th>Workload tenancy</th>
+                <th>Rotation policy</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Pilot</td>
+                <td>99 EUR/mo, 1,188 EUR/year</td>
+                <td>6</td>
+                <td>Dedicated per operator</td>
+                <td>Shared dedicated pool allowed</td>
+                <td>No default jurisdiction rotation; add-ons require approval.</td>
+              </tr>
+              <tr>
+                <td>Standard</td>
+                <td>199 EUR/mo, 2,388 EUR/year</td>
+                <td>10</td>
+                <td>Dedicated per operator</td>
+                <td>Shared dedicated pool allowed</td>
+                <td>Rotation uses existing approved pools where policy allows.</td>
+              </tr>
+              <tr>
+                <td>Pro</td>
+                <td>499 EUR/mo, 5,988 EUR/year</td>
+                <td>20</td>
+                <td>Dedicated per operator</td>
+                <td>Shared dedicated pool allowed</td>
+                <td>Broader provider and jurisdiction options within inventory.</td>
+              </tr>
+              <tr>
+                <td>Phantom</td>
+                <td>1,000 EUR/mo, 12,000 EUR/year</td>
+                <td>40</td>
+                <td>Dedicated per operator</td>
+                <td>Dedicated or strongly isolated workload required</td>
+                <td>Manual-review rotation, separated from baseline execution claims.</td>
+              </tr>
+              <tr>
+                <td>Sovereign</td>
+                <td>2,999 EUR/mo, 35,988 EUR/year</td>
+                <td>60</td>
+                <td>Dedicated per operator</td>
+                <td>Dedicated operator-only workload</td>
+                <td>Strongest governance, dedicated capacity and cost visibility.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

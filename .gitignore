@@ -38,3 +38,5 @@ docs/admin-panel-v2/test-artifacts/
 infrastructure/puli-ax/logs/
 infrastructure/puli-ax/inventory-*.txt
 
+# Python cache
+__pycache__/

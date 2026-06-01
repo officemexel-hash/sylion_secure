@@ -1229,7 +1229,7 @@ function renderRelease() {
   $("#release-decision").textContent = summary?.decision || "not evaluated";
   $("#release-ksiega").textContent = summary?.księga34
     ? `${summary.księga34.implemented} implemented / ${summary.księga34.blocked} blocked`
-    : "Księga 3.4 unknown";
+    : "Księga 4.0 unknown";
   $("#release-phantom").textContent = summary?.phantom?.executionSafe
     ? "PHANTOM execution=false"
     : "PHANTOM needs review";
@@ -1316,7 +1316,7 @@ function renderRelease() {
     ["Key", item.key],
     ["Status", item.status],
     ["Next", item.nextAction]
-  ])).join("") || empty("Księga 3.4 status unavailable.");
+  ])).join("") || empty("Księga 4.0 status unavailable.");
 
   $("#release-phantom-cards").innerHTML = [
     card("PHANTOM release boundary", [

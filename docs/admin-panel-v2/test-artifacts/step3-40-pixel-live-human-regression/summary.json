@@ -1,15 +1,15 @@
 {
-  "status": "passed_with_known_gates",
+  "status": "failed_with_findings",
   "adbSerial": "46141FDAP009CZ",
   "adminPanelUrl": "https://admin.sylion.internal/admin",
   "operatorPanelUrl": "https://operator.sylion.internal/operator#app-switcher",
-  "operatorId": "op_0a713b92-af53-40fb-ab7b-d4f71c50a60f",
-  "tenantId": "tenant_9139a58e-fec6-4bcc-89f3-55d3d223c0c3",
-  "pixelDeviceId": "device_c2449848-ab08-450f-b008-6adb3857cc6a",
+  "operatorId": "op_f6b66c9d-440b-4fdf-8f2c-ba90b5d89913",
+  "tenantId": "tenant_9f9b6246-d582-4dae-8ca4-df511dbced92",
+  "pixelDeviceId": "device_0970a5f3-2d01-4e5f-be3b-2a770fb42e2f",
   "caDelivery": {
     "pushedPath": "/sdcard/Download/sylion-internal-ca.crt",
     "installIntentStdout": "",
-    "installIntentStderr": "Error: Command failed: C:\\Users\\razor\\Android\\platform-tools\\adb.exe -s 46141FDAP009CZ shell am start -a android.credentials.INSTALL -t application/x-x509-ca-cert -d file:///sdcard/Download/sylion-internal-ca.crt\nError: Activity not started, unable to resolve Intent { act=android.credentials.INSTALL dat=file:///... typ=application/x-x509-ca-cert flg=0x10000000 xflg=0x4 }\r\n",
+    "installIntentStderr": "Error: Command failed: C:\\Users\\razor\\OneDrive\\Desktop\\sylion secure\\.deploy\\platform-tools\\adb.exe -s 46141FDAP009CZ shell am start -a android.credentials.INSTALL -t application/x-x509-ca-cert -d file:///sdcard/Download/sylion-internal-ca.crt\nError: Activity not started, unable to resolve Intent { act=android.credentials.INSTALL dat=file:///... typ=application/x-x509-ca-cert flg=0x10000000 xflg=0x4 }\r\n",
     "settingsIntentStdout": "Starting: Intent { act=android.settings.SECURITY_SETTINGS }",
     "settingsIntentStderr": "Warning: Activity not started, its current task has been brought to the front",
     "screenshot": "C:\\Users\\razor\\OneDrive\\Desktop\\sylion secure\\docs\\admin-panel-v2\\test-artifacts\\step3-40-pixel-live-human-regression\\pixel-ca-install-settings.png",
@@ -27,55 +27,59 @@
   },
   "certificate": {
     "localPath": "C:\\Users\\razor\\OneDrive\\Desktop\\sylion secure\\docs\\admin-panel-v2\\test-artifacts\\step3-40-pixel-live-human-regression\\sylion-internal-ca.crt",
-    "inspect": "subject=CN = *.sylion.internal\nissuer=CN = *.sylion.internal\nsha256 Fingerprint=36:DC:6E:D3:12:79:A7:BF:F2:68:9F:39:DD:E0:BC:11:EF:70:77:3E:A2:77:E8:4A:0E:B9:DA:3A:16:31:51:78\nX509v3 Subject Alternative Name: \n    DNS:admin.sylion.internal, DNS:operator.sylion.internal, DNS:signal.sylion.internal, DNS:libreoffice.sylion.internal, DNS:duckduckgo.sylion.internal, DNS:whatsapp.sylion.internal, DNS:telegram.sylion.internal, DNS:threema.sylion.internal, DNS:zangi.sylion.internal, DNS:exodus.sylion.internal, DNS:matrix.sylion.internal, IP Address:10.42.0.12"
+    "inspect": "subject=CN = session.sylion.internal\nissuer=CN = *.sylion.internal\nsha256 Fingerprint=DF:8A:72:46:6E:AA:91:59:E2:6A:74:7F:BB:75:13:3F:AB:C3:2B:DE:C9:F9:68:17:E4:9E:FA:6B:9C:27:4B:39\nX509v3 Subject Alternative Name: \n    DNS:admin.sylion.internal, DNS:operator.sylion.internal, DNS:session.sylion.internal, DNS:signal.sylion.internal, DNS:libreoffice.sylion.internal, DNS:duckduckgo.sylion.internal, DNS:whatsapp.sylion.internal, DNS:telegram.sylion.internal, DNS:threema.sylion.internal, DNS:zangi.sylion.internal, DNS:exodus.sylion.internal, DNS:matrix.sylion.internal, DNS:g2-stream.sylion.internal, IP Address:10.42.0.12"
   },
   "networkBefore": {
     "props": {
       "ro.product.model": "Pixel 9 Pro",
       "ro.product.device": "caiman",
       "ro.build.version.release": "16",
-      "ro.build.version.security_patch": "2026-05-01",
-      "ro.build.fingerprint": "google/caiman/caiman:16/BP4A.260205.002/2026050901:user/release-keys"
+      "ro.build.version.security_patch": "2026-05-05",
+      "ro.build.fingerprint": "google/caiman/caiman:16/BP4A.260205.002/2026052401:user/release-keys"
     },
-    "route": "192.168.8.0/24 dev wlan0 proto kernel scope link src 192.168.8.224",
-    "tun": "80: tun1: <POINTOPOINT,UP,LOWER_UP> mtu 1400 qdisc pfifo_fast state UNKNOWN group default qlen 500\r\n    link/none \r\n    inet 10.43.0.1/32 scope global tun1\r\n       valid_lft forever preferred_lft forever\r\n    inet6 fe80::3565:fd5f:85f6:9de7/64 scope link stable-privacy \r\n       valid_lft forever preferred_lft forever",
+    "route": "192.168.8.0/24 dev wlan0 proto kernel scope link src 192.168.8.163",
+    "tun": "51: tun1: <POINTOPOINT,UP,LOWER_UP> mtu 1400 qdisc pfifo_fast state UNKNOWN group default qlen 500\r\n    link/none \r\n    inet 10.43.0.1/32 scope global tun1\r\n       valid_lft forever preferred_lft forever\r\n    inet6 fe80::8e59:915b:5dfb:d0d0/64 scope link stable-privacy \r\n       valid_lft forever preferred_lft forever",
     "vpnConnected": true,
     "vpnSession": "SYLION",
     "vpnInterface": "tun1",
-    "vpnAddress": "fe80::1c22:edff:fe97:5545/64,192.168.8.224/24 ",
+    "vpnAddress": "fe80::f03b:2dff:fef3:df21/64,192.168.8.163/24 ",
     "dnsThroughTunnel": true,
     "pings": {
       "admin.sylion.internal": {
         "ok": true,
-        "output": "PING admin.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=31.1 ms\n\n--- admin.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING admin.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=35.3 ms\n\n--- admin.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "operator.sylion.internal": {
         "ok": true,
-        "output": "PING operator.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.0 ms\n\n--- operator.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING operator.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=31.0 ms\n\n--- operator.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+      },
+      "session.sylion.internal": {
+        "ok": true,
+        "output": "PING session.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=29.2 ms\n\n--- session.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "signal.sylion.internal": {
         "ok": true,
-        "output": "PING signal.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.8 ms\n\n--- signal.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING signal.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.6 ms\n\n--- signal.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "duckduckgo.sylion.internal": {
         "ok": true,
-        "output": "PING duckduckgo.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.7 ms\n\n--- duckduckgo.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING duckduckgo.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=31.2 ms\n\n--- duckduckgo.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "libreoffice.sylion.internal": {
         "ok": true,
-        "output": "PING libreoffice.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=29.4 ms\n\n--- libreoffice.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING libreoffice.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=29.9 ms\n\n--- libreoffice.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "zangi.sylion.internal": {
         "ok": true,
-        "output": "PING zangi.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=33.2 ms\n\n--- zangi.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING zangi.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.6 ms\n\n--- zangi.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "10.42.0.10": {
         "ok": true,
-        "output": "PING 10.42.0.10 (10.42.0.10) 56(84) bytes of data.\n64 bytes from 10.42.0.10: icmp_seq=1 ttl=62 time=44.0 ms\n\n--- 10.42.0.10 ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING 10.42.0.10 (10.42.0.10) 56(84) bytes of data.\n64 bytes from 10.42.0.10: icmp_seq=1 ttl=62 time=37.7 ms\n\n--- 10.42.0.10 ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "10.42.0.12": {
         "ok": true,
-        "output": "PING 10.42.0.12 (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=32.8 ms\n\n--- 10.42.0.12 ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING 10.42.0.12 (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=33.2 ms\n\n--- 10.42.0.12 ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       }
     }
   },
@@ -84,48 +88,52 @@
       "ro.product.model": "Pixel 9 Pro",
       "ro.product.device": "caiman",
       "ro.build.version.release": "16",
-      "ro.build.version.security_patch": "2026-05-01",
-      "ro.build.fingerprint": "google/caiman/caiman:16/BP4A.260205.002/2026050901:user/release-keys"
+      "ro.build.version.security_patch": "2026-05-05",
+      "ro.build.fingerprint": "google/caiman/caiman:16/BP4A.260205.002/2026052401:user/release-keys"
     },
-    "route": "192.168.8.0/24 dev wlan0 proto kernel scope link src 192.168.8.224",
-    "tun": "80: tun1: <POINTOPOINT,UP,LOWER_UP> mtu 1400 qdisc pfifo_fast state UNKNOWN group default qlen 500\r\n    link/none \r\n    inet 10.43.0.1/32 scope global tun1\r\n       valid_lft forever preferred_lft forever\r\n    inet6 fe80::3565:fd5f:85f6:9de7/64 scope link stable-privacy \r\n       valid_lft forever preferred_lft forever",
+    "route": "192.168.8.0/24 dev wlan0 proto kernel scope link src 192.168.8.163",
+    "tun": "51: tun1: <POINTOPOINT,UP,LOWER_UP> mtu 1400 qdisc pfifo_fast state UNKNOWN group default qlen 500\r\n    link/none \r\n    inet 10.43.0.1/32 scope global tun1\r\n       valid_lft forever preferred_lft forever\r\n    inet6 fe80::8e59:915b:5dfb:d0d0/64 scope link stable-privacy \r\n       valid_lft forever preferred_lft forever",
     "vpnConnected": true,
     "vpnSession": "SYLION",
     "vpnInterface": "tun1",
-    "vpnAddress": "fe80::1c22:edff:fe97:5545/64,192.168.8.224/24 ",
+    "vpnAddress": "fe80::f03b:2dff:fef3:df21/64,192.168.8.163/24 ",
     "dnsThroughTunnel": true,
     "pings": {
       "admin.sylion.internal": {
         "ok": true,
-        "output": "PING admin.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=35.0 ms\n\n--- admin.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING admin.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=29.1 ms\n\n--- admin.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "operator.sylion.internal": {
         "ok": true,
-        "output": "PING operator.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.5 ms\n\n--- operator.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING operator.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=29.7 ms\n\n--- operator.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+      },
+      "session.sylion.internal": {
+        "ok": true,
+        "output": "PING session.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=33.5 ms\n\n--- session.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "signal.sylion.internal": {
         "ok": true,
-        "output": "PING signal.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.2 ms\n\n--- signal.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING signal.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.7 ms\n\n--- signal.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "duckduckgo.sylion.internal": {
         "ok": true,
-        "output": "PING duckduckgo.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=33.0 ms\n\n--- duckduckgo.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING duckduckgo.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=34.6 ms\n\n--- duckduckgo.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "libreoffice.sylion.internal": {
         "ok": true,
-        "output": "PING libreoffice.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.7 ms\n\n--- libreoffice.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING libreoffice.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=40.5 ms\n\n--- libreoffice.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "zangi.sylion.internal": {
         "ok": true,
-        "output": "PING zangi.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=30.2 ms\n\n--- zangi.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING zangi.sylion.internal (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=31.8 ms\n\n--- zangi.sylion.internal ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "10.42.0.10": {
         "ok": true,
-        "output": "PING 10.42.0.10 (10.42.0.10) 56(84) bytes of data.\n64 bytes from 10.42.0.10: icmp_seq=1 ttl=62 time=35.2 ms\n\n--- 10.42.0.10 ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING 10.42.0.10 (10.42.0.10) 56(84) bytes of data.\n64 bytes from 10.42.0.10: icmp_seq=1 ttl=62 time=39.6 ms\n\n--- 10.42.0.10 ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       },
       "10.42.0.12": {
         "ok": true,
-        "output": "PING 10.42.0.12 (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=35.9 ms\n\n--- 10.42.0.12 ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+        "output": "PING 10.42.0.12 (10.42.0.12) 56(84) bytes of data.\n64 bytes from 10.42.0.12: icmp_seq=1 ttl=62 time=34.7 ms\n\n--- 10.42.0.12 ping statistics ---\n1 packets transmitted, 1 received, 0% packet loss, time 0ms"
       }
     }
   },
@@ -139,36 +147,36 @@
       "title": " SYLION Operator Portal SYLION Operator Portal Scoped local session required Overview Apps Devices Workloads Workload Control Connection Pat"
     },
     "signal": {
-      "status": "200",
-      "title": " Directory listing for / Directory listing for / app/ core/ include/ utils/ vendor/ vnc.html vnc_auto.html@ vnc_lite.html "
+      "status": "302",
+      "title": " \r 302 Found \r \r 302 Found \r nginx/1.24.0 (Ubuntu) \r \r \r "
     },
     "duckduckgo": {
-      "status": "200",
-      "title": " Directory listing for / Directory listing for / app/ core/ include/ utils/ vendor/ vnc.html vnc_auto.html@ vnc_lite.html "
+      "status": "302",
+      "title": " \r 302 Found \r \r 302 Found \r nginx/1.24.0 (Ubuntu) \r \r \r "
     },
     "libreoffice": {
-      "status": "200",
-      "title": " Directory listing for / Directory listing for / app/ core/ include/ utils/ vendor/ vnc.html vnc_auto.html@ vnc_lite.html "
+      "status": "302",
+      "title": " \r 302 Found \r \r 302 Found \r nginx/1.24.0 (Ubuntu) \r \r \r "
     },
     "zangi": {
-      "status": "502",
-      "title": " \r 502 Bad Gateway \r \r 502 Bad Gateway \r nginx/1.24.0 (Ubuntu) \r \r \r "
+      "status": "302",
+      "title": " \r 302 Found \r \r 302 Found \r nginx/1.24.0 (Ubuntu) \r \r \r "
     },
     "whatsapp": {
-      "status": "200",
-      "title": " Directory listing for / Directory listing for / app/ core/ include/ utils/ vendor/ vnc.html vnc_auto.html@ vnc_lite.html "
+      "status": "302",
+      "title": " \r 302 Found \r \r 302 Found \r nginx/1.24.0 (Ubuntu) \r \r \r "
     },
     "telegram": {
-      "status": "200",
-      "title": " Directory listing for / Directory listing for / app/ core/ include/ utils/ vendor/ vnc.html vnc_auto.html@ vnc_lite.html "
+      "status": "302",
+      "title": " \r 302 Found \r \r 302 Found \r nginx/1.24.0 (Ubuntu) \r \r \r "
     },
     "threema": {
-      "status": "200",
-      "title": " Directory listing for / Directory listing for / app/ core/ include/ utils/ vendor/ vnc.html vnc_auto.html@ vnc_lite.html "
+      "status": "302",
+      "title": " \r 302 Found \r \r 302 Found \r nginx/1.24.0 (Ubuntu) \r \r \r "
     },
     "exodus": {
-      "status": "502",
-      "title": " \r 502 Bad Gateway \r \r 502 Bad Gateway \r nginx/1.24.0 (Ubuntu)"
+      "status": "302",
+      "title": " \r 302 Found \r \r 302 Found \r nginx/1.24.0 (Ubuntu)"
     }
   },
   "screenshots": {
@@ -183,11 +191,23 @@
     "libreoffice": "C:\\Users\\razor\\OneDrive\\Desktop\\sylion secure\\docs\\admin-panel-v2\\test-artifacts\\step3-40-pixel-live-human-regression\\pixel-workload-libreoffice.png",
     "exodus": "C:\\Users\\razor\\OneDrive\\Desktop\\sylion secure\\docs\\admin-panel-v2\\test-artifacts\\step3-40-pixel-live-human-regression\\pixel-workload-exodus.png"
   },
-  "issues": [],
+  "issues": [
+    "signal.sylion.internal returned HTTP 302 from server-side probe.",
+    "whatsapp.sylion.internal returned HTTP 302 from server-side probe.",
+    "telegram.sylion.internal returned HTTP 302 from server-side probe.",
+    "threema.sylion.internal returned HTTP 302 from server-side probe.",
+    "duckduckgo.sylion.internal returned HTTP 302 from server-side probe.",
+    "libreoffice.sylion.internal returned HTTP 302 from server-side probe."
+  ],
   "knownGates": [
-    "zangi.sylion.internal returned HTTP 502 from server-side probe.",
-    "exodus.sylion.internal returned HTTP 502 from server-side probe.",
+    "zangi.sylion.internal returned HTTP 302 from server-side probe.",
+    "exodus.sylion.internal returned HTTP 302 from server-side probe.",
     "Operator VPN install package is blocked_human_gate; production install remains gated."
   ],
-  "checkedAt": "2026-05-22T16:15:44.751Z"
+  "checkedAt": "2026-05-30T20:04:15.114Z",
+  "humanEvidencePath": "C:\\Users\\razor\\OneDrive\\Desktop\\sylion secure\\docs\\admin-panel-v2\\test-artifacts\\step3-40-pixel-live-human-regression\\human-evidence.json",
+  "humanEvidenceIndexed": {
+    "skipped": true,
+    "reason": "Set SYLION_INDEX_HUMAN_EVIDENCE=true to POST human-evidence.json into Release inventory."
+  }
 }

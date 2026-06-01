@@ -67,6 +67,10 @@ test("customer portal exposes annual B2B pricing and provider status without sec
     assert.ok(pricing.payload.tiers.find((tier) => tier.id === "pro").included.includes("20 isolated workload app environments"));
     assert.ok(pricing.payload.tiers.find((tier) => tier.id === "sovereign").limits.includes("Dedicated provider capacity must be available"));
     assert.ok(pricing.payload.tokenCatalog.some((token) => token.type === "operator_bootstrap_annual"));
+    assert.ok(pricing.payload.purchaseRoutes.some((route) => route.id === "crypto_vault_token"));
+    assert.equal(pricing.payload.resellerProgram.defaultDiscountPercent, 20);
+    assert.match(pricing.payload.tokenSecurity.storage, /SHA-256 token hash/i);
+    assert.match(pricing.payload.rotationPolicy.byTier.sovereign, /Dedicated operator-only/i);
     assert.match(pricing.payload.legalNotice.securityClaim, /does not claim anonymity/i);
 
     const providers = await request(baseUrl, "/portal-api/payment-providers");
@@ -87,6 +91,11 @@ test("customer portal static shell is served under /portal", async () => {
     assert.equal(response.status, 200);
     assert.match(html, /SYLION Secure Portal/);
     assert.match(html, /Payment gateways/);
+    assert.match(html, /Księga 4\.0 operating model/);
+    assert.match(html, /Crypto vault token/);
+    assert.match(html, /Reseller route/);
+    assert.match(html, /Token security/);
+    assert.match(html, /Capacity, tenancy and rotation policy/);
     assert.match(html, /What can be bought or redeemed/);
     assert.match(html, /Selected tier/);
     assert.match(html, /Generate service token/);
