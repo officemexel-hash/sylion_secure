@@ -213,6 +213,298 @@ def internal_addendum() -> str:
     """
 
 
+def _table(headers, rows, css_class=""):
+    head = "".join(f"<th>{base.e(h)}</th>" for h in headers)
+    body = []
+    for row in rows:
+        body.append("<tr>" + "".join(f"<td>{base.e(c)}</td>" for c in row) + "</tr>")
+    klass = f' class="{css_class}"' if css_class else ""
+    return f"<table{klass}><tr>{head}</tr>{''.join(body)}</table>"
+
+
+def security_atlas() -> str:
+    diagrams = []
+    diagrams.append(base.svg(
+        [
+            {"id": "z0", "label": "Zone 0\nPublic Portal", "x": 35, "y": 95, "w": 160, "h": 70},
+            {"id": "z1", "label": "Zone 1\nTerminal", "x": 240, "y": 95, "w": 160, "h": 70},
+            {"id": "z2", "label": "Zone 2\nPuli AX / WAN", "x": 445, "y": 95, "w": 170, "h": 70},
+            {"id": "z3", "label": "Zone 3\nG1/G2", "x": 665, "y": 95, "w": 160, "h": 70},
+            {"id": "z4", "label": "Zone 4\nWorkloads", "x": 870, "y": 95, "w": 160, "h": 70},
+            {"id": "mgmt", "label": "Zone 5\nAdmin/SOC/PKI", "x": 360, "y": 280, "w": 250, "h": 85, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "aud", "label": "Audit/CDR/SIEM\nmetadata only", "x": 705, "y": 280, "w": 250, "h": 85, "fill": "#fff8e8", "stroke": "#e0a100"},
+        ],
+        [
+            ("z0", "mgmt", "token event"),
+            ("z1", "z2", "local link"),
+            ("z2", "z3", "VPN"),
+            ("z3", "z4", "session"),
+            ("z3", "aud", "events"),
+            ("z4", "aud", "CDR"),
+            ("mgmt", "aud", "policy"),
+        ],
+        "A1. Zone model 0-5 i granice zaufania",
+    ))
+    diagrams.append(base.svg(
+        [
+            {"id": "cp", "label": "Control Plane\nAdmin API / policy", "x": 60, "y": 90, "w": 240, "h": 85, "fill": "#eef5ff"},
+            {"id": "dp", "label": "Data Plane\npixel stream / input", "x": 60, "y": 285, "w": 240, "h": 85, "fill": "#eef8f4"},
+            {"id": "prov", "label": "Provisioning\nG1/G2/workload", "x": 390, "y": 90, "w": 230, "h": 85},
+            {"id": "runtime", "label": "Runtime Session\nterminal to app", "x": 390, "y": 285, "w": 230, "h": 85},
+            {"id": "audit", "label": "Audit Plane\nimmutable metadata", "x": 730, "y": 185, "w": 250, "h": 95, "fill": "#fff8e8", "stroke": "#e0a100"},
+        ],
+        [
+            ("cp", "prov", "plans"),
+            ("prov", "runtime", "creates"),
+            ("runtime", "dp", "pixels"),
+            ("cp", "audit", "policy events"),
+            ("runtime", "audit", "session events"),
+            ("prov", "audit", "inventory"),
+        ],
+        "A2. Control plane, data plane i audit plane",
+    ))
+    diagrams.append(base.svg(
+        [
+            {"id": "pay", "label": "Payment fraud\nspoof webhook", "x": 40, "y": 80, "w": 190, "h": 70},
+            {"id": "tok", "label": "Token abuse\nreplay / forge", "x": 310, "y": 80, "w": 190, "h": 70},
+            {"id": "boot", "label": "Bootstrap abuse\nwrong tier", "x": 580, "y": 80, "w": 190, "h": 70},
+            {"id": "infra", "label": "Infra abuse\nprovider mutation", "x": 850, "y": 80, "w": 180, "h": 70},
+            {"id": "ctrl", "label": "Controls\nsignatures, hash,\nidempotency, RBAC", "x": 320, "y": 285, "w": 260, "h": 100, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "evi", "label": "Evidence\nledger + audit", "x": 675, "y": 295, "w": 220, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+        ],
+        [
+            ("pay", "tok", "webhook"),
+            ("tok", "boot", "claim"),
+            ("boot", "infra", "provision"),
+            ("pay", "ctrl", "validate"),
+            ("tok", "ctrl", "one-time"),
+            ("infra", "evi", "log"),
+            ("ctrl", "evi", "proof"),
+        ],
+        "A3. Threat map portalu, tokenów i bootstrapu",
+    ))
+    diagrams.append(base.svg(
+        [
+            {"id": "admin", "label": "Admin account\nphishing / theft", "x": 50, "y": 70, "w": 210, "h": 80},
+            {"id": "rbac", "label": "RBAC / step-up\nleast privilege", "x": 330, "y": 70, "w": 210, "h": 80, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "prov", "label": "Provider secret\nrotation / vault", "x": 610, "y": 70, "w": 210, "h": 80},
+            {"id": "mut", "label": "Mutation gate\nallowlist + cap", "x": 50, "y": 270, "w": 210, "h": 80},
+            {"id": "four", "label": "Four-eyes\ndestructive ops", "x": 330, "y": 270, "w": 210, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+            {"id": "soc", "label": "SOC alert\nanomaly + audit", "x": 610, "y": 270, "w": 210, "h": 80, "fill": "#eef5ff"},
+            {"id": "stop", "label": "Containment\nrevoke / freeze", "x": 855, "y": 170, "w": 180, "h": 85, "fill": "#fdeeee", "stroke": "#b42318"},
+        ],
+        [
+            ("admin", "rbac", "login"),
+            ("rbac", "prov", "secret op"),
+            ("prov", "mut", "request"),
+            ("mut", "four", "if critical"),
+            ("four", "soc", "audit"),
+            ("soc", "stop", "incident"),
+            ("rbac", "stop", "deny"),
+        ],
+        "A4. Admin compromise containment flow",
+    ))
+    diagrams.append(base.svg(
+        [
+            {"id": "term", "label": "Terminal seized\nactive session risk", "x": 40, "y": 90, "w": 210, "h": 80},
+            {"id": "sess", "label": "Session TTL\nre-auth required", "x": 315, "y": 90, "w": 200, "h": 80, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "fido", "label": "FIDO2\npresence check", "x": 580, "y": 90, "w": 190, "h": 80},
+            {"id": "panic", "label": "Panic policy\npredefined levels", "x": 840, "y": 90, "w": 190, "h": 80},
+            {"id": "cert", "label": "Device cert\nrevoke terminal", "x": 190, "y": 285, "w": 210, "h": 80},
+            {"id": "data", "label": "No local data\nthin client", "x": 480, "y": 285, "w": 210, "h": 80, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "risk", "label": "Residual risk\nscreen/input capture", "x": 770, "y": 285, "w": 210, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+        ],
+        [
+            ("term", "sess", "limit"),
+            ("sess", "fido", "renew"),
+            ("fido", "panic", "if duress"),
+            ("term", "cert", "revoke"),
+            ("cert", "data", "contain"),
+            ("data", "risk", "residual"),
+        ],
+        "A5. Terminal seizure attack path",
+    ))
+    diagrams.append(base.svg(
+        [
+            {"id": "wifi", "label": "Rogue Wi-Fi\nEvil twin", "x": 45, "y": 80, "w": 190, "h": 75},
+            {"id": "router", "label": "Puli AX\npaired router", "x": 315, "y": 80, "w": 190, "h": 75},
+            {"id": "vpn", "label": "VPN/Kill switch\nDNS leak block", "x": 585, "y": 80, "w": 210, "h": 75, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "g1", "label": "G1\nposture gate", "x": 865, "y": 80, "w": 165, "h": 75},
+            {"id": "rf", "label": "Cellular metadata\noutside IPsec", "x": 175, "y": 290, "w": 230, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+            {"id": "gov", "label": "RF Lab Governance\nno product executor", "x": 535, "y": 290, "w": 260, "h": 80, "fill": "#eef5ff"},
+        ],
+        [
+            ("wifi", "router", "attempt"),
+            ("router", "vpn", "tunnel"),
+            ("vpn", "g1", "allow/deny"),
+            ("router", "rf", "WAN exposure"),
+            ("rf", "gov", "document risk"),
+        ],
+        "A6. Wi-Fi/router/RF threat boundary",
+    ))
+    diagrams.append(base.svg(
+        [
+            {"id": "g2", "label": "G2 broker\nRCE/session abuse", "x": 60, "y": 95, "w": 230, "h": 80},
+            {"id": "cap", "label": "Session cap\nper operator", "x": 360, "y": 95, "w": 210, "h": 80, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "log", "label": "No content logs\nmetadata only", "x": 640, "y": 95, "w": 230, "h": 80},
+            {"id": "blind", "label": "Blind broker\nE2EE roadmap", "x": 365, "y": 285, "w": 230, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+            {"id": "rebuild", "label": "Rebuild/revoke\nincident response", "x": 675, "y": 285, "w": 230, "h": 80, "fill": "#fdeeee", "stroke": "#b42318"},
+        ],
+        [
+            ("g2", "cap", "limit blast"),
+            ("cap", "log", "audit"),
+            ("log", "blind", "target"),
+            ("g2", "rebuild", "if compromised"),
+            ("blind", "rebuild", "key revoke"),
+        ],
+        "A7. G2 broker compromise and PHANTOM target state",
+    ))
+    diagrams.append(base.svg(
+        [
+            {"id": "app", "label": "App exploit\nbrowser/messenger/doc", "x": 45, "y": 80, "w": 230, "h": 80},
+            {"id": "micro", "label": "MicroVM/container\nisolation boundary", "x": 345, "y": 80, "w": 240, "h": 80, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "host", "label": "Host kernel\nescape risk", "x": 665, "y": 80, "w": 210, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+            {"id": "cdr", "label": "CDR\nfile boundary", "x": 190, "y": 285, "w": 210, "h": 80},
+            {"id": "recreate", "label": "Recreate\nclean image", "x": 480, "y": 285, "w": 210, "h": 80, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "soc", "label": "SOC\nruntime anomaly", "x": 770, "y": 285, "w": 210, "h": 80},
+        ],
+        [
+            ("app", "micro", "contained"),
+            ("micro", "host", "escape attempt"),
+            ("app", "cdr", "file flow"),
+            ("micro", "recreate", "reset"),
+            ("host", "soc", "alert"),
+            ("soc", "recreate", "recover"),
+        ],
+        "A8. Workload exploit containment",
+    ))
+    diagrams.append(base.svg(
+        [
+            {"id": "old", "label": "Operator leaves\njurisdiction", "x": 50, "y": 90, "w": 210, "h": 80},
+            {"id": "freeze", "label": "Freeze\nsessions + keys", "x": 330, "y": 90, "w": 200, "h": 80},
+            {"id": "wipe", "label": "Wipe/reinstall\nsecret destruction", "x": 595, "y": 90, "w": 220, "h": 80},
+            {"id": "att", "label": "Attestation\ncleanup evidence", "x": 860, "y": 90, "w": 180, "h": 80},
+            {"id": "pool", "label": "Return to pool\neligible lower tier", "x": 300, "y": 295, "w": 250, "h": 80, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "ded", "label": "Dedicated requal\nPhantom/Sovereign", "x": 645, "y": 295, "w": 260, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+        ],
+        [
+            ("old", "freeze", "stop"),
+            ("freeze", "wipe", "clean"),
+            ("wipe", "att", "prove"),
+            ("att", "pool", "standard/pro"),
+            ("att", "ded", "high tier gate"),
+        ],
+        "A9. VPS reuse safety lifecycle",
+    ))
+    diagrams.append(base.svg(
+        [
+            {"id": "p1", "label": "Prevent\nRBAC, certs, VPN", "x": 65, "y": 120, "w": 190, "h": 80, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "d1", "label": "Detect\nSIEM, anomaly, CDR", "x": 315, "y": 120, "w": 200, "h": 80, "fill": "#eef5ff"},
+            {"id": "r1", "label": "Respond\nfreeze, revoke, isolate", "x": 585, "y": 120, "w": 210, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+            {"id": "rec", "label": "Recover\nrebuild, rotate, retest", "x": 860, "y": 120, "w": 190, "h": 80},
+            {"id": "evi", "label": "Evidence\nhash chain / WORM target", "x": 380, "y": 300, "w": 280, "h": 80, "fill": "#f7f2ff", "stroke": "#7b61ff"},
+        ],
+        [
+            ("p1", "d1", "telemetry"),
+            ("d1", "r1", "alert"),
+            ("r1", "rec", "action"),
+            ("rec", "evi", "proof"),
+            ("d1", "evi", "audit"),
+        ],
+        "A10. Prevent - detect - respond - recover loop",
+    ))
+
+    threat_rows = [
+        ("Portal webhook spoof", "payment/portal", "free token or wrong tier", "signed webhook, idempotency, token ledger", "double-spend and forged signature tests", "Medium"),
+        ("Token replay/theft", "portal/token", "unauthorized bootstrap", "hash token, one-time claim, expiry, scope", "double claim negative test", "Medium"),
+        ("Admin credential theft", "admin", "provider mutation, operator abuse", "FIDO2/step-up, RBAC, four-eyes, audit", "privilege boundary test", "High"),
+        ("Provider secret leak", "admin/secrets", "infrastructure takeover", "vault adapter, secret refs, no plaintext logs", "secret grep and audit leakage test", "High"),
+        ("Terminal seizure", "Pixel/laptop", "active session access", "session TTL, FIDO2, revoke cert, no local data", "ADB seizure simulation", "High"),
+        ("Rogue Wi-Fi", "Pixel/router", "traffic interception", "router pairing, VPN, kill switch, cert policy", "evil twin negative test", "Medium"),
+        ("Router compromise", "Puli AX", "traffic manipulation", "terminal-to-G1 crypto, kill switch, router hardening", "route/DNS leak tests", "High"),
+        ("G1 compromise", "G1", "pivot to G2 or metadata", "per-operator G1, no app data, revoke/rebuild", "G1 isolation test", "Medium"),
+        ("G2 compromise", "G2", "stream/session exposure", "session cap, no persistence, blind broker roadmap", "no content log test", "High"),
+        ("App exploit", "workload app", "control app env", "Firecracker/container, recreate, CDR", "app exploit containment drill", "High"),
+        ("VM/container escape", "workload host", "host takeover", "kernel hardening, dedicated hosts, monitoring", "escape simulation/lab only", "Critical"),
+        ("File-borne malware", "CDR", "payload transfer", "sanitize, quarantine, hash, allow/deny", "malicious doc test corpus", "High"),
+        ("Provider snapshot", "VPS/bare metal provider", "data/metadata capture", "encryption, minimal state, dedicated tier, rotation", "provider threat review", "High"),
+        ("Insider abuse", "admin/SRE/SOC", "unauthorized action", "RBAC, four-eyes, WORM audit, separation of duties", "dual-control negative test", "High"),
+        ("Metadata correlation", "network/global observer", "operator linkage", "jurisdictional policy, traffic review, OPSEC", "traffic metadata review", "High"),
+        ("Backup exfiltration", "backup", "data theft", "encrypted backup, operator ownership, CDR, access audit", "restore and access test", "Medium"),
+        ("Panic abuse", "operator/admin", "data loss/cover-up", "predefined policy levels, audit, approval gates", "dry-run panic tests", "High"),
+        ("Matrix federation abuse", "Matrix addon", "metadata leak or spam", "federation policy, moderation, Tor/onion governance", "Matrix threat test", "Medium"),
+    ]
+    stride_rows = [
+        ("Portal", "spoofed webhook", "token tamper", "payment denial", "invoice data", "not applicable", "claim abuse"),
+        ("Admin panel", "admin impersonation", "provider policy tamper", "audit dispute", "secret leakage", "service disable", "privilege escalation"),
+        ("Operator panel", "session hijack", "quota tamper", "operator action dispute", "own metadata", "session exhaustion", "access to other operator"),
+        ("Pixel", "device clone", "cert tamper", "local action dispute", "screen/input", "battery/network DoS", "terminal privilege"),
+        ("Puli AX", "router impersonation", "route/DNS tamper", "config dispute", "WAN metadata", "WAN loss", "LAN pivot"),
+        ("G1", "gateway spoof", "VPN policy tamper", "tunnel log dispute", "metadata", "gateway DoS", "pivot to G2"),
+        ("G2", "broker spoof", "session tamper", "stream action dispute", "pixel stream", "session cap exhaustion", "broker RCE"),
+        ("Workload", "app env spoof", "image tamper", "app action dispute", "files/messages", "resource exhaustion", "VM escape"),
+        ("CDR", "policy spoof", "file transform tamper", "decision dispute", "file metadata", "queue DoS", "policy override"),
+        ("Provider", "fake region", "host tamper", "SLA dispute", "snapshots/metadata", "provider outage", "provider admin"),
+    ]
+    controls_rows = [
+        ("Terminal", "no local data, certs, session TTL", "ADB human regression, storage checks", "active compromise exposes current view"),
+        ("Router", "kill switch, DNS leak prevention, VPN to G1", "route loss and DNS leak tests", "baseband and firmware remain residual"),
+        ("G1", "per-operator gateway, no app data", "direct bypass negative tests", "metadata and DoS"),
+        ("G2", "session limits, no content persistence", "storage/log tests", "needs blind broker for PHANTOM"),
+        ("Workload", "Firecracker, recreate, quotas", "app usability and recreate proof", "host escape risk"),
+        ("CDR", "sanitize/quarantine/hash", "malicious corpus tests", "unknown file formats"),
+        ("Admin", "RBAC, step-up, four-eyes", "permission matrix tests", "insider risk"),
+        ("Portal", "signed webhooks, token hash", "payment/token tests", "phishing token theft"),
+        ("Provider", "capability registry, region policy", "provider qualification", "provider metadata"),
+        ("PHANTOM", "human gates, lab-only governance", "evidence review", "not all RF risks solvable in software"),
+    ]
+    comparisons = [
+        ("Isolation model", "Containers", "Firecracker", "Dedicated bare metal", "Confidential computing"),
+        ("Primary strength", "density and cost", "microVM isolation", "physical/logical control", "attested memory protection"),
+        ("Primary weakness", "kernel shared", "host kernel still shared", "cost/provisioning time", "provider/hardware support varies"),
+        ("Use in tiers", "Pilot/Standard", "Pro+", "Phantom/Sovereign", "Phantom/Sovereign when qualified"),
+        ("Evidence required", "container isolation tests", "microVM lifecycle tests", "inventory/attestation", "attestation quote validation"),
+    ]
+    stream_compare = [
+        ("Broker", "Mobile UX", "Security posture", "PHANTOM fit", "Known issue"),
+        ("Guacamole", "good cross-protocol", "broker-visible unless hardened/E2EE added", "intermediate only", "input bridge and clear broker risk"),
+        ("KasmVNC", "good for browser VNC/mobile controls", "TLS/session controls, broker still important", "intermediate candidate", "side menu/keyboard UX"),
+        ("noVNC", "simple", "depends on transport/session wrapper", "lower", "same keyboard/menu issues possible"),
+        ("Custom E2EE/SFrame", "requires build", "best target if keys stay outside broker", "target", "engineering complexity"),
+    ]
+    evidence_rows = [
+        ("E0", "written requirement", "test intent only"),
+        ("E1", "static review", "contract and controls"),
+        ("E2", "unit/contract tests", "API invariants"),
+        ("E3", "integration tests", "multi-module behavior"),
+        ("E4", "live metadata probes", "path health and reachability"),
+        ("E5", "human/ADB interaction", "actual usability"),
+        ("E6", "negative security tests", "boundary enforcement"),
+        ("E7", "repeatable regression", "release confidence"),
+        ("E8", "human gate", "approval state, not new evidence"),
+    ]
+    html = [
+        '<section class="atlas">',
+        '<h1>SECURITY & ARCHITECTURE ATLAS — grafy, macierze, porównania</h1>',
+        '<p>Ten atlas jest warstwą wizualną Księgi 4.0. Pokazuje granice zaufania, wektory zagrożeń, przepływy obronne, porównania technologiczne i dowody wymagane do uznania funkcji za działającą. Diagramy są defensywne i audytowe; nie są instrukcjami obchodzenia zewnętrznych systemów kontroli.</p>',
+        "".join(diagrams),
+        '<h2>A11. Macierz głównych wektorów zagrożeń</h2>',
+        _table(["Wektor", "Powierzchnia", "Cel atakującego", "Kontrole", "Dowód/test", "Ryzyko"], threat_rows, "wide"),
+        '<h2>A12. STRIDE per komponent</h2>',
+        _table(["Komponent", "Spoofing", "Tampering", "Repudiation", "Information disclosure", "DoS", "Elevation"], stride_rows, "wide"),
+        '<h2>A13. Kontrole, dowody i ryzyka rezydualne</h2>',
+        _table(["Warstwa", "Kontrole", "Dowód", "Ryzyko rezydualne"], controls_rows, "wide"),
+        '<h2>A14. Porównanie izolacji workloadów</h2>',
+        _table(["Kryterium", "Kontenery", "Firecracker", "Dedicated bare metal", "Confidential computing"], comparisons, "wide"),
+        '<h2>A15. Porównanie brokerów streamingu</h2>',
+        _table(["Broker", "Mobile UX", "Security posture", "PHANTOM fit", "Known issue"], stream_compare, "wide"),
+        '<h2>A16. Hierarchia dowodów testowych</h2>',
+        _table(["Poziom", "Dowód", "Co może potwierdzić"], evidence_rows, "wide"),
+        '</section>',
+    ]
+    return "\n".join(html)
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     baseline_html, baseline_meta = base.extract_docx_html(
@@ -238,6 +530,7 @@ def main() -> None:
     """
     body = "\n".join([
         internal_addendum(),
+        security_atlas(),
         base.front_matter(),
         base.diagrams_html(),
         base.generated_reference_sections(),
