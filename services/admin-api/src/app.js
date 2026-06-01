@@ -35,6 +35,7 @@ import { buildLiveBaselineUserData, liveBaselineArtifactSummary } from "./module
 import { SecurityProfileService } from "./modules/security/securityProfileService.js";
 import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
 import { RouterReadinessService } from "./modules/router/routerReadinessService.js";
+import { TerminalAdmissionPolicyService } from "./modules/terminalAdmission/terminalAdmissionPolicyService.js";
 import { BillingPortalService } from "./modules/billingPortal/billingPortalService.js";
 import { ROLES } from "./domain/constants.js";
 import { AppError, validationError } from "./lib/errors.js";
@@ -912,6 +913,14 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     devices,
     store
   });
+  const terminalAdmission = new TerminalAdmissionPolicyService({
+    audit,
+    rbac,
+    operators,
+    devices,
+    routerReadiness,
+    store
+  });
   const operatorPortal = new OperatorPortalService({
     audit,
     rbac,
@@ -966,6 +975,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     operatorEnvironments,
     securityProfiles,
     routerReadiness,
+    terminalAdmission,
     operatorPortal,
     billingPortal
   };
@@ -2815,6 +2825,60 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           correlationId
         });
         return send(res, 201, { posture });
+      }
+
+      if (req.method === "GET" && url.pathname === "/cellular/inventory") {
+        return send(res, 200, {
+          inventory: terminalAdmission.listCellularInventory({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const cellularInventoryMatch = url.pathname.match(/^\/operators\/([^/]+)\/cellular-inventory$/);
+      if (req.method === "POST" && cellularInventoryMatch) {
+        const body = await readJson(req);
+        const inventory = terminalAdmission.recordCellularInventory({
+          actor,
+          operatorId: cellularInventoryMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { inventory });
+      }
+
+      if (req.method === "POST" && url.pathname === "/cellular/policy/evaluate-action") {
+        const body = await readJson(req);
+        const decision = terminalAdmission.assertCellularActionAllowed({
+          actor,
+          ...body,
+          correlationId
+        });
+        return send(res, 200, { decision });
+      }
+
+      if (req.method === "GET" && url.pathname === "/terminal-admissions") {
+        return send(res, 200, {
+          admissions: terminalAdmission.listTerminalAdmissions({
+            actor,
+            operatorId: url.searchParams.get("operatorId"),
+            correlationId
+          })
+        });
+      }
+
+      const terminalAdmissionMatch = url.pathname.match(/^\/operators\/([^/]+)\/terminal-admission\/evaluate$/);
+      if (req.method === "POST" && terminalAdmissionMatch) {
+        const body = await readJson(req);
+        const admission = terminalAdmission.evaluateTerminalAdmission({
+          actor,
+          operatorId: terminalAdmissionMatch[1],
+          ...body,
+          correlationId
+        });
+        return send(res, 201, { admission });
       }
 
       if (req.method === "POST" && url.pathname === "/devices") {

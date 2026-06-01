@@ -90,6 +90,8 @@ export const RESOURCE_TYPES = Object.freeze({
   SECURITY_PROFILE: "security_profile",
   OPERATOR_PORTAL_SESSION: "operator_portal_session",
   TERMINAL_CONNECTION_PROFILE: "terminal_connection_profile",
+  TERMINAL_ADMISSION: "terminal_admission",
+  CELLULAR_INVENTORY: "cellular_inventory",
   ROUTER_PACKAGE: "router_package",
   ROUTER_POSTURE: "router_posture",
   DISPOSABLE_OPERATOR_TEARDOWN: "disposable_operator_teardown"

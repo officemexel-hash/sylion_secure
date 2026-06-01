@@ -102,9 +102,9 @@ Per ADR-001 §"Gate Table":
 
 ## Co setup NIE robi
 
-- **IMEI/IMSI override** — to PHANTOM `[A]` profile per ADR-002, **Legal-gated**, **out of scope** tego setup
+- **IMEI/IMSI override / SIM programming** — not implemented in SYLION product code. Public-network IMEI/IMSI/Ki/OPc manipulation is forbidden by policy. The supported model is cellular inventory, legal SIM/profile lifecycle, and router/G1 admission based on certificates, posture and FIDO2.
 - **Production deployment** — to lab setup; production wymaga custom firmware build (ADR-004) + signing pipeline + Verified Boot
-- **eSIM Management automation** — manual via panel/lpac per PHANTOM §16
+- **eSIM Management automation** — legal provider profile lifecycle may be represented as inventory metadata, but automatic public-network identity spoofing is out of scope.
 - **Tamper-evident chassis** — hardware feature, nie konfiguracja
 - **Production HSM integration** — Phase B (ADR-vault-adapter-001)
 
@@ -115,6 +115,24 @@ Jeśli setup popsuje router:
 1. Hard reset Puli AX (przytrzymaj reset button 10s na włączonym)
 2. Re-flash stock firmware via web installer (GL.iNet recovery image)
 3. Patrz `docs/operator-onboarding/puli-ax-recovery.md` (TBD)
+
+## Cellular Inventory And Admission
+
+Supported router cellular workflow:
+
+```bash
+npm run test:puli-ax-authenticated-inventory
+```
+
+This captures metadata only:
+
+- modem model and firmware,
+- SIM/provider status,
+- hashed ICCID/IMEI/IMSI when readable,
+- signal/registration metadata,
+- router posture evidence.
+
+Raw identifiers, SIM secrets, Ki/OPc material, message contents and payload data are not written to audit or committed to the repo. Terminal admission is enforced by the Admin API policy layer: Pixel + Puli AX + FIDO2 + router posture must match before the operator path is eligible for G1/G2 access.
 
 ## Po setup co dalej
 
