@@ -222,6 +222,88 @@ def _table(headers, rows, css_class=""):
     return f"<table{klass}><tr>{head}</tr>{''.join(body)}</table>"
 
 
+def _detail_card(title: str, fields: list[tuple[str, str]], klass: str = "") -> str:
+    class_attr = f' detail-card {klass}'.strip()
+    rows = []
+    for label, value in fields:
+        rows.append(
+            f'<div class="detail-field"><div class="detail-label">{base.e(label)}</div>'
+            f'<div class="detail-value">{base.e(value)}</div></div>'
+        )
+    return f'<article class="{class_attr}"><h3>{base.e(title)}</h3>{"".join(rows)}</article>'
+
+
+def _detail_cards(cards: list[tuple[str, list[tuple[str, str]]]], klass: str = "") -> str:
+    return "\n".join(_detail_card(title, fields, klass) for title, fields in cards)
+
+
+def internal_extra_css() -> str:
+    return """
+    body { font-size: 10.4pt; line-height: 1.62; }
+    p { margin: 8px 0; }
+    table { page-break-inside: auto; break-inside: auto; }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    .wide { font-size: 7.4pt; line-height: 1.28; }
+    .toc { page-break-before: always; }
+    .toc table { font-size: 8.8pt; }
+    .toc td:first-child { width: 28%; font-weight: 700; color: #0a3558; }
+    .detail-card {
+      border: 1px solid #c6d2dd;
+      border-left: 5px solid #2f80ed;
+      background: #fbfdff;
+      padding: 10px 12px;
+      margin: 10px 0 14px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .detail-card h3 {
+      margin-top: 0;
+      color: #082340;
+      font-size: 12.2pt;
+      border-bottom: 1px solid #d8e3ed;
+      padding-bottom: 4px;
+    }
+    .detail-field { margin: 7px 0; }
+    .detail-label { font-weight: 700; color: #0a3558; margin-bottom: 2px; }
+    .detail-value { color: #172033; }
+    .module-detail { page-break-before: always; }
+    .module-detail h2 { font-size: 16pt; border-bottom: 1px solid #d8e3ed; padding-bottom: 5px; }
+    .risk-card { border-left-color: #b42318; background: #fffafa; }
+    .portal-card { border-left-color: #25a18e; background: #fbfffd; }
+    .gate-card { border-left-color: #e0a100; background: #fffdf6; }
+    .compact-list { margin: 6px 0 10px 18px; }
+    """
+
+
+def static_table_of_contents() -> str:
+    rows = [
+        ("0", "Strictly Internal cover", "Klasyfikacja, zakres, ograniczenia i bezpieczne granice dokumentu."),
+        ("INT-1", "Executive Technical Baseline", "Mapa modułów, ownerów, wejść, wyjść i release gates."),
+        ("INT-2", "Portal Runbook", "Pierwszy, skrócony runbook portalu i testów płatności/tokenów."),
+        ("INT-3", "Admin Panel Runbook", "Zakładki, zasady, RBAC, providerzy, koszty, subskrypcje, CDR i monitoring."),
+        ("INT-4", "Operator Panel Runbook", "Środowiska aplikacji, streaming, sesje, backup, panic, rotacja i Matrix."),
+        ("INT-5", "G1/G2 Runbook", "Gateway, broker, brak bypassu, dowody tuneli i session caps."),
+        ("INT-6", "Workload i Firecracker", "Lifecycle środowisk, aplikacje, tryby desktop/native, recreate proof."),
+        ("INT-7", "Pixel, Puli AX i terminal admission", "Terminal, router, certyfikaty, pakiety i PHANTOM admission."),
+        ("INT-8", "Monitoring, CDR i incident response", "Metadane, alerty, CDR, playbooki i granice widoczności."),
+        ("INT-9", "PHANTOM Internal Annex Boundary", "Rozdział baseline, governance, lab-only i restricted SOP."),
+        ("A", "Security & Architecture Atlas", "Diagramy, STRIDE, wektory zagrożeń, kontrola izolacji i brokerów."),
+        ("B", "Księga SYLION v3.4 FIXED import", "Pełny import źródłowej Księgi 3.4 dla traceability."),
+        ("C", "PHANTOM v3.0 source index", "Indeks struktury PHANTOM i rozdzielenie warstw [A]/governance."),
+        ("X", "Portal zakupowy, płatności, tokeny i resellerzy", "B2C, B2B, crypto, Stripe, CoinGate, Mollie, token lifecycle, UI i privacy."),
+        ("Z", "Końcowe porównanie i panel administratora", "3.4 vs PHANTOM vs 4.0, admin console, blue-team observation, KPI/SLO."),
+        ("Y", "Scenariusze ataków i obrona per tier", "Attack paths, Pilot/Standard/Pro/Phantom/Sovereign, residual risks i testy."),
+        ("W", "Rozszerzony masterplan modułów i testów", "Szczegółowe opisy modułów, workflow, dane, kontrole, awarie i kryteria odbioru."),
+    ]
+    return "\n".join([
+        '<section class="toc">',
+        '<h1>SPIS TREŚCI TECHNICZNY</h1>',
+        '<p>Spis treści jest statyczną mapą wewnętrznej Księgi 4.0. Wersja PDF generowana przez Chromium nie ma automatycznych numerów stron w treści, dlatego ten spis pełni rolę mapy sekcji, a nie indeksu stron.</p>',
+        _table(["Sekcja", "Nazwa", "Zakres"], rows, "wide"),
+        '</section>',
+    ])
+
+
 def security_atlas() -> str:
     diagrams = []
     diagrams.append(base.svg(
@@ -964,6 +1046,22 @@ def tiered_threat_analysis_appendix() -> str:
         ],
         "Y1. Threat scenarios resolved by tier, controls and evidence",
     )
+    scenario_cards = [
+        (
+            f"Scenariusz ataku: {scenario}",
+            [
+                ("Ścieżka ataku", attack_path),
+                ("Pilot / Standard", low_tiers),
+                ("Pro", pro),
+                ("Phantom / Sovereign", high_tiers),
+                ("Ryzyko rezydualne", residual),
+                ("Dowód i test", evidence),
+                ("Wymagany zapis w panelu admina", "Alert albo test musi być widoczny w Monitoring/SOC z timestamp, operator_id, affected component, severity, action owner i statusem postmortem. Panel nie pokazuje treści operatora ani sekretów."),
+                ("Reguła statusu", "Dopóki test nie przejdzie na realnej ścieżce albo w kontrolowanym labie, scenariusz pozostaje status=partial/blocked i nie może być opisany jako fully protected."),
+            ],
+        )
+        for scenario, attack_path, low_tiers, pro, high_tiers, residual, evidence in scenario_rows
+    ]
 
     return "\n".join([
         '<section class="appendix-threats">',
@@ -976,7 +1074,10 @@ def tiered_threat_analysis_appendix() -> str:
         _table(["Kontrola", "Pilot", "Standard", "Pro", "Phantom", "Sovereign"], control_depth_rows, "wide"),
         '<h2>Y3. Scenariusze ataków, obrona i testy</h2>',
         _table(["Scenariusz", "Ścieżka ataku", "Pilot/Standard", "Pro", "Phantom/Sovereign", "Ryzyko rezydualne", "Dowód/test"], scenario_rows, "wide"),
-        '<h2>Y4. Reguła interpretacji</h2>',
+        '<h2>Y4. Szczegółowe karty scenariuszy ataku</h2>',
+        '<p>Tabela Y3 jest szybkim porównaniem. Karty Y4 są wersją operacyjną: każda wskazuje, co musi być widoczne w panelu admina, gdzie kończy się ochrona danego tieru i jaki dowód jest wymagany.</p>',
+        _detail_cards(scenario_cards, "risk-card"),
+        '<h2>Y5. Reguła interpretacji</h2>',
         '<ul>',
         '<li>Pilot i Standard mają chronić przed typowymi błędami, malware, nadużyciami tokenów, podstawowym session abuse i izolować operatorów przez G1/G2 oraz CDR.</li>',
         '<li>Pro jest pierwszym tierem, w którym Firecracker i silniejsza izolacja workloadu powinny być traktowane jako istotny mechanizm redukcji ryzyka, a nie tylko optymalizacja infrastruktury.</li>',
@@ -1266,6 +1367,60 @@ def portal_commerce_token_appendix() -> str:
         ("Privacy", "No card data, seed, plaintext token or provider secret appears in logs/admin UI.", "log grep + UI inspection"),
         ("Portal isolation", "Portal VPS cannot reach operator stream/admin routes except narrow token/provisioning API.", "network negative test"),
     ]
+    perspective_cards = [
+        (
+            f"Perspektywa portalu: {name}",
+            [
+                ("Cel biznesowy", goal),
+                ("Funkcjonalność wymagana w UI", functions),
+                ("Obsługa i odzyskanie", recovery),
+                ("Granice prywatności i claimy", privacy),
+                ("Test akceptacyjny", "Przejść cały flow w Playwright: wybór tieru, płatność sandbox albo symulowana, emisja tokenu, claim, paczka, bootstrap event i wpis WORM audit."),
+            ],
+        )
+        for name, goal, functions, recovery, privacy in perspective_rows
+    ]
+    gateway_cards = [
+        (
+            f"Adapter płatności: {provider}",
+            [
+                ("Rola w platformie", role),
+                ("Zakres metod", scope),
+                ("Wymagane kontrole", controls),
+                ("Uwagi prawno-prywatnościowe", notes),
+                ("Failure modes", "Provider timeout, webhook duplicate, status mismatch, chargeback/refund request, manual dispute, underpayment albo expired checkout. Każdy przypadek musi mieć deterministyczny stan order i brak nieautoryzowanej emisji tokenu."),
+                ("Dowody produkcyjne", "Log idempotency key, provider event id, verified status fetch, token ledger event, audit actor=system/provider-adapter."),
+            ],
+        )
+        for provider, role, scope, controls, notes in gateway_rows
+    ]
+    token_cards = [
+        (
+            f"Token: {token_type}",
+            [
+                ("Cel", purpose),
+                ("Scope i entitlement", scope),
+                ("Reguła użycia", usage),
+                ("Efekt systemowy", effect),
+                ("Wymagany zapis audytowy", "token_id, token_type, status transition, actor, claim_id/order_id, entitlement_version, package_manifest_hash jeżeli dotyczy."),
+                ("Negatywny test", "Token po użyciu, po expiry, z błędnym checksum, z błędnym scope albo przypisany do innego resellera musi zostać odrzucony bez ujawniania, który element był poprawny."),
+            ],
+        )
+        for token_type, purpose, scope, usage, effect in token_type_rows
+    ]
+    ui_cards = [
+        (
+            f"Widok portalu: {view}",
+            [
+                ("Co użytkownik widzi", content),
+                ("Co użytkownik może zrobić", actions),
+                ("Wymóg projektowy", requirement),
+                ("Helptipy i legal wording", "Każda decyzja wpływająca na prywatność, cenę, minimalny okres, brak refundu, crypto traceability, reseller handoff albo PHANTOM verification gate wymaga krótkiego helptipu i linku do pełnego opisu."),
+                ("Test UI", "Desktop i mobile: brak overflow tekstu, czytelne porównanie tierów, dostępne CTA, poprawne error states, brak lokalnych adresów typu 127.0.0.1 w flow produkcyjnym."),
+            ],
+        )
+        for view, content, actions, requirement in ui_rows
+    ]
 
     portal_flow = base.svg(
         [
@@ -1321,6 +1476,203 @@ def portal_commerce_token_appendix() -> str:
         '<h2>X10. Źródła adapterów płatności</h2>',
         '<p>Źródła sprawdzone na potrzeby aneksu w dniu 2026-06-01. Warunki dostępności metod płatności i crypto zależą od onboardingu merchant, jurysdykcji, walut, risk review i aktualnych zasad providera.</p>',
         _table(["Provider", "Zakres źródła", "URL"], source_rows, "wide"),
+        '<h2>X11. Szczegółowe perspektywy portalu</h2>',
+        '<p>Poniższe karty rozwijają funkcjonalność portalu z punktu widzenia faktycznych użytkowników i zespołów operacyjnych. Każda perspektywa ma oddzielne testy, bo portal prywatny, B2B i resellerowski mają różne dane, ryzyka i ścieżki odzyskania.</p>',
+        _detail_cards(perspective_cards, "portal-card"),
+        '<h2>X12. Szczegółowe adaptery płatności</h2>',
+        '<p>Adapter płatności nie może samodzielnie tworzyć operatora. Jego jedynym skutkiem jest zweryfikowany payment event, który po przejściu ledger lock pozwala wyemitować token. Token claim dopiero uruchamia provisioning.</p>',
+        _detail_cards(gateway_cards, "portal-card"),
+        '<h2>X13. Szczegółowe typy tokenów</h2>',
+        '<p>Token jest kontraktem dostępu do określonej funkcji, nie kontem klienta. Każdy token ma scope, typ, expiry, status, źródło płatności albo źródło resellerskie i niezmienny audit trail.</p>',
+        _detail_cards(token_cards, "portal-card"),
+        '<h2>X14. Szczegółowe widoki i wymagania UI</h2>',
+        '<p>Portal ma być publiczny, czytelny i kompletny. Najważniejszy ekran to nie landing page marketingowy, tylko konfigurator zakupu i redeem token. Użytkownik musi zrozumieć tier, cenę, minimalny okres, konsekwencje prywatności i dalszy bootstrap.</p>',
+        _detail_cards(ui_cards, "portal-card"),
+        '</section>',
+    ])
+
+
+def deep_operational_masterplan_appendix() -> str:
+    modules = [
+        ("Portal Commerce", "Publiczny zakup tokenów, konfiguracja tierów, wybór płatności, claim tokenu i wejście do bootstrapu operatora.", "Portal, Token Ledger, Payment Adapters, Admin API"),
+        ("Payment Adapters", "Wspólna warstwa Stripe, CoinGate, Mollie i manual invoice, bez logiki tworzenia operatora wewnątrz adaptera.", "Portal, Token Ledger, Finance, Audit"),
+        ("Token Ledger", "Jedno źródło prawdy dla tokenów, claimów, statusów, batchy resellerskich i powiązania z entitlement.", "Portal, Admin, Reseller Console, Provisioning"),
+        ("Reseller Console", "Obsługa partnerów, batchy tokenów, rabatu, sprzętu, statusów unclaimed/claimed i rozliczeń.", "Portal, Token Ledger, Finance, Audit"),
+        ("Admin Dashboard", "Główna konsola systemu: operatorzy, koszty, alerty, gates, status providerów i capacity.", "Admin API, Monitoring, Providers, Subscriptions"),
+        ("Provider Registry", "Rejestr providerów VPS/bare metal, krajów, cen, capabilities, KVM, Firecracker, TDX, SEV-SNP i statusu API.", "Admin, Provisioning, Rotation, Cost Engine"),
+        ("Subscription Policy", "Wersjonowane polityki tierów, limity środowisk, rotacje, dedykacja zasobów i minimalne okresy subskrypcji.", "Portal, Admin, Operator Panel, Provisioning"),
+        ("Operator Registry", "Rejestr operatorów, statusów, tierów, kosztów, expiry, device binding, G1/G2/workload i ryzyka.", "Admin, Operator Panel, Monitoring, Audit"),
+        ("Operator Panel Shell", "Panel pracy operatora: aplikacje, sesja, licznik TTL, Workload Control, settings, backup, panic, Matrix i rotacja.", "Operator API, G2, Workloads, Device Admission"),
+        ("Pixel Package", "Paczka startowa dla GrapheneOS/Pixel: CA, profile, skróty, browser policy i ścieżka do operator panel.", "Portal Claim, Admin Provisioning, Device Inventory"),
+        ("Puli AX Package", "Paczka routera: VPN do G1, kill switch, DNS leak prevention, telemetryka health i restart recovery.", "Router UI/API, G1, Device Inventory, Monitoring"),
+        ("Device Admission", "Warstwa dopuszczająca terminal/router/FIDO2/HSM policy do sesji, bez zaufania do samego urządzenia.", "Pixel, Puli AX, G1, PKI, Operator Panel"),
+        ("G1 Gateway", "Indywidualny gateway operatora, przyjmujący tylko dopuszczony ruch i nieprzechowujący danych aplikacyjnych.", "Puli AX, G2, PKI, Monitoring"),
+        ("G2 Session Broker", "Broker sesji i streamingu do workloadu, z limitami połączeń, brakiem persistence i roadmapą blind broker.", "G1, Workload Orchestrator, Operator Panel"),
+        ("Streaming/Input Bridge", "Warstwa obrazu i wejścia: dopasowanie do Pixela/laptopa, klawiatura, scroll, app switching i powrót do panelu.", "G2, Workload Apps, Pixel Browser, Laptop Browser"),
+        ("Workload Orchestrator", "Planowanie, uruchamianie, recreate, destroy i status środowisk aplikacyjnych zgodnie z entitlement.", "Admin, Operator Panel, Firecracker Host Pool, App Catalog"),
+        ("Firecracker Host Pool", "Bare-metal/KVM pool dla microVM, izolacja tenantów, host quarantine, capacity i evidence isolation.", "Provider Registry, Workload Orchestrator, Monitoring"),
+        ("Application Catalog", "Globalny katalog autoryzowanych aplikacji i trybów: desktop, web, Android-native, limited/works/broken.", "Admin, Operator Panel, Workload Images"),
+        ("Application Environments", "Instancje komunikatorów i narzędzi: Signal, Telegram, WhatsApp, Threema, Zangi, DuckDuckGo, LibreOffice, Exodus.", "Workload Orchestrator, Streaming, CDR, Monitoring"),
+        ("CDR Pipeline", "Granica transferu plików: allow/deny/quarantine, hash, transform, unsupported formats i evidence chain.", "Operator Panel, Workloads, Admin SOC"),
+        ("Matrix Server Addon", "Opcjonalny własny Matrix, polityka federacji, CDR, monitoring metadanych i add-on billing.", "Operator Panel, Workloads, Provider Registry"),
+        ("Backup/Panic Policy", "Backup operatora, restore, inactivity wipe, panic levels i legal pre-approval dla działań destrukcyjnych.", "Operator Panel, Admin, Audit, Storage"),
+        ("Jurisdiction Rotation", "Rotacja krajów/providerów według tieru, reuse sanitized pools i dedykacja wyższych tierów.", "Subscription Policy, Provider Registry, G1/G2, Workloads"),
+        ("Monitoring/SIEM", "Blue-team metadane bez treści: health, route, auth, CDR, provider, cost, workload, anomaly score.", "All Components, Admin Dashboard, Incident Response"),
+        ("Anomaly Engine", "Ocena P0-P3 z sygnałów routingu, kluczy, CDR, workload, providerów i admin actions.", "Monitoring, Admin, Audit, Incident Response"),
+        ("Incident Response", "Containment, revoke, rebuild, rotate, quarantine, postmortem i ownerzy dla każdego alertu.", "Admin, Monitoring, G1/G2, Workloads, Audit"),
+        ("Audit/WORM Evidence", "Niezmienny zapis tokenów, płatności, admin actions, provisioning, CDR, incidents i release gates.", "Portal, Admin, Operator, SRE, SOC"),
+        ("PKI/HSM/FIDO2", "CA, certyfikaty, device certs, step-up, HSM/FIDO2 UI i późniejsze hardware acceptance tests.", "Admin, Device Admission, G1/G2, Operator Security"),
+        ("Cost Engine", "Koszt operatora: G1, G2, workload, bare metal share, transfer, storage, add-ons i provider capacity.", "Provider Registry, Subscriptions, Admin Dashboard"),
+        ("Human Regression Lab", "Testy jak człowiek przez Pixel/laptop: klik, wpisywanie, scroll, aplikacje, reset, streaming, przełączanie.", "Pixel ADB, Playwright, Operator Panel, Workloads"),
+        ("Release Gates", "System decyzyjny works/partial/blocked oparty o E0-E8, testy negatywne, dowody i human gate.", "All Modules, Admin, Audit"),
+    ]
+    module_rows = [(name, purpose, deps) for name, purpose, deps in modules]
+    module_map = base.svg(
+        [
+            {"id": "portal", "label": "Portal\npayments + tokens", "x": 35, "y": 85, "w": 170, "h": 75, "fill": "#eef5ff"},
+            {"id": "admin", "label": "Admin\ncontrol plane", "x": 270, "y": 85, "w": 170, "h": 75, "fill": "#eef5ff"},
+            {"id": "operator", "label": "Operator Panel\nsession + apps", "x": 505, "y": 85, "w": 190, "h": 75},
+            {"id": "device", "label": "Pixel + Puli AX\nadmission", "x": 760, "y": 85, "w": 205, "h": 75},
+            {"id": "g1", "label": "G1\nper operator", "x": 155, "y": 250, "w": 145, "h": 75},
+            {"id": "g2", "label": "G2\nsession broker", "x": 370, "y": 250, "w": 160, "h": 75},
+            {"id": "workload", "label": "Workloads\nFirecracker/apps", "x": 600, "y": 250, "w": 190, "h": 75},
+            {"id": "audit", "label": "CDR/SIEM/Audit\nmetadata + evidence", "x": 280, "y": 400, "w": 245, "h": 80, "fill": "#fff8e8", "stroke": "#e0a100"},
+            {"id": "providers", "label": "Providers/Cost\ncapacity + regions", "x": 615, "y": 400, "w": 220, "h": 80, "fill": "#eef8f4", "stroke": "#25a18e"},
+        ],
+        [
+            ("portal", "admin", "bootstrap event"),
+            ("admin", "operator", "entitlement"),
+            ("operator", "device", "terminal flow"),
+            ("device", "g1", "VPN"),
+            ("g1", "g2", "tunnel"),
+            ("g2", "workload", "stream"),
+            ("workload", "audit", "CDR/events"),
+            ("admin", "audit", "policy"),
+            ("providers", "g1", "capacity"),
+            ("providers", "workload", "bare metal"),
+        ],
+        "W1. Masterplan modułów i zależności wdrożeniowych",
+    )
+    release_rows = [
+        ("E0", "Opis wymagań", "Sekcja Księgi, ADR, user story", "Nie potwierdza działania."),
+        ("E1", "Static review", "Review architektury, threat model, legal/compliance wording", "Nie potwierdza runtime."),
+        ("E2", "Unit/API contract", "Testy funkcji i schematów API", "Nie potwierdza integracji."),
+        ("E3", "Integration", "Portal->token->admin, operator->workload, CDR flow", "Nie potwierdza UX człowieka."),
+        ("E4", "Live metadata probe", "Rzeczywisty health path i reachability", "Nie potwierdza usability."),
+        ("E5", "Human regression", "Pixel/laptop klikany jak człowiek", "Warunek dla aplikacji i streamingu."),
+        ("E6", "Negative security", "Bypass denied, forged webhook denied, double claim denied", "Warunek dla granic bezpieczeństwa."),
+        ("E7", "Repeatable regression", "Automatyczny, powtarzalny zestaw testów", "Warunek przed release."),
+        ("E8", "Human gate", "Akceptacja CISO/legal/owner", "Nie zastępuje testów technicznych."),
+    ]
+    phase_rows = [
+        ("Faza 1", "Portal, token ledger, payment adapters", "Signed webhook, one-time token, B2C/B2B/reseller flows."),
+        ("Faza 2", "Admin core i provider registry", "Provider capabilities, subscriptions, operator table, audit."),
+        ("Faza 3", "Operator panel i workload control", "App launcher, recreate, session TTL, backup/panic UI."),
+        ("Faza 4", "Pixel/Puli/G1/G2 path", "Real route evidence, DNS leak prevention, no bypass."),
+        ("Faza 5", "Workload isolation i aplikacje", "DuckDuckGo, LibreOffice, communicators, Exodus, app state labels."),
+        ("Faza 6", "CDR, backup, Matrix, rotation", "File corpus, Matrix addon, rotation policy, cleanup proof."),
+        ("Faza 7", "SOC, anomaly, IR", "P0-P3 alerts, incident workflows, WORM evidence."),
+        ("Faza 8", "HSM/FIDO2/router final hardening", "Hardware acceptance, step-up, PHANTOM gates."),
+    ]
+    module_sections = []
+    for idx, (name, purpose, deps) in enumerate(modules, start=1):
+        module_sections.append(
+            "\n".join([
+                f'<section class="module-detail"><h2>W{idx}. {base.e(name)}</h2>',
+                f'<p>{base.e(purpose)}</p>',
+                _detail_card(
+                    "Zakres funkcjonalny",
+                    [
+                        ("Cel modułu", purpose),
+                        ("Użytkownik lub system", "Portal/Admin/Operator/SRE/SOC zależnie od modułu; odpowiedzialność musi być przypisana w backlogu i release gate."),
+                        ("Główne zależności", deps),
+                        ("Wyjście modułu", "Stan systemowy możliwy do sprawdzenia przez API, UI, audit event i test automatyczny. Moduł nie może opierać się na ręcznej deklaracji bez dowodu."),
+                    ],
+                ),
+                _detail_card(
+                    "Ekrany, API i dane",
+                    [
+                        ("Ekrany/UI", f"{name} musi mieć widok listy/statusu, widok szczegółu, stany loading/error/empty oraz jasne akcje operatora/admina, jeżeli moduł ma interakcję człowieka."),
+                        ("API", "Każda mutacja ma endpoint idempotentny albo jawnie transakcyjny, walidację wejścia, RBAC, audit actor, request_id i correlation_id."),
+                        ("Model danych", "Encje muszą mieć ownera tenant/operator, status lifecycle, created/updated timestamps, policy_version i bezpieczne pola do audytu bez sekretów."),
+                        ("Sekrety", "Sekrety nie są wyświetlane po zapisie. UI pokazuje configured/not configured, fingerprint, serial albo publiczny identifier."),
+                    ],
+                ),
+                _detail_card(
+                    "Kontrole bezpieczeństwa",
+                    [
+                        ("RBAC i step-up", "Operacje krytyczne wymagają roli, step-up albo four-eyes. Działania PHANTOM wymagają human gate i oddzielnej akceptacji ryzyka."),
+                        ("Granice danych", "Moduł nie może ujawniać treści wiadomości, seedów, haseł, kodów SMS, kluczy prywatnych ani zawartości prywatnych plików operatora."),
+                        ("Audit", "Każda mutacja zapisuje WORM event: actor, action, target, safe diff, reason, result i correlation_id."),
+                        ("Fail closed", "Przy braku policy, braku providera, braku certyfikatu, błędzie webhooka albo braku tunelu moduł ma blokować akcję zamiast tworzyć stan niejawny."),
+                    ],
+                    "gate-card",
+                ),
+                _detail_card(
+                    "Awarie i scenariusze naprawy",
+                    [
+                        ("Typowe awarie", "Timeout, provider API failure, stale policy, quota exceeded, missing package, stream unreachable, race condition, failed audit write, out-of-capacity."),
+                        ("Reakcja systemu", "Status przechodzi do failed/blocked/partial z czytelnym kodem błędu. Retry musi być idempotentny i widoczny w admin panelu."),
+                        ("Rollback", "Rollback nie może usuwać evidence. Przy działaniach destrukcyjnych najpierw zamrożenie i zapis decyzji, potem dopiero wykonanie policy."),
+                        ("Obsługa support", "Support widzi stan i metadane, ale nie widzi sekretów ani prywatnej treści operatora."),
+                    ],
+                ),
+                _detail_card(
+                    "Obserwowalność w panelu administratora",
+                    [
+                        ("Status główny", f"Moduł {name} musi raportować healthy/degraded/blocked, ostatnią zmianę stanu, ownera, wpływ na operatorów i link do ostatniego audytu."),
+                        ("Metryki", "Minimalne metryki: success rate, latency p50/p95/p99, error rate, queue depth lub active sessions, koszt/capacity jeżeli dotyczy oraz liczba alertów P0-P3."),
+                        ("Alerty", "Alert musi mieć severity, short reason, affected tenant/operator, affected component, first_seen, last_seen, runbook link, owner i możliwą akcję containment."),
+                        ("Zakaz", "Panel nie może rozwiązywać problemu przez pokazanie sekretu, plaintext tokenu, seed, prywatnego pliku, treści wiadomości ani nagrania streamu."),
+                    ],
+                    "gate-card",
+                ),
+                _detail_card(
+                    "Backlog implementacyjny",
+                    [
+                        ("P0", f"Zbudować minimalny kontrakt API/event dla {name}, RBAC, audit event, status lifecycle i test negatywny dla braku uprawnień."),
+                        ("P1", "Dodać UI z empty/loading/error/success states, filtry, sortowanie, szczegóły rekordu i bezpieczne komunikaty błędów."),
+                        ("P2", "Dodać raport kosztów albo capacity, jeżeli moduł ma wpływ na billing, providerów, workloady albo czas sesji."),
+                        ("Dokumentacja", "Każdy endpoint, status, event i gate ma mieć krótki opis w Księdze albo ADR oraz przykład oczekiwanego audit event."),
+                        ("Definition of done", "Moduł ma status works dopiero po przejściu testów kontraktowych, integracyjnych, negatywnych i human regression, jeżeli dotyczy terminala/operatora."),
+                    ],
+                ),
+                _detail_card(
+                    "Testy i dowody",
+                    [
+                        ("Test podstawowy", f"Playwright/API test potwierdza happy path modułu {name} oraz zapis audytu."),
+                        ("Test negatywny", "Nieprawidłowy scope, brak entitlement, błędny podpis, próba cross-tenant albo brak wymaganej roli muszą zostać odrzucone."),
+                        ("Test human", "Jeżeli moduł wpływa na Pixel/laptop/operator panel, wymagany jest test człowieka: klik, wpisywanie, scroll, przełączenie i powrót."),
+                        ("Kryterium works", "Status works jest dozwolony dopiero po E5/E6 tam, gdzie moduł dotyka usability albo granicy bezpieczeństwa."),
+                    ],
+                ),
+                _detail_card(
+                    "Macierz testów modułu",
+                    [
+                        ("E2 API contract", "Walidacja schematów request/response/event, RBAC, status codes, idempotency i bezpiecznych błędów."),
+                        ("E3 Integration", "Przepływ przez zależności modułu musi działać bez ręcznych zmian w bazie i bez mocków w ścieżce produkcyjnej."),
+                        ("E4 Live probe", "Sonda metadanych ma potwierdzić reachability albo poprawny status blocked/degraded w realnym środowisku."),
+                        ("E5 Human regression", "Jeżeli moduł wpływa na UI/terminal/aplikacje, człowiek albo ADB/Playwright musi wykonać realny workflow."),
+                        ("E6 Security negative", "Cross-tenant, forged event, replay, stale policy, direct bypass i brak entitlement muszą kończyć się deny."),
+                        ("E7 Regression", "Test musi być powtarzalny w CI/staging/live-safe i zapisywać artefakt do katalogu evidence."),
+                    ],
+                    "gate-card",
+                ),
+                '</section>',
+            ])
+        )
+    return "\n".join([
+        '<section class="appendix-masterplan">',
+        '<h1>ZAŁĄCZNIK W - Rozszerzony masterplan modułów, wdrożeń i testów</h1>',
+        '<p>Ten aneks rozbija SYLION 4.0 na moduły, które mogą być implementowane przez różne zespoły albo modele, ale muszą zostać złożone przez wspólne kontrakty: API, events, audit, ownership, entitlement i test evidence. To jest praktyczna mapa wdrożeniowa, nie skrót marketingowy.</p>',
+        module_map,
+        '<h2>W0. Rejestr modułów</h2>',
+        _table(["Moduł", "Cel", "Zależności"], module_rows, "wide"),
+        '<h2>W0.1 Fazy wdrożenia</h2>',
+        _table(["Faza", "Zakres", "Warunek przejścia"], phase_rows, "wide"),
+        '<h2>W0.2 Hierarchia dowodów release</h2>',
+        _table(["Poziom", "Nazwa", "Dowód", "Uwagi"], release_rows, "wide"),
+        "".join(module_sections),
         '</section>',
     ])
 
@@ -1350,6 +1702,7 @@ def main() -> None:
     """
     body = "\n".join([
         internal_addendum(),
+        static_table_of_contents(),
         security_atlas(),
         base.front_matter(),
         base.diagrams_html(),
@@ -1360,13 +1713,14 @@ def main() -> None:
         portal_commerce_token_appendix(),
         final_comparison_and_admin_deep_dive(),
         tiered_threat_analysis_appendix(),
+        deep_operational_masterplan_appendix(),
     ])
     html_doc = f"""<!doctype html>
     <html lang="pl">
     <head>
       <meta charset="utf-8">
       <title>STRICTLY INTERNAL - Księga 4.0 SYLION PHANTOM</title>
-      <style>{base.css()} .internal-cover h1 {{ color:#7a1010; }} .internal-cover {{ border-top: 8px solid #7a1010; }}</style>
+      <style>{base.css()} {internal_extra_css()} .internal-cover h1 {{ color:#7a1010; }} .internal-cover {{ border-top: 8px solid #7a1010; }}</style>
     </head>
     <body>{body}</body>
     </html>"""
