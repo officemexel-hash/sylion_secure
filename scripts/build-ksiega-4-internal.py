@@ -505,6 +505,259 @@ def security_atlas() -> str:
     return "\n".join(html)
 
 
+def final_comparison_and_admin_deep_dive() -> str:
+    comparison_rows = [
+        (
+            "Charakter dokumentu",
+            "Baseline systemowy, wymagania certyfikowalne, architektura stref i kontroli.",
+            "Profil wysokiego ryzyka i moduły autonomiczne [A], wymagające osobnej akceptacji.",
+            "Księga 4.0 scala traceability 3.4 z profilem PHANTOM, ale rozdziela baseline od [A].",
+            "HUMAN GATE dla każdej funkcji PHANTOM, która zmienia baseline.",
+        ),
+        (
+            "Zakres produktu",
+            "Bezpieczna platforma komunikacyjna, thin client, Matrix, CDR, G1/G2, HSM/PKI.",
+            "Hardening operatora, rotacja, mocniejsza izolacja, profil pracy w środowisku podwyższonego ryzyka.",
+            "Panel, portal i operator działają jako produkt; PHANTOM pozostaje profilem kontrolowanym.",
+            "Zakaz mieszania claimów PHANTOM z certyfikowalnym core.",
+        ),
+        (
+            "Terminal",
+            "Thin client bez danych operacyjnych na urządzeniu końcowym.",
+            "Pixel/GrapheneOS jako terminal o podwyższonych wymaganiach admission.",
+            "Pixel i laptop są terminalami operatora; dane i aplikacje pozostają w workloadach.",
+            "Test: storage check, ADB human regression, session expiry.",
+        ),
+        (
+            "Router",
+            "Router dostępowy jako element ścieżki, bez zaufania do danych aplikacyjnych.",
+            "Puli AX/validated equivalent jako element admission i policy, z osobnym profilem hardening.",
+            "Puli AX jest aktualnym kandydatem wdrożeniowym, dopóki przejdzie kwalifikację sprzętową.",
+            "Test: kill switch, DNS leak, restart recovery, route evidence.",
+        ),
+        (
+            "G1/G2",
+            "Rozdział gateway i brokera dostępu. Brak bypassu wokół G1/G2.",
+            "Ścieżka zaostrzona, broker docelowo ślepy wobec treści streamu.",
+            "Każdy operator dostaje indywidualne G1 i G2; workload może być współdzielony lub dedykowany wg tieru.",
+            "Test: negative route, session cap, no stream persistence.",
+        ),
+        (
+            "Workload",
+            "Izolacja środowisk aplikacji, CDR na granicy plików, minimalizacja lateral movement.",
+            "Silniejsza izolacja Firecracker/bare metal/confidential computing w wyższych tierach.",
+            "Pilot/Standard mogą korzystać z pul współdzielonych, Pro+ z Firecracker, Phantom/Sovereign z dedykacją wg policy.",
+            "Test: recreate proof, VM/container ID change, app usability.",
+        ),
+        (
+            "Aplikacje",
+            "Autoryzowane aplikacje i kontrola dostępu przez panel.",
+            "Wersje desktop/native oceniane pod kątem izolacji i realnego użycia.",
+            "Globalny katalog aplikacji dodaje tylko superadmin; operator wybiera liczbę instancji w ramach tieru.",
+            "Test: launcher, stream, input, account-state, limitations explicit.",
+        ),
+        (
+            "CDR",
+            "Kontrola transferu plików jako obowiązkowa granica bezpieczeństwa.",
+            "CDR pozostaje wymagany, bo PHANTOM nie może polegać na zaufaniu do plików przychodzących.",
+            "CDR jest obowiązkowy u każdego operatora, raportowany w admin/SOC jako metadane i decyzje.",
+            "Test: malicious corpus, quarantine, hash, allow/deny.",
+        ),
+        (
+            "HSM/FIDO2",
+            "HSM/PKI i FIDO2 jako elementy docelowego zaufania i step-up.",
+            "FIDO2 staje się krytycznym elementem admission profilu PHANTOM.",
+            "UI i modele konfiguracji są wymagane teraz; fizyczne testy HSM/FIDO2 są gate końcowy.",
+            "Test: placeholder state, policy deny, later hardware acceptance.",
+        ),
+        (
+            "Rotacja jurysdykcyjna",
+            "Rotacja jako polityka infrastruktury i dostępności providerów.",
+            "Silniejsza rotacja w profilu wysokiego ryzyka, z akceptacją ryzyka metadanych.",
+            "Niższe tiery mogą być przenoszone między istniejącymi zasobami; wyższe mogą dostawać nowe/dedykowane zasoby. Po zwolnieniu zasób wraca do puli dopiero po sanityzacji.",
+            "Test: entitlement allow/deny, provider capacity, cleanup proof.",
+        ),
+        (
+            "Portal zakupowy",
+            "Poza zakresem starego baseline albo opisany mniej szczegółowo.",
+            "Nie jest core PHANTOM, ale wpływa na bootstrap operatora.",
+            "Oddzielny publiczny portal obsługuje płatności, tokeny, resellerów i paczki startowe.",
+            "Test: signed webhook, token hash, one-time claim, no admin route exposure.",
+        ),
+        (
+            "Panel administratora",
+            "Control plane i zarządzanie operatorami/providerami.",
+            "Governance, gates, policy i alerty dla funkcji podwyższonego ryzyka.",
+            "Admin panel 4.0 jest główną konsolą zarządzania, kosztów, providerów, observability, CDR i incident response.",
+            "Test: RBAC, step-up, audit, synthetic anomaly, cost math.",
+        ),
+        (
+            "Panel operatora",
+            "Sesja, aplikacje i ustawienia bezpieczeństwa operatora.",
+            "Kontrola środowisk, TTL, panic policy, rotacja w ramach entitlement.",
+            "Operator panel zarządza własnymi workloadami, sesją, backupem, panic levels, Matrix addon i wyborem wersji aplikacji.",
+            "Test: Pixel/laptop human regression, app switching, reset/recreate.",
+        ),
+        (
+            "Monitoring i blue team",
+            "Audit, metadane, alarmy, SRE/SOC.",
+            "Wzmocnione wykrywanie anomalii i runtime monitoring.",
+            "Panel admina obserwuje ścieżkę Pixel/Puli/G1/G2/workload jako metadane, nie treść wiadomości ani streamu.",
+            "Test: alert P0-P3, no content capture, incident workflow.",
+        ),
+        (
+            "RF/telecom",
+            "Ryzyka telekom i sprzętu opisane jako threat model.",
+            "PHANTOM ma ostrzejsze wymagania, ale obszary regulowane są lab-only/governance.",
+            "Księga 4.0 opisuje granice i ryzyka, bez instrukcji manipulacji publicznymi identyfikatorami.",
+            "HUMAN GATE: counsel/CISO/lab owner.",
+        ),
+        (
+            "Status produkcyjny",
+            "Baseline wymaga testów, dowodów i release gates.",
+            "PHANTOM wymaga osobnego zatwierdzenia i nie jest domyślnym produktem.",
+            "Księga 4.0 jest baseline dokumentacyjnym; funkcja działa dopiero po dowodach E5-E7 i gate.",
+            "Nie wolno oznaczać funkcji jako works bez realnego testu.",
+        ),
+    ]
+
+    admin_nav_rows = [
+        ("Dashboard", "Globalny stan systemu, liczba operatorów, tier mix, koszty, alerty, gates, capacity.", "Drill-down do operatora, alertu, providera, kolejki provisioningu.", "Treść wiadomości, seed, hasła, tokeny providerów.", "Playwright dashboard + API health."),
+        ("Operators", "Tabela operatorów: status, tier, koszt miesięczny, expiry, G1/G2/workload, terminale, sesje.", "Create from token, suspend, extend, upgrade, rotate, revoke cert, view evidence.", "Treść aplikacji i prywatne dane operatora.", "CRUD + RBAC + audit event."),
+        ("Operator Detail", "Timeline sesji, app environments, workload IDs, CDR decisions, path status, cost allocation.", "Prepare/recreate environment, force reauth, issue package, mark incident.", "Sekrety i aktywne hasła.", "Human regression na jednym operatorze testowym."),
+        ("Providers", "Hetzner/OVH/inny provider, kraje, API status, ceny, limity, capabilities.", "Add provider, rotate credentials, enable/disable region, qualify KVM/Firecracker/TDX/SEV-SNP.", "Plaintext API secret po zapisaniu.", "Provider capability matrix + secret redaction."),
+        ("Subscriptions/Tiers", "Pilot/Standard/Pro/Phantom/Sovereign, ceny, minima, limity aplikacji, rotacja, dedicated rules.", "Edit policy, publish version, simulate entitlement.", "Ręczna zmiana bez wersjonowania.", "Quota enforcement tests."),
+        ("Tokens/Billing/Resellers", "Token ledger, payment provider, reseller pool, rabaty, invoice/company metadata.", "Generate token, revoke unclaimed, assign reseller, reconcile webhook.", "Pełne dane karty, prywatne dane portfeli.", "Webhook signature + idempotency."),
+        ("Apps Catalog", "Autoryzowane aplikacje, tryby desktop/web/native, wersje, wymagane konta, ograniczenia.", "Add global app, disable app, pin version, mark limited/works/broken.", "Operator nie może dodawać global app.", "App launch and state test."),
+        ("Workloads", "Pool bare metal, Firecracker/container inventory, per-operator allocation, health, recreate state.", "Allocate, recreate, quarantine host, drain host, move operator.", "Cross-tenant file or process visibility.", "Isolation and recreate proof."),
+        ("Provisioning", "Kolejka tworzenia G1, G2, workload, Pixel package, router package.", "Retry failed step, cancel, resume, inspect safe logs.", "Provider secret, SSH private key material.", "End-to-end operator bootstrap dry run."),
+        ("Terminal/Devices", "Pixel/laptop/router inventory, CA state, cert serials, posture, last seen.", "Revoke device, issue package, require re-enroll.", "Local terminal contents.", "Device admission negative tests."),
+        ("PKI/HSM/FIDO2", "CA hierarchy, cert issuance, HSM/FIDO2 placeholders, hardware readiness.", "Configure policy, require step-up, later enroll hardware.", "Private keys.", "Policy state and future hardware gate."),
+        ("CDR", "File policy, quarantine, allow/deny, hashes, transformations, unsupported formats.", "Change policy, release/quarantine with approval, export evidence.", "File content preview unless policy-approved analysis sandbox.", "Malicious corpus tests."),
+        ("Monitoring/SOC", "Path health, tunnel flaps, auth failures, key changes, provider errors, anomaly score.", "Acknowledge alert, create incident, isolate component, request rebuild.", "Message content or pixel stream capture.", "Synthetic alert P0-P3."),
+        ("Incident Response", "Incident board, severity, owners, containment actions, evidence chain.", "Contain, revoke, rotate, rebuild, close with postmortem.", "Destructive action without gate.", "IR tabletop + dry-run."),
+        ("Audit/WORM", "Immutable audit events, admin actions, policy versions, token claims, provider calls.", "Search, export evidence, verify tamper proof.", "Editable audit history.", "Tamper negative test."),
+        ("PHANTOM Governance", "Human gates, lab-only records, residual risks, exception register.", "Open/close gate, attach approval, block execution.", "Operational restricted SOP in product UI.", "Gate must block unsafe execution."),
+        ("Release Gates", "Production readiness by module, test evidence E0-E8, known blockers.", "Promote/demote feature state.", "Works label without E5/E6 evidence.", "Release checklist audit."),
+    ]
+
+    admin_workflow_rows = [
+        ("Create operator from token", "Portal token claimed -> admin verifies tier -> provisioning plan -> G1/G2/workload -> Pixel/Puli packages -> operator first login.", "Admin can retry failed step; cannot bypass entitlement.", "token hash, plan ID, provision IDs, package hashes, audit event."),
+        ("Provider onboarding", "Add provider metadata -> add secret via vault path -> qualify countries/capabilities -> run test provision -> mark region available.", "Secret never re-displayed; destructive changes require step-up.", "capability report, API health, cost template."),
+        ("Tier change", "Select operator -> simulate new cost/quota -> approve -> apply subscription policy version -> update quotas and rotation rights.", "Downgrade cannot orphan running environments silently.", "old/new policy, cost delta, quota result."),
+        ("Jurisdiction rotation", "Operator request or schedule -> entitlement check -> provider capacity -> allocate target -> migrate/recreate -> verify path -> release old resource after cleanup.", "Lower tier can reuse sanitized pool; higher tier may require new/dedicated resources.", "route evidence, cleanup proof, allocation event."),
+        ("Workload recreate", "Operator clicks prepare new session or admin forces rebuild -> stop old env -> cleanup -> start new env -> verify stream/input.", "Must change runtime ID and fail if stream is not usable.", "old/new IDs, health check, human test state."),
+        ("Authorized app lifecycle", "Superadmin adds app -> security review -> version pin -> workload image update -> operator entitlement -> launch tests.", "Operator may create own instances only within approved app and quota.", "app manifest, version, test evidence."),
+        ("Incident containment", "Alert -> severity -> owner -> containment action -> evidence preservation -> rebuild/revoke -> postmortem.", "No panic/full destroy without pre-approved legal policy.", "incident ID, timestamps, approvals, actions."),
+        ("Device revoke", "Lost Pixel/laptop/router -> revoke cert -> invalidate sessions -> require package regeneration -> verify old device denied.", "Current session must end at once.", "cert serial, deny test, new package hash."),
+    ]
+
+    observation_rows = [
+        ("Path map", "Pixel/Puli AX/G1/G2/workload status, tunnel up/down, latency bands, last seen.", "Route break, direct bypass attempt, unexpected path change.", "No payload, no message content, no pixel recording."),
+        ("Cost and capacity", "Per-operator monthly cost, bare-metal pool share, G1/G2 VPS cost, transfer, storage.", "Cost spike, over-quota app count, underutilized host.", "No payment card secrets."),
+        ("Session security", "Session TTL, unlock state, failed reauth, device posture.", "Repeated failed unlock, expired session still active, device mismatch.", "No passwords/FIDO private material."),
+        ("Provider health", "API status, rate limits, provision failures, region capacity.", "Provider outage, credential failure, region depletion.", "No secret value display."),
+        ("CDR telemetry", "File type, hash, allow/deny/quarantine, transform result.", "Quarantine spike, unknown format, suspicious source.", "No file preview by default."),
+        ("Workload health", "Runtime state, CPU/RAM, stream reachable, app state works/limited/broken.", "Crash loop, black screen, input failure, recreate failure.", "No app content logs."),
+        ("Anomaly scoring", "Weighted score from auth, route, key, CDR, provider, runtime and cost signals.", "P0-P3 alert, incident creation, forced reauth.", "Score explanations are metadata only."),
+        ("Audit analytics", "Admin action sequence, policy version changes, approval chain.", "Four-eyes bypass attempt, unusual admin pattern.", "No mutable audit records."),
+    ]
+
+    admin_detail_rows = [
+        ("Operatorzy", "tier, expiry, status, G1/G2/workload, cost, last session, risk", "create/suspend/upgrade/rotate/revoke", "content, passwords, seeds", "table filters + RBAC"),
+        ("Providerzy", "countries, capabilities, prices, health, capacity", "add/edit/disable/qualify", "secret after save", "secret redaction + region test"),
+        ("Subskrypcje", "price, minimum term, quota, rotation rights, dedicated rules", "version policy, simulate impact", "unversioned manual mutation", "entitlement tests"),
+        ("Monitoring", "metadata, alert score, path health, incident status", "ack/isolate/rebuild/revoke", "payload and stream content", "synthetic anomaly"),
+        ("CDR", "decision, hash, file type, transform, quarantine", "release/quarantine/change policy", "file content by default", "malicious corpus"),
+        ("PHANTOM", "gates, approvals, residual risks, lab-only records", "open/close gate, block unsafe feature", "restricted operational SOP", "gate deny test"),
+    ]
+
+    slo_rows = [
+        ("Admin dashboard load", "p95 < 2.5s", "browser synthetic", "P2 if exceeded 3 consecutive runs"),
+        ("Operator create plan", "< 30s to plan, provisioning async", "API timing", "P1 if token claim blocked"),
+        ("G1/G2 tunnel uptime", ">= 99.5% pilot, higher tiers by SLA", "metadata probes", "P1 if active operator affected"),
+        ("Workload recreate", "< 5 min container, < 15 min Firecracker target after image cached", "runtime event timestamps", "P1 if failed twice"),
+        ("Stream usability", "visible image + input + scroll + app switch", "ADB/laptop human regression", "P0 for active production app unusable"),
+        ("CDR queue", "p95 < 60s for supported files", "queue metrics", "P2 if delay without operator impact"),
+        ("Alert MTTD", "< 60s for P0/P1 synthetic signals", "SIEM test", "P1 if missed"),
+        ("Audit write", "100% admin actions produce WORM event", "audit test", "P0 if missing destructive action event"),
+    ]
+
+    admin_fig = base.svg(
+        [
+            {"id": "dash", "label": "Admin Dashboard\nstate, cost, risk", "x": 35, "y": 85, "w": 190, "h": 80, "fill": "#eef5ff"},
+            {"id": "ops", "label": "Operators\nG1/G2/workload", "x": 285, "y": 85, "w": 190, "h": 80},
+            {"id": "prov", "label": "Providers\ncountries/capabilities", "x": 535, "y": 85, "w": 210, "h": 80},
+            {"id": "tiers", "label": "Subscriptions\nquotas/rotation", "x": 805, "y": 85, "w": 210, "h": 80},
+            {"id": "queue", "label": "Provisioning Queue\nplans and retries", "x": 285, "y": 270, "w": 220, "h": 85, "fill": "#eef8f4"},
+            {"id": "soc", "label": "Monitoring/SOC\nmetadata only", "x": 565, "y": 270, "w": 220, "h": 85, "fill": "#fff8e8", "stroke": "#e0a100"},
+            {"id": "audit", "label": "Audit/WORM\nimmutable evidence", "x": 845, "y": 270, "w": 190, "h": 85, "fill": "#fff8e8", "stroke": "#e0a100"},
+        ],
+        [
+            ("dash", "ops", "drilldown"),
+            ("ops", "queue", "provision/recreate"),
+            ("prov", "queue", "capacity"),
+            ("tiers", "ops", "entitlement"),
+            ("queue", "soc", "events"),
+            ("soc", "audit", "incident/evidence"),
+            ("ops", "audit", "admin action"),
+            ("prov", "audit", "provider change"),
+        ],
+        "Z1. Panel administratora - zarządzanie, provisioning, obserwacja",
+    )
+    soc_fig = base.svg(
+        [
+            {"id": "g1", "label": "G1\nVPN metadata", "x": 45, "y": 90, "w": 170, "h": 75},
+            {"id": "g2", "label": "G2\nsession metadata", "x": 45, "y": 205, "w": 170, "h": 75},
+            {"id": "wl", "label": "Workload\nruntime health", "x": 45, "y": 320, "w": 170, "h": 75},
+            {"id": "cdr", "label": "CDR\nfile decisions", "x": 280, "y": 150, "w": 190, "h": 85, "fill": "#fff8e8", "stroke": "#e0a100"},
+            {"id": "norm", "label": "Normalizer\nschema + tenant", "x": 535, "y": 150, "w": 200, "h": 85, "fill": "#eef5ff"},
+            {"id": "score", "label": "Anomaly Engine\nP0-P3 score", "x": 790, "y": 150, "w": 220, "h": 85, "fill": "#fdeeee", "stroke": "#b42318"},
+            {"id": "ir", "label": "Incident Board\ncontain/rebuild/revoke", "x": 535, "y": 315, "w": 260, "h": 85, "fill": "#eef8f4", "stroke": "#25a18e"},
+        ],
+        [
+            ("g1", "norm", "events"),
+            ("g2", "norm", "events"),
+            ("wl", "norm", "events"),
+            ("cdr", "norm", "decisions"),
+            ("norm", "score", "features"),
+            ("score", "ir", "alert"),
+            ("ir", "norm", "postmortem"),
+        ],
+        "Z2. Blue-team observation - metadane bez treści operatora",
+    )
+
+    return "\n".join([
+        '<section class="appendix-final">',
+        '<h1>ZAŁĄCZNIK Z - Końcowe porównanie i panel administratora</h1>',
+        '<p>Ten załącznik odpowiada na pytanie, co realnie zmieniło się między Księgą 3.4 FIXED, PHANTOM v3.0 i Księgą 4.0. Jest umieszczony na końcu dokumentu jako tabela kontrolna dla developerów, architektów, SOC i osób odbierających system.</p>',
+        '<h2>Z1. Księga 3.4 FIXED vs PHANTOM v3.0 vs Księga 4.0</h2>',
+        _table(["Obszar", "Księga 3.4 FIXED", "PHANTOM v3.0", "Decyzja Księgi 4.0", "Gate/test"], comparison_rows, "wide"),
+        '<h2>Z2. Panel administratora - mapa informacyjna</h2>',
+        admin_fig,
+        '<p>Panel administratora jest konsolą zarządzania systemem, nie aplikacją do pracy operatora. Ma dawać kontrolę nad operatorami, providerami, subskrypcjami, provisioningiem, monitoringiem, CDR, incident response i kosztami. Jego podstawową zasadą jest: widzieć stan i metadane, ale nie widzieć treści pracy operatora.</p>',
+        _table(["Zakładka", "Co pokazuje", "Akcje", "Czego nie pokazuje", "Test odbiorczy"], admin_nav_rows, "wide"),
+        '<h2>Z3. Zarządzanie - główne workflow administratora</h2>',
+        _table(["Workflow", "Przebieg", "Reguły bezpieczeństwa", "Dowody"], admin_workflow_rows, "wide"),
+        '<h2>Z4. Obserwacja i analiza blue-team</h2>',
+        soc_fig,
+        _table(["Obszar obserwacji", "Co mierzymy", "Co analizujemy", "Zakaz"], observation_rows, "wide"),
+        '<h2>Z5. Uprawnienia, widoczność i testy panelu admina</h2>',
+        _table(["Moduł", "Admin widzi", "Admin może", "Admin nie widzi/nie może", "Test"], admin_detail_rows, "wide"),
+        '<h2>Z6. KPI/SLO i kryteria uznania funkcji za działającą</h2>',
+        _table(["Kryterium", "Cel", "Źródło dowodu", "Alert"], slo_rows, "wide"),
+        '<h2>Z7. Zasady akceptacji</h2>',
+        '<ul>',
+        '<li>Funkcja nie może mieć statusu works, jeżeli nie ma dowodu E5 lub E6 tam, gdzie wymagany jest realny test człowieka albo test granicy bezpieczeństwa.</li>',
+        '<li>Panel admina nie może przechowywać ani wyświetlać sekretów po zapisie. Każdy sekret ma być oznaczony jako configured/not configured, z fingerprintem lub identyfikatorem bez wartości.</li>',
+        '<li>Monitoring nie może rejestrować treści wiadomości, seedów walletów, haseł, kodów SMS, kluczy prywatnych ani prywatnej zawartości plików operatora.</li>',
+        '<li>Operacje destrukcyjne, panic policy, provider secret rotation, PHANTOM gate i działania IR wymagają niezmiennego wpisu audytowego.</li>',
+        '<li>Obszary regulowane PHANTOM/RF/telecom pozostają w Księdze jako threat model, governance, lab-only i human gate; nie są instrukcją operacyjną ani domyślną funkcją produktu.</li>',
+        '</ul>',
+        '</section>',
+    ])
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     baseline_html, baseline_meta = base.extract_docx_html(
@@ -537,6 +790,7 @@ def main() -> None:
         baseline_html,
         base.phantom_safe_profile(),
         phantom_index,
+        final_comparison_and_admin_deep_dive(),
     ])
     html_doc = f"""<!doctype html>
     <html lang="pl">
