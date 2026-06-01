@@ -758,6 +758,236 @@ def final_comparison_and_admin_deep_dive() -> str:
     ])
 
 
+def tiered_threat_analysis_appendix() -> str:
+    posture_rows = [
+        (
+            "Pilot",
+            "Podstawowa izolacja operatora, indywidualne G1/G2, mała liczba środowisk aplikacyjnych.",
+            "Ataki masowe, typowe malware plikowe przez CDR, podstawowe przejęcie sesji, błąd operatora.",
+            "Współdzielona pula workloadów, mniejsza rotacja, większa ekspozycja na metadane i awarie providerów.",
+            "Ma być bezpieczny funkcjonalnie, ale nie jest profilem dla przeciwnika państwowego.",
+        ),
+        (
+            "Standard",
+            "Więcej środowisk aplikacyjnych, lepsze entitlement, bardziej kompletne monitoring/CDR.",
+            "Większość błędów operacyjnych, nadużycia tokenów, typowe próby lateral movement.",
+            "Nadal może korzystać ze współdzielonych zasobów workload; rotacja głównie po istniejących pulach.",
+            "Dobry poziom dla normalnych operatorów; nie obiecuje pełnej odporności na globalną korelację.",
+        ),
+        (
+            "Pro",
+            "Firecracker jako cel dla środowisk wysokiego ryzyka, większe limity aplikacji, mocniejsza rotacja.",
+            "Eksploity aplikacji, ucieczka z kontenera ograniczana przez microVM, częstsza przebudowa środowisk.",
+            "Ryzyko hosta workload i providera nadal istnieje; wymaga dowodów izolacji i recreate.",
+            "Pierwszy tier, w którym ochrona workloadu powinna być traktowana jako istotna granica bezpieczeństwa.",
+        ),
+        (
+            "Phantom",
+            "Profil [A]: silniejsze admission terminal/router/FIDO2, dedykacja wybranych zasobów, PHANTOM gates.",
+            "Targeted compromise, silniejsza analiza metadanych, broker/session compromise, supply-chain risk.",
+            "Nie jest certyfikowalnym core; wymaga human gate, legal review i jawnego residual-risk acceptance.",
+            "Broni szerzej niż Pro, ale nie wolno opisywać go jako pełnej anonimowości albo gwarancji niewykrywalności.",
+        ),
+        (
+            "Sovereign",
+            "Najszerszy profil: najwyższa dedykacja, własne lub kwalifikowane zasoby, BYO-HSM/KMS, mocne gates.",
+            "Ataki providera, insider, supply chain, zaawansowana korelacja, presja prawna i awarie jurysdykcyjne.",
+            "Nie usuwa ryzyka RF, fizycznego, błędu człowieka ani globalnej korelacji. Zmniejsza blast radius i zależność od współdzielonej infrastruktury.",
+            "Najmocniejszy tier; nadal wymaga operacyjnej dyscypliny, testów E5-E7 i akceptacji ryzyka.",
+        ),
+    ]
+
+    scenario_rows = [
+        (
+            "Kradzież albo przejęcie terminala",
+            "Atakujący uzyskuje fizyczny dostęp do Pixela/laptopa albo aktywną sesję przeglądarki.",
+            "Session TTL, brak danych aplikacyjnych lokalnie, cert revoke, forced reauth.",
+            "To samo plus krótsze TTL, mocniejsze device posture, opcjonalne wymuszenie FIDO2.",
+            "PHANTOM admission: terminal/router/FIDO2 muszą spełnić policy; Sovereign wymaga najściślejszego revoke i evidence.",
+            "Aktywna odblokowana sesja może ujawnić aktualny widok do czasu wygaszenia/reakcji.",
+            "ADB/laptop test: revoke device -> stara sesja traci dostęp.",
+        ),
+        (
+            "Podłożona sieć Wi-Fi / rogue access path",
+            "Atakujący próbuje skierować terminal poza oczekiwaną ścieżkę albo przez fałszywy punkt dostępu.",
+            "Terminal używa dopuszczonego profilu, VPN do G1, route negative tests.",
+            "Dodatkowe posture checks i alerty direct-bypass.",
+            "Phantom/Sovereign wymagają silniejszego powiązania terminal-router-policy i blokady sesji przy naruszeniu ścieżki.",
+            "Ryzyko RF i konfiguracji użytkownika pozostaje; nie wszystko da się zweryfikować wyłącznie softwarem.",
+            "Test: Pixel/Puli -> G1/G2 only, direct route denied, DNS leak denied.",
+        ),
+        (
+            "Kompromitacja routera dostępowego",
+            "Router zostaje przejęty albo błędnie skonfigurowany, próbuje podsłuchu, DNS leak albo bypass.",
+            "Kill switch, DNS leak prevention, tunel do G1, brak danych aplikacyjnych w routerze.",
+            "Więcej telemetryki, alerty tunnel flap i route mismatch.",
+            "Phantom/Sovereign nie ufają routerowi jako miejscu przechowywania danych; router jest elementem admission, nie właścicielem sekretów workloadu.",
+            "Baseband/firmware routera i WAN metadata pozostają ryzykiem.",
+            "Test: restart routera, brak tunelu = brak internetu dla ścieżki operatora.",
+        ),
+        (
+            "Kompromitacja G1",
+            "Atakujący próbuje pivotować z gateway do G2 albo zdobyć dane operatora.",
+            "G1 indywidualne per operator, brak danych aplikacyjnych, minimal services, rebuild/revoke.",
+            "Szybsze rebuildy i alerty metadanych.",
+            "Phantom/Sovereign preferują ostrzejszą izolację, krótsze życie certów i mocniejszy incident workflow.",
+            "G1 nadal widzi metadane tunelu i może być punktem DoS.",
+            "Test: G1 compromised drill -> revoke cert, rebuild, direct app data absent.",
+        ),
+        (
+            "Kompromitacja G2 / brokera sesji",
+            "Atakujący uzyskuje dostęp do brokera streamingu i próbuje podejrzeć lub przejąć aktywną sesję.",
+            "Session caps, no persistence, RBAC, monitoring, storage/log check.",
+            "Preferencja Firecracker/workload isolation i twardsze limity sesji.",
+            "Phantom/Sovereign docelowo wymagają blind broker/E2EE stream; jeśli broker widzi stream, status musi być residual high.",
+            "Aktywna sesja może być ryzykiem do czasu wdrożenia blind-broker target.",
+            "Test: no stream persistence + session cap + broker compromise tabletop.",
+        ),
+        (
+            "Exploit aplikacji komunikatora",
+            "Błąd w Signal/Telegram/WhatsApp/Threema/Zangi/DuckDuckGo/LibreOffice/Exodus daje kod w środowisku aplikacji.",
+            "Izolowane środowisko, recreate, CDR dla plików, brak lokalnych danych terminala.",
+            "Pro używa Firecracker jako oczekiwanej granicy dla mocniejszych środowisk.",
+            "Phantom/Sovereign wymagają najściślejszej izolacji, pinowania wersji, evidence app-state i szybkiego rebuild.",
+            "Jeśli exploit ucieknie z VM/hosta, potrzebny jest incident response i host quarantine.",
+            "Test: app crash/recreate, old runtime ID != new runtime ID, no cross-app visibility.",
+        ),
+        (
+            "VM/container escape z workloadu",
+            "Atakujący wychodzi z kontenera albo microVM na hosta i próbuje dostać się do innych operatorów.",
+            "Pilot/Standard: ograniczenia kontenera i network policy; residual risk wyższy.",
+            "Pro: Firecracker jako wymagana redukcja ryzyka dla bardziej wrażliwych środowisk.",
+            "Phantom/Sovereign: dedykacja hosta lub mocniejsze hardware isolation, monitoring runtime, host quarantine.",
+            "Żadna warstwa nie eliminuje całkowicie ryzyka 0-day w VMM/kernel.",
+            "Test: lab-only escape simulation, runtime syscall alert, tenant isolation negative test.",
+        ),
+        (
+            "Złośliwy plik albo załącznik",
+            "Plik z makrem, exploitem dokumentu, payloadem albo steganografią trafia do operatora.",
+            "CDR obowiązkowy, unsupported formats blocked, quarantine, hash.",
+            "Tak samo, z mocniejszymi policy i większą obserwacją anomalii.",
+            "Phantom/Sovereign wymagają surowszych reguł release z quarantine i lepszego evidence chain.",
+            "CDR nie daje absolutnej skuteczności wobec wszystkich formatów i technik evasion.",
+            "Test: corpus DOCX/PDF/archive/image, allow/deny/quarantine verified.",
+        ),
+        (
+            "Provider snapshot / insider providera",
+            "Provider próbuje snapshotu, obserwacji metadanych, manipulacji hostem albo działa pod presją prawną.",
+            "Szyfrowanie, minimalny stan, osobne G1/G2 per operator, audyt.",
+            "Większe tiery mają mocniejszą rotację i mniejszy współdzielony blast radius.",
+            "Sovereign ma najszerszy model: dedykowane/kwalifikowane zasoby, BYO-HSM/KMS, możliwość osobnego autonomous perimeter.",
+            "Provider nadal widzi część metadanych infrastruktury, a fizyczny atak/supply chain pozostaje residual.",
+            "Test: provider capability review, encryption-at-rest evidence, key ownership review.",
+        ),
+        (
+            "Przejęcie konta administratora",
+            "Atakujący uzyskuje sesję admina i próbuje zmieniać providerów, subskrypcje, operatorów albo policy.",
+            "RBAC, step-up, WORM audit, no secret redisplay.",
+            "Four-eyes dla operacji destrukcyjnych i provider secret rotation.",
+            "Phantom/Sovereign wymagają human gates i explicit risk acceptance dla zmian krytycznych.",
+            "Autoryzowany insider nadal może wykonać część działań w swoim zakresie.",
+            "Test: permission matrix, step-up negative test, immutable audit for destructive action.",
+        ),
+        (
+            "Token/payment/reseller fraud",
+            "Fałszywy webhook, replay tokenu, reseller generuje nadmiarowe kody albo próbuje ominąć tier.",
+            "Webhook signatures, token hash, one-time claim, idempotency.",
+            "Limity resellerów, reconciliation, token scope per tier.",
+            "Phantom/Sovereign wymagają dodatkowej weryfikacji przed aktywacją pełnych zasobów.",
+            "Ryzyko socjotechniki i płatności poza systemem pozostaje procesowe.",
+            "Test: webhook replay, double claim, reseller quota denial.",
+        ),
+        (
+            "Nadużycie rotacji jurysdykcyjnej",
+            "Operator albo błąd systemu próbuje rotacji poza entitlement, do niedozwolonego kraju albo na nieoczyszczony zasób.",
+            "Entitlement deny, provider capability registry, cleanup proof before reuse.",
+            "Pro ma częstsze i bardziej elastyczne rotacje; nadal przez policy.",
+            "Phantom/Sovereign mogą używać dedykowanych zasobów i wymagają mocniejszego evidence dla migracji.",
+            "Rotacja nie ukrywa wszystkich metadanych i nie zastępuje legal review.",
+            "Test: deny unauthorized country, sanitize old resource, route evidence.",
+        ),
+        (
+            "Matrix federation / własny serwer Matrix",
+            "Źle skonfigurowana federacja ujawnia metadane, spamuje albo pozwala na nadużycie serwera.",
+            "Matrix addon opcjonalny, policy federation, CDR dla plików.",
+            "Większe tiery dostają lepszą izolację i monitoring serwera Matrix.",
+            "Phantom/Sovereign wymagają osobnej analizy metadanych i legal/compliance review dla konfiguracji sieci.",
+            "Metadane federacji i zachowanie użytkowników mogą korelować operatora.",
+            "Test: federation policy, abuse scenario, metadata review.",
+        ),
+        (
+            "Backup exfiltration albo błędny restore",
+            "Atakujący próbuje pobrać backup operatora albo przywrócić go do złego środowiska.",
+            "Encrypted backup, ownership binding, audit, no admin content view.",
+            "Większe tiery: mocniejsze retention i restore gates.",
+            "Phantom/Sovereign: silniejszy key ownership, HSM/KMS policy, restoration approval.",
+            "Błąd operatora przy eksporcie pozostaje ryzykiem.",
+            "Test: restore to wrong operator denied, backup decrypt requires correct owner policy.",
+        ),
+        (
+            "DDoS albo awaria dostępności",
+            "Atakujący degraduje portal, G1/G2, provider API albo workload pool.",
+            "Rate limits, health checks, retry queues, fail-safe session states.",
+            "Większe tiery: większa separacja capacity i szybszy rebuild.",
+            "Sovereign ma najszerszą odporność przez dedykowane zasoby i możliwość alternatywnych providerów/perimeter.",
+            "Dostępność nigdy nie jest absolutna; nation-state scale może degradować łączność.",
+            "Test: provider outage simulation, queue retry, graceful denial.",
+        ),
+    ]
+
+    control_depth_rows = [
+        ("Terminal no-data", "Tak", "Tak", "Tak", "Tak + admission", "Tak + najostrzejsze admission"),
+        ("Indywidualne G1/G2", "Tak", "Tak", "Tak", "Tak", "Tak"),
+        ("CDR obowiązkowy", "Tak", "Tak", "Tak", "Tak", "Tak"),
+        ("Workload pool", "Współdzielony", "Współdzielony", "Firecracker preferowany", "Częściowo dedykowany", "Dedykowany/kwalifikowany"),
+        ("Jurisdiction rotation", "Ograniczona/pool", "Pool + policy", "Częstsza/policy", "Zaawansowana/human gate", "Najszersza/dedykowane zasoby"),
+        ("HSM/FIDO2", "Opcjonalne/roadmap", "Opcjonalne/roadmap", "Wymuszane dla akcji krytycznych", "Element admission", "Wymagane w docelowym profilu"),
+        ("Provider risk", "Akceptowany", "Redukowany", "Redukowany przez izolację", "Redukowany przez dedykację", "Najmocniej redukowany przez BYO-HSM/KMS i perimeter"),
+        ("Blue-team visibility", "Podstawowa", "Rozszerzona", "Pełna metadata observability", "Pełna + gates", "Pełna + governance + evidence chain"),
+        ("Residual risk wording", "Średnie/wysokie", "Średnie", "Średnie dla hosta/providera", "Wysokie scenariusze wymagają akceptacji", "Nadal istnieje: RF, fizyczne, globalna korelacja, człowiek"),
+    ]
+
+    scenario_flow = base.svg(
+        [
+            {"id": "attacker", "label": "Adversary\nphishing, exploit, provider, RF", "x": 35, "y": 85, "w": 205, "h": 90, "fill": "#fdeeee", "stroke": "#b42318"},
+            {"id": "path", "label": "Attack Path\nterminal / router / G1 / G2 / workload", "x": 300, "y": 85, "w": 250, "h": 90},
+            {"id": "tier", "label": "Tier Policy\nPilot -> Sovereign", "x": 610, "y": 85, "w": 205, "h": 90, "fill": "#eef5ff"},
+            {"id": "controls", "label": "Controls\nisolation, CDR, RBAC, HSM, rotation", "x": 300, "y": 275, "w": 285, "h": 95, "fill": "#eef8f4", "stroke": "#25a18e"},
+            {"id": "evidence", "label": "Evidence\nE5 human, E6 boundary, E7 regression", "x": 650, "y": 275, "w": 300, "h": 95, "fill": "#fff8e8", "stroke": "#e0a100"},
+        ],
+        [
+            ("attacker", "path", "attempt"),
+            ("path", "tier", "scope"),
+            ("tier", "controls", "selects"),
+            ("controls", "evidence", "must prove"),
+            ("evidence", "tier", "release gate"),
+        ],
+        "Y1. Threat scenarios resolved by tier, controls and evidence",
+    )
+
+    return "\n".join([
+        '<section class="appendix-threats">',
+        '<h1>ZAŁĄCZNIK Y - Scenariusze ataków i obrona per tier</h1>',
+        '<p>Ten aneks opisuje scenariusze ataków w stylu analizy zagrożeń: ścieżka ataku, kontrola obronna, różnica między tierami, ryzyko rezydualne i dowód wymagany do uznania kontroli za działającą. Sovereign ma najszerszą ochronę, ale nie jest opisany jako absolutna anonimowość, niewykrywalność ani brak ryzyka.</p>',
+        scenario_flow,
+        '<h2>Y1. Postura bezpieczeństwa tierów</h2>',
+        _table(["Tier", "Główna postawa obronna", "Przed czym broni najlepiej", "Ryzyka rezydualne", "Wniosek"], posture_rows, "wide"),
+        '<h2>Y2. Głębokość kontroli per tier</h2>',
+        _table(["Kontrola", "Pilot", "Standard", "Pro", "Phantom", "Sovereign"], control_depth_rows, "wide"),
+        '<h2>Y3. Scenariusze ataków, obrona i testy</h2>',
+        _table(["Scenariusz", "Ścieżka ataku", "Pilot/Standard", "Pro", "Phantom/Sovereign", "Ryzyko rezydualne", "Dowód/test"], scenario_rows, "wide"),
+        '<h2>Y4. Reguła interpretacji</h2>',
+        '<ul>',
+        '<li>Pilot i Standard mają chronić przed typowymi błędami, malware, nadużyciami tokenów, podstawowym session abuse i izolować operatorów przez G1/G2 oraz CDR.</li>',
+        '<li>Pro jest pierwszym tierem, w którym Firecracker i silniejsza izolacja workloadu powinny być traktowane jako istotny mechanizm redukcji ryzyka, a nie tylko optymalizacja infrastruktury.</li>',
+        '<li>Phantom jest profilem [A] z dodatkowymi gates, admission i wymaganiami operacyjnymi; nie należy go mieszać z baseline marketingowym.</li>',
+        '<li>Sovereign broni najszerzej, bo minimalizuje współdzielenie zasobów, wzmacnia kontrolę kluczy, ogranicza zależność od providera i wymaga najpełniejszego evidence chain.</li>',
+        '<li>Żaden tier nie usuwa ryzyka aktywnie skompromitowanego terminala, błędu człowieka, fizycznego przejęcia sprzętu, globalnej korelacji metadanych ani supply-chain bez dodatkowego programu kontroli.</li>',
+        '</ul>',
+        '</section>',
+    ])
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     baseline_html, baseline_meta = base.extract_docx_html(
@@ -791,6 +1021,7 @@ def main() -> None:
         base.phantom_safe_profile(),
         phantom_index,
         final_comparison_and_admin_deep_dive(),
+        tiered_threat_analysis_appendix(),
     ])
     html_doc = f"""<!doctype html>
     <html lang="pl">
