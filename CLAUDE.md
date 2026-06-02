@@ -75,21 +75,18 @@ W repo pracuje równolegle **SYLION Codex** (autor 99% commitów) — głównie 
 - `/services/admin-api/IMPLEMENTATION_STATUS.md` — Codex go nie aktualizuje (znany finding F-18), więc można edytować, ale można też spowodować konflikt jeśli Codex pierwszy raz w sesji to zrobi
 - `/docs/admin-panel-v2/` — Codex dodaje pliki `NN-step3-X-*.md` + diagrams + test-artifacts/
 
-### Higiena commitow i synchronizacja remote
+### Synchronizacja remote, commit i push
 
-- Nigdy nie commituj bez explicit user ask
-- Co-author: `Co-Authored-By: <agent identifier>` w stopce
-- Nie skipuj hooks (`--no-verify`, `--no-gpg-sign`) bez explicit user permission
-- Branch protection (gdy włączone): wymagana review, signed commits
-- Patrz `.github/CODEOWNERS` dla code-ownership rules
-
-- Przed wieksza praca i przed pushem: wykonaj `git fetch origin` i sprawdz `git status -sb`.
-- Jesli aktualny branch jest behind, a tracked working tree jest czysty: wykonaj wylacznie bezpieczny `git pull --ff-only`.
-- Jesli istnieja lokalne tracked zmiany: najpierw sprawdz lokalny diff. Nie pulluj w ciemno.
-- Jesli upstream dodaje zmiany addytywne/mechaniczne i nie usuwa biezacej funkcjonalnosci stworzonej przez Codex: zintegruj je i rozwiaz proste konflikty, zachowujac obecna funkcjonalnosc.
+- Po zakonczonej pracy, po przejsciu adekwatnych testow albo weryfikacji, normalnym flow jest commit i push zmian na aktualny branch.
+- Przed wieksza praca, przed commitem i przed pushem wykonaj `git fetch origin` oraz sprawdz `git status -sb`.
+- Jesli aktualny branch jest behind, a tracked working tree jest czysty: wykonaj `git pull --ff-only`.
+- Jesli istnieja lokalne tracked zmiany: najpierw sprawdz lokalny diff i remote diff. Nie pulluj w ciemno.
+- Jesli upstream dodaje zmiany addytywne/mechaniczne i nie usuwa biezacej funkcjonalnosci stworzonej przez Codex: integruj je i rozwiazuj proste konflikty samodzielnie.
 - Priorytet integracji: zachowac aktualne commity, implementacje, testy, security gates i live integration paths stworzone przez Codex.
-- Jesli upstream usuwa, degraduje albo omija aktualna prace Codex, security gates, testy lub sciezki live integration: zatrzymaj sie i zapytaj uzytkownika przed pullem albo zaakceptowaniem takich zmian.
-- Jesli wystapi konflikt: preferuj zachowanie implementacji i testow Codex. Proste konflikty tekstowe rozwiaz samodzielnie; zapytaj uzytkownika, gdy rozwiazanie usuwa istotna funkcjonalnosc albo zmienia zachowanie produktu/security.
+- Jesli upstream usuwa, degraduje albo omija aktualna prace Codex, security gates, testy lub sciezki live integration: nie akceptuj tego automatycznie; zatrzymaj sie i popros uzytkownika o wyrazne potwierdzenie.
+- Jesli konflikt jest prosty tekstowo i nie usuwa funkcjonalnosci: rozwiaz go, uruchom odpowiednie testy, commituj i pushuj.
+- Jesli konflikt jest duzy, niejednoznaczny, dotyka architektury/security albo usuwa istotna funkcjonalnosc: nie pulluj/nie merguj dalej bez potwierdzenia uzytkownika.
+- Przy publikacji respektuj branch protection i `.github/CODEOWNERS`; jesli wymagaja review/signed commits, odnotuj to i nie obchodz tych zasad.
 - Nigdy nie uzywaj destrukcyjnego odzyskiwania (`git reset --hard`, `git checkout --`, forced overwrite), chyba ze uzytkownik wyraznie poprosi o dokladnie taka operacje.
 
 ## Source documents (canonical)
