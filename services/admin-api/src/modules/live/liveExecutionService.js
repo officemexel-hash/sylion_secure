@@ -36,7 +36,7 @@ function safeArray(value = [], field) {
 const CPU_VENDORS = new Set(["intel", "amd", "unknown"]);
 const CONFIDENTIAL_MODES = new Set(["none", "intel_tdx", "amd_sev_snp"]);
 const PROVIDER_REHEARSAL_MODES = new Set(["gate_only", "adapter_sandbox", "live_provider"]);
-const FIRECRACKER_REHEARSAL_WORKLOADS = new Set(["signal", "telegram", "whatsapp", "threema", "zangi", "matrix"]);
+const FIRECRACKER_REHEARSAL_WORKLOADS = new Set(["signal", "telegram", "whatsapp", "threema", "zangi", "simplex", "matrix", "protonmail"]);
 const DEDICATED_ORDER_MODES = new Set(["plan_only", "robot_test", "live_order"]);
 const WORKLOAD_TENANCY_MODES = new Set(["shared_pool", "dedicated_operator"]);
 const WORKLOAD_NATIVE_LIFECYCLE = new Set(["ordered", "delivered", "bootstrapped", "lab_qualified", "degraded", "retired"]);
@@ -46,9 +46,11 @@ const WORKLOAD_IMAGE_APPS = new Set([
   "whatsapp",
   "threema",
   "zangi",
+  "simplex",
   "duckduckgo_browser",
   "libreoffice",
-  "exodus"
+  "exodus",
+  "protonmail"
 ]);
 const WORKLOAD_RUNTIME_KINDS = new Set(["firecracker_microvm", "container_lab_helper", "android_native_workload"]);
 

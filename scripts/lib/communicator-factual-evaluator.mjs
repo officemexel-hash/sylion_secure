@@ -28,6 +28,12 @@ const COMMUNICATOR_APPS = Object.freeze({
     acceptedMarkers: ["zangi", "zangi_android"],
     rejectedMarkers: ["zangi_download_page", "generic_browser", "download_page", "new_tab", "about_blank"],
     requiredChecks: ["uiVisible", "accountBootstrap", "sendReceive", "apkProvenance"]
+  },
+  simplex: {
+    label: "SimpleX Chat",
+    acceptedMarkers: ["simplex", "simplex_desktop", "simplex_android"],
+    rejectedMarkers: ["simplex_download_page", "generic_browser", "download_page", "new_tab", "about_blank"],
+    requiredChecks: ["uiVisible", "accountBootstrap", "sendReceive", "imageProvenance"]
   }
 });
 
@@ -184,7 +190,8 @@ export function evaluateCommunicatorFactualState({
   const routePassed = routeProbe?.dnsThroughTunnel === true
     && routeProbe?.terminalDefaultRoute === "g1"
     && routeProbe?.workloadEgress === "g2_policy_gateway";
-  const apkPassed = key !== "zangi" || (
+  const packageProvenanceRequired = key === "zangi" || key === "simplex";
+  const packageProvenancePassed = !packageProvenanceRequired || (
     apkProbe?.status === "passed"
     && apkProbe?.approvedSource === true
     && (safeEvidenceRef(apkProbe?.evidenceRef) || evidenceArtifactIds.length > 0)
@@ -203,8 +210,8 @@ export function evaluateCommunicatorFactualState({
   } else if (!routePassed) {
     blockers.push(`${key}_route_probe_not_verified`);
   }
-  if (!apkPassed) {
-    blockers.push(`${key}_apk_provenance_not_verified`);
+  if (!packageProvenancePassed) {
+    blockers.push(key === "zangi" ? "zangi_apk_provenance_not_verified" : `${key}_package_provenance_not_verified`);
   }
   const failed = blockers.some((blocker) => blocker.startsWith(`wrong_${key}_marker:`))
     || blockers.some((blocker) => blocker.startsWith("forbidden_probe_field:"))
@@ -229,9 +236,14 @@ export function evaluateCommunicatorFactualState({
       : check(failed ? "failed" : "blocked", null, "Send/receive metadata or route proof is missing")
   };
   if (key === "zangi") {
-    checks.apkProvenance = apkPassed
+    checks.apkProvenance = packageProvenancePassed
       ? check("passed", "Zangi APK provenance approved by metadata-only evidence", apkProbe?.note || null, apkProbe?.mode || null)
       : check(failed ? "failed" : "blocked", null, "Zangi APK provenance is not verified");
+  }
+  if (key === "simplex") {
+    checks.imageProvenance = packageProvenancePassed
+      ? check("passed", "SimpleX image/package provenance approved by metadata-only evidence", apkProbe?.note || null, apkProbe?.mode || null)
+      : check(failed ? "failed" : "blocked", null, "SimpleX image/package provenance is not verified");
   }
   return {
     appKey: key,
@@ -268,7 +280,8 @@ export const communicatorEvaluatorPolicy = Object.freeze({
     "metadata-only send/receive check",
     "G1/G2/workload route probe",
     "terminalDataStored=false",
-    "Zangi APK provenance when appKey=zangi"
+    "Zangi APK provenance when appKey=zangi",
+    "SimpleX image/package provenance when appKey=simplex"
   ],
   failFast: [
     "web-link-only bootstrap",

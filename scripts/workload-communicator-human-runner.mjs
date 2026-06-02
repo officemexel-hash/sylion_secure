@@ -58,6 +58,10 @@ function markerFromText(text) {
     if (/download/i.test(normalized)) return "zangi_download_page";
     return "zangi_android";
   }
+  if (appKey === "simplex" && /simplex/i.test(normalized)) {
+    if (/download/i.test(normalized)) return "simplex_download_page";
+    return runtimeMode === "android_native" ? "simplex_android" : "simplex_desktop";
+  }
   if (/download/i.test(normalized)) return "download_page";
   if (/new tab|about:blank/i.test(normalized)) return "new_tab";
   if (/chromium|chrome|firefox|browser/i.test(normalized)) return "generic_browser";

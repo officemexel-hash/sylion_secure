@@ -26,9 +26,11 @@ const WORKLOAD_APP_KEYS = new Set([
   "matrix_server",
   "duckduckgo_browser",
   "libreoffice",
-  "exodus"
+  "exodus",
+  "simplex",
+  "protonmail"
 ]);
-const COMMUNICATOR_APP_KEYS = new Set(["whatsapp", "signal", "telegram", "threema", "zangi", "matrix_client"]);
+const COMMUNICATOR_APP_KEYS = new Set(["whatsapp", "signal", "telegram", "threema", "zangi", "matrix_client", "simplex"]);
 const SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|panic.*code|seed|mnemonic|private[_-]?key)/i;
 const PROHIBITED_TERMS = ["imei", "imsi", "spoof", "evasion", "evade", "bypass lawful", "destroy evidence", "unauthorized access"];
 
@@ -88,6 +90,17 @@ const WORKLOAD_FACTUAL_MATRIX = Object.freeze({
     failIf: ["zangi.com download page only", "unknown APK provenance", "generic noVNC/Guacamole shell", "phone/OTP/message content stored"],
     repairPrompt: "Repair Zangi workload by proving APK provenance and Android-native UI before any factual PASS."
   },
+  simplex: {
+    label: "SimpleX Chat",
+    appClass: "communicator",
+    allowedRuntimeModes: ["desktop", "android_native", "firecracker_gui", "container"],
+    expectedBehavior: "SimpleX Chat opens inside an isolated workload using an approved desktop or Android-native image and bootstrap plus send/receive are proven with metadata-only evidence.",
+    mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive", "imageProvenance"],
+    humanSteps: ["Verify approved SimpleX image/source provenance", "Open SimpleX workload", "Confirm SimpleX UI", "Complete non-secret account bootstrap", "Perform metadata-only send/receive check"],
+    passCriteria: ["SimpleX-branded UI visible", "approved image provenance recorded", "accountBootstrap passed", "sendReceive passed", "no invite, address, message or credential content stored"],
+    failIf: ["simplex.chat download page only", "unknown image or package provenance", "generic noVNC/Guacamole shell", "invite/address/message/password content stored", "transport-only evidence"],
+    repairPrompt: "Repair SimpleX workload by approving a desktop or Android-native image, proving branded UI, then running metadata-only bootstrap and send/receive tests."
+  },
   duckduckgo_browser: {
     label: "DuckDuckGo",
     appClass: "browser",
@@ -120,6 +133,17 @@ const WORKLOAD_FACTUAL_MATRIX = Object.freeze({
     passCriteria: ["Exodus UI visible", "walletWorkflow passed without secrets", "riskAcceptance passed", "seed/private key/wallet data absent"],
     failIf: ["download page only", "browser shell only", "seed/private key/wallet data captured", "risk acceptance missing"],
     repairPrompt: "Repair Exodus workload with explicit non-secret wallet workflow and risk acceptance before factual PASS."
+  },
+  protonmail: {
+    label: "Proton Mail",
+    appClass: "mail",
+    allowedRuntimeModes: ["web", "desktop", "firecracker_gui", "container"],
+    expectedBehavior: "Proton Mail opens inside an isolated workload, operator logs in directly inside the workload UI, and mailbox visibility is proven without storing address, password, subject, sender, recipient or message body.",
+    mandatoryChecks: ["uiVisible", "accountLogin", "mailboxVisible"],
+    humanSteps: ["Open Proton Mail workload", "Operator enters credentials directly inside the workload UI", "Confirm mailbox UI is visible", "Optionally perform metadata-only harmless mail send/receive check", "Return to operator panel"],
+    passCriteria: ["Proton Mail UI visible", "accountLogin passed", "mailboxVisible passed", "mailbox address/password/message metadata absent from evidence"],
+    failIf: ["only HTTP 200", "only login page without successful mailbox visibility", "mailbox address or password stored", "subject/sender/recipient/body captured", "transport-only evidence"],
+    repairPrompt: "Repair Proton Mail workload until login and mailbox visibility pass with no mailbox credentials or message content stored."
   }
 });
 
@@ -365,6 +389,7 @@ function requiredFactualChecks(appKey) {
   if (appKey === "duckduckgo_browser") return ["uiVisible", "browsing"];
   if (appKey === "libreoffice") return ["uiVisible", "documentWorkflow"];
   if (appKey === "exodus") return ["uiVisible", "walletWorkflow", "riskAcceptance"];
+  if (appKey === "protonmail") return ["uiVisible", "accountLogin", "mailboxVisible"];
   if (appKey === "matrix_server") return ["serviceReachable", "federationPolicy", "torPolicy"];
   return ["uiVisible"];
 }

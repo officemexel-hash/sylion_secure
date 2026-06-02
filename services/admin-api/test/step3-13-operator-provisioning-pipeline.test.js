@@ -49,6 +49,8 @@ test("Step 3.13 creates operator baseline G1/G2/WORKLOAD automatically", async (
     const client = await loginClient(baseUrl);
     const templates = await client.listOperatorProvisioningTemplates();
     assert.ok(templates.templates.some((template) => template.key === "signal"));
+    assert.ok(templates.templates.some((template) => template.key === "simplex" && template.type === "messaging"));
+    assert.ok(templates.templates.some((template) => template.key === "protonmail" && template.type === "mail"));
     assert.ok(templates.templates.every((template) => template.cdrRequired === true));
 
     const tenant = await client.createTenant({ name: "Pipeline Tenant", tier: "PRO" });

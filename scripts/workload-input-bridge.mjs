@@ -9,6 +9,8 @@ const APP_PORTS = Object.freeze({
   threema: 15912,
   signal: 15913,
   zangi: 15916,
+  protonmail: 15917,
+  simplex: 15918,
   exodus: 15915
 });
 

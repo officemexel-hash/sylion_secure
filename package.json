@@ -22,6 +22,8 @@
     "test:telegram-human-runner": "node scripts/workload-communicator-human-runner.mjs --app=telegram",
     "test:threema-human-runner": "node scripts/workload-communicator-human-runner.mjs --app=threema",
     "test:zangi-human-runner": "node scripts/workload-communicator-human-runner.mjs --app=zangi",
+    "test:simplex-human-runner": "node scripts/workload-communicator-human-runner.mjs --app=simplex",
+    "test:protonmail-human-runner": "node scripts/workload-protonmail-human-runner.mjs",
     "test:exodus-human-runner": "node scripts/workload-exodus-human-runner.mjs",
     "test:workload-app-human-runner-chain": "node scripts/workload-app-human-runner-chain.mjs",
     "test:live-factual-workload-audit": "node scripts/live-factual-workload-audit.mjs",

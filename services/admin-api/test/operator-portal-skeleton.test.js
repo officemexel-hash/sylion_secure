@@ -56,6 +56,8 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.body, /\/operator\/stream\.html\?app=signal/);
     assert.match(html.body, /\/operator\/stream\.html\?app=duckduckgo_browser/);
     assert.match(html.body, /\/operator\/stream\.html\?app=libreoffice/);
+    assert.match(html.body, /\/operator\/stream\.html\?app=simplex/);
+    assert.match(html.body, /\/operator\/stream\.html\?app=protonmail/);
     assert.match(html.body, /Backup & Panic/);
     assert.match(html.body, /Laptop terminal package/);
     assert.match(html.body, /Private input handoff/);
@@ -138,6 +140,8 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(streamJs.body, /waitForFrameLoad/);
     assert.match(streamJs.body, /Authenticating \$\{handoff\.broker\.connectionName\} through Guacamole/);
     assert.match(streamJs.body, /duckduckgo\.sylion\.internal/);
+    assert.match(streamJs.body, /simplex\.sylion\.internal/);
+    assert.match(streamJs.body, /protonmail\.sylion\.internal/);
     assert.doesNotMatch(streamJs.body, /params\.get\("url"\)/);
   } finally {
     await close();

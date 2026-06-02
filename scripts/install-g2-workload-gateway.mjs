@@ -37,7 +37,9 @@ const apps = [
     serverName: "protonmail.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3016,
-    noVnc: true
+    noVnc: true,
+    authInclude: "/etc/nginx/snippets/sylion-kasm-auth-protonmail.conf",
+    productionGate: "mail_account_human_test_required"
   },
   {
     key: "telegram",
@@ -62,6 +64,15 @@ const apps = [
     upstreamPort: 3013,
     noVnc: true,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-signal.conf"
+  },
+  {
+    key: "simplex",
+    serverName: "simplex.sylion.internal",
+    upstreamScheme: "http",
+    upstreamPort: 3017,
+    noVnc: true,
+    authInclude: "/etc/nginx/snippets/sylion-kasm-auth-simplex.conf",
+    productionGate: "simplex_desktop_or_android_image_required"
   },
   {
     key: "zangi",

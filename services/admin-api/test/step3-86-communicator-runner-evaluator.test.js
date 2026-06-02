@@ -218,9 +218,112 @@ test("Step 3.86 communicator evaluator requires Zangi APK provenance", () => {
   assert.equal(passed.checks.apkProvenance.status, "passed");
 });
 
+test("Step 3.86 communicator evaluator requires SimpleX approved image provenance", () => {
+  const blocked = evaluateCommunicatorFactualState({
+    appKey: "simplex",
+    runtimeMode: "firecracker_gui",
+    matrixItem: {
+      appKey: "simplex",
+      mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive", "imageProvenance"]
+    },
+    streamSession: readyStream("simplex"),
+    visualProbe: {
+      status: "passed",
+      marker: "simplex_desktop",
+      evidenceRef: "screenshot:pixel/simplex-ui"
+    },
+    accountProbe: {
+      status: "passed",
+      mode: "desktop_linked_account",
+      nonSecretBootstrap: true,
+      evidenceRef: "probe:simplex-bootstrap"
+    },
+    sendReceiveProbe: {
+      status: "passed",
+      metadataOnly: true,
+      communicationDataStored: false,
+      evidenceRef: "probe:simplex-send-receive"
+    },
+    routeProbe
+  });
+  assert.equal(blocked.result, "blocked");
+  assert.ok(blocked.blockers.includes("simplex_package_provenance_not_verified"));
+
+  const wrongPage = evaluateCommunicatorFactualState({
+    appKey: "simplex",
+    runtimeMode: "firecracker_gui",
+    matrixItem: {
+      appKey: "simplex",
+      mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive", "imageProvenance"]
+    },
+    streamSession: readyStream("simplex"),
+    visualProbe: {
+      status: "passed",
+      marker: "simplex_download_page",
+      evidenceRef: "screenshot:pixel/simplex-download"
+    },
+    accountProbe: {
+      status: "passed",
+      mode: "desktop_linked_account",
+      nonSecretBootstrap: true,
+      evidenceRef: "probe:simplex-bootstrap"
+    },
+    sendReceiveProbe: {
+      status: "passed",
+      metadataOnly: true,
+      communicationDataStored: false,
+      evidenceRef: "probe:simplex-send-receive"
+    },
+    apkProbe: {
+      status: "passed",
+      approvedSource: true,
+      evidenceRef: "probe:simplex-image-provenance"
+    },
+    routeProbe
+  });
+  assert.equal(wrongPage.result, "failed");
+  assert.ok(wrongPage.blockers.includes("wrong_simplex_marker:simplex_download_page"));
+
+  const passed = evaluateCommunicatorFactualState({
+    appKey: "simplex",
+    runtimeMode: "firecracker_gui",
+    matrixItem: {
+      appKey: "simplex",
+      mandatoryChecks: ["uiVisible", "accountBootstrap", "sendReceive", "imageProvenance"]
+    },
+    streamSession: readyStream("simplex"),
+    visualProbe: {
+      status: "passed",
+      marker: "simplex_desktop",
+      evidenceRef: "screenshot:pixel/simplex-ui"
+    },
+    accountProbe: {
+      status: "passed",
+      mode: "desktop_linked_account",
+      nonSecretBootstrap: true,
+      evidenceRef: "probe:simplex-bootstrap"
+    },
+    sendReceiveProbe: {
+      status: "passed",
+      metadataOnly: true,
+      communicationDataStored: false,
+      evidenceRef: "probe:simplex-send-receive"
+    },
+    apkProbe: {
+      status: "passed",
+      approvedSource: true,
+      evidenceRef: "probe:simplex-image-provenance"
+    },
+    routeProbe
+  });
+  assert.equal(passed.result, "passed");
+  assert.equal(passed.checks.imageProvenance.status, "passed");
+});
+
 test("Step 3.86 communicator evaluator policy covers all current communicators", () => {
-  assert.deepEqual(communicatorEvaluatorPolicy.supportedApps.sort(), ["signal", "telegram", "threema", "whatsapp", "zangi"]);
+  assert.deepEqual(communicatorEvaluatorPolicy.supportedApps.sort(), ["signal", "simplex", "telegram", "threema", "whatsapp", "zangi"]);
   assert.ok(communicatorEvaluatorPolicy.passRequires.includes("metadata-only send/receive check"));
+  assert.ok(communicatorEvaluatorPolicy.passRequires.includes("SimpleX image/package provenance when appKey=simplex"));
   assert.ok(communicatorEvaluatorPolicy.failFast.includes("web-link-only bootstrap"));
   assert.equal(communicatorDefinition("telegram").label, "Telegram");
 });

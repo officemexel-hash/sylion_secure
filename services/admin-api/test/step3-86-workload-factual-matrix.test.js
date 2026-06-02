@@ -53,7 +53,9 @@ test("Step 3.86 workload factual matrix defines strict criteria for every requir
       "duckduckgo_browser",
       "exodus",
       "libreoffice",
+      "protonmail",
       "signal",
+      "simplex",
       "telegram",
       "threema",
       "whatsapp",
@@ -77,6 +79,12 @@ test("Step 3.86 workload factual matrix defines strict criteria for every requir
     assert.equal(signal.failIf.some((rule) => /web-link-only/i.test(rule)), true);
     const zangi = matrix.find((item) => item.appKey === "zangi");
     assert.equal(zangi.mandatoryChecks.includes("apkProvenance"), true);
+    const simplex = matrix.find((item) => item.appKey === "simplex");
+    assert.equal(simplex.mandatoryChecks.includes("imageProvenance"), true);
+    assert.ok(simplex.failIf.some((rule) => /download page only/i.test(rule)));
+    const protonmail = matrix.find((item) => item.appKey === "protonmail");
+    assert.deepEqual(protonmail.requiredChecks, ["uiVisible", "accountLogin", "mailboxVisible"]);
+    assert.ok(protonmail.failIf.some((rule) => /subject|sender|recipient|body/i.test(rule)));
     const exodus = matrix.find((item) => item.appKey === "exodus");
     assert.equal(exodus.passCriteria.some((rule) => /seed\/private key\/wallet data absent/i.test(rule)), true);
     assert.equal(app.services.audit.list().some((event) => event.action === "release.workload_factual_matrix_read"), false);

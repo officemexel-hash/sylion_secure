@@ -29,7 +29,9 @@ export const g1DnsPlan = Object.freeze({
     "telegram.sylion.internal",
     "threema.sylion.internal",
     "zangi.sylion.internal",
-    "exodus.sylion.internal"
+    "exodus.sylion.internal",
+    "protonmail.sylion.internal",
+    "simplex.sylion.internal"
   ]),
   invariants: Object.freeze({
     privateDnsOnly: true,

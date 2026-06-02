@@ -13,7 +13,9 @@ const apps = Object.freeze({
   telegram: { host: "telegram.sylion.internal", snippet: "/etc/nginx/snippets/sylion-kasm-auth-telegram.conf" },
   threema: { host: "threema.sylion.internal", snippet: "/etc/nginx/snippets/sylion-kasm-auth-threema.conf" },
   signal: { host: "signal.sylion.internal", snippet: "/etc/nginx/snippets/sylion-kasm-auth-signal.conf" },
-  exodus: { host: "exodus.sylion.internal", snippet: "/etc/nginx/snippets/sylion-kasm-auth-exodus.conf" }
+  exodus: { host: "exodus.sylion.internal", snippet: "/etc/nginx/snippets/sylion-kasm-auth-exodus.conf" },
+  protonmail: { host: "protonmail.sylion.internal", snippet: "/etc/nginx/snippets/sylion-kasm-auth-protonmail.conf" },
+  simplex: { host: "simplex.sylion.internal", snippet: "/etc/nginx/snippets/sylion-kasm-auth-simplex.conf" }
 });
 
 const defaults = {

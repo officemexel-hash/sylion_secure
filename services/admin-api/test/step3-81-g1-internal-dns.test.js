@@ -14,6 +14,8 @@ test("Step 3.81 G1 internal DNS includes Guacamole session host", () => {
   assert.ok(g1DnsPlan.hostnames.includes("session.sylion.internal"));
   assert.ok(g1DnsPlan.hostnames.includes("operator.sylion.internal"));
   assert.ok(g1DnsPlan.hostnames.includes("zangi.sylion.internal"));
+  assert.ok(g1DnsPlan.hostnames.includes("protonmail.sylion.internal"));
+  assert.ok(g1DnsPlan.hostnames.includes("simplex.sylion.internal"));
   assert.equal(g1DnsPlan.dnsListenAddress, "10.42.0.11");
   assert.equal(g1DnsPlan.brokerAddress, "10.42.0.12");
 

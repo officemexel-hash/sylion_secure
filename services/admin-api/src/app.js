@@ -77,6 +77,8 @@ const PORTAL_BOOTSTRAP_TEMPLATE_SEQUENCE = Object.freeze([
   "duckduckgo_browser",
   "libreoffice",
   "exodus",
+  "protonmail",
+  "simplex",
   "matrix_client",
   "matrix_server"
 ]);
@@ -271,10 +273,12 @@ const PRODUCTION_READINESS_APPS = Object.freeze([
   { key: "threema", label: "Threema", host: "threema.sylion.internal", path: "/", envAlias: "THREEMA", expected: "firecracker_web" },
   { key: "signal", label: "Signal", host: "signal.sylion.internal", path: "/", envAlias: "SIGNAL", expected: "firecracker_desktop" },
   { key: "zangi", label: "Zangi", host: "zangi.sylion.internal", path: "/", envAlias: "ZANGI", expected: "android_native" },
-  { key: "exodus", label: "Exodus", host: "exodus.sylion.internal", path: "/", envAlias: "EXODUS", expected: "dedicated_wallet_workload" }
+  { key: "exodus", label: "Exodus", host: "exodus.sylion.internal", path: "/", envAlias: "EXODUS", expected: "dedicated_wallet_workload" },
+  { key: "protonmail", label: "Proton Mail", host: "protonmail.sylion.internal", path: "/", envAlias: "PROTONMAIL", expected: "firecracker_webmail" },
+  { key: "simplex", label: "SimpleX Chat", host: "simplex.sylion.internal", path: "/", envAlias: "SIMPLEX", expected: "desktop_or_android_native_required" }
 ]);
 
-const FACTUAL_RECORD_REQUIRED_APPS = new Set(["whatsapp", "telegram", "threema", "signal", "zangi", "exodus"]);
+const FACTUAL_RECORD_REQUIRED_APPS = new Set(["whatsapp", "telegram", "threema", "signal", "zangi", "exodus", "protonmail", "simplex"]);
 
 const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
   {

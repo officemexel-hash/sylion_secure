@@ -30,7 +30,17 @@ const WORKLOAD_CONTROL_APPS = Object.freeze([
     productionNativeRequires: ["kvm_device", "binder_or_binderfs", "approved_android_image", "approved_zangi_apk_ref"]
   },
   { key: "matrix_client", name: "Matrix Client", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  {
+    key: "simplex",
+    name: "SimpleX Chat",
+    category: "messenger",
+    isolation: "desktop_or_android_workload_required",
+    cdrRequired: true,
+    privacyCandidate: true,
+    productionNativeRequires: ["approved_simplex_desktop_or_android_image", "account_bootstrap_send_receive_test"]
+  },
   { key: "matrix_server", name: "Matrix Server", category: "server", isolation: "dedicated_service_workload", cdrRequired: true },
+  { key: "protonmail", name: "Proton Mail", category: "mail", isolation: "container_standard_firecracker_pro", cdrRequired: true, requiresAccountBootstrap: true },
   { key: "duckduckgo_browser", name: "DuckDuckGo Browser", category: "browser", isolation: "container_standard_firecracker_pro", cdrRequired: true },
   { key: "libreoffice", name: "LibreOffice", category: "office", isolation: "container_standard_firecracker_pro", cdrRequired: true },
   { key: "exodus", name: "Exodus", category: "wallet", isolation: "dedicated_wallet_workload", cdrRequired: true, requiresOperatorRiskAcceptance: true }
@@ -80,6 +90,8 @@ const LIVE_RECREATE_APP_MAP = Object.freeze({
   zangi: "zangi",
   duckduckgo_browser: "duckduckgo",
   libreoffice: "libreoffice",
+  protonmail: "protonmail",
+  simplex: "simplex",
   exodus: "exodus"
 });
 const NATIVE_FIRECRACKER_RECREATE_APPS = new Set(["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal"]);
@@ -141,6 +153,8 @@ const GUACAMOLE_HANDOFF_APPS = new Set([
   "threema",
   "signal",
   "zangi",
+  "protonmail",
+  "simplex",
   "exodus"
 ]);
 const GUACAMOLE_LOCAL_VNC_PORTS = Object.freeze({
@@ -151,6 +165,8 @@ const GUACAMOLE_LOCAL_VNC_PORTS = Object.freeze({
   threema: 15912,
   signal: 15913,
   zangi: 15916,
+  protonmail: 15917,
+  simplex: 15918,
   exodus: 15915
 });
 const WORKLOAD_INPUT_SPECIAL_KEYS = new Set([
@@ -623,7 +639,7 @@ export class OperatorPortalService {
           functionalReady: 0,
           accountTestRequired: [],
           blocked: WORKLOAD_CONTROL_APPS
-            .filter((app) => ["whatsapp", "signal", "telegram", "threema", "zangi", "duckduckgo_browser", "libreoffice", "exodus"].includes(app.key))
+            .filter((app) => ["whatsapp", "signal", "telegram", "threema", "zangi", "simplex", "duckduckgo_browser", "libreoffice", "exodus", "protonmail"].includes(app.key))
             .map((app) => app.key),
           productionExecutionAllowed: false
         },
@@ -1785,7 +1801,7 @@ export class OperatorPortalService {
       this.#liveAccessCheck("hsm_fido2_physical_enforcement", !hsmFidoDeferred, "Physical HSM/FIDO2 enforcement is configured.", hsmFidoDeferred ? "deferred" : "passed")
     ];
     const requiredBlockers = checks.filter((check) => check.required && check.status !== "passed").map((check) => check.key);
-    const appGateways = ["signal", "whatsapp", "telegram", "threema", "zangi", "duckduckgo_browser", "libreoffice", "exodus"].map((templateKey) => {
+    const appGateways = ["signal", "whatsapp", "telegram", "threema", "zangi", "simplex", "duckduckgo_browser", "libreoffice", "exodus", "protonmail"].map((templateKey) => {
       const host = `${templateKey === "duckduckgo_browser" ? "duckduckgo" : templateKey}.sylion.internal`;
       const browserOnly = !ANDROID_WORKLOAD_APPS.has(templateKey);
       return {
@@ -3854,7 +3870,7 @@ export class OperatorPortalService {
       actions.push("Apply G1/G2 policy routing and default-deny firewall rules for T1/T2.");
     }
     if (requiredBlockers.includes("g2_workload_gateway_tls")) {
-      actions.push("Enable G2 TLS workload gateway for signal/whatsapp/telegram/threema/zangi/duckduckgo/libreoffice/exodus hostnames.");
+      actions.push("Enable G2 TLS workload gateway for signal/whatsapp/telegram/threema/zangi/simplex/protonmail/duckduckgo/libreoffice/exodus hostnames.");
     }
     if (routerDeferred) {
       actions.push("Complete Puli AX physical package and posture smoke when router is available.");
@@ -3944,7 +3960,7 @@ export class OperatorPortalService {
 
   #accountBootstrapCatalog() {
     return WORKLOAD_CONTROL_APPS
-      .filter((app) => ["messenger", "wallet"].includes(app.category))
+      .filter((app) => ["messenger", "mail", "wallet"].includes(app.category))
       .map((app) => ({
         key: app.key,
         name: app.name,
@@ -3963,6 +3979,7 @@ export class OperatorPortalService {
 
   #accountBootstrapRequiredChecks(appKey) {
     if (appKey === "exodus") return ["uiVisible", "walletWorkflow", "riskAcceptance"];
+    if (appKey === "protonmail") return ["uiVisible", "accountLogin", "mailboxVisible"];
     return ["uiVisible", "accountBootstrap", "sendReceive"];
   }
 
@@ -3970,6 +3987,7 @@ export class OperatorPortalService {
     if (appKey === "zangi") return "android_native_workload";
     if (appKey === "signal" || appKey === "whatsapp") return "physical_mobile_companion";
     if (appKey === "exodus") return "manual_operator_account";
+    if (appKey === "protonmail") return "manual_operator_account";
     return "approved_test_number_provider";
   }
 
@@ -3977,6 +3995,7 @@ export class OperatorPortalService {
     if (appKey === "zangi") return "android_native";
     if (appKey === "signal") return "desktop";
     if (appKey === "exodus") return "desktop";
+    if (appKey === "simplex") return "desktop";
     return "web";
   }
 
@@ -3984,44 +4003,59 @@ export class OperatorPortalService {
     if (appKey === "zangi") return ["android_native_workload", "approved_test_number_provider"];
     if (appKey === "signal" || appKey === "whatsapp") return ["physical_mobile_companion", "android_native_workload"];
     if (appKey === "exodus") return ["manual_operator_account"];
+    if (appKey === "protonmail") return ["manual_operator_account"];
+    if (appKey === "simplex") return ["desktop_linked_account", "android_native_workload", "manual_operator_account"];
     return ["approved_test_number_provider", "desktop_linked_account", "android_native_workload"];
   }
 
   #bootstrapNeedsPrivateHumanInput(appKey) {
-    return ["signal", "whatsapp", "telegram", "threema", "zangi", "matrix_client", "exodus"].includes(appKey);
+    return ["signal", "whatsapp", "telegram", "threema", "zangi", "simplex", "matrix_client", "protonmail", "exodus"].includes(appKey);
   }
 
   #bootstrapHumanHandoffPlan({ appKey, mode, runtimeMode, launchUrl }) {
-    const communicator = appKey !== "exodus";
+    const mail = appKey === "protonmail";
+    const wallet = appKey === "exodus";
+    const communicator = !mail && !wallet;
+    const orderedSteps = communicator ? [
+      "Open application stream from the operator app switcher.",
+      "Operator enters phone/account credentials and SMS/2FA code directly in the workload UI.",
+      "Verify account is created or linked without storing the phone number, OTP, password or message content.",
+      "Send and receive a harmless test message with QA contact; store only metadata that the check passed.",
+      "Return to this panel and record evidence refs, latency and pass/fail checks."
+    ] : mail ? [
+      "Open the mail workload stream from the operator app switcher.",
+      "Operator enters mailbox credentials directly inside the workload UI.",
+      "Verify mailbox UI is visible without storing address, password, subject, sender, recipient or message content.",
+      "Optionally run a harmless send/receive check with QA mailbox; store only metadata that the check passed.",
+      "Return to this panel and record evidence refs, latency and pass/fail checks."
+    ] : [
+      "Open the wallet workload stream.",
+      "Operator performs approved test workflow without exposing seed, private key, wallet address or balance.",
+      "Confirm viewport fit and input behavior on Pixel or laptop.",
+      "Return to this panel and record metadata-only evidence plus explicit risk acceptance."
+    ];
     return {
       state: "awaiting_operator_private_input",
       privateInputEntry: "directly_inside_workload_ui_only",
       operatorActionRequired: true,
       operatorInstruction: communicator
         ? "Open the workload stream, enter account, phone, SMS or 2FA details only inside the communicator UI, then return here and record pass/fail metadata."
-        : "Open the wallet workload, perform only the approved test workflow directly inside the workload UI, then return here and record metadata plus risk acceptance.",
+        : mail
+          ? "Open the mail workload, enter mailbox credentials only inside the workload UI, then return here and record pass/fail metadata without message content."
+          : "Open the wallet workload, perform only the approved test workflow directly inside the workload UI, then return here and record metadata plus risk acceptance.",
       codexRole: "navigate_open_stream_capture_metadata_only",
       currentLaunchUrl: launchUrl,
       appKey,
       mode,
       runtimeMode,
-      orderedSteps: communicator ? [
-        "Open application stream from the operator app switcher.",
-        "Operator enters phone/account credentials and SMS/2FA code directly in the workload UI.",
-        "Verify account is created or linked without storing the phone number, OTP, password or message content.",
-        "Send and receive a harmless test message with QA contact; store only metadata that the check passed.",
-        "Return to this panel and record evidence refs, latency and pass/fail checks."
-      ] : [
-        "Open the wallet workload stream.",
-        "Operator performs approved test workflow without exposing seed, private key, wallet address or balance.",
-        "Confirm viewport fit and input behavior on Pixel or laptop.",
-        "Return to this panel and record metadata-only evidence plus explicit risk acceptance."
-      ],
+      orderedSteps,
       neverCollect: [
         "phone_number",
         "otp_or_sms_code",
         "password",
         "message_content",
+        "mailbox_address",
+        "mail_subject_sender_recipient_or_body",
         "wallet_seed_or_private_key",
         "wallet_balance_or_address"
       ],
@@ -4029,6 +4063,7 @@ export class OperatorPortalService {
         "app_visible_boolean",
         "account_bootstrap_boolean",
         "send_receive_boolean",
+        "mailbox_visible_boolean",
         "latency_ms",
         "artifact_refs",
         "short_note_without_secrets"

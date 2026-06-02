@@ -140,6 +140,23 @@ const profiles = {
     serverName: "protonmail.sylion.internal",
     guestMac: "AA:FC:00:00:58:1A"
   },
+  simplex: {
+    title: "SYLION SimpleX Chat Gate",
+    url: "https://simplex.chat/downloads/",
+    preAptSetup: mozillaAptSetup,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
+    launchCommand: firefoxApp("https://simplex.chat/downloads/"),
+    waylandLaunchCommand: firefoxWaylandApp("https://simplex.chat/downloads/"),
+    targetContentPattern: "SimpleX",
+    visibleWindowPattern: "SimpleX|Mozilla Firefox|Firefox",
+    processPattern: "firefox",
+    hostPort: 3017,
+    guestIp: "172.16.58.34",
+    hostTapIp: "172.16.58.33",
+    tap: "syliongui8",
+    serverName: "simplex.sylion.internal",
+    guestMac: "AA:FC:00:00:58:22"
+  },
   telegram: {
     title: "SYLION Telegram Web",
     url: "https://web.telegram.org/",

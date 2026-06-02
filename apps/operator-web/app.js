@@ -587,8 +587,10 @@
       "telegram",
       "threema",
       "zangi",
+      "simplex",
       "matrix_client",
       "matrix_server",
+      "protonmail",
       "duckduckgo_browser",
       "libreoffice",
       "exodus"
@@ -1319,8 +1321,10 @@
       "telegram",
       "threema",
       "zangi",
+      "simplex",
       "matrix_client",
       "matrix_server",
+      "protonmail",
       "duckduckgo_browser",
       "libreoffice",
       "exodus"

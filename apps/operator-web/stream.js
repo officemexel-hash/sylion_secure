@@ -15,6 +15,7 @@
     telegram: { label: "Telegram", host: "telegram.sylion.internal", path: STREAM_PATH },
     threema: { label: "Threema", host: "threema.sylion.internal", path: STREAM_PATH },
     signal: { label: "Signal", host: "signal.sylion.internal", path: STREAM_PATH },
+    simplex: { label: "SimpleX Chat", host: "simplex.sylion.internal", path: STREAM_PATH },
     zangi: { label: "Zangi", host: "zangi.sylion.internal", path: STREAM_PATH },
     exodus: { label: "Exodus", host: "exodus.sylion.internal", path: STREAM_PATH }
   });

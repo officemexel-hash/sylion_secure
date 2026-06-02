@@ -24,6 +24,8 @@ const apps = Object.freeze([
   { key: "threema", evidenceKey: "threema", name: "Threema", host: "threema.sylion.internal", runtime: "firecracker_web_or_android_native", class: "communicator" },
   { key: "signal", evidenceKey: "signal", name: "Signal", host: "signal.sylion.internal", runtime: "firecracker_desktop", class: "communicator" },
   { key: "zangi", evidenceKey: "zangi", name: "Zangi", host: "zangi.sylion.internal", runtime: "android_native_required", class: "communicator", androidNativeRequired: true },
+  { key: "simplex", evidenceKey: "simplex", name: "SimpleX Chat", host: "simplex.sylion.internal", runtime: "desktop_or_android_native_required", class: "communicator", desktopOrAndroidImageRequired: true },
+  { key: "protonmail", evidenceKey: "protonmail", name: "Proton Mail", host: "protonmail.sylion.internal", runtime: "firecracker_webmail", class: "mail", accountLoginRequired: true },
   { key: "exodus", evidenceKey: "exodus", name: "Exodus", host: "exodus.sylion.internal", runtime: "dedicated_wallet_runtime", class: "wallet", pixelFitReviewRequired: true }
 ]);
 
@@ -206,6 +208,14 @@ function appState(app, workload, route) {
       functionalState = "blocked_android_native_provenance";
       operatorAction = "approve_android_image_and_zangi_apk_then_run_android_native_test";
       blockers.push("approved_android_image_or_zangi_apk_missing");
+    } else if (app.desktopOrAndroidImageRequired) {
+      functionalState = "ui_ready_account_test_required";
+      operatorAction = "approve_simplex_desktop_or_android_image_then_run_send_receive_human_test";
+      blockers.push("simplex_account_send_receive_not_proven");
+    } else if (app.accountLoginRequired) {
+      functionalState = "ui_ready_account_test_required";
+      operatorAction = "operator_logs_into_mailbox_inside_workload_then_records_metadata_only_evidence";
+      blockers.push("protonmail_login_and_mailbox_visibility_not_proven");
     } else if (app.class === "communicator") {
       functionalState = "ui_ready_account_test_required";
       operatorAction = "bootstrap_account_then_run_send_receive_human_test";

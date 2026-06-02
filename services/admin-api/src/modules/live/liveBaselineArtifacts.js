@@ -10,6 +10,8 @@ const WORKLOAD_APPS = Object.freeze([
   { key: "threema", host: "threema.sylion.internal", scheme: "http", port: 3012, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-threema.conf" },
   { key: "signal", host: "signal.sylion.internal", scheme: "http", port: 3013, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-signal.conf" },
   { key: "zangi", host: "zangi.sylion.internal", scheme: "http", port: 3014, productionGate: "android_native_runner_required" },
+  { key: "protonmail", host: "protonmail.sylion.internal", scheme: "http", port: 3016, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-protonmail.conf", productionGate: "mail_account_human_test_required" },
+  { key: "simplex", host: "simplex.sylion.internal", scheme: "http", port: 3017, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-simplex.conf", productionGate: "simplex_desktop_or_android_image_required" },
   { key: "exodus", host: "exodus.sylion.internal", scheme: "http", port: 3015, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-exodus.conf", productionGate: "isolated_wallet_runtime_required" }
 ]);
 
@@ -212,6 +214,8 @@ ${sshUserBlock(sshPublicKey)}write_files:
       docker volume create sylion_telegram_config >/dev/null
       docker volume create sylion_threema_config >/dev/null
       docker volume create sylion_zangi_config >/dev/null
+      docker volume create sylion_protonmail_config >/dev/null
+      docker volume create sylion_simplex_config >/dev/null
       docker volume create sylion_exodus_config >/dev/null
       docker volume create sylion_signal_profile >/dev/null
       docker run --rm -v sylion_signal_profile:/target alpine:3.20 sh -lc 'chown -R 1000:1000 /target'
@@ -222,6 +226,8 @@ ${sshUserBlock(sshPublicKey)}write_files:
       docker run -d --name sylion-telegram-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Telegram Web' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://web.telegram.org/k/' -p "$private_ip:3011:3000" -v sylion_telegram_config:/config lscr.io/linuxserver/chromium:latest
       docker run -d --name sylion-threema-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Threema Web' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://web.threema.ch/' -p "$private_ip:3012:3000" -v sylion_threema_config:/config lscr.io/linuxserver/chromium:latest
       docker run -d --name sylion-zangi-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Zangi Gate' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://zangi.com/en-us/download' -p "$private_ip:3014:3000" -v sylion_zangi_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-protonmail-web --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Proton Mail' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://mail.proton.me/' -p "$private_ip:3016:3000" -v sylion_protonmail_config:/config lscr.io/linuxserver/chromium:latest
+      docker run -d --name sylion-simplex-gate --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION SimpleX Gate' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://simplex.chat/downloads/' -p "$private_ip:3017:3000" -v sylion_simplex_config:/config lscr.io/linuxserver/chromium:latest
       docker run -d --name sylion-exodus --restart unless-stopped --shm-size 1g -e PUID=1000 -e PGID=1000 -e TZ=UTC -e TITLE='SYLION Exodus Gate' -e CHROME_CLI='--disable-session-crashed-bubble --no-first-run https://www.exodus.com/download/' -p "$private_ip:3015:3000" -v sylion_exodus_config:/config lscr.io/linuxserver/chromium:latest
       docker run -d --name sylion-signal-desktop --restart unless-stopped --shm-size 1g --env-file /etc/sylion/workload-secrets/signal.env -p "$private_ip:3013:6901" -v sylion_signal_profile:/home/kasm-user/.config/Signal sylion/signal-workload:prod-candidate
 

@@ -18,12 +18,18 @@ const APPS = Object.freeze([
     command: ["node", "scripts/workload-libreoffice-human-runner.mjs"],
     summaryPath: ["docs", "admin-panel-v2", "test-artifacts", "step3-86-libreoffice-human-runner", "summary.json"]
   },
-  ...["signal", "whatsapp", "telegram", "threema", "zangi"].map((appKey) => ({
+  ...["signal", "whatsapp", "telegram", "threema", "zangi", "simplex"].map((appKey) => ({
     appKey,
-    label: appKey[0].toUpperCase() + appKey.slice(1),
+    label: appKey === "simplex" ? "SimpleX Chat" : appKey[0].toUpperCase() + appKey.slice(1),
     command: ["node", "scripts/workload-communicator-human-runner.mjs", `--app=${appKey}`],
     summaryPath: ["docs", "admin-panel-v2", "test-artifacts", `step3-86-${appKey}-human-runner`, "summary.json"]
   })),
+  {
+    appKey: "protonmail",
+    label: "Proton Mail",
+    command: ["node", "scripts/workload-protonmail-human-runner.mjs"],
+    summaryPath: ["docs", "admin-panel-v2", "test-artifacts", "step3-86-workload-factual-human-runner", "summary.json"]
+  },
   {
     appKey: "exodus",
     label: "Exodus",
@@ -81,7 +87,12 @@ async function run() {
     });
     const summaryPath = join(process.cwd(), ...app.summaryPath);
     const summary = await readJson(summaryPath);
-    const evaluation = summary?.evaluation || null;
+    const scaffoldApp = summary?.apps?.find?.((item) => item.appKey === app.appKey) || summary?.apps?.[0] || null;
+    const evaluation = summary?.evaluation || (scaffoldApp ? {
+      strictResult: scaffoldApp.strictResult,
+      result: String(scaffoldApp.strictResult || "UNKNOWN").toLowerCase(),
+      blockers: [`required_checks_pending:${(scaffoldApp.requiredChecks || []).join(",")}`, "strict_pass_requires_real_human_ui_and_metadata_evidence"]
+    } : null);
     const result = {
       appKey: app.appKey,
       label: app.label,

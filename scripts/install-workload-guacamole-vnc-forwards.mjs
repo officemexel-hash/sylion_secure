@@ -62,6 +62,17 @@ const forwardPlan = {
       required: true
     },
     {
+      key: "simplex",
+      label: "SYLION SimpleX Chat",
+      mode: "desktop_or_android_gate",
+      bindPort: 5918,
+      targetHost: "172.16.58.34",
+      targetPort: 5900,
+      labWebPort: 3017,
+      required: false,
+      blockerIfMissing: "simplex_desktop_or_android_image_required"
+    },
+    {
       key: "telegram",
       label: "SYLION Telegram",
       mode: "desktop_web",
