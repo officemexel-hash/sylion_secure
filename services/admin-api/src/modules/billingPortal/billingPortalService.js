@@ -723,7 +723,7 @@ export class BillingPortalService {
     };
   }
 
-  redeemOperatorBootstrapToken({ redemptionToken, vaultPublicId, activationProfile = {}, correlationId }) {
+  redeemOperatorBootstrapToken({ redemptionToken, vaultPublicId, activationProfile = {}, operatorId = null, tenantId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const { record, profile } = this.#requireRedeemableBootstrapToken({ redemptionToken, vaultPublicId, activationProfile });
     const updated = {
@@ -731,6 +731,8 @@ export class BillingPortalService {
       status: "provisioned",
       provisionedAt: isoNow(),
       provisionRequest: profile,
+      provisionedOperatorId: operatorId ? String(operatorId) : null,
+      provisionedTenantId: tenantId ? String(tenantId) : null,
       productionExecutionAllowed: false
     };
     this.tokens.set(updated.id, updated);
@@ -752,6 +754,37 @@ export class BillingPortalService {
       tier: publicTier(PORTAL_TIERS[record.tierId]),
       activationProfile: profile
     };
+  }
+
+  listOperatorActivations() {
+    return [...this.tokens.values()]
+      .filter((record) => record.status === "provisioned")
+      .map((record) => ({
+        tokenId: record.id,
+        checkoutId: record.checkoutId,
+        provider: record.provider,
+        tierId: record.tierId,
+        tierName: record.tierName,
+        operatorTier: record.operatorTier,
+        tokenType: record.tokenType,
+        amountEur: record.amountEur,
+        minimumMonths: record.minimumMonths,
+        appEnvironments: record.appEnvironments,
+        provisionedAt: record.provisionedAt || null,
+        provisionedOperatorId: record.provisionedOperatorId || null,
+        provisionedTenantId: record.provisionedTenantId || null,
+        activationProfile: record.provisionRequest ? {
+          operatorDisplayName: record.provisionRequest.operatorDisplayName,
+          companyName: record.provisionRequest.companyName || null,
+          resellerReference: record.provisionRequest.resellerReference || null,
+          hardwareBundleId: record.provisionRequest.hardwareBundleId || null,
+          fulfillmentMode: record.provisionRequest.fulfillmentMode,
+          terminalMode: record.provisionRequest.terminalMode
+        } : null,
+        tokenStoredPlaintext: false,
+        terminalDataStored: false,
+        productionExecutionAllowed: false
+      }));
   }
 
   #requireRedeemableBootstrapToken({ redemptionToken, vaultPublicId, activationProfile = {} }) {
@@ -1049,6 +1082,8 @@ export class BillingPortalService {
       issuedAt: record.issuedAt,
       claimedAt: record.claimedAt,
       provisionedAt: record.provisionedAt || null,
+      provisionedOperatorId: record.provisionedOperatorId || null,
+      provisionedTenantId: record.provisionedTenantId || null,
       tokenStoredPlaintext: false,
       terminalDataStored: false,
       productionExecutionAllowed: false

@@ -84,6 +84,26 @@
             <strong id="metric-operators">0</strong>
           </article>
           <article>
+            <span>Tier Split</span>
+            <strong id="metric-operator-tiers">-</strong>
+          </article>
+          <article>
+            <span>Infra Cost / mo</span>
+            <strong id="metric-operator-infra-cost">0 PLN</strong>
+          </article>
+          <article>
+            <span>Sold Seats</span>
+            <strong id="metric-sold-seats">0</strong>
+          </article>
+          <article>
+            <span>Sold Value</span>
+            <strong id="metric-sold-value">0 EUR</strong>
+          </article>
+          <article>
+            <span>Business / Anonymous</span>
+            <strong id="metric-business-anon">0 / 0</strong>
+          </article>
+          <article>
             <span>Jobs</span>
             <strong id="metric-jobs">0</strong>
           </article>
@@ -404,8 +424,116 @@
             </form>
           </article>
           <article class="panel wide">
+            <div class="panel-head">
+              <h2>Operator Segmentation <span class="help-tip" tabindex="0" data-tip="Segments operators by activation date, subscription days remaining, purchase route, account class, tier and cost. Revenue is shown only when a paid token or checkout exists.">?</span></h2>
+              <span class="pill">Commercial view</span>
+            </div>
+            <div class="operator-segmentation-controls">
+              <label>Search <input id="operator-segmentation-search" placeholder="operator, tenant, reseller"></label>
+              <label>Tier
+                <select id="operator-segmentation-tier">
+                  <option value="">All tiers</option>
+                  <option>PILOT</option>
+                  <option>STANDARD</option>
+                  <option>PRO</option>
+                  <option>PHANTOM</option>
+                  <option>SOVEREIGN</option>
+                </select>
+              </label>
+              <label>Purchase
+                <select id="operator-segmentation-purchase">
+                  <option value="">All methods</option>
+                  <option value="self_service_fiat">Self-service fiat</option>
+                  <option value="self_service_crypto">Self-service crypto</option>
+                  <option value="reseller">Reseller</option>
+                  <option value="manual_admin">Manual admin</option>
+                  <option value="sandbox_token">Sandbox token</option>
+                </select>
+              </label>
+              <label>Account
+                <select id="operator-segmentation-account">
+                  <option value="">All account classes</option>
+                  <option value="business">Business</option>
+                  <option value="anonymous">Anonymous</option>
+                  <option value="manual_admin">Manual admin</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </label>
+              <label>Sort
+                <select id="operator-segmentation-sort">
+                  <option value="daysRemainingAsc">Subscription ends first</option>
+                  <option value="activationDesc">Newest activation</option>
+                  <option value="tierAsc">Tier A-Z</option>
+                  <option value="purchaseAsc">Purchase method</option>
+                  <option value="infraDesc">Highest infra cost</option>
+                  <option value="revenueDesc">Highest sold value</option>
+                </select>
+              </label>
+            </div>
+            <div class="cards compact" id="operator-commercial-summary-cards"></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Operator</th>
+                    <th>Tier</th>
+                    <th>Status</th>
+                    <th>Activation</th>
+                    <th>Days Left</th>
+                    <th>Purchase</th>
+                    <th>Account</th>
+                    <th>Cost</th>
+                    <th>Sold Value</th>
+                  </tr>
+                </thead>
+                <tbody id="operator-segmentation-table"></tbody>
+              </table>
+            </div>
+          </article>
+          <article class="panel wide">
             <div class="panel-head"><h2>Operators</h2></div>
             <div class="cards" id="operator-cards"></div>
+          </article>
+          <article class="panel form-panel">
+            <div class="panel-head">
+              <h2>Manage Operator <span class="help-tip" tabindex="0" data-tip="Rename, retier, suspend/revoke, or remove one operator from the control plane. Deleting preserves audit evidence and does not run provider-side cleanup.">?</span></h2>
+              <span class="pill warn">Audit retained</span>
+            </div>
+            <form id="operator-update-form">
+              <label>Operator <select name="operatorId" id="operator-manage-select"></select></label>
+              <label>Display Name <input name="displayName" placeholder="New operator name"></label>
+              <label>Tier
+                <select name="tier">
+                  <option value="">Keep current</option>
+                  <option>PILOT</option>
+                  <option>STANDARD</option>
+                  <option>PRO</option>
+                  <option>PHANTOM</option>
+                  <option>SOVEREIGN</option>
+                </select>
+              </label>
+              <label>Status
+                <select name="status">
+                  <option value="">Keep current</option>
+                  <option value="draft">draft</option>
+                  <option value="pending_approval">pending_approval</option>
+                  <option value="provisioning">provisioning</option>
+                  <option value="awaiting_enrollment">awaiting_enrollment</option>
+                  <option value="active">active</option>
+                  <option value="degraded">degraded</option>
+                  <option value="suspended">suspended</option>
+                  <option value="revoked">revoked</option>
+                </select>
+              </label>
+              <label>Labels <input name="labels" placeholder="comma-separated; blank keeps current"></label>
+              <button type="submit">Save Operator</button>
+            </form>
+            <form id="operator-delete-form">
+              <label>Operator <select name="operatorId" id="operator-delete-select"></select></label>
+              <label>Confirmation <input name="confirmation" placeholder="DELETE_OPERATOR:op_..."></label>
+              <label>Reason <input name="reason" value="admin_operator_cleanup"></label>
+              <button type="submit" class="danger">Delete Operator Control-plane</button>
+            </form>
           </article>
           <article class="panel wide">
             <div class="panel-head"><h2>Disposable Teardown Plans</h2><span class="pill warn">Audit retained</span></div>

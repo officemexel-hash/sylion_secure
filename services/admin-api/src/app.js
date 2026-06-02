@@ -38,7 +38,7 @@ import { RouterReadinessService } from "./modules/router/routerReadinessService.
 import { TerminalAdmissionPolicyService } from "./modules/terminalAdmission/terminalAdmissionPolicyService.js";
 import { RfLabService } from "./modules/rfLab/rfLabService.js";
 import { BillingPortalService } from "./modules/billingPortal/billingPortalService.js";
-import { ROLES } from "./domain/constants.js";
+import { ROLES, TIERS } from "./domain/constants.js";
 import { AppError, validationError } from "./lib/errors.js";
 
 async function readJson(req) {
@@ -436,14 +436,220 @@ function readinessAppState(env, app, factualRecord = null) {
 
 function tierCostModel(tier) {
   const models = {
+    PILOT: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 260, monthlyCustomerPricePln: 430, workloadTenancy: "shared_dedicated_pool_allowed" },
     STANDARD: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 420, monthlyCustomerPricePln: 1200, workloadTenancy: "shared_dedicated_pool_allowed" },
     PRO: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 760, monthlyCustomerPricePln: 2500, workloadTenancy: "shared_dedicated_pool_allowed" },
+    PHANTOM: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 1300, monthlyCustomerPricePln: 4300, workloadTenancy: "dedicated_or_strongly_isolated_review" },
     SOVEREIGN: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 1800, monthlyCustomerPricePln: 6500, workloadTenancy: "dedicated_operator_only" }
   };
   const model = models[tier] || models.PRO;
   return {
     ...model,
     grossMarginPln: model.monthlyCustomerPricePln - model.monthlyInfraCostPln
+  };
+}
+
+const OPERATOR_COMMERCIAL_TIER_MODEL = Object.freeze({
+  [TIERS.PILOT]: { monthlyPriceEur: 99, annualCommitmentEur: 1188, minimumMonths: 12, appEnvironments: 6 },
+  [TIERS.STANDARD]: { monthlyPriceEur: 199, annualCommitmentEur: 2388, minimumMonths: 12, appEnvironments: 10 },
+  [TIERS.PRO]: { monthlyPriceEur: 499, annualCommitmentEur: 5988, minimumMonths: 12, appEnvironments: 20 },
+  [TIERS.PHANTOM]: { monthlyPriceEur: 1000, annualCommitmentEur: 12000, minimumMonths: 12, appEnvironments: 40 },
+  [TIERS.SOVEREIGN]: { monthlyPriceEur: 2999, annualCommitmentEur: 35988, minimumMonths: 12, appEnvironments: 60 }
+});
+
+function parseTime(value) {
+  const timestamp = Date.parse(value || "");
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function addMonthsIso(value, months) {
+  const timestamp = parseTime(value);
+  if (timestamp === null) return null;
+  const date = new Date(timestamp);
+  date.setUTCMonth(date.getUTCMonth() + Number(months || 0));
+  return date.toISOString();
+}
+
+function daysUntil(value, now = Date.now()) {
+  const timestamp = parseTime(value);
+  if (timestamp === null) return null;
+  return Math.ceil((timestamp - now) / (24 * 60 * 60 * 1000));
+}
+
+function moneyNumber(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? Math.round(number * 100) / 100 : 0;
+}
+
+function commercialPurchaseMethod({ activation, checkout, subscriptionToken }) {
+  if (activation?.activationProfile?.fulfillmentMode === "reseller_preconfigured_hardware") return "reseller";
+  if (activation?.activationProfile?.resellerReference) return "reseller";
+  if (checkout?.provider === "coingate") return "self_service_crypto";
+  if (checkout?.provider === "stripe" || checkout?.provider === "mollie") return "self_service_fiat";
+  if (subscriptionToken?.providerMode === "crypto_gateway_live") return "self_service_crypto";
+  if (subscriptionToken?.providerMode === "card_gateway_live") return "self_service_fiat";
+  if (subscriptionToken?.providerMode === "sandbox") return "sandbox_token";
+  return "manual_admin";
+}
+
+function commercialAccountType({ purchaseMethod, activation, checkout, subscriptionToken }) {
+  if (purchaseMethod === "reseller") return "business";
+  if (activation?.activationProfile?.companyName || checkout?.companyProfile?.companyName) return "business";
+  if (checkout?.provider === "coingate" || subscriptionToken?.providerMode === "crypto_gateway_live") return "anonymous";
+  if (purchaseMethod === "manual_admin") return "manual_admin";
+  return "unknown";
+}
+
+function summarizeBy(items, key, value = () => 1) {
+  return items.reduce((acc, item) => {
+    const group = item[key] || "unknown";
+    acc[group] = moneyNumber((acc[group] || 0) + value(item));
+    return acc;
+  }, {});
+}
+
+function buildOperatorCommercialSummary({ actor, services, correlationId }) {
+  const operatorsList = services.operators.list({ actor, correlationId });
+  const portalCheckouts = services.billingPortal.listCheckouts();
+  const portalTokens = services.billingPortal.listTokens();
+  const portalActivations = services.billingPortal.listOperatorActivations();
+  const subscriptionLedger = services.subscriptions.listPaymentTokens({ actor, correlationId });
+  const checkoutById = new Map(portalCheckouts.map((checkout) => [checkout.id, checkout]));
+  const portalTokenById = new Map(portalTokens.map((token) => [token.id, token]));
+  const activationByOperatorId = new Map(portalActivations
+    .filter((activation) => activation.provisionedOperatorId)
+    .map((activation) => [activation.provisionedOperatorId, activation]));
+  const subscriptionRedemptionByOperatorId = new Map((subscriptionLedger.redemptions || [])
+    .filter((redemption) => redemption.operatorId)
+    .map((redemption) => [redemption.operatorId, redemption]));
+  const subscriptionTokenById = new Map((subscriptionLedger.tokens || []).map((token) => [token.id, token]));
+  const now = Date.now();
+
+  const rows = operatorsList.map((operator) => {
+    const activation = activationByOperatorId.get(operator.id)
+      || portalActivations.find((item) => (
+        item.activationProfile?.operatorDisplayName === operator.displayName
+        && item.operatorTier === operator.tier
+      ))
+      || null;
+    const checkout = activation ? checkoutById.get(activation.checkoutId) || null : null;
+    const portalToken = activation ? portalTokenById.get(activation.tokenId) || null : null;
+    const subscriptionRedemption = subscriptionRedemptionByOperatorId.get(operator.id) || null;
+    const subscriptionToken = subscriptionRedemption ? subscriptionTokenById.get(subscriptionRedemption.tokenId) || null : null;
+    const subscription = services.subscriptions.getTenantSubscription({
+      actor,
+      tenantId: operator.tenantId,
+      correlationId
+    });
+    const cost = tierCostModel(operator.tier);
+    const commercialModel = OPERATOR_COMMERCIAL_TIER_MODEL[operator.tier] || OPERATOR_COMMERCIAL_TIER_MODEL[TIERS.PRO];
+    const activationDate = activation?.provisionedAt
+      || subscriptionRedemption?.redeemedAt
+      || subscription.activatedAt
+      || operator.createdAt
+      || null;
+    const minimumMonths = Number(checkout?.minimumMonths
+      || portalToken?.minimumMonths
+      || subscriptionRedemption?.minimumMonths
+      || commercialModel.minimumMonths);
+    const subscriptionEndAt = addMonthsIso(activationDate, minimumMonths);
+    const remainingDays = daysUntil(subscriptionEndAt, now);
+    const purchaseMethod = commercialPurchaseMethod({ activation, checkout, subscriptionToken });
+    const accountType = commercialAccountType({ purchaseMethod, activation, checkout, subscriptionToken });
+    const soldAmountEur = checkout?.status === "paid"
+      || portalToken?.status === "provisioned"
+      || subscriptionToken?.state === "redeemed"
+      ? moneyNumber(checkout?.amountEur || portalToken?.amountEur || subscriptionToken?.amount || commercialModel.annualCommitmentEur)
+      : 0;
+    return {
+      operatorId: operator.id,
+      tenantId: operator.tenantId,
+      displayName: operator.displayName,
+      status: operator.status,
+      tier: operator.tier,
+      labels: operator.labels || [],
+      activationDate,
+      subscription: {
+        billingStatus: subscription.billingStatus,
+        planId: subscription.planId,
+        minimumMonths,
+        endAt: subscriptionEndAt,
+        daysRemaining: remainingDays,
+        state: remainingDays === null ? "unknown" : remainingDays > 0 ? "active" : "expired"
+      },
+      purchase: {
+        method: purchaseMethod,
+        accountType,
+        provider: checkout?.provider || portalToken?.provider || subscriptionToken?.providerMode || "manual",
+        source: activation ? "portal_operator_bootstrap" : subscriptionRedemption ? "subscription_payment_token" : "manual_admin",
+        checkoutId: checkout?.id || null,
+        serviceTokenId: portalToken?.id || null,
+        subscriptionTokenId: subscriptionToken?.id || null,
+        resellerReference: activation?.activationProfile?.resellerReference || null,
+        fulfillmentMode: activation?.activationProfile?.fulfillmentMode || null,
+        companyNameTracked: Boolean(activation?.activationProfile?.companyName || checkout?.companyProfile?.companyName)
+      },
+      commercial: {
+        soldSeatTracked: soldAmountEur > 0,
+        soldAmountEur,
+        monthlyPriceEur: moneyNumber(checkout?.monthlyPriceEur || commercialModel.monthlyPriceEur),
+        annualCommitmentEur: moneyNumber(checkout?.amountEur || portalToken?.amountEur || commercialModel.annualCommitmentEur),
+        currency: "EUR",
+        source: soldAmountEur > 0 ? "payment_ledger" : "not_tracked"
+      },
+      cost: {
+        monthlyInfraCostPln: cost.monthlyInfraCostPln,
+        monthlyCustomerPricePln: cost.monthlyCustomerPricePln,
+        grossMarginPln: cost.grossMarginPln,
+        workloadTenancy: cost.workloadTenancy,
+        source: "tier_cost_model"
+      },
+      appEnvironments: commercialModel.appEnvironments,
+      terminalDataStored: false,
+      tokenMaterialStoredPlaintext: false
+    };
+  });
+
+  const paidCheckouts = portalCheckouts.filter((checkout) => checkout.status === "paid");
+  const soldSeatsByPayment = paidCheckouts.reduce((acc, checkout) => {
+    const accountType = checkout.companyProfile?.companyName ? "business" : checkout.provider === "coingate" ? "anonymous" : "unknown";
+    acc[accountType] ||= { seats: 0, amountEur: 0 };
+    acc[accountType].seats += 1;
+    acc[accountType].amountEur = moneyNumber(acc[accountType].amountEur + Number(checkout.amountEur || 0));
+    return acc;
+  }, { business: { seats: 0, amountEur: 0 }, anonymous: { seats: 0, amountEur: 0 }, unknown: { seats: 0, amountEur: 0 } });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    rows,
+    totals: {
+      totalOperators: rows.length,
+      activeOperators: rows.filter((row) => row.status === "active").length,
+      tierCounts: Object.values(TIERS).reduce((acc, tier) => {
+        acc[tier] = rows.filter((row) => row.tier === tier).length;
+        return acc;
+      }, {}),
+      purchaseMethodCounts: summarizeBy(rows.map((row) => row.purchase), "method"),
+      accountTypeCounts: summarizeBy(rows.map((row) => row.purchase), "accountType"),
+      monthlyInfraCostPln: rows.reduce((sum, row) => sum + row.cost.monthlyInfraCostPln, 0),
+      monthlyCustomerPricePln: rows.reduce((sum, row) => sum + row.cost.monthlyCustomerPricePln, 0),
+      grossMarginPln: rows.reduce((sum, row) => sum + row.cost.grossMarginPln, 0),
+      soldSeats: paidCheckouts.length,
+      soldAmountEur: moneyNumber(paidCheckouts.reduce((sum, checkout) => sum + Number(checkout.amountEur || 0), 0)),
+      soldByAccountType: soldSeatsByPayment
+    },
+    evidence: {
+      operatorRows: rows.length,
+      portalCheckouts: portalCheckouts.length,
+      portalTokens: portalTokens.length,
+      portalActivations: portalActivations.length,
+      subscriptionPaymentTokens: subscriptionLedger.tokens?.length || 0,
+      subscriptionPaymentRedemptions: subscriptionLedger.redemptions?.length || 0,
+      costSource: "tier_cost_model",
+      revenueSource: "paid_portal_checkouts_and_subscription_tokens",
+      contentInspected: false,
+      secretsPrinted: false
+    }
   };
 }
 
@@ -1126,6 +1332,8 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           redemptionToken: body.redemptionToken,
           vaultPublicId: body.vaultPublicId,
           activationProfile,
+          operatorId: operator.id,
+          tenantId: tenant.id,
           correlationId
         });
         const downloadPackages = portalDownloadPackages({
@@ -1528,6 +1736,12 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "GET" && url.pathname === "/production-readiness/operators") {
         return send(res, 200, {
           readiness: buildProductionReadiness({ actor, services, env: runtimeEnv, correlationId })
+        });
+      }
+
+      if (req.method === "GET" && url.pathname === "/operators/commercial-summary") {
+        return send(res, 200, {
+          summary: buildOperatorCommercialSummary({ actor, services, correlationId })
         });
       }
 
@@ -2754,6 +2968,33 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             correlationId
           })
         });
+      }
+
+      const operatorMatch = url.pathname.match(/^\/operators\/([^/]+)$/);
+      if (req.method === "PATCH" && operatorMatch) {
+        const body = await readJson(req);
+        const operator = operators.update({
+          actor,
+          operatorId: operatorMatch[1],
+          displayName: body.displayName,
+          tier: body.tier,
+          status: body.status,
+          labels: body.labels,
+          correlationId
+        });
+        return send(res, 200, { operator });
+      }
+
+      if (req.method === "DELETE" && operatorMatch) {
+        const body = await readJson(req);
+        const deletion = operators.delete({
+          actor,
+          operatorId: operatorMatch[1],
+          confirmation: body.confirmation,
+          reason: body.reason,
+          correlationId
+        });
+        return send(res, 200, { deletion });
       }
 
       if (req.method === "GET" && url.pathname === "/operators/disposable-teardown-plans") {

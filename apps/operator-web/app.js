@@ -894,6 +894,10 @@
     if (frame) {
       frame.style.aspectRatio = `${stream.targetWidth} / ${stream.targetHeight}`;
     }
+    const openLink = $("#stream-open-link");
+    if (openLink && !openLink.dataset.ready) {
+      openLink.hidden = true;
+    }
   }
 
   async function requestStreamSession(event) {
@@ -922,11 +926,20 @@
     setText("#stream-session-broker", `${session.gateway.broker?.protocol || session.gateway.protocol} | ${session.gateway.broker?.labOnly ? "lab only" : "production candidate"}`);
     setText("#stream-session-url", session.launchUrl || "blocked_until_gate_passes");
     setText("#stream-session-blockers", (session.blockers || []).join(", ") || "-");
-    const center = $(".stream-center span");
-    if (center) {
-      center.textContent = session.state === "stream_session_ready"
-        ? `${session.appName} stream ready through G2`
-        : `${session.appName} stream blocked by gates`;
+    setText("#stream-session-app", session.appName || data.templateKey);
+    setText("#stream-session-message", session.state === "stream_session_ready"
+      ? "Live workload stream is ready through G2. Open it in the secured stream wrapper."
+      : `Stream blocked: ${(session.blockers || []).join(", ") || "gate not satisfied"}`);
+    const openLink = $("#stream-open-link");
+    if (openLink) {
+      if (session.state === "stream_session_ready") {
+        openLink.href = workloadStreamWrapperUrl(session.templateKey || data.templateKey, session.launchUrl || "");
+        openLink.dataset.ready = "true";
+        openLink.hidden = false;
+      } else {
+        openLink.removeAttribute("data-ready");
+        openLink.hidden = true;
+      }
     }
     await loadAudit();
   }

@@ -133,6 +133,121 @@ export class OperatorService {
     return operator;
   }
 
+  update({ actor, operatorId, displayName = undefined, tier = undefined, status = undefined, labels = undefined, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "operator.manage", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.OPERATOR,
+      resourceId: operatorId
+    });
+    const previous = this.#requireOperator(operatorId);
+    const patch = {};
+    if (displayName !== undefined) {
+      if (!displayName || String(displayName).trim().length < 2) {
+        throw validationError("Operator display name must be at least 2 characters");
+      }
+      patch.displayName = String(displayName).trim();
+    }
+    if (tier !== undefined) {
+      this.entitlements.getTier(tier);
+      patch.tier = tier;
+      patch.baseline = {
+        ...previous.baseline,
+        workloadTenancy: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier) ? "dedicated_operator_only" : "shared_dedicated_pool_allowed",
+        dedicatedWorkloadPerOperatorRequired: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier)
+      };
+    }
+    if (status !== undefined) {
+      if (!Object.values(OPERATOR_STATUSES).includes(status)) {
+        throw validationError("Unsupported operator status", {
+          status,
+          supported: Object.values(OPERATOR_STATUSES)
+        });
+      }
+      patch.status = status;
+    }
+    if (labels !== undefined) {
+      patch.labels = normalizeLabels(Array.isArray(labels) ? labels : String(labels).split(","));
+    }
+    const operator = {
+      ...previous,
+      ...patch,
+      updatedAt: isoNow()
+    };
+    this.operators.set(operator.id, operator);
+    this.audit.record({
+      actorId: actor.id,
+      action: "operator.updated",
+      resourceType: RESOURCE_TYPES.OPERATOR,
+      resourceId: operator.id,
+      tenantId: operator.tenantId,
+      operatorId: operator.id,
+      correlationId: corr,
+      previousValue: previous,
+      newValue: operator
+    });
+    return operator;
+  }
+
+  delete({ actor, operatorId, confirmation, reason = null, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    this.rbac.assert(actor, "operator.manage", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.OPERATOR,
+      resourceId: operatorId
+    });
+    const operator = this.#requireOperator(operatorId);
+    const requiredConfirmation = `DELETE_OPERATOR:${operator.id}`;
+    if (confirmation !== requiredConfirmation) {
+      this.audit.record({
+        actorId: actor.id,
+        action: "operator.delete_rejected",
+        resourceType: RESOURCE_TYPES.OPERATOR,
+        resourceId: operator.id,
+        tenantId: operator.tenantId,
+        operatorId: operator.id,
+        correlationId: corr,
+        policyDecision: "deny",
+        result: "denied",
+        newValue: {
+          reason: "confirmation_mismatch",
+          requiredConfirmationRef: `operator-delete-confirmation://${operator.id}`,
+          confirmationMaterialStored: false
+        }
+      });
+      throw validationError("Operator delete confirmation did not match", {
+        requiredConfirmation,
+        confirmationMaterialStored: false
+      });
+    }
+    this.operators.delete(operator.id);
+    const deletion = {
+      operatorId: operator.id,
+      tenantId: operator.tenantId,
+      displayName: operator.displayName,
+      state: "deleted_control_plane",
+      providerMutationAllowed: false,
+      productionExecutionAllowed: false,
+      auditRetention: "preserved",
+      reason,
+      deletedAt: isoNow()
+    };
+    this.audit.record({
+      actorId: actor.id,
+      action: "operator.deleted",
+      resourceType: RESOURCE_TYPES.OPERATOR,
+      resourceId: operator.id,
+      tenantId: operator.tenantId,
+      operatorId: operator.id,
+      correlationId: corr,
+      previousValue: operator,
+      newValue: deletion
+    });
+    return deletion;
+  }
+
   createDisposableTeardownPlan({ actor, operatorId, requestedAction = "operator_teardown", reason = null, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "operator.disposable_teardown.manage", {

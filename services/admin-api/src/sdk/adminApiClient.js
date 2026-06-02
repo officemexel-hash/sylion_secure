@@ -640,6 +640,18 @@ export class AdminApiClient {
     return this.request("/operators", { method: "POST", body });
   }
 
+  updateOperator(operatorId, body) {
+    return this.request(`/operators/${operatorId}`, { method: "PATCH", body });
+  }
+
+  deleteOperator(operatorId, body) {
+    return this.request(`/operators/${operatorId}`, { method: "DELETE", body });
+  }
+
+  getOperatorCommercialSummary() {
+    return this.request("/operators/commercial-summary");
+  }
+
   listDisposableTeardownPlans(operatorId = null) {
     return this.request(`/operators/disposable-teardown-plans${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
   }

@@ -3,6 +3,7 @@ const state = {
   session: JSON.parse(sessionStorage.getItem("sylion.admin.session") || "null"),
   tenants: [],
   operators: [],
+  operatorCommercial: null,
   operatorProvisioningTemplates: [],
   operatorProvisioningPipelines: [],
   operatorEnvironments: [],
@@ -231,6 +232,7 @@ async function refreshAll() {
     session,
     tenants,
     operators,
+    operatorCommercial,
     disposableTeardownPlans,
     operatorProvisioningTemplates,
     operatorProvisioningPipelines,
@@ -301,6 +303,7 @@ async function refreshAll() {
     api("/auth/session"),
     api("/tenants"),
     api("/operators"),
+    api("/operators/commercial-summary").catch(() => ({ summary: null })),
     api("/operators/disposable-teardown-plans").catch(() => ({ plans: [] })),
     api("/operator-provisioning/templates").catch(() => ({ templates: [] })),
     api("/operator-provisioning/pipelines").catch(() => ({ pipelines: [] })),
@@ -371,6 +374,7 @@ async function refreshAll() {
   state.session = session.session;
   state.tenants = tenants.tenants;
   state.operators = operators.operators;
+  state.operatorCommercial = operatorCommercial.summary;
   state.disposableTeardownPlans = disposableTeardownPlans.plans;
   state.operatorProvisioningTemplates = operatorProvisioningTemplates.templates;
   state.operatorProvisioningPipelines = operatorProvisioningPipelines.pipelines;
@@ -469,6 +473,7 @@ function render() {
   $("#metric-operators").textContent = state.operators.length;
   $("#metric-jobs").textContent = state.jobs.length;
   $("#metric-audit").textContent = state.audit.length;
+  renderOperatorCommercialSummary();
   $("#session-state").textContent = state.session?.authMethod || "Unknown";
   $("#phantom-boundary-state").textContent = state.phantomBoundary?.status || "Unavailable";
   $("#webauthn-capability").textContent = state.webAuthnSupported ? "Browser WebAuthn available" : "Dev/test simulator only";
@@ -479,6 +484,8 @@ function render() {
 
   renderSelect("#operator-tenant-select", state.tenants, "No tenants");
   renderSelect("#operator-live-provider-select", state.providers.filter((provider) => provider.providerKey === "hetzner"), "No Hetzner provider", "displayName");
+  renderSelect("#operator-manage-select", state.operators, "No operators", "displayName");
+  renderSelect("#operator-delete-select", state.operators, "No operators", "displayName");
   renderSelect("#disposable-teardown-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#disposable-teardown-execute-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#disposable-teardown-plan-select", state.disposableTeardownPlans, "No teardown plans", "requestedAction");
@@ -571,7 +578,8 @@ function render() {
     ["Router", operator.baseline?.router],
     ["Disposable", String(operator.disposable === true)],
     ["Deletion protection", String(operator.destructiveTest?.deletionProtection !== false)],
-    ["Teardown", operator.teardown?.state || "-"]
+    ["Teardown", operator.teardown?.state || "-"],
+    ["Delete confirm", `DELETE_OPERATOR:${operator.id}`]
   ])).join("") || empty("No operators yet.");
 
   $("#disposable-teardown-plan-cards").innerHTML = state.disposableTeardownPlans.map((plan) => card(plan.requestedAction, [
@@ -1370,6 +1378,125 @@ function renderRelease() {
   ].join("") : empty("Build assessment unavailable.");
 }
 
+function formatDate(value) {
+  const timestamp = Date.parse(value || "");
+  if (!Number.isFinite(timestamp)) return "-";
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(Number(value || 0));
+}
+
+function formatMoney(value, currency) {
+  return `${formatNumber(value)} ${currency}`;
+}
+
+function tierBreakdown(tierCounts = {}) {
+  const entries = ["PILOT", "STANDARD", "PRO", "PHANTOM", "SOVEREIGN"]
+    .filter((tier) => Number(tierCounts[tier] || 0) > 0)
+    .map((tier) => `${tier}:${tierCounts[tier]}`);
+  return entries.join(" ") || "-";
+}
+
+function sortCommercialRows(rows, sortMode) {
+  const sorted = [...rows];
+  const byText = (key) => (left, right) => String(left[key] || "").localeCompare(String(right[key] || ""));
+  const numeric = (reader, direction = "asc") => (left, right) => {
+    const a = Number(reader(left) ?? Number.MAX_SAFE_INTEGER);
+    const b = Number(reader(right) ?? Number.MAX_SAFE_INTEGER);
+    return direction === "desc" ? b - a : a - b;
+  };
+  const comparators = {
+    daysRemainingAsc: numeric((row) => row.subscription?.daysRemaining),
+    activationDesc: (left, right) => (Date.parse(right.activationDate || "") || 0) - (Date.parse(left.activationDate || "") || 0),
+    tierAsc: byText("tier"),
+    purchaseAsc: (left, right) => String(left.purchase?.method || "").localeCompare(String(right.purchase?.method || "")),
+    infraDesc: numeric((row) => row.cost?.monthlyInfraCostPln, "desc"),
+    revenueDesc: numeric((row) => row.commercial?.soldAmountEur, "desc")
+  };
+  return sorted.sort(comparators[sortMode] || comparators.daysRemainingAsc);
+}
+
+function renderOperatorCommercialSummary() {
+  const summary = state.operatorCommercial;
+  const totals = summary?.totals || {};
+  setText("#metric-operator-tiers", tierBreakdown(totals.tierCounts || {}));
+  setText("#metric-operator-infra-cost", `${formatNumber(totals.monthlyInfraCostPln || 0)} PLN`);
+  setText("#metric-sold-seats", String(totals.soldSeats || 0));
+  setText("#metric-sold-value", `${formatNumber(totals.soldAmountEur || 0)} EUR`);
+  const businessSeats = totals.soldByAccountType?.business?.seats || 0;
+  const anonymousSeats = totals.soldByAccountType?.anonymous?.seats || 0;
+  setText("#metric-business-anon", `${businessSeats} / ${anonymousSeats}`);
+
+  const cardsTarget = $("#operator-commercial-summary-cards");
+  const tableTarget = $("#operator-segmentation-table");
+  if (!cardsTarget || !tableTarget) return;
+  if (!summary) {
+    cardsTarget.innerHTML = empty("Commercial operator summary unavailable.");
+    tableTarget.innerHTML = tableEmpty(9, "Commercial operator summary unavailable.");
+    return;
+  }
+  cardsTarget.innerHTML = [
+    card("Operators", [
+      ["Total", String(totals.totalOperators || 0)],
+      ["Active", String(totals.activeOperators || 0)],
+      ["Tiers", tierBreakdown(totals.tierCounts || {})]
+    ]),
+    card("Cost Model", [
+      ["Infra", `${formatNumber(totals.monthlyInfraCostPln || 0)} PLN/mo`],
+      ["Customer price", `${formatNumber(totals.monthlyCustomerPricePln || 0)} PLN/mo`],
+      ["Gross margin", `${formatNumber(totals.grossMarginPln || 0)} PLN/mo`]
+    ]),
+    card("Sold Seats", [
+      ["Seats", String(totals.soldSeats || 0)],
+      ["Amount", `${formatNumber(totals.soldAmountEur || 0)} EUR`],
+      ["Business/Anon", `${businessSeats}/${anonymousSeats}`]
+    ]),
+    card("Evidence", [
+      ["Portal checkouts", String(summary.evidence?.portalCheckouts || 0)],
+      ["Portal activations", String(summary.evidence?.portalActivations || 0)],
+      ["Revenue source", summary.evidence?.revenueSource || "-"]
+    ])
+  ].join("");
+
+  const query = ($("#operator-segmentation-search")?.value || "").trim().toLowerCase();
+  const tier = $("#operator-segmentation-tier")?.value || "";
+  const purchase = $("#operator-segmentation-purchase")?.value || "";
+  const account = $("#operator-segmentation-account")?.value || "";
+  const sortMode = $("#operator-segmentation-sort")?.value || "daysRemainingAsc";
+  const filtered = (summary.rows || []).filter((row) => {
+    const searchable = [
+      row.displayName,
+      row.operatorId,
+      row.tenantId,
+      row.tier,
+      row.status,
+      row.purchase?.method,
+      row.purchase?.accountType,
+      row.purchase?.resellerReference
+    ].join(" ").toLowerCase();
+    return (!query || searchable.includes(query))
+      && (!tier || row.tier === tier)
+      && (!purchase || row.purchase?.method === purchase)
+      && (!account || row.purchase?.accountType === account);
+  });
+  const rows = sortCommercialRows(filtered, sortMode);
+  tableTarget.innerHTML = rows.map((row) => `
+    <tr>
+      <td><strong>${escapeHtml(row.displayName)}</strong><br><code>${escapeHtml(row.operatorId)}</code></td>
+      <td>${escapeHtml(row.tier)}</td>
+      <td>${escapeHtml(row.status)}</td>
+      <td>${escapeHtml(formatDate(row.activationDate))}</td>
+      <td>${escapeHtml(row.subscription?.daysRemaining ?? "-")}<br><small>${escapeHtml(row.subscription?.state || "-")}</small></td>
+      <td>${escapeHtml(row.purchase?.method || "-")}<br><small>${escapeHtml(row.purchase?.provider || "-")}</small></td>
+      <td>${escapeHtml(row.purchase?.accountType || "-")}</td>
+      <td>${escapeHtml(formatMoney(row.cost?.monthlyInfraCostPln || 0, "PLN/mo"))}<br><small>${escapeHtml(row.cost?.source || "-")}</small></td>
+      <td>${escapeHtml(formatMoney(row.commercial?.soldAmountEur || 0, "EUR"))}<br><small>${escapeHtml(row.commercial?.source || "-")}</small></td>
+    </tr>
+  `).join("") || tableEmpty(9, "No operators match current segmentation filters.");
+}
+
 function renderSelect(selector, rows, emptyLabel, labelKey = "name") {
   const select = $(selector);
   if (!select) return;
@@ -1630,6 +1757,42 @@ async function createOperator(event) {
   toast(liveBaselineEnabled
     ? "Operator created with live baseline gate decision"
     : "Operator created with automatic G1/G2/WORKLOAD baseline");
+  await refreshAll();
+}
+
+async function updateOperator(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  const body = {};
+  if (data.displayName) body.displayName = data.displayName;
+  if (data.tier) body.tier = data.tier;
+  if (data.status) body.status = data.status;
+  if (data.labels) body.labels = splitCsv(data.labels);
+  if (Object.keys(body).length === 0) {
+    toast("No operator changes submitted", "error");
+    return;
+  }
+  await api(`/operators/${data.operatorId}`, {
+    method: "PATCH",
+    body
+  });
+  event.currentTarget.reset();
+  toast("Operator updated");
+  await refreshAll();
+}
+
+async function deleteOperator(event) {
+  event.preventDefault();
+  const data = formData(event.currentTarget);
+  await api(`/operators/${data.operatorId}`, {
+    method: "DELETE",
+    body: {
+      confirmation: data.confirmation,
+      reason: data.reason || "admin_operator_cleanup"
+    }
+  });
+  event.currentTarget.reset();
+  toast("Operator deleted from control plane; audit retained");
   await refreshAll();
 }
 
@@ -3107,6 +3270,8 @@ function bind() {
   $("#enroll-button").addEventListener("click", () => enrollSecurityKey().catch(showError));
   $("#tenant-form").addEventListener("submit", (event) => createTenant(event).catch(showError));
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
+  $("#operator-update-form").addEventListener("submit", (event) => updateOperator(event).catch(showError));
+  $("#operator-delete-form").addEventListener("submit", (event) => deleteOperator(event).catch(showError));
   $("#disposable-teardown-plan-form").addEventListener("submit", (event) => createDisposableTeardownPlan(event).catch(showError));
   $("#disposable-teardown-execute-form").addEventListener("submit", (event) => executeDisposableTeardown(event).catch(showError));
   $("#pipeline-draft-form").addEventListener("submit", (event) => createPipelineDraft(event).catch(showError));
@@ -3178,6 +3343,17 @@ function bind() {
   $("#demo-flow-button").addEventListener("click", () => runDemoFlow().catch(showError));
   $("#step-up-confirm").addEventListener("click", () => completeStepUp().catch(showError));
   $("#step-up-cancel").addEventListener("click", cancelStepUp);
+  [
+    "#operator-segmentation-search",
+    "#operator-segmentation-tier",
+    "#operator-segmentation-purchase",
+    "#operator-segmentation-account",
+    "#operator-segmentation-sort"
+  ].forEach((selector) => {
+    const element = $(selector);
+    if (!element) return;
+    element.addEventListener(selector.endsWith("search") ? "input" : "change", renderOperatorCommercialSummary);
+  });
   $$("nav button").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.view));
   });
