@@ -400,6 +400,36 @@ cat > "$mount_dir/root/.config/openbox/autostart" <<'EOF'
 xsetroot -solid '#071014' &
 EOF
 chroot "$mount_dir" useradd -m -u 1000 -s /bin/sh sylion 2>/dev/null || true
+if [ "${appKey}" = "libreoffice" ]; then
+  install -d -o 1000 -g 1000 -m 0700 \
+    "$mount_dir/home/sylion/Documents" \
+    "$mount_dir/home/sylion/Exports" \
+    "$mount_dir/home/sylion/Ingress" \
+    "$mount_dir/home/sylion/Quarantine" \
+    "$mount_dir/home/sylion/.config"
+  cat > "$mount_dir/home/sylion/Documents/README-SYLION.txt" <<'EOF_LIBREOFFICE_README'
+SYLION LibreOffice workload storage
+
+Save working documents in /home/sylion/Documents.
+Use /home/sylion/Exports only for files that should leave the workload.
+Use /home/sylion/Ingress only for files admitted by the operator portal CDR flow.
+Use /home/sylion/Quarantine for files held after a CDR quarantine decision.
+
+The Pixel/laptop terminal is a thin client and must not store workload files.
+All file ingress and egress must go through CDR policy and audit.
+EOF_LIBREOFFICE_README
+  cat > "$mount_dir/home/sylion/.config/user-dirs.dirs" <<'EOF_USER_DIRS'
+XDG_DESKTOP_DIR="$HOME/Documents"
+XDG_DOCUMENTS_DIR="$HOME/Documents"
+XDG_DOWNLOAD_DIR="$HOME/Ingress"
+XDG_TEMPLATES_DIR="$HOME/Documents"
+XDG_PUBLICSHARE_DIR="$HOME/Exports"
+XDG_MUSIC_DIR="$HOME/Documents"
+XDG_PICTURES_DIR="$HOME/Documents"
+XDG_VIDEOS_DIR="$HOME/Documents"
+EOF_USER_DIRS
+  chown -R 1000:1000 "$mount_dir/home/sylion"
+fi
 if [ "$vnc_backend" = "kasmvnc" ]; then
   install -d -m 0700 "$mount_dir/etc/sylion"
   cp "$stream_credential_ref" "$mount_dir/etc/sylion/stream-credentials.env"
