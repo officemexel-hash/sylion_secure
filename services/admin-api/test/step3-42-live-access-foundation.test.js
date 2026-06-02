@@ -160,3 +160,46 @@ test("Step 3.42 live VPN evidence promotes foundation to workload broker readine
     await close();
   }
 });
+
+test("Step 3.42 Puli AX router IPsec evidence satisfies T0 transport without Pixel tun1", async () => {
+  const { baseUrl, close } = await startTestServer({
+    liveExecutionOptions: {
+      env: {
+        SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL: "true",
+        SYLION_G1_G2_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_GATEWAY_READY: "true",
+        SYLION_PULI_AX_PHYSICAL_READY: "true",
+        SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
+      }
+    }
+  });
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client, "PRO");
+    await operatorRequest(baseUrl, seeded.session.token, "/operator-api/vpn-evidence", {
+      method: "POST",
+      body: {
+        vpnConnected: true,
+        vpnSession: "SYLION Puli AX -> G1",
+        vpnInterface: "puli_ax_ipsec_gateway",
+        dnsThroughTunnel: true,
+        certificateTrusted: true,
+        reachableHosts: [
+          "admin.sylion.internal",
+          "operator.sylion.internal",
+          "signal.sylion.internal",
+          "10.42.0.12"
+        ]
+      }
+    });
+    const foundation = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/live-access-foundation");
+    assert.equal(foundation.foundation.state, "live_access_ready_for_workload_broker");
+    assert.deepEqual(foundation.foundation.blockers, []);
+    assert.equal(foundation.foundation.vpn.evidenceReady, true);
+    assert.ok(foundation.foundation.checks.some((check) => check.key === "t0_pixel_to_g1_ipsec" && check.status === "passed"));
+    assert.ok(foundation.foundation.checks.some((check) => check.key === "puli_ax_physical_router" && check.status === "passed"));
+  } finally {
+    await close();
+  }
+});

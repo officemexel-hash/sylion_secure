@@ -1748,7 +1748,7 @@ export class OperatorPortalService {
       this.#liveAccessCheck("scoped_operator_session", true, "Operator session is scoped to one operator and terminal."),
       this.#liveAccessCheck("thin_terminal_boundary", true, "Pixel/laptop remains display and input only."),
       this.#liveAccessCheck("pixel_internal_ca_trust", caTrusted, "Pixel trusts SYLION Internal CA for *.sylion.internal."),
-      this.#liveAccessCheck("t0_pixel_to_g1_ipsec", liveVpnReady, "Pixel strongSwan/IKEv2 tunnel to G1 is established and evidenced."),
+      this.#liveAccessCheck("t0_pixel_to_g1_ipsec", liveVpnReady, "Pixel direct strongSwan or Puli AX IKEv2 tunnel to G1 is established and evidenced."),
       this.#liveAccessCheck("dns_through_tunnel", evidence?.dnsThroughTunnel === true, "Internal DNS is resolved through the tunnel only."),
       this.#liveAccessCheck("g1_to_g2_policy_path", g1ToG2Ready, "G1 forwards only the authorized policy path to G2."),
       this.#liveAccessCheck("g2_to_workload_policy_path", g2ToWorkloadReady, "G2 reaches WORKLOAD only through the workload policy path."),
@@ -3264,11 +3264,21 @@ export class OperatorPortalService {
     const missingHosts = (evidence.requiredHosts || []).filter((host) => !reachable.has(host));
     return [
       ...(evidence.vpnConnected ? [] : ["vpn_not_connected"]),
-      ...(evidence.vpnInterface === "tun1" ? [] : ["tun1_interface_missing"]),
+      ...(this.#vpnTransportInterfaceReady(evidence.vpnInterface) ? [] : ["ipsec_transport_interface_missing"]),
       ...(evidence.dnsThroughTunnel ? [] : ["dns_not_through_tunnel"]),
       ...(evidence.certificateTrusted ? [] : ["internal_ca_not_trusted"]),
       ...missingHosts.map((host) => `host_unreachable:${host}`)
     ];
+  }
+
+  #vpnTransportInterfaceReady(value) {
+    const iface = String(value || "").trim().toLowerCase();
+    return [
+      "tun1",
+      "puli_ax_ipsec_gateway",
+      "router_ipsec_gateway",
+      "ipsec_policy_route"
+    ].includes(iface);
   }
 
   #publicVpnEvidence(evidence) {
