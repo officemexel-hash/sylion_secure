@@ -182,7 +182,7 @@
 
     const appKey = url.searchParams.get("app");
     const launchUrl = workloadStreamWrapperUrl(appKey || "duckduckgo_browser");
-    if (!currentOperatorLaunchToken()) {
+    if (!currentOperatorLaunchToken() && !state.session) {
       event.preventDefault();
       setText("#session-status", "Workload stream blocked: missing active operator session. Reopen the operator package link.");
       return;
