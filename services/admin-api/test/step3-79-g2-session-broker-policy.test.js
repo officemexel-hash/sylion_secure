@@ -229,7 +229,7 @@ test("Step 3.79 noVNC is blocked as lab-only session broker", async () => {
   }
 });
 
-test("Step 3.79 Guacamole can satisfy the G2 broker candidate gate without terminal data", async () => {
+test("Step 3.79 Guacamole remains an interim G2 broker and cannot satisfy PHANTOM blind broker readiness", async () => {
   const { app, baseUrl, close } = await startTestServer({
     liveExecutionOptions: {
       env: {
@@ -306,15 +306,137 @@ test("Step 3.79 Guacamole can satisfy the G2 broker candidate gate without termi
     });
     assert.equal(session.session.state, "stream_session_ready");
     assert.equal(session.session.gateway.protocol, "guacamole");
-    assert.equal(session.session.gateway.broker.productionCandidate, true);
+    assert.equal(session.session.gateway.broker.productionCandidate, false);
+    assert.equal(session.session.gateway.broker.baselineUsable, true);
+    assert.equal(session.session.gateway.broker.interimOnly, true);
+    assert.equal(session.session.gateway.broker.brokerVisibility, "broker_can_access_plaintext_pixel_stream");
+    assert.equal(session.session.gateway.broker.phantomReadiness.state, "blocked_until_blind_e2ee");
+    assert.ok(session.session.gateway.broker.phantomReadiness.blockers.includes("phantom_blind_broker_e2ee_required"));
+    assert.ok(session.session.gateway.broker.phantomReadiness.blockers.includes("guacamole_is_interim_broker_visible_to_plaintext"));
     assert.equal(session.session.gateway.launchMode, "guacamole_json_auth_handoff");
     assert.equal(session.session.gateway.brokerConnectionName, "SYLION Signal");
     assert.equal(session.session.gateway.broker.encryption.guacamoleWebappToGuacd, "tls_required");
     assert.equal(session.session.gateway.broker.encryption.g2ToWorkload, "tls_stunnel_or_ipsec_required");
+    assert.equal(session.session.gateway.broker.encryption.brokerCanInspectPlaintext, true);
     assert.equal(session.session.launchUrl, "/operator/stream.html?app=signal&broker=guacamole");
     assert.equal(session.session.source.directProbeUrl, "https://signal.sylion.internal/");
     assert.equal(session.session.security.terminalDataStored, false);
     assert.equal(session.session.stream.fileTransfer, "cdr_required");
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.79 PHANTOM blind E2EE broker requires frame encryption and key-separation proof", async () => {
+  const { baseUrl, close } = await startTestServer({
+    liveExecutionOptions: {
+      env: {
+        SYLION_G2_SESSION_BROKER: "blind_e2ee",
+        SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL: "true",
+        SYLION_G1_G2_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_GATEWAY_READY: "true",
+        SYLION_REAL_IPSEC_READY: "true",
+        SYLION_KVM_READY: "true",
+        SYLION_FIRECRACKER_BIN: "/usr/local/bin/firecracker",
+        SYLION_FIRECRACKER_KERNEL: "image://kernel",
+        SYLION_SIGNAL_ROOTFS: "image://rootfs",
+        SYLION_SIGNAL_WORKLOAD_IMAGE_REF: "image://workload",
+        SYLION_SIGNAL_PACKAGE_REF: "package://signal",
+        SYLION_SIGNAL_ACCOUNT_REF: "account://signal",
+        SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
+      }
+    }
+  });
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client);
+    await operatorRequest(baseUrl, seeded.session.token, "/operator-api/vpn-evidence", {
+      method: "POST",
+      body: {
+        vpnConnected: true,
+        vpnInterface: "tun1",
+        dnsThroughTunnel: true,
+        certificateTrusted: true,
+        reachableHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "10.42.0.12"]
+      }
+    });
+
+    const deniedReadiness = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-readiness", {
+      method: "POST",
+      body: {
+        g2StreamGatewayReady: true,
+        tlsInternalOnly: true,
+        inputProxyReady: true,
+        protocol: "blind_e2ee",
+        sources: { signal: true }
+      }
+    });
+    assert.equal(deniedReadiness.evidence.ready, false);
+    assert.ok(deniedReadiness.evidence.blockers.includes("blind_e2ee_frame_encryption_required"));
+    assert.ok(deniedReadiness.evidence.blockers.includes("sframe_validation_required"));
+    assert.ok(deniedReadiness.evidence.blockers.includes("stream_key_separation_required"));
+
+    const readiness = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-readiness", {
+      method: "POST",
+      body: {
+        g2StreamGatewayReady: true,
+        tlsInternalOnly: true,
+        inputProxyReady: true,
+        protocol: "blind_e2ee",
+        e2eeStream: true,
+        sframeValidated: true,
+        keySeparationVerified: true,
+        keysHeldByBroker: false,
+        sources: { signal: true }
+      }
+    });
+    assert.equal(readiness.evidence.ready, true);
+    assert.equal(readiness.evidence.broker.productionCandidate, true);
+    assert.equal(readiness.evidence.broker.phantomReadiness.state, "ready_for_human_gate");
+    assert.equal(readiness.evidence.broker.brokerVisibility, "broker_relays_encrypted_frames_only");
+
+    const manifest = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-runtime-manifest", {
+      method: "POST",
+      body: {
+        gateway: {
+          bindAddress: "10.42.0.12",
+          port: 8443,
+          protocol: "blind_e2ee",
+          tlsMode: "internal_tls_only",
+          e2eeStream: true,
+          sframeValidated: true,
+          keySeparationVerified: true,
+          keysHeldByBroker: false,
+          workloadMicroVmLink: "host_local_tap_or_vsock",
+          publicInternetExposure: false
+        },
+        sources: {
+          signal: {
+            bindAddress: "10.44.0.13",
+            port: 3013,
+            healthPath: "/healthz",
+            cdrRequired: true
+          }
+        }
+      }
+    });
+    assert.equal(manifest.manifest.ready, true);
+    assert.equal(manifest.manifest.broker.productionCandidate, true);
+    assert.equal(manifest.manifest.broker.phantomReadiness.state, "ready_for_human_gate");
+
+    const session = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
+      method: "POST",
+      body: { templateKey: "signal", protocol: "blind_e2ee", width: 390, height: 844, dpr: 3 }
+    });
+    assert.equal(session.session.state, "stream_session_ready");
+    assert.equal(session.session.gateway.protocol, "blind_e2ee");
+    assert.equal(session.session.gateway.launchMode, "blind_e2ee_handoff");
+    assert.equal(session.session.gateway.broker.productionCandidate, true);
+    assert.equal(session.session.gateway.broker.phantomReadiness.state, "ready_for_human_gate");
+    assert.equal(session.session.gateway.broker.encryption.keysAvailableToG2, false);
+    assert.equal(session.session.launchUrl, "/operator/stream.html?app=signal&broker=blind_e2ee");
+    assert.equal(session.session.source.directProbeUrl, null);
   } finally {
     await close();
   }

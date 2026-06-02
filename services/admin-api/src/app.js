@@ -299,13 +299,13 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
   },
   {
     id: "gate_03_guacamole_broker",
-    title: "3. G2 Guacamole production broker",
+    title: "3. G2 PHANTOM blind streaming broker",
     area: "g2-broker",
     severity: "critical",
-    blockers: ["guacamole_not_active_as_production_broker"],
-    acceptance: "G2 runs the selected production broker with per-user limits, connection inventory, audit events, and no noVNC-only production claim.",
-    verifyHow: "Check guacd/Tomcat or approved broker services, count configured connections, confirm max sessions per user, and verify broker audit entries.",
-    repairAction: "Install and configure Apache Guacamole on G2 or record a formal ADR for an approved alternative; keep noVNC labeled lab-only until approved."
+    blockers: ["phantom_blind_broker_e2ee_required"],
+    acceptance: "G2 relays only encrypted pixel frames, cannot inspect plaintext stream content, enforces per-user limits, records metadata-only audit events, and no Guacamole/noVNC-only production claim is accepted for PHANTOM.",
+    verifyHow: "Check blind E2EE stream proof, SFrame or approved equivalent validation, key separation evidence, broker negative-visibility test, connection limits, and metadata-only audit entries.",
+    repairAction: "Keep Guacamole as an interim compatibility broker, implement the approved blind E2EE streaming backend behind an ADR/human gate, then re-run Pixel and laptop human regression."
   },
   {
     id: "gate_04_communicator_functional_tests",
@@ -658,23 +658,33 @@ function sessionBrokerReadiness(env) {
   const guacamoleReady = env.SYLION_GUACAMOLE_BROKER_READY === "true";
   const webrtcReady = env.SYLION_SELKIES_GATEWAY_READY === "true" || env.SYLION_G2_STREAM_GATEWAY_READY === "true";
   const novncLabReady = env.SYLION_NOVNC_LAB_READY === "true";
+  const blindE2eeReady = env.SYLION_BLIND_E2EE_STREAM_READY === "true"
+    && env.SYLION_BLIND_E2EE_SFRAME_VALIDATED === "true"
+    && env.SYLION_BLIND_E2EE_KEY_SEPARATION_VERIFIED === "true"
+    && env.SYLION_G2_STREAM_KEYS_HELD_BY_BROKER !== "true";
   const normalized = selected === "guac" || selected === "apache_guacamole"
     ? "guacamole"
     : selected === "selkies" || selected === "webrtc" || selected === "selkies_webrtc"
       ? "webrtc_selkies"
+      : selected === "blind" || selected === "phantom_blind" || selected === "sframe" || selected === "sframe_e2ee" || selected === "e2ee_stream"
+        ? "blind_e2ee"
       : selected === "novnc" || selected === "novnc_websockify"
         ? "novnc_lab"
         : selected;
-  const productionCandidateReady = normalized === "guacamole"
-    ? guacamoleReady
-    : normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies"
-      ? webrtcReady
-      : false;
+  const productionCandidateReady = normalized === "blind_e2ee" && blindE2eeReady;
   const technicalBlockers = [
     ...(normalized === "adr_pending" ? ["g2_session_broker_adr_pending"] : []),
     ...(normalized === "novnc_lab" ? ["novnc_lab_only_not_approved_for_production_broker"] : []),
     ...(normalized === "guacamole" && !guacamoleReady ? ["guacamole_broker_poc_not_ready"] : []),
-    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") && !webrtcReady ? ["webrtc_selkies_broker_poc_not_ready"] : [])
+    ...(normalized === "guacamole" ? ["phantom_blind_broker_e2ee_required", "guacamole_is_interim_broker_visible_to_plaintext"] : []),
+    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") && !webrtcReady ? ["webrtc_selkies_broker_poc_not_ready"] : []),
+    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") ? ["phantom_blind_broker_e2ee_required", "webrtc_selkies_is_interim_until_key_separation_proof"] : []),
+    ...(normalized === "blind_e2ee" && !blindE2eeReady ? [
+      "blind_e2ee_stream_poc_not_ready",
+      "frame_encryption_proof_required",
+      "stream_key_separation_required",
+      "broker_visibility_negative_test_required"
+    ] : [])
   ];
   const approvalBlockers = [
     ...(env.SYLION_G2_SESSION_BROKER_APPROVED === "true" ? [] : ["g2_session_broker_human_approval_missing"])
@@ -682,10 +692,12 @@ function sessionBrokerReadiness(env) {
   const technicalReadyForHumanGate = technicalBlockers.length === 0 && productionCandidateReady;
   return {
     selectedProtocol: normalized,
+    targetProtocol: "blind_e2ee",
     candidates: [
-      { protocol: "guacamole", ready: guacamoleReady, productionCandidate: true, labOnly: false },
-      { protocol: "webrtc_selkies", ready: webrtcReady, productionCandidate: true, labOnly: false },
-      { protocol: "novnc_lab", ready: novncLabReady, productionCandidate: false, labOnly: true }
+      { protocol: "guacamole", ready: guacamoleReady, productionCandidate: false, interimOnly: true, labOnly: false, brokerVisibility: "broker_can_access_plaintext_pixel_stream" },
+      { protocol: "webrtc_selkies", ready: webrtcReady, productionCandidate: false, interimOnly: true, labOnly: false, brokerVisibility: "broker_visibility_unproven_without_e2ee_key_separation" },
+      { protocol: "blind_e2ee", ready: blindE2eeReady, productionCandidate: true, interimOnly: false, labOnly: false, brokerVisibility: "broker_relays_encrypted_frames_only" },
+      { protocol: "novnc_lab", ready: novncLabReady, productionCandidate: false, interimOnly: false, labOnly: true, brokerVisibility: "lab_plain_websocket_not_approved" }
     ],
     state: technicalReadyForHumanGate ? "ready_for_human_gate" : "blocked",
     readyForHumanGate: technicalReadyForHumanGate,
@@ -693,6 +705,19 @@ function sessionBrokerReadiness(env) {
     approvalBlockers,
     humanApprovalRequired: approvalBlockers.length > 0,
     noVncProductionApproved: false,
+    phantomReadiness: {
+      targetProtocol: "blind_e2ee",
+      state: technicalReadyForHumanGate ? "ready_for_human_gate" : "blocked_until_blind_e2ee",
+      blindBrokerReady: blindE2eeReady,
+      currentBrokerCanInspectPlaintext: normalized !== "blind_e2ee",
+      requiredEvidence: [
+        "ADR",
+        "frame_encryption_proof",
+        "key_separation_proof",
+        "broker_visibility_negative_test",
+        "pixel_and_laptop_human_regression"
+      ]
+    },
     productionExecutionAllowed: false
   };
 }
@@ -789,7 +814,7 @@ function buildProductionGates({
   const facts = {
     zangiReady: appReady(rows, "zangi"),
     exodusReady: appReady(rows, "exodus") && envFlag(env, "SYLION_EXODUS_PIXEL_VISUAL_VERIFIED"),
-    guacamoleReady: sessionBroker.selectedProtocol === "guacamole" && sessionBroker.readyForHumanGate === true,
+    blindBrokerReady: sessionBroker.selectedProtocol === "blind_e2ee" && sessionBroker.readyForHumanGate === true,
     communicatorsReady: appsReady(rows, ["whatsapp", "telegram", "threema", "signal", "zangi"]),
     androidNativeReady: envFlag(env, "SYLION_ANDROID_NATIVE_MODE_READY") || androidNativeEvidence?.ready === true,
     cdrReady: envFlag(env, "SYLION_CDR_END_TO_END_READY") || cdrEvidence?.ready === true,
@@ -801,7 +826,7 @@ function buildProductionGates({
   const readinessByGate = {
     gate_01_zangi_android_native_functional: facts.zangiReady,
     gate_02_exodus_pixel_functional: facts.exodusReady,
-    gate_03_guacamole_broker: facts.guacamoleReady,
+    gate_03_guacamole_broker: facts.blindBrokerReady,
     gate_04_communicator_functional_tests: facts.communicatorsReady,
     gate_05_android_native_workloads: facts.androidNativeReady,
     gate_06_cdr_end_to_end: facts.cdrReady,
@@ -811,9 +836,9 @@ function buildProductionGates({
     gate_10_payment_token_provisioning: facts.paymentTokenReady
   };
   const blockersByGate = {
-    gate_03_guacamole_broker: facts.guacamoleReady ? [] : sessionBroker.blockers.length
+    gate_03_guacamole_broker: facts.blindBrokerReady ? [] : sessionBroker.blockers.length
       ? sessionBroker.blockers
-      : ["guacamole_not_active_as_production_broker"],
+      : ["phantom_blind_broker_e2ee_required"],
     gate_05_android_native_workloads: facts.androidNativeReady ? [] : androidNativeEvidence?.blockers?.length
       ? androidNativeEvidence.blockers
       : ["android_native_mode_incomplete"],

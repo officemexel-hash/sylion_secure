@@ -98,6 +98,7 @@ test("Step 3.60 production readiness exposes operator cost, route evidence and a
     assert.ok(zangiGate.verifyHow.includes("Pixel"));
     const guacamoleGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_03_guacamole_broker");
     assert.ok(guacamoleGate.blockers.includes("g2_session_broker_adr_pending"));
+    assert.equal(guacamoleGate.title, "3. G2 PHANTOM blind streaming broker");
     const row = readiness.readiness.operators[0];
     assert.equal(row.operatorId, operator.operator.id);
     assert.equal(row.tier, "PRO");
@@ -236,7 +237,7 @@ test("Step 3.60 production readiness rejects env-only factual claims for communi
   }
 });
 
-test("Step 3.60 Guacamole broker can be technically ready while still human gated", async () => {
+test("Step 3.60 Guacamole broker stays interim and PHANTOM blind broker is the production target", async () => {
   const env = {
     SYLION_G2_SESSION_BROKER: "guacamole",
     SYLION_GUACAMOLE_BROKER_READY: "true",
@@ -254,11 +255,55 @@ test("Step 3.60 Guacamole broker can be technically ready while still human gate
 
     const readiness = await client.getProductionReadiness();
     assert.equal(readiness.readiness.sessionBroker.selectedProtocol, "guacamole");
-    assert.equal(readiness.readiness.sessionBroker.state, "ready_for_human_gate");
-    assert.equal(readiness.readiness.sessionBroker.readyForHumanGate, true);
+    assert.equal(readiness.readiness.sessionBroker.targetProtocol, "blind_e2ee");
+    assert.equal(readiness.readiness.sessionBroker.state, "blocked");
+    assert.equal(readiness.readiness.sessionBroker.readyForHumanGate, false);
     assert.equal(readiness.readiness.sessionBroker.humanApprovalRequired, true);
+    assert.equal(readiness.readiness.sessionBroker.phantomReadiness.state, "blocked_until_blind_e2ee");
+    assert.equal(readiness.readiness.sessionBroker.phantomReadiness.currentBrokerCanInspectPlaintext, true);
+    assert.ok(readiness.readiness.sessionBroker.blockers.includes("phantom_blind_broker_e2ee_required"));
+    assert.ok(readiness.readiness.sessionBroker.blockers.includes("guacamole_is_interim_broker_visible_to_plaintext"));
     assert.ok(readiness.readiness.sessionBroker.approvalBlockers.includes("g2_session_broker_human_approval_missing"));
     const guacamoleGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_03_guacamole_broker");
+    assert.equal(guacamoleGate.title, "3. G2 PHANTOM blind streaming broker");
+    assert.equal(guacamoleGate.state, "blocked");
+    assert.ok(guacamoleGate.blockers.includes("phantom_blind_broker_e2ee_required"));
+    assert.equal(guacamoleGate.productionExecutionAllowed, false);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.60 PHANTOM blind E2EE broker can reach human gate only with encryption and key-separation evidence", async () => {
+  const env = {
+    SYLION_G2_SESSION_BROKER: "blind_e2ee",
+    SYLION_BLIND_E2EE_STREAM_READY: "true",
+    SYLION_BLIND_E2EE_SFRAME_VALIDATED: "true",
+    SYLION_BLIND_E2EE_KEY_SEPARATION_VERIFIED: "true",
+    SYLION_G2_STREAM_KEYS_HELD_BY_BROKER: "false",
+    SYLION_G2_SESSION_BROKER_APPROVED: "false"
+  };
+  const { baseUrl, close } = await startTestServer(env);
+  try {
+    const client = await loginClient(baseUrl);
+    const tenant = await client.createTenant({ name: "Step 3.60 Blind Broker Tenant", tier: "PRO" });
+    await client.createOperator({
+      tenantId: tenant.tenant.id,
+      displayName: "Step 3.60 Blind Broker Operator",
+      tier: "PRO"
+    });
+
+    const readiness = await client.getProductionReadiness();
+    assert.equal(readiness.readiness.sessionBroker.selectedProtocol, "blind_e2ee");
+    assert.equal(readiness.readiness.sessionBroker.targetProtocol, "blind_e2ee");
+    assert.equal(readiness.readiness.sessionBroker.state, "ready_for_human_gate");
+    assert.equal(readiness.readiness.sessionBroker.readyForHumanGate, true);
+    assert.equal(readiness.readiness.sessionBroker.phantomReadiness.state, "ready_for_human_gate");
+    assert.equal(readiness.readiness.sessionBroker.phantomReadiness.blindBrokerReady, true);
+    assert.equal(readiness.readiness.sessionBroker.phantomReadiness.currentBrokerCanInspectPlaintext, false);
+    assert.ok(readiness.readiness.sessionBroker.approvalBlockers.includes("g2_session_broker_human_approval_missing"));
+    const guacamoleGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_03_guacamole_broker");
+    assert.equal(guacamoleGate.title, "3. G2 PHANTOM blind streaming broker");
     assert.equal(guacamoleGate.state, "ready_for_human_gate");
     assert.equal(guacamoleGate.blockers.length, 0);
     assert.equal(guacamoleGate.productionExecutionAllowed, false);

@@ -41,12 +41,14 @@ const SESSION_BROKER_PROTOCOLS = Object.freeze({
   GUACAMOLE: "guacamole",
   WEBRTC_SELKIES: "webrtc_selkies",
   LEGACY_WEBRTC_OR_SELKIES: "webrtc_or_selkies",
-  NOVNC_LAB: "novnc_lab"
+  NOVNC_LAB: "novnc_lab",
+  BLIND_E2EE: "blind_e2ee"
 });
 const PRODUCTION_SESSION_BROKER_PROTOCOLS = new Set([
   SESSION_BROKER_PROTOCOLS.GUACAMOLE,
   SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES,
-  SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+  SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES,
+  SESSION_BROKER_PROTOCOLS.BLIND_E2EE
 ]);
 const LAB_SESSION_BROKER_PROTOCOLS = new Set([
   SESSION_BROKER_PROTOCOLS.NOVNC_LAB,
@@ -1432,9 +1434,12 @@ export class OperatorPortalService {
         ],
         sessionBroker: {
           requiredLayer: "G2",
-          productionCandidates: ["guacamole", "webrtc_selkies"],
+          interimCompatibility: ["guacamole", "webrtc_selkies"],
+          phantomTarget: SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
+          productionCandidates: [SESSION_BROKER_PROTOCOLS.BLIND_E2EE],
           labFallback: "novnc_lab",
           selectedProtocol: this.#selectedSessionBrokerProtocol(),
+          guacamolePhantomReady: false,
           noVncProductionApproved: false
         },
         streamResizePolicy: "server_side_dynamic_resolution",
@@ -2243,6 +2248,10 @@ export class OperatorPortalService {
         inputProxyReady: body.inputProxyReady === true,
         guacdTls: body.guacdTls === true || body.guacdSsl === true,
         g2ToWorkloadEncrypted: body.g2ToWorkloadEncrypted === true,
+        e2eeStream: body.e2eeStream === true || body.sframeE2ee === true,
+        sframeValidated: body.sframeValidated === true,
+        keysHeldByBroker: body.keysHeldByBroker === true,
+        keySeparationVerified: body.keySeparationVerified === true,
         workloadMicroVmLink: String(body.workloadMicroVmLink || "host_local_tap_or_vsock").slice(0, 64),
         brokerLayer: "G2"
       },
@@ -2254,7 +2263,11 @@ export class OperatorPortalService {
             && body.tlsInternalOnly === true
             && body.inputProxyReady === true,
           gateway: {
-            protocol: this.#normalizeSessionBrokerProtocol(body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES)
+            protocol: this.#normalizeSessionBrokerProtocol(body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES),
+            e2eeStream: body.e2eeStream === true || body.sframeE2ee === true,
+            sframeValidated: body.sframeValidated === true,
+            keySeparationVerified: body.keySeparationVerified === true,
+            keysHeldByBroker: body.keysHeldByBroker === true
           }
         }
       }),
@@ -2289,6 +2302,10 @@ export class OperatorPortalService {
     const gatewayProtocol = this.#normalizeSessionBrokerProtocol(body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
     const guacdTls = body.gateway?.guacdTls === true || body.gateway?.guacdSsl === true;
     const g2ToWorkloadEncrypted = body.gateway?.g2ToWorkloadEncrypted === true;
+    const e2eeStream = body.gateway?.e2eeStream === true || body.gateway?.sframeE2ee === true;
+    const sframeValidated = body.gateway?.sframeValidated === true;
+    const keysHeldByBroker = body.gateway?.keysHeldByBroker === true;
+    const keySeparationVerified = body.gateway?.keySeparationVerified === true;
     const workloadMicroVmLink = String(body.gateway?.workloadMicroVmLink || "host_local_tap_or_vsock").slice(0, 64);
     const sourcesInput = body.sources && typeof body.sources === "object" ? body.sources : {};
     const sources = {};
@@ -2305,6 +2322,18 @@ export class OperatorPortalService {
         terminalDataStored: false
       };
     }
+    const runtimeBrokerReady = this.#privateBindAllowed(gatewayBind)
+      && body.gateway?.publicInternetExposure !== true
+      && body.publicInternetExposure !== true
+      && String(body.gateway?.tlsMode || "internal_tls_only") === "internal_tls_only"
+      && (
+        gatewayProtocol !== SESSION_BROKER_PROTOCOLS.GUACAMOLE
+        || (guacdTls && g2ToWorkloadEncrypted)
+      )
+      && (
+        gatewayProtocol !== SESSION_BROKER_PROTOCOLS.BLIND_E2EE
+        || (e2eeStream && sframeValidated && keySeparationVerified && keysHeldByBroker !== true)
+      );
     const manifest = {
       id: newId("stream_runtime"),
       operatorId: operatorActor.operatorId,
@@ -2319,6 +2348,10 @@ export class OperatorPortalService {
         tlsMode: String(body.gateway?.tlsMode || "internal_tls_only").slice(0, 64),
         guacdTls,
         g2ToWorkloadEncrypted,
+        e2eeStream,
+        sframeValidated,
+        keysHeldByBroker,
+        keySeparationVerified,
         workloadMicroVmLink,
         publicInternetExposure: body.gateway?.publicInternetExposure === true || body.publicInternetExposure === true,
         inputProxy: "server_side_input_events_only"
@@ -2326,16 +2359,13 @@ export class OperatorPortalService {
       broker: this.#sessionBrokerPolicy({
         protocol: body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES,
         runtimeManifest: {
-          ready: this.#privateBindAllowed(gatewayBind)
-            && body.gateway?.publicInternetExposure !== true
-            && body.publicInternetExposure !== true
-            && String(body.gateway?.tlsMode || "internal_tls_only") === "internal_tls_only"
-            && (
-              gatewayProtocol !== SESSION_BROKER_PROTOCOLS.GUACAMOLE
-              || (guacdTls && g2ToWorkloadEncrypted)
-            ),
+          ready: runtimeBrokerReady,
           gateway: {
-            protocol: gatewayProtocol
+            protocol: gatewayProtocol,
+            e2eeStream,
+            sframeValidated,
+            keySeparationVerified,
+            keysHeldByBroker
           }
         }
       }),
@@ -4014,6 +4044,14 @@ export class OperatorPortalService {
         directProbeUrl
       };
     }
+    if (brokerPolicy.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE) {
+      return {
+        url: `/operator/stream.html?app=${encodeURIComponent(templateKey)}&broker=blind_e2ee`,
+        mode: "blind_e2ee_handoff",
+        brokerConnectionName: `SYLION Blind E2EE ${this.#appDefinition(templateKey)?.name || templateKey}`,
+        directProbeUrl: null
+      };
+    }
     return {
       url: directProbeUrl,
       mode: brokerPolicy.labOnly ? "private_websockify_lab_fallback" : "private_app_stream",
@@ -4085,33 +4123,63 @@ export class OperatorPortalService {
     return {
       requiredLayer: "G2",
       selectedProtocol: this.#selectedSessionBrokerProtocol(),
+      phantomTargetProtocol: SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
       candidates: [
         {
           protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
           name: "Apache Guacamole",
-          status: this.env?.SYLION_GUACAMOLE_BROKER_READY === "true" ? "candidate_ready" : "poc_required",
-          productionCandidate: true,
+          status: this.env?.SYLION_GUACAMOLE_BROKER_READY === "true" ? "interim_ready" : "poc_required",
+          productionCandidate: false,
+          baselineUsable: true,
+          interimOnly: true,
+          phantomReady: false,
+          brokerVisibility: "broker_can_access_plaintext_pixel_stream",
+          residualRisk: "g2_broker_compromise_can_expose_active_stream_until_blind_e2ee_replacement",
+          ksiegaRef: "KSIEGA_4_0_SYLION_PHANTOM.md#11-streaming-pikseli-i-cienki-klient",
           labOnly: false,
           strengths: ["mature_vnc_rdp_ssh_broker", "central_policy_point", "audit_metadata_point"]
         },
         {
           protocol: SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES,
           name: "Selkies/WebRTC",
-          status: this.env?.SYLION_SELKIES_GATEWAY_READY === "true" ? "candidate_ready" : "poc_required",
-          productionCandidate: true,
+          status: this.env?.SYLION_SELKIES_GATEWAY_READY === "true" ? "interim_ready" : "poc_required",
+          productionCandidate: false,
+          baselineUsable: true,
+          interimOnly: true,
+          phantomReady: false,
+          brokerVisibility: "broker_visibility_unproven_without_e2ee_key_separation",
+          residualRisk: "must_prove_keys_are_not_available_to_g2_before_phantom_use",
           labOnly: false,
           strengths: ["mobile_latency_candidate", "dynamic_resize_candidate", "touch_input_candidate"]
+        },
+        {
+          protocol: SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
+          name: "PHANTOM Blind E2EE Pixel Stream",
+          status: this.env?.SYLION_BLIND_E2EE_STREAM_READY === "true" ? "target_ready_for_human_gate" : "target_not_implemented",
+          productionCandidate: true,
+          baselineUsable: false,
+          interimOnly: false,
+          phantomReady: this.env?.SYLION_BLIND_E2EE_STREAM_READY === "true",
+          brokerVisibility: "broker_relays_encrypted_frames_only",
+          residualRisk: "requires_adr_key_lifecycle_negative_visibility_tests_and_human_gate",
+          labOnly: false,
+          strengths: ["g2_blind_to_pixel_frames", "keys_outside_broker", "phantom_target_architecture"]
         },
         {
           protocol: SESSION_BROKER_PROTOCOLS.NOVNC_LAB,
           name: "noVNC/websockify",
           status: this.env?.SYLION_NOVNC_LAB_READY === "true" ? "lab_ready" : "lab_adapter_only",
           productionCandidate: false,
+          baselineUsable: false,
+          interimOnly: false,
+          phantomReady: false,
+          brokerVisibility: "lab_adapter_not_phantom_ready",
           labOnly: true,
           strengths: ["quick_vnc_smoke", "firecracker_gui_lab_bridge"]
         }
       ],
       productionApprovalRequired: true,
+      phantomBlindBrokerRequired: true,
       noVncProductionApproved: false
     };
   }
@@ -4120,6 +4188,9 @@ export class OperatorPortalService {
     const raw = String(value || "").trim().toLowerCase();
     if (raw === "selkies" || raw === "webrtc" || raw === "selkies_webrtc") return SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES;
     if (raw === "guac" || raw === "apache_guacamole") return SESSION_BROKER_PROTOCOLS.GUACAMOLE;
+    if (["blind", "blind_e2ee", "sframe", "sframe_e2ee", "e2ee", "e2ee_stream", "phantom_blind"].includes(raw)) {
+      return SESSION_BROKER_PROTOCOLS.BLIND_E2EE;
+    }
     if (LAB_SESSION_BROKER_PROTOCOLS.has(raw)) return SESSION_BROKER_PROTOCOLS.NOVNC_LAB;
     if (PRODUCTION_SESSION_BROKER_PROTOCOLS.has(raw)) return raw;
     return SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES;
@@ -4131,6 +4202,23 @@ export class OperatorPortalService {
     const guacamoleReady = this.env?.SYLION_GUACAMOLE_BROKER_READY === "true"
       || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE)
       || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE);
+    const blindE2eeReady = this.env?.SYLION_BLIND_E2EE_STREAM_READY === "true"
+      || (
+        readiness?.ready === true
+        && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
+        && readiness.gateway.e2eeStream === true
+        && readiness.gateway.sframeValidated === true
+        && readiness.gateway.keySeparationVerified === true
+        && readiness.gateway.keysHeldByBroker !== true
+      )
+      || (
+        runtimeManifest?.ready === true
+        && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
+        && runtimeManifest.gateway.e2eeStream === true
+        && runtimeManifest.gateway.sframeValidated === true
+        && runtimeManifest.gateway.keySeparationVerified === true
+        && runtimeManifest.gateway.keysHeldByBroker !== true
+      );
     const webrtcReady = this.env?.SYLION_SELKIES_GATEWAY_READY === "true"
       || this.env?.SYLION_G2_STREAM_GATEWAY_READY === "true"
       || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES)
@@ -4139,39 +4227,94 @@ export class OperatorPortalService {
       || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
     const gatewayReady = selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
       ? guacamoleReady
+      : selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
+        ? blindE2eeReady
       : selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
         ? webrtcReady
         : false;
     const blockers = [
       ...(labOnly ? ["novnc_lab_only_not_approved_for_production_broker"] : []),
       ...(selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE && !guacamoleReady ? ["guacamole_broker_poc_not_ready"] : []),
+      ...(selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && !blindE2eeReady
+        ? ["blind_e2ee_stream_poc_not_ready", "frame_encryption_proof_required", "broker_visibility_negative_test_required"]
+        : []),
       ...((selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES) && !webrtcReady
         ? ["webrtc_selkies_broker_poc_not_ready"]
         : [])
     ];
+    const brokerVisibility = selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
+      ? "broker_relays_encrypted_frames_only"
+      : selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
+        ? "broker_can_access_plaintext_pixel_stream"
+        : labOnly
+          ? "lab_adapter_not_phantom_ready"
+          : "broker_visibility_unproven_without_e2ee_key_separation";
+    const phantomBlockers = selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && blindE2eeReady
+      ? []
+      : [
+        "phantom_blind_broker_e2ee_required",
+        selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
+          ? "guacamole_is_interim_broker_visible_to_plaintext"
+          : "broker_visibility_negative_test_required",
+        "adr_human_gate_required_for_streaming_replacement"
+      ];
     return {
       protocol: selected,
       requiredLayer: "G2",
       gatewayReady,
       labOnly,
-      productionCandidate: !labOnly,
+      baselineUsable: selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
+        || selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES
+        || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+        || selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
+      interimOnly: selected !== SESSION_BROKER_PROTOCOLS.BLIND_E2EE && !labOnly,
+      productionCandidate: selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
       productionApproved: false,
       humanGateRequired: true,
+      brokerVisibility,
+      phantomReadiness: {
+        targetProtocol: SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
+        state: phantomBlockers.length ? "blocked_until_blind_e2ee" : "ready_for_human_gate",
+        blindBrokerReady: blindE2eeReady,
+        brokerCanInspectPlaintext: selected !== SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
+        keysHeldByBroker: selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE ? false : null,
+        requiredEvidence: [
+          "ADR",
+          "threat_model",
+          "frame_encryption_proof",
+          "key_separation_proof",
+          "broker_visibility_negative_test",
+          "pixel_and_laptop_human_regression"
+        ],
+        blockers: phantomBlockers
+      },
       encryption: selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE ? {
         terminalToG2: "tls_over_ipsec_required",
         guacamoleWebappToGuacd: "tls_required",
         g2ToWorkload: "tls_stunnel_or_ipsec_required",
-        workloadToMicroVm: "host_local_tap_or_vsock_only"
+        workloadToMicroVm: "host_local_tap_or_vsock_only",
+        brokerCanInspectPlaintext: true
+      } : selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE ? {
+        terminalToG2: "tls_over_ipsec_required",
+        frameEncryption: "sframe_or_approved_e2ee_required",
+        keyAgreement: "terminal_to_microvm_or_hsm_bound_session_key_required",
+        keysAvailableToG2: false,
+        g2Role: "relay_auth_limit_audit_no_plaintext"
       } : {
         terminalToG2: "tls_over_ipsec_required",
-        g2ToWorkload: "approved_broker_transport_required"
+        g2ToWorkload: "approved_broker_transport_required",
+        brokerCanInspectPlaintext: "unproven"
       },
       blockers,
       candidates: this.#sessionBrokerCatalog().candidates.map((candidate) => ({
         protocol: candidate.protocol,
         status: candidate.status,
         labOnly: candidate.labOnly,
-        productionCandidate: candidate.productionCandidate
+        productionCandidate: candidate.productionCandidate,
+        baselineUsable: candidate.baselineUsable,
+        interimOnly: candidate.interimOnly,
+        phantomReady: candidate.phantomReady,
+        brokerVisibility: candidate.brokerVisibility
       }))
     };
   }
@@ -4202,6 +4345,10 @@ export class OperatorPortalService {
       ...(evidence.gateway.tlsInternalOnly ? [] : ["g2_stream_gateway_internal_tls_required"]),
       ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && evidence.gateway.guacdTls !== true ? ["guacamole_guacd_tls_required"] : []),
       ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && evidence.gateway.g2ToWorkloadEncrypted !== true ? ["g2_workload_stream_transport_encryption_required"] : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && evidence.gateway.e2eeStream !== true ? ["blind_e2ee_frame_encryption_required"] : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && evidence.gateway.sframeValidated !== true ? ["sframe_validation_required"] : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && evidence.gateway.keySeparationVerified !== true ? ["stream_key_separation_required"] : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && evidence.gateway.keysHeldByBroker === true ? ["g2_must_not_hold_stream_keys"] : []),
       ...(evidence.gateway.inputProxyReady ? [] : ["g2_input_proxy_not_ready"]),
       ...(evidence.broker?.blockers || []),
       ...(sourceReady.length ? [] : ["at_least_one_workload_stream_source_required"])
@@ -4216,6 +4363,10 @@ export class OperatorPortalService {
       ...(manifest.gateway.tlsMode === "internal_tls_only" ? [] : ["g2_gateway_internal_tls_required"]),
       ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && manifest.gateway.guacdTls !== true ? ["guacamole_guacd_tls_required"] : []),
       ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && manifest.gateway.g2ToWorkloadEncrypted !== true ? ["g2_workload_stream_transport_encryption_required"] : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && manifest.gateway.e2eeStream !== true ? ["blind_e2ee_frame_encryption_required"] : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && manifest.gateway.sframeValidated !== true ? ["sframe_validation_required"] : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && manifest.gateway.keySeparationVerified !== true ? ["stream_key_separation_required"] : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && manifest.gateway.keysHeldByBroker === true ? ["g2_must_not_hold_stream_keys"] : []),
       ...(manifest.broker?.blockers || []),
       ...(sourceEntries.length ? [] : ["at_least_one_stream_source_manifest_required"]),
       ...sourceEntries.flatMap(([key, source]) => [

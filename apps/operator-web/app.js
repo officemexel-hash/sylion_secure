@@ -923,7 +923,18 @@
     const session = result.session;
     setText("#stream-session-state", session.state);
     setText("#stream-session-gateway", `${session.gateway.host} | ${session.gateway.protocol}`);
-    setText("#stream-session-broker", `${session.gateway.broker?.protocol || session.gateway.protocol} | ${session.gateway.broker?.labOnly ? "lab only" : "production candidate"}`);
+    const broker = session.gateway.broker || {};
+    const brokerLabel = broker.interimOnly
+      ? "interim"
+      : broker.productionCandidate
+        ? "target candidate"
+        : broker.labOnly
+          ? "lab only"
+          : "not approved";
+    setText("#stream-session-broker", `${broker.protocol || session.gateway.protocol} | ${brokerLabel} | ${broker.brokerVisibility || "visibility unknown"}`);
+    setText("#stream-session-phantom", broker.phantomReadiness
+      ? `${broker.phantomReadiness.state} | ${(broker.phantomReadiness.blockers || []).join(", ") || "ready"}`
+      : "-");
     setText("#stream-session-url", session.launchUrl || "blocked_until_gate_passes");
     setText("#stream-session-blockers", (session.blockers || []).join(", ") || "-");
     setText("#stream-session-app", session.appName || data.templateKey);
@@ -955,6 +966,10 @@
         tlsInternalOnly: data.tlsInternalOnly === "on",
         guacdTls: data.guacdTls === "on",
         g2ToWorkloadEncrypted: data.g2ToWorkloadEncrypted === "on",
+        e2eeStream: data.e2eeStream === "on",
+        sframeValidated: data.sframeValidated === "on",
+        keySeparationVerified: data.keySeparationVerified === "on",
+        keysHeldByBroker: false,
         inputProxyReady: data.inputProxyReady === "on",
         publicInternetExposure: false,
         protocol: data.protocol,
@@ -997,6 +1012,10 @@
           tlsMode: "internal_tls_only",
           guacdTls: data.guacdTls === "on",
           g2ToWorkloadEncrypted: data.g2ToWorkloadEncrypted === "on",
+          e2eeStream: data.e2eeStream === "on",
+          sframeValidated: data.sframeValidated === "on",
+          keySeparationVerified: data.keySeparationVerified === "on",
+          keysHeldByBroker: false,
           workloadMicroVmLink: "host_local_tap_or_vsock",
           publicInternetExposure: false
         },

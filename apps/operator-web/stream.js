@@ -323,6 +323,13 @@
       frame.src = appUrl(workload);
       return;
     }
+    if (requestedBroker === "blind_e2ee") {
+      frame.hidden = true;
+      blocker.hidden = false;
+      blockerReason.textContent = "PHANTOM blind E2EE streaming is the target backend, but the frame encryption/key-separation proof is not installed in this wrapper yet.";
+      state.textContent = "Blind E2EE stream blocked until ADR and implementation proof.";
+      return;
+    }
     state.textContent = "Requesting encrypted Guacamole handoff from G2...";
     try {
       const handoff = await fetchGuacamoleHandoff(requestedApp);

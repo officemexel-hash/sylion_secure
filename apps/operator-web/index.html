@@ -585,8 +585,9 @@
           </label>
           <label>Session broker
             <select name="protocol">
-              <option value="guacamole" selected>Guacamole production broker</option>
-              <option value="webrtc_selkies">Selkies/WebRTC candidate</option>
+              <option value="guacamole" selected>Guacamole interim broker</option>
+              <option value="blind_e2ee">PHANTOM Blind E2EE target</option>
+              <option value="webrtc_selkies">Selkies/WebRTC interim candidate</option>
               <option value="novnc_lab">noVNC lab only</option>
             </select>
           </label>
@@ -596,14 +597,18 @@
           <label><input name="g2StreamGatewayReady" type="checkbox" checked> G2 stream gateway ready</label>
           <label>Broker protocol
             <select name="protocol">
-              <option value="guacamole" selected>Guacamole</option>
-              <option value="webrtc_selkies">Selkies/WebRTC</option>
+              <option value="guacamole" selected>Guacamole interim</option>
+              <option value="blind_e2ee">PHANTOM Blind E2EE target</option>
+              <option value="webrtc_selkies">Selkies/WebRTC interim</option>
               <option value="novnc_lab">noVNC lab only</option>
             </select>
           </label>
           <label><input name="tlsInternalOnly" type="checkbox" checked> Internal TLS only</label>
           <label><input name="guacdTls" type="checkbox" checked> Guacamole to guacd TLS</label>
           <label><input name="g2ToWorkloadEncrypted" type="checkbox" checked> G2 to workload encrypted</label>
+          <label><input name="e2eeStream" type="checkbox"> E2EE pixel frames</label>
+          <label><input name="sframeValidated" type="checkbox"> SFrame validation proof</label>
+          <label><input name="keySeparationVerified" type="checkbox"> Stream keys outside G2</label>
           <label><input name="inputProxyReady" type="checkbox" checked> Input proxy ready</label>
           <label>Ready sources <input name="sources" value="signal,duckduckgo_browser,libreoffice"></label>
           <button type="submit">Record stream readiness</button>
@@ -614,13 +619,17 @@
           <label>G2 port <input name="gatewayPort" type="number" min="1" max="65535" value="8443"></label>
           <label>Runtime broker
             <select name="protocol">
-              <option value="guacamole" selected>Guacamole</option>
-              <option value="webrtc_selkies">Selkies/WebRTC</option>
+              <option value="guacamole" selected>Guacamole interim</option>
+              <option value="blind_e2ee">PHANTOM Blind E2EE target</option>
+              <option value="webrtc_selkies">Selkies/WebRTC interim</option>
               <option value="novnc_lab">noVNC lab only</option>
             </select>
           </label>
           <label><input name="guacdTls" type="checkbox" checked> Guacamole to guacd TLS</label>
           <label><input name="g2ToWorkloadEncrypted" type="checkbox" checked> G2 to workload encrypted</label>
+          <label><input name="e2eeStream" type="checkbox"> E2EE pixel frames</label>
+          <label><input name="sframeValidated" type="checkbox"> SFrame validation proof</label>
+          <label><input name="keySeparationVerified" type="checkbox"> Stream keys outside G2</label>
           <label>Source apps <input name="sources" value="signal:10.42.0.13:7901,duckduckgo_browser:10.42.0.13:7902,libreoffice:10.42.0.13:7903"></label>
           <button type="submit">Record runtime manifest</button>
         </form>
@@ -629,6 +638,7 @@
           <dt>Session</dt><dd id="stream-session-state">not_requested</dd>
           <dt>Gateway</dt><dd id="stream-session-gateway">-</dd>
           <dt>Broker</dt><dd id="stream-session-broker">-</dd>
+          <dt>PHANTOM</dt><dd id="stream-session-phantom">-</dd>
           <dt>Launch URL</dt><dd id="stream-session-url">-</dd>
           <dt>Blockers</dt><dd id="stream-session-blockers">-</dd>
         </dl>
