@@ -75,7 +75,7 @@ W repo pracuje równolegle **SYLION Codex** (autor 99% commitów) — głównie 
 - `/services/admin-api/IMPLEMENTATION_STATUS.md` — Codex go nie aktualizuje (znany finding F-18), więc można edytować, ale można też spowodować konflikt jeśli Codex pierwszy raz w sesji to zrobi
 - `/docs/admin-panel-v2/` — Codex dodaje pliki `NN-step3-X-*.md` + diagrams + test-artifacts/
 
-### Commit hygiene
+### Higiena commitow i synchronizacja remote
 
 - Nigdy nie commituj bez explicit user ask
 - Co-author: `Co-Authored-By: <agent identifier>` w stopce
@@ -83,15 +83,14 @@ W repo pracuje równolegle **SYLION Codex** (autor 99% commitów) — głównie 
 - Branch protection (gdy włączone): wymagana review, signed commits
 - Patrz `.github/CODEOWNERS` dla code-ownership rules
 
-### Remote sync / pull policy
-
-- Before substantial work and before push: run `git fetch origin` and inspect `git status -sb`.
-- If the current branch is behind and the tracked worktree is clean: use `git pull --ff-only`.
-- If local tracked changes exist: inspect local diff first. Do not pull blindly.
-- If upstream changes are additive or mechanical and do not remove current Codex-authored functionality: integrate them and resolve simple conflicts while preserving current functionality.
-- If upstream changes delete, downgrade, or bypass current Codex-authored work, security gates, tests, or live integration paths: stop and ask the user before pulling or accepting those changes.
-- If conflicts occur: prefer preserving current Codex-authored implementation and tests. Resolve straightforward textual conflicts directly; ask the user when resolution would remove meaningful functionality or change product/security behavior.
-- Never use destructive recovery (`git reset --hard`, `git checkout --`, forced overwrite) unless the user explicitly asks for that exact operation.
+- Przed wieksza praca i przed pushem: wykonaj `git fetch origin` i sprawdz `git status -sb`.
+- Jesli aktualny branch jest behind, a tracked working tree jest czysty: wykonaj wylacznie bezpieczny `git pull --ff-only`.
+- Jesli istnieja lokalne tracked zmiany: najpierw sprawdz lokalny diff. Nie pulluj w ciemno.
+- Jesli upstream dodaje zmiany addytywne/mechaniczne i nie usuwa biezacej funkcjonalnosci stworzonej przez Codex: zintegruj je i rozwiaz proste konflikty, zachowujac obecna funkcjonalnosc.
+- Priorytet integracji: zachowac aktualne commity, implementacje, testy, security gates i live integration paths stworzone przez Codex.
+- Jesli upstream usuwa, degraduje albo omija aktualna prace Codex, security gates, testy lub sciezki live integration: zatrzymaj sie i zapytaj uzytkownika przed pullem albo zaakceptowaniem takich zmian.
+- Jesli wystapi konflikt: preferuj zachowanie implementacji i testow Codex. Proste konflikty tekstowe rozwiaz samodzielnie; zapytaj uzytkownika, gdy rozwiazanie usuwa istotna funkcjonalnosc albo zmienia zachowanie produktu/security.
+- Nigdy nie uzywaj destrukcyjnego odzyskiwania (`git reset --hard`, `git checkout --`, forced overwrite), chyba ze uzytkownik wyraznie poprosi o dokladnie taka operacje.
 
 ## Source documents (canonical)
 
