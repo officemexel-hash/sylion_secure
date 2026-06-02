@@ -1617,6 +1617,39 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           "cache-control": "no-store"
         });
       }
+      if (req.method === "POST" && url.pathname === "/operator-api/blind-e2ee/sessions") {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, {
+          session: operatorPortal.createBlindE2eeSession({ operatorActor, body, correlationId })
+        }, {
+          "cache-control": "no-store"
+        });
+      }
+      const blindE2eeSessionMatch = url.pathname.match(/^\/operator-api\/blind-e2ee\/sessions\/([^/]+)$/);
+      if (req.method === "GET" && blindE2eeSessionMatch) {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, {
+          session: operatorPortal.blindE2eeSession({ operatorActor, sessionId: blindE2eeSessionMatch[1], correlationId })
+        }, {
+          "cache-control": "no-store"
+        });
+      }
+      const blindE2eeFrameMatch = url.pathname.match(/^\/operator-api\/blind-e2ee\/sessions\/([^/]+)\/frames$/);
+      if (req.method === "POST" && blindE2eeFrameMatch) {
+        const operatorActor = operatorActorFromRequest(req);
+        const body = await readJson(req);
+        return send(res, 201, {
+          frame: operatorPortal.recordBlindE2eeFrameProof({
+            operatorActor,
+            sessionId: blindE2eeFrameMatch[1],
+            body,
+            correlationId
+          })
+        }, {
+          "cache-control": "no-store"
+        });
+      }
       if (req.method === "POST" && url.pathname === "/operator-api/workload-input") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);

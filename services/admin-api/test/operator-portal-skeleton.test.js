@@ -124,6 +124,7 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(streamJs.body, /event\.key === "Backspace"/);
     assert.match(streamJs.body, /inputText\.value = ""/);
     assert.match(streamJs.body, /guacamole-handoff/);
+    assert.match(streamJs.body, /blind-e2ee\/sessions/);
     assert.match(streamJs.body, /bootstrapOperatorToken/);
     assert.match(streamJs.body, /params\.get\("op_token"\)/);
     assert.match(streamJs.body, /hashParams\.get\("op_token"\)/);
@@ -160,7 +161,7 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.body, /data-stream-action="input-clear"/);
     assert.match(html.body, /frame-src https:\/\/session\.sylion\.internal/);
     assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal/);
-    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-106a"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-109"><\/script>/);
     assert.doesNotMatch(html.body, /unsafe-inline/);
   } finally {
     await close();

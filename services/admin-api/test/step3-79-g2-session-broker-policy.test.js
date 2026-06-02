@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createDecipheriv, createHmac } from "node:crypto";
+import { createDecipheriv, createHash, createHmac } from "node:crypto";
 import test from "node:test";
 import { createApp } from "../src/app.js";
 import { AdminApiClient } from "../src/sdk/adminApiClient.js";
@@ -437,6 +437,146 @@ test("Step 3.79 PHANTOM blind E2EE broker requires frame encryption and key-sepa
     assert.equal(session.session.gateway.broker.encryption.keysAvailableToG2, false);
     assert.equal(session.session.launchUrl, "/operator/stream.html?app=signal&broker=blind_e2ee");
     assert.equal(session.session.source.directProbeUrl, null);
+  } finally {
+    await close();
+  }
+});
+
+test("Step 3.110 Blind E2EE backend creates metadata-only SFrame relay session and rejects plaintext frames", async () => {
+  const { app, baseUrl, close } = await startTestServer({
+    liveExecutionOptions: {
+      env: {
+        SYLION_G2_SESSION_BROKER: "blind_e2ee",
+        SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL: "true",
+        SYLION_G1_G2_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_POLICY_READY: "true",
+        SYLION_G2_WORKLOAD_GATEWAY_READY: "true",
+        SYLION_REAL_IPSEC_READY: "true",
+        SYLION_KVM_READY: "true",
+        SYLION_FIRECRACKER_BIN: "/usr/local/bin/firecracker",
+        SYLION_FIRECRACKER_KERNEL: "image://kernel",
+        SYLION_SIGNAL_ROOTFS: "image://rootfs",
+        SYLION_SIGNAL_WORKLOAD_IMAGE_REF: "image://workload",
+        SYLION_SIGNAL_PACKAGE_REF: "package://signal",
+        SYLION_SIGNAL_ACCOUNT_REF: "account://signal",
+        SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
+      }
+    }
+  });
+  try {
+    const client = await loginClient(baseUrl);
+    const seeded = await seedOperator(client);
+    await operatorRequest(baseUrl, seeded.session.token, "/operator-api/vpn-evidence", {
+      method: "POST",
+      body: {
+        vpnConnected: true,
+        vpnInterface: "tun1",
+        dnsThroughTunnel: true,
+        certificateTrusted: true,
+        reachableHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "10.42.0.12"]
+      }
+    });
+    await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-readiness", {
+      method: "POST",
+      body: {
+        g2StreamGatewayReady: true,
+        tlsInternalOnly: true,
+        inputProxyReady: true,
+        protocol: "blind_e2ee",
+        e2eeStream: true,
+        sframeValidated: true,
+        keySeparationVerified: true,
+        keysHeldByBroker: false,
+        sources: { signal: true }
+      }
+    });
+    await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-runtime-manifest", {
+      method: "POST",
+      body: {
+        gateway: {
+          bindAddress: "10.42.0.12",
+          port: 8443,
+          protocol: "blind_e2ee",
+          tlsMode: "internal_tls_only",
+          e2eeStream: true,
+          sframeValidated: true,
+          keySeparationVerified: true,
+          keysHeldByBroker: false,
+          workloadMicroVmLink: "firecracker_vsock_sframe_encoder",
+          publicInternetExposure: false
+        },
+        sources: {
+          signal: {
+            bindAddress: "10.44.0.13",
+            port: 3013,
+            healthPath: "/healthz",
+            cdrRequired: true
+          }
+        }
+      }
+    });
+
+    const blind = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/blind-e2ee/sessions", {
+      method: "POST",
+      body: { templateKey: "signal", width: 390, height: 844, dpr: 3 }
+    });
+    assert.equal(blind.session.state, "blind_e2ee_session_ready");
+    assert.equal(blind.session.gateway.protocol, "blind_e2ee");
+    assert.equal(blind.session.keyManagement.keysHeldByBroker, false);
+    assert.equal(blind.session.keyManagement.rawKeyReturned, false);
+    assert.equal(blind.session.security.brokerStoresOnlyFrameMetadata, true);
+    assert.equal(blind.session.security.keysAvailableToG2, false);
+    assert.match(blind.session.frameEnvelope.ingestEndpoint, new RegExp(`/operator-api/blind-e2ee/sessions/${blind.session.id}/frames$`));
+    assert.equal(Object.hasOwn(blind.session.keyManagement, "sessionKey"), false);
+    assert.equal(JSON.stringify(blind).includes("plaintext"), true);
+
+    const encryptedFrame = Buffer.from("encrypted-sframe-test-bytes");
+    const header = Buffer.from("sframe-header");
+    const frame = await operatorRequest(baseUrl, seeded.session.token, blind.session.frameEnvelope.ingestEndpoint, {
+      method: "POST",
+      body: {
+        frameId: "frame_test_001",
+        keyId: blind.session.keyManagement.keyId,
+        algorithm: "SFRAME_RFC9605_COMPAT",
+        ciphertextB64: encryptedFrame.toString("base64"),
+        sframeHeaderB64: header.toString("base64"),
+        authTagLength: 16,
+        sequence: 1,
+        width: 390,
+        height: 844
+      }
+    });
+    assert.equal(frame.frame.ciphertextSha256, createHash("sha256").update(encryptedFrame).digest("hex"));
+    assert.equal(frame.frame.ciphertextLength, encryptedFrame.length);
+    assert.equal(frame.frame.sframeHeaderSha256, createHash("sha256").update(header).digest("hex"));
+    assert.equal(frame.frame.brokerStoresCiphertextBytes, false);
+    assert.equal(frame.frame.plaintextAccepted, false);
+    assert.equal(JSON.stringify(frame).includes(encryptedFrame.toString("base64")), false);
+
+    const rejected = await fetch(`${baseUrl}${blind.session.frameEnvelope.ingestEndpoint}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_step3_110_reject_${crypto.randomUUID()}`,
+        authorization: `Bearer ${seeded.session.token}`
+      },
+      body: JSON.stringify({
+        frameId: "frame_test_002",
+        keyId: blind.session.keyManagement.keyId,
+        plaintextFrame: "visible Signal pixels should never be accepted",
+        ciphertextSha256: "0".repeat(64),
+        ciphertextLength: 128,
+        authTagLength: 16
+      })
+    });
+    const rejectedPayload = await rejected.json();
+    assert.equal(rejected.status, 422);
+    assert.match(rejectedPayload.error.message, /rejected plaintext/i);
+
+    const eventText = JSON.stringify(app.services.audit.list().filter((event) => event.action.includes("blind_e2ee")));
+    assert.equal(eventText.includes(encryptedFrame.toString("base64")), false);
+    assert.equal(eventText.includes("visible Signal pixels"), false);
+    assert.equal(eventText.includes("encrypted-sframe-test-bytes"), false);
   } finally {
     await close();
   }

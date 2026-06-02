@@ -30,6 +30,7 @@
   const operatorToken = bootstrapOperatorToken();
   const frame = $("#workload-stream-frame");
   const blocker = $("#stream-blocker");
+  const blockerTitle = $("#stream-blocker-title");
   const blockerReason = $("#stream-blocker-reason");
   const toast = $("#stream-toast");
   const label = $("#stream-app-label");
@@ -130,6 +131,28 @@
     return payload.handoff;
   }
 
+  async function fetchBlindE2eeSession(appKey) {
+    const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
+    const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
+    const dpr = Number(window.devicePixelRatio || 1).toFixed(2);
+    const res = await fetch("/operator-api/blind-e2ee/sessions", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_operator_blind_${crypto.randomUUID()}`,
+        "x-sylion-operator-csrf": "same-origin-ui",
+        ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
+      },
+      body: JSON.stringify({ templateKey: appKey, width, height, dpr })
+    });
+    const payload = await res.json();
+    if (!res.ok) {
+      throw new Error(payload?.error?.message || `HTTP ${res.status}`);
+    }
+    return payload.session;
+  }
+
   async function sendWorkloadInput({ text = "", submit = false, preKeys = [], postKeys = [] } = {}) {
     if (inputBusy) return null;
     inputBusy = true;
@@ -166,6 +189,14 @@
     showToast.timer = window.setTimeout(() => {
       toast.textContent = "";
     }, 2400);
+  }
+
+  function showStreamMessage({ titleText, reasonText, stateText }) {
+    frame.hidden = true;
+    blocker.hidden = false;
+    blockerTitle.textContent = titleText;
+    blockerReason.textContent = reasonText;
+    state.textContent = stateText || titleText;
   }
 
   function postToStream(action, extra = {}) {
@@ -309,11 +340,12 @@
   async function boot() {
     const workload = WORKLOADS[requestedApp];
     if (!workload) {
-      frame.hidden = true;
-      blocker.hidden = false;
-      blockerReason.textContent = `Unsupported workload app: ${requestedApp || "empty"}`;
+      showStreamMessage({
+        titleText: "Stream blocked",
+        reasonText: `Unsupported workload app: ${requestedApp || "empty"}`,
+        stateText: "Unknown app"
+      });
       label.textContent = "Blocked";
-      state.textContent = "Unknown app";
       return;
     }
     label.textContent = workload.label;
@@ -324,10 +356,24 @@
       return;
     }
     if (requestedBroker === "blind_e2ee") {
-      frame.hidden = true;
-      blocker.hidden = false;
-      blockerReason.textContent = "PHANTOM blind E2EE streaming is the target backend, but the frame encryption/key-separation proof is not installed in this wrapper yet.";
-      state.textContent = "Blind E2EE stream blocked until ADR and implementation proof.";
+      state.textContent = "Requesting PHANTOM Blind E2EE/SFrame backend session...";
+      try {
+        const blindSession = await fetchBlindE2eeSession(requestedApp);
+        if (blindSession?.state !== "blind_e2ee_session_ready") {
+          throw new Error(`Blind E2EE blocked: ${(blindSession?.blockers || []).join(", ") || "unknown blocker"}`);
+        }
+        showStreamMessage({
+          titleText: "Blind E2EE backend ready",
+          reasonText: `SFrame metadata relay is ready for ${workload.label}. Session ${blindSession.id}; frame proof endpoint ${blindSession.frameEnvelope.ingestEndpoint}. Broker stores hashes and lengths only.`,
+          stateText: "Blind E2EE metadata relay ready"
+        });
+      } catch (error) {
+        showStreamMessage({
+          titleText: "Stream blocked",
+          reasonText: String(error.message || error),
+          stateText: "Blind E2EE backend blocked"
+        });
+      }
       return;
     }
     state.textContent = "Requesting encrypted Guacamole handoff from G2...";
@@ -338,10 +384,11 @@
       }
       await openGuacamoleHandoff(handoff);
     } catch (error) {
-      frame.hidden = true;
-      blocker.hidden = false;
-      blockerReason.textContent = String(error.message || error);
-      state.textContent = "Guacamole handoff blocked";
+      showStreamMessage({
+        titleText: "Stream blocked",
+        reasonText: String(error.message || error),
+        stateText: "Guacamole handoff blocked"
+      });
     }
   }
 

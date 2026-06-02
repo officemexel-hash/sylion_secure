@@ -60,6 +60,8 @@ test("V2 persistence foundation keeps admin flow data after restart and SDK can 
   let tenantId;
   let operatorId;
   let planId;
+  let operatorSessionToken;
+  let operatorSessionId;
   try {
     const client = await loginClient(first.baseUrl);
     const tenant = await client.createTenant({ name: "Persistent Tenant", tier: TIERS.PRO });
@@ -83,6 +85,16 @@ test("V2 persistence foundation keeps admin flow data after restart and SDK can 
       model: "Google Pixel",
       assignedOperatorId: operatorId
     });
+    const operatorSession = await client.request("/operator-api/sessions/local-simulator", {
+      method: "POST",
+      body: {
+        operatorId,
+        terminalMode: "pixel_grapheneos",
+        deviceId: pixel.device.id
+      }
+    });
+    operatorSessionToken = operatorSession.session.token;
+    operatorSessionId = operatorSession.session.id;
     const router = await client.registerDevice({
       type: DEVICE_TYPES.ROUTER,
       serial: "puli-persistent-001",
@@ -139,6 +151,19 @@ test("V2 persistence foundation keeps admin flow data after restart and SDK can 
     const jobs = await client.request(`/orchestrator/jobs?operatorId=${operatorId}`);
     assert.equal(jobs.jobs.length, 1);
     assert.equal(jobs.jobs[0].status, "completed");
+
+    const currentOperatorSessionResponse = await fetch(`${second.baseUrl}/operator-api/sessions/current`, {
+      headers: {
+        authorization: `Bearer ${operatorSessionToken}`,
+        "x-correlation-id": "corr_persistence_operator_session_after_restart"
+      }
+    });
+    const currentOperatorSession = await currentOperatorSessionResponse.json();
+    assert.equal(currentOperatorSessionResponse.status, 200);
+    assert.equal(currentOperatorSession.session.id, operatorSessionId);
+    assert.equal(currentOperatorSession.session.operatorId, operatorId);
+    assert.equal(currentOperatorSession.session.terminalMode, "pixel_grapheneos");
+    assert.equal(JSON.stringify(currentOperatorSession).includes(operatorSessionToken), false);
 
     const audit = await client.listAuditEvents();
     assert.ok(audit.events.length > 0);

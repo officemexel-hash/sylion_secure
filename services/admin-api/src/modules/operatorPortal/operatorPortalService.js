@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { createCipheriv, createHmac, randomBytes } from "node:crypto";
+import { createCipheriv, createHash, createHmac, randomBytes } from "node:crypto";
 import { promisify } from "node:util";
 import { DEVICE_TYPES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { AppError, notFound, validationError } from "../../lib/errors.js";
@@ -166,6 +166,26 @@ const WORKLOAD_INPUT_SPECIAL_KEYS = new Set([
   "home",
   "end",
   "select_all"
+]);
+const BLIND_E2EE_MAX_FRAME_BYTES = 16 * 1024 * 1024;
+const BLIND_E2EE_FORBIDDEN_FIELD_PATTERN = /(plain[_-]?text|plaintext|raw[_-]?frame|framebuffer|pixel[_-]?buffer|decoded|decrypted|message|chat|wallet|seed|mnemonic|private[_-]?key|session[_-]?key|sframe[_-]?key|aes[_-]?key|decryption[_-]?key|password|secret|token|cookie|request[_-]?body|response[_-]?body)/i;
+const BLIND_E2EE_ALLOWED_NONSECRET_FIELDS = new Set([
+  "sessionId",
+  "frameId",
+  "keyId",
+  "algorithm",
+  "profile",
+  "ciphertextB64",
+  "ciphertextSha256",
+  "ciphertextLength",
+  "authTagLength",
+  "sframeHeaderB64",
+  "sframeHeaderSha256",
+  "sframeHeaderLength",
+  "sequence",
+  "timestampMs",
+  "width",
+  "height"
 ]);
 
 function isoNow() {
@@ -390,6 +410,8 @@ export class OperatorPortalService {
     this.streamingSessions = new PersistentMap({ store, collection: "operator_streaming_sessions" });
     this.streamingReadinessEvidence = new PersistentMap({ store, collection: "operator_streaming_readiness_evidence" });
     this.streamingRuntimeManifests = new PersistentMap({ store, collection: "operator_streaming_runtime_manifests" });
+    this.blindE2eeSessions = new PersistentMap({ store, collection: "operator_blind_e2ee_sessions" });
+    this.blindE2eeFrameProofs = new PersistentMap({ store, collection: "operator_blind_e2ee_frame_proofs" });
     this.trafficEvidence = new PersistentMap({ store, collection: "operator_traffic_monitoring_evidence" });
     this.workloadControlJobs = new PersistentMap({ store, collection: "operator_workload_control_jobs" });
     this.accountBootstrapSessions = new PersistentMap({ store, collection: "operator_account_bootstrap_sessions" });
@@ -2115,6 +2137,222 @@ export class OperatorPortalService {
       }
     });
     return handoff;
+  }
+
+  createBlindE2eeSession({ operatorActor, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const templateKey = this.#normalizeStreamingTemplate(body.templateKey || body.app || "duckduckgo_browser");
+    const appDefinition = this.#appDefinition(templateKey);
+    const viewport = {
+      width: body.width,
+      height: body.height,
+      dpr: body.dpr
+    };
+    const profile = this.streamingProfile({
+      operatorActor,
+      width: viewport.width,
+      height: viewport.height,
+      dpr: viewport.dpr,
+      correlationId: corr
+    });
+    const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
+    const env = this.env || {};
+    const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
+    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const brokerPolicy = this.#sessionBrokerPolicy({
+      protocol: SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
+      readiness,
+      runtimeManifest
+    });
+    const sourceBlockers = this.#streamSourceBlockers({ templateKey, env, readiness });
+    const runtimeSource = runtimeManifest?.sources?.[templateKey] || null;
+    const frameSourceReady = sourceBlockers.length === 0 && Boolean(runtimeSource || env.SYLION_BLIND_E2EE_STREAM_READY === "true");
+    const blockers = [
+      ...foundation.blockers.map((blocker) => `live_access:${blocker}`),
+      ...sourceBlockers,
+      ...(brokerPolicy.gatewayReady ? [] : ["blind_e2ee_gateway_not_ready"]),
+      ...brokerPolicy.blockers,
+      ...(frameSourceReady ? [] : [`${templateKey}_blind_e2ee_frame_source_not_connected`]),
+      ...(templateKey === "zangi" && env.SYLION_ZANGI_ANDROID_NATIVE_APPROVED !== "true" ? ["zangi_android_native_provenance_required"] : []),
+      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
+    ];
+    const ready = blockers.length === 0;
+    const session = {
+      id: newId("blind_stream"),
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      terminalMode: operatorActor.terminalMode,
+      deviceId: operatorActor.deviceId,
+      templateKey,
+      appName: appDefinition?.name || templateKey,
+      state: ready ? "blind_e2ee_session_ready" : "blind_e2ee_session_blocked",
+      gateway: {
+        role: "G2",
+        protocol: SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
+        broker: brokerPolicy,
+        relayMode: "metadata_only_sframe_relay",
+        publicInternetExposure: false,
+        readinessId: readiness?.id || null,
+        runtimeManifestId: runtimeManifest?.id || null
+      },
+      source: {
+        workloadRole: "WORKLOAD",
+        templateKey,
+        bindAddress: runtimeSource?.bindAddress || null,
+        port: runtimeSource?.port || null,
+        healthPath: runtimeSource?.healthPath || null,
+        frameSourceReady,
+        workloadMicroVmLink: runtimeManifest?.gateway?.workloadMicroVmLink || "host_local_tap_or_vsock",
+        terminalDataStored: false,
+        cdrRequired: true
+      },
+      stream: {
+        ...profile.stream,
+        protocol: SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
+        renderingMode: "sframe_encrypted_pixels_only",
+        targetWidth: profile.stream.targetWidth,
+        targetHeight: profile.stream.targetHeight,
+        sourceWorkload: `workload://${operatorActor.operatorId}/${templateKey}`,
+        terminalReceives: ["sframe_encrypted_video_frames", "audio_optional_when_e2ee", "input_events"],
+        terminalForbidden: ["workload_files", "app_secrets", "message_database", "wallet_seed", "session_cookies", "plaintext_frames"],
+        fileTransfer: "cdr_required"
+      },
+      keyManagement: {
+        keyId: `sframe_${randomBytes(16).toString("hex")}`,
+        profile: "sframe_rfc9605_compatible_metadata_contract",
+        keyAgreement: "terminal_to_workload_or_hsm_bound_key_agreement_required",
+        brokerStoresKeyMaterial: false,
+        keysHeldByBroker: false,
+        rawKeyReturned: false,
+        brokerCanDecrypt: false,
+        terminalKeyShareRequired: true,
+        workloadKeyShareRequired: true
+      },
+      frameEnvelope: {
+        ingestEndpoint: `/operator-api/blind-e2ee/sessions/{sessionId}/frames`,
+        eventStreamEndpoint: `/operator-api/blind-e2ee/sessions/{sessionId}/events`,
+        acceptedAlgorithms: ["SFRAME_RFC9605_COMPAT", "AES_256_GCM_SFRAME_COMPAT"],
+        storedFields: ["frameId", "keyId", "algorithm", "ciphertextSha256", "ciphertextLength", "authTagLength", "sframeHeaderSha256", "sframeHeaderLength"],
+        rejectedFields: ["plaintext", "rawFrame", "pixels", "messageContent", "walletData", "sessionKey"],
+        brokerDecryptionAllowed: false
+      },
+      proof: {
+        frameProofCount: 0,
+        lastFrameProofAt: null,
+        lastCiphertextSha256: null,
+        brokerVisibilityNegativeTest: "pending_until_first_frame_proof"
+      },
+      security: {
+        terminalDataStored: false,
+        clipboardEnabled: false,
+        fileIngressEgress: "blocked_without_cdr_decision",
+        g1G2BypassAllowed: false,
+        recordingAllowed: false,
+        auditContentStored: false,
+        brokerCanInspectPlaintext: false,
+        brokerStoresCiphertextBytes: false,
+        brokerStoresOnlyFrameMetadata: true,
+        keysAvailableToG2: false
+      },
+      blockers,
+      warnings: [
+        "requires_workload_encoder_to_emit_sframe_envelopes",
+        "requires_terminal_decoder_key_agreement_outside_g2",
+        "human_pixel_and_laptop_regression_required_before_production_approval"
+      ],
+      createdAt: isoNow(),
+      updatedAt: null,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+    this.blindE2eeSessions.set(session.id, session);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.blind_e2ee_session_created",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: session.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: ready ? "allow" : "deny",
+      result: session.state,
+      newValue: this.#publicBlindE2eeSession(session)
+    });
+    return this.#publicBlindE2eeSession(session);
+  }
+
+  blindE2eeSession({ operatorActor, sessionId, correlationId }) {
+    requireCorrelationId(correlationId);
+    const session = this.#requireBlindE2eeSession({ operatorActor, sessionId });
+    return this.#publicBlindE2eeSession(session);
+  }
+
+  recordBlindE2eeFrameProof({ operatorActor, sessionId, body = {}, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const session = this.#requireBlindE2eeSession({ operatorActor, sessionId });
+    this.#assertBlindE2eeEnvelopeSafe(body);
+    const algorithm = this.#normalizeBlindE2eeAlgorithm(body.algorithm || "SFRAME_RFC9605_COMPAT");
+    const frameId = this.#safeBlindE2eeId(body.frameId || `frame_${randomBytes(12).toString("hex")}`, "frameId");
+    const keyId = this.#safeBlindE2eeId(body.keyId, "keyId");
+    if (keyId !== session.keyManagement.keyId) {
+      throw validationError("Blind E2EE frame proof keyId does not match the active session key id", {
+        expected: session.keyManagement.keyId,
+        received: keyId || null
+      });
+    }
+    const ciphertext = this.#blindE2eeCiphertextMetadata(body);
+    const header = this.#blindE2eeHeaderMetadata(body);
+    const authTagLength = this.#normalizeInteger(body.authTagLength, "authTagLength", 12, 16, 16);
+    const sequence = this.#normalizeInteger(body.sequence, "sequence", 0, Number.MAX_SAFE_INTEGER, session.proof.frameProofCount + 1);
+    const proof = {
+      id: newId("blind_frame"),
+      sessionId: session.id,
+      operatorId: operatorActor.operatorId,
+      tenantId: operatorActor.tenantId,
+      templateKey: session.templateKey,
+      frameId,
+      sequence,
+      keyId,
+      algorithm,
+      ciphertextSha256: ciphertext.sha256,
+      ciphertextLength: ciphertext.length,
+      authTagLength,
+      sframeHeaderSha256: header.sha256,
+      sframeHeaderLength: header.length,
+      width: this.#normalizeInteger(body.width, "width", 1, 8192, session.stream.targetWidth),
+      height: this.#normalizeInteger(body.height, "height", 1, 8192, session.stream.targetHeight),
+      brokerCanDecrypt: false,
+      brokerStoresCiphertextBytes: false,
+      plaintextAccepted: false,
+      contentInspected: false,
+      terminalDataStored: false,
+      recordedAt: isoNow()
+    };
+    this.blindE2eeFrameProofs.set(proof.id, proof);
+    const updatedSession = {
+      ...session,
+      proof: {
+        frameProofCount: session.proof.frameProofCount + 1,
+        lastFrameProofAt: proof.recordedAt,
+        lastCiphertextSha256: proof.ciphertextSha256,
+        brokerVisibilityNegativeTest: "passed_metadata_only"
+      },
+      updatedAt: proof.recordedAt
+    };
+    this.blindE2eeSessions.set(updatedSession.id, updatedSession);
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.blind_e2ee_frame_proof_recorded",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: proof.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: "blind_e2ee_frame_metadata_recorded",
+      newValue: this.#publicBlindE2eeFrameProof(proof)
+    });
+    return this.#publicBlindE2eeFrameProof(proof);
   }
 
   async sendWorkloadInput({ operatorActor, body = {}, correlationId }) {
@@ -4388,6 +4626,182 @@ export class OperatorPortalService {
       return second >= 16 && second <= 31;
     }
     return false;
+  }
+
+  #requireBlindE2eeSession({ operatorActor, sessionId }) {
+    const session = this.blindE2eeSessions.get(sessionId);
+    if (!session || session.operatorId !== operatorActor.operatorId) {
+      throw notFound("blind_e2ee_session", sessionId);
+    }
+    return session;
+  }
+
+  #publicBlindE2eeSession(session) {
+    return {
+      id: session.id,
+      operatorId: session.operatorId,
+      tenantId: session.tenantId,
+      terminalMode: session.terminalMode,
+      deviceId: session.deviceId,
+      templateKey: session.templateKey,
+      appName: session.appName,
+      state: session.state,
+      gateway: session.gateway,
+      source: session.source,
+      stream: session.stream,
+      keyManagement: session.keyManagement,
+      frameEnvelope: {
+        ...session.frameEnvelope,
+        ingestEndpoint: session.frameEnvelope.ingestEndpoint.replace("{sessionId}", session.id),
+        eventStreamEndpoint: session.frameEnvelope.eventStreamEndpoint.replace("{sessionId}", session.id)
+      },
+      proof: session.proof,
+      security: session.security,
+      blockers: session.blockers,
+      warnings: session.warnings,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      productionExecutionAllowed: false,
+      sideEffectAllowed: false
+    };
+  }
+
+  #publicBlindE2eeFrameProof(proof) {
+    return {
+      id: proof.id,
+      sessionId: proof.sessionId,
+      operatorId: proof.operatorId,
+      templateKey: proof.templateKey,
+      frameId: proof.frameId,
+      sequence: proof.sequence,
+      keyId: proof.keyId,
+      algorithm: proof.algorithm,
+      ciphertextSha256: proof.ciphertextSha256,
+      ciphertextLength: proof.ciphertextLength,
+      authTagLength: proof.authTagLength,
+      sframeHeaderSha256: proof.sframeHeaderSha256,
+      sframeHeaderLength: proof.sframeHeaderLength,
+      width: proof.width,
+      height: proof.height,
+      brokerCanDecrypt: false,
+      brokerStoresCiphertextBytes: false,
+      plaintextAccepted: false,
+      contentInspected: false,
+      terminalDataStored: false,
+      recordedAt: proof.recordedAt
+    };
+  }
+
+  #normalizeBlindE2eeAlgorithm(value) {
+    const algorithm = String(value || "").trim().toUpperCase();
+    if (["SFRAME_RFC9605_COMPAT", "AES_256_GCM_SFRAME_COMPAT"].includes(algorithm)) {
+      return algorithm;
+    }
+    throw validationError("Unsupported Blind E2EE frame algorithm", {
+      algorithm,
+      supported: ["SFRAME_RFC9605_COMPAT", "AES_256_GCM_SFRAME_COMPAT"]
+    });
+  }
+
+  #safeBlindE2eeId(value, field) {
+    const text = String(value || "").trim();
+    if (!/^[a-zA-Z0-9_.:-]{6,96}$/.test(text)) {
+      throw validationError(`Invalid Blind E2EE ${field}`, {
+        field,
+        allowed: "6-96 chars from a-z A-Z 0-9 _ . : -"
+      });
+    }
+    return text;
+  }
+
+  #assertBlindE2eeEnvelopeSafe(value, path = []) {
+    if (!value || typeof value !== "object") return;
+    for (const [key, nested] of Object.entries(value)) {
+      const currentPath = [...path, key];
+      if (!BLIND_E2EE_ALLOWED_NONSECRET_FIELDS.has(key) && BLIND_E2EE_FORBIDDEN_FIELD_PATTERN.test(key)) {
+        throw validationError("Blind E2EE broker rejected plaintext, key, or content-like field", {
+          field: currentPath.join("."),
+          allowed: "encrypted_frame_metadata_only"
+        });
+      }
+      if (typeof nested === "string" && BLIND_E2EE_FORBIDDEN_FIELD_PATTERN.test(nested) && /plain|secret|private|seed|mnemonic|password|message|wallet/i.test(nested)) {
+        throw validationError("Blind E2EE broker rejected content-like field value", {
+          field: currentPath.join("."),
+          allowed: "encrypted_frame_metadata_only"
+        });
+      }
+      if (nested && typeof nested === "object") {
+        this.#assertBlindE2eeEnvelopeSafe(nested, currentPath);
+      }
+    }
+  }
+
+  #blindE2eeCiphertextMetadata(body) {
+    const providedHash = String(body.ciphertextSha256 || "").trim().toLowerCase();
+    const providedLength = body.ciphertextLength;
+    const ciphertextB64 = String(body.ciphertextB64 || "").trim();
+    if (ciphertextB64) {
+      if (!/^[A-Za-z0-9+/=_-]+$/.test(ciphertextB64)) {
+        throw validationError("ciphertextB64 must be base64/base64url encoded encrypted bytes", {
+          field: "ciphertextB64"
+        });
+      }
+      const normalized = ciphertextB64.replaceAll("-", "+").replaceAll("_", "/");
+      const bytes = Buffer.from(normalized, "base64");
+      if (!bytes.length || bytes.length > BLIND_E2EE_MAX_FRAME_BYTES) {
+        throw validationError("Blind E2EE ciphertext frame length is outside allowed bounds", {
+          min: 1,
+          max: BLIND_E2EE_MAX_FRAME_BYTES,
+          received: bytes.length
+        });
+      }
+      return {
+        sha256: createHash("sha256").update(bytes).digest("hex"),
+        length: bytes.length
+      };
+    }
+    if (!/^[0-9a-f]{64}$/.test(providedHash)) {
+      throw validationError("ciphertextSha256 must be a SHA-256 hex digest when ciphertextB64 is not provided", {
+        field: "ciphertextSha256"
+      });
+    }
+    const length = this.#normalizeInteger(providedLength, "ciphertextLength", 1, BLIND_E2EE_MAX_FRAME_BYTES, 1);
+    return { sha256: providedHash, length };
+  }
+
+  #blindE2eeHeaderMetadata(body) {
+    const providedHash = String(body.sframeHeaderSha256 || "").trim().toLowerCase();
+    const providedLength = body.sframeHeaderLength;
+    const headerB64 = String(body.sframeHeaderB64 || "").trim();
+    if (headerB64) {
+      if (!/^[A-Za-z0-9+/=_-]+$/.test(headerB64)) {
+        throw validationError("sframeHeaderB64 must be base64/base64url encoded", {
+          field: "sframeHeaderB64"
+        });
+      }
+      const bytes = Buffer.from(headerB64.replaceAll("-", "+").replaceAll("_", "/"), "base64");
+      if (!bytes.length || bytes.length > 4096) {
+        throw validationError("SFrame header length is outside allowed bounds", {
+          min: 1,
+          max: 4096,
+          received: bytes.length
+        });
+      }
+      return {
+        sha256: createHash("sha256").update(bytes).digest("hex"),
+        length: bytes.length
+      };
+    }
+    if (providedHash && !/^[0-9a-f]{64}$/.test(providedHash)) {
+      throw validationError("sframeHeaderSha256 must be a SHA-256 hex digest", {
+        field: "sframeHeaderSha256"
+      });
+    }
+    const length = this.#normalizeInteger(providedLength, "sframeHeaderLength", 0, 4096, providedHash ? 1 : 0);
+    return {
+      sha256: providedHash || null,
+      length
+    };
   }
 
   #publicStreamingRuntimeManifest(manifest) {
