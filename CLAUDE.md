@@ -83,6 +83,16 @@ W repo pracuje równolegle **SYLION Codex** (autor 99% commitów) — głównie 
 - Branch protection (gdy włączone): wymagana review, signed commits
 - Patrz `.github/CODEOWNERS` dla code-ownership rules
 
+### Remote sync / pull policy
+
+- Before substantial work and before push: run `git fetch origin` and inspect `git status -sb`.
+- If the current branch is behind and the tracked worktree is clean: use `git pull --ff-only`.
+- If local tracked changes exist: inspect local diff first. Do not pull blindly.
+- If upstream changes are additive or mechanical and do not remove current Codex-authored functionality: integrate them and resolve simple conflicts while preserving current functionality.
+- If upstream changes delete, downgrade, or bypass current Codex-authored work, security gates, tests, or live integration paths: stop and ask the user before pulling or accepting those changes.
+- If conflicts occur: prefer preserving current Codex-authored implementation and tests. Resolve straightforward textual conflicts directly; ask the user when resolution would remove meaningful functionality or change product/security behavior.
+- Never use destructive recovery (`git reset --hard`, `git checkout --`, forced overwrite) unless the user explicitly asks for that exact operation.
+
 ## Source documents (canonical)
 
 ```
