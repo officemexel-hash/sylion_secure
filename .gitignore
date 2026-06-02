@@ -44,3 +44,19 @@ __pycache__/
 
 # NSFW
 phantom-router/
+
+# === Expanded secret / key / deployment exclusions ===
+# PKCS12 / PFX keystores (e.g. Pixel VPN .p12), generic private keys
+**/*.p12
+**/*.pfx
+**/*.key
+# any ed25519 key material (keep public .pub)
+**/*ed25519*
+!**/*.pub
+# local SQLite databases (admin-api.sqlite etc.)
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+# local Claude Code / editor settings (not deployment)
+.claude/settings.json
+.claude/settings.local.json
