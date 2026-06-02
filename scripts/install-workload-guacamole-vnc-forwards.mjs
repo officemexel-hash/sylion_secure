@@ -52,6 +52,16 @@ const forwardPlan = {
       required: true
     },
     {
+      key: "protonmail",
+      label: "SYLION Proton Mail",
+      mode: "desktop_web",
+      bindPort: 5917,
+      targetHost: "172.16.58.26",
+      targetPort: 5900,
+      labWebPort: 3016,
+      required: true
+    },
+    {
       key: "telegram",
       label: "SYLION Telegram",
       mode: "desktop_web",

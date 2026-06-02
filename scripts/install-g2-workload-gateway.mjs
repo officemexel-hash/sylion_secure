@@ -33,6 +33,13 @@ const apps = [
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-whatsapp.conf"
   },
   {
+    key: "protonmail",
+    serverName: "protonmail.sylion.internal",
+    upstreamScheme: "http",
+    upstreamPort: 3016,
+    noVnc: true
+  },
+  {
     key: "telegram",
     serverName: "telegram.sylion.internal",
     upstreamScheme: "http",

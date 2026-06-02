@@ -123,6 +123,23 @@ const profiles = {
     serverName: "whatsapp.sylion.internal",
     guestMac: "AA:FC:00:00:58:0A"
   },
+  protonmail: {
+    title: "SYLION Proton Mail",
+    url: "https://mail.proton.me/",
+    preAptSetup: mozillaAptSetup,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox onboard dconf-cli",
+    launchCommand: firefoxApp("https://mail.proton.me/"),
+    waylandLaunchCommand: firefoxWaylandApp("https://mail.proton.me/"),
+    targetContentPattern: "Proton",
+    visibleWindowPattern: "Proton|Mozilla Firefox|Firefox",
+    processPattern: "firefox",
+    hostPort: 3016,
+    guestIp: "172.16.58.26",
+    hostTapIp: "172.16.58.25",
+    tap: "syliongui6",
+    serverName: "protonmail.sylion.internal",
+    guestMac: "AA:FC:00:00:58:1A"
+  },
   telegram: {
     title: "SYLION Telegram Web",
     url: "https://web.telegram.org/",
@@ -892,6 +909,10 @@ else
 fi
 app_pid="$!"
 echo "sylion-app-pid=$app_pid"
+# SYLION: on-screen keyboard docked at the bottom for thin-client touch input. Non-fatal best-effort.
+if [ "$vnc_backend" != "weston-vnc" ] && chroot_has_onboard="$(command -v onboard || true)" && [ -n "$chroot_has_onboard" ]; then
+  su -s /bin/sh sylion -c 'export DISPLAY=:1 XAUTHORITY=/home/sylion/.Xauthority HOME=/home/sylion USER=sylion XDG_RUNTIME_DIR=/run/user/1000; dbus-run-session -- sh -c "gsettings set org.onboard.window docking-enabled true 2>/dev/null; gsettings set org.onboard.window.landscape dock-height 380 2>/dev/null; gsettings set org.onboard.window force-to-top true 2>/dev/null; gsettings set org.onboard auto-show.enabled false 2>/dev/null; gsettings set org.onboard layout Phone 2>/dev/null; onboard"' >/tmp/sylion-onboard.log 2>&1 &
+fi
 sleep 35
 if [ "$vnc_backend" != "weston-vnc" ] && command -v xdotool >/dev/null 2>&1; then
   export XAUTHORITY=/home/sylion/.Xauthority

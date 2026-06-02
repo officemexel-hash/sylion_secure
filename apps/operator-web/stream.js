@@ -11,6 +11,7 @@
     duckduckgo_browser: { label: "DuckDuckGo", host: "duckduckgo.sylion.internal", path: STREAM_PATH },
     libreoffice: { label: "LibreOffice", host: "libreoffice.sylion.internal", path: STREAM_PATH },
     whatsapp: { label: "WhatsApp", host: "whatsapp.sylion.internal", path: STREAM_PATH },
+    protonmail: { label: "Proton Mail", host: "protonmail.sylion.internal", path: STREAM_PATH },
     telegram: { label: "Telegram", host: "telegram.sylion.internal", path: STREAM_PATH },
     threema: { label: "Threema", host: "threema.sylion.internal", path: STREAM_PATH },
     signal: { label: "Signal", host: "signal.sylion.internal", path: STREAM_PATH },
