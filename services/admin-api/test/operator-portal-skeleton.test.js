@@ -58,6 +58,11 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.body, /\/operator\/stream\.html\?app=libreoffice/);
     assert.match(html.body, /\/operator\/stream\.html\?app=simplex/);
     assert.match(html.body, /\/operator\/stream\.html\?app=protonmail/);
+    assert.match(html.body, /id="workload-broker-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/);
+    assert.match(html.body, /id="runtime-gate-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/);
+    assert.match(html.body, /id="stream-session-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/);
+    assert.match(html.body, /signal,duckduckgo_browser,libreoffice,simplex,protonmail/);
+    assert.match(html.body, /protonmail:10\.42\.0\.13:7917,simplex:10\.42\.0\.13:7918/);
     assert.match(html.body, /Backup & Panic/);
     assert.match(html.body, /Laptop terminal package/);
     assert.match(html.body, /Private input handoff/);
@@ -65,7 +70,7 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.body, /id="workload-recreate-form"/);
     assert.match(html.body, /Delete and recreate selected app/);
     assert.match(html.body, /RUN_LIVE_WORKLOAD_RECREATE/);
-    assert.match(html.body, /<script src="\/operator\/app\.js\?v=step3-108"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/app\.js\?v=step3-110"><\/script>/);
   } finally {
     await close();
   }
@@ -105,6 +110,7 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(js.body, /Workload stream blocked: missing active operator session/);
     assert.match(js.body, /launchHash\.set\("op_token", token\)/);
     assert.match(js.body, /url\.hash = launchHash\.toString\(\)/);
+    assert.match(js.body, /const wrapperApps = new Set\([\s\S]*"simplex"[\s\S]*"protonmail"[\s\S]*\)/);
     assert.doesNotMatch(js.body, /url\.searchParams\.set\("op_token"/);
 
     assert.match(css.body, /quick-grid/);

@@ -114,6 +114,8 @@
               <option value="telegram">Telegram</option>
               <option value="threema">Threema</option>
               <option value="zangi">Zangi</option>
+              <option value="simplex">SimpleX Chat</option>
+              <option value="protonmail">Proton Mail</option>
               <option value="libreoffice">LibreOffice</option>
               <option value="duckduckgo">DuckDuckGo</option>
               <option value="exodus">Exodus</option>
@@ -404,7 +406,15 @@
           <label>Application
             <select name="templateKey">
               <option value="signal">Signal</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="telegram">Telegram</option>
+              <option value="threema">Threema</option>
               <option value="zangi">Zangi</option>
+              <option value="simplex">SimpleX Chat</option>
+              <option value="protonmail">Proton Mail</option>
+              <option value="duckduckgo_browser">DuckDuckGo</option>
+              <option value="libreoffice">LibreOffice</option>
+              <option value="exodus">Exodus</option>
             </select>
           </label>
           <button type="submit" class="primary">Check runtime</button>
@@ -590,6 +600,8 @@
               <option value="duckduckgo_browser">DuckDuckGo</option>
               <option value="libreoffice">LibreOffice</option>
               <option value="zangi">Zangi</option>
+              <option value="simplex">SimpleX Chat</option>
+              <option value="protonmail">Proton Mail</option>
               <option value="exodus">Exodus</option>
             </select>
           </label>
@@ -620,7 +632,7 @@
           <label><input name="sframeValidated" type="checkbox"> SFrame validation proof</label>
           <label><input name="keySeparationVerified" type="checkbox"> Stream keys outside G2</label>
           <label><input name="inputProxyReady" type="checkbox" checked> Input proxy ready</label>
-          <label>Ready sources <input name="sources" value="signal,duckduckgo_browser,libreoffice"></label>
+          <label>Ready sources <input name="sources" value="signal,duckduckgo_browser,libreoffice,simplex,protonmail"></label>
           <button type="submit">Record stream readiness</button>
         </form>
         <p id="stream-readiness-status" class="hint">No stream readiness evidence recorded in this browser session.</p>
@@ -640,7 +652,7 @@
           <label><input name="e2eeStream" type="checkbox"> E2EE pixel frames</label>
           <label><input name="sframeValidated" type="checkbox"> SFrame validation proof</label>
           <label><input name="keySeparationVerified" type="checkbox"> Stream keys outside G2</label>
-          <label>Source apps <input name="sources" value="signal:10.42.0.13:7901,duckduckgo_browser:10.42.0.13:7902,libreoffice:10.42.0.13:7903"></label>
+          <label>Source apps <input name="sources" value="signal:10.42.0.13:7901,duckduckgo_browser:10.42.0.13:7902,libreoffice:10.42.0.13:7903,protonmail:10.42.0.13:7917,simplex:10.42.0.13:7918"></label>
           <button type="submit">Record runtime manifest</button>
         </form>
         <p id="stream-runtime-status" class="hint">No stream runtime manifest recorded in this browser session.</p>
@@ -806,6 +818,6 @@
     <p>For admin operations: <a href="/admin">/admin</a></p>
   </footer>
 
-  <script src="/operator/app.js?v=step3-108"></script>
+  <script src="/operator/app.js?v=step3-110"></script>
 </body>
 </html>

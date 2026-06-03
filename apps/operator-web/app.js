@@ -690,6 +690,8 @@
       "threema",
       "signal",
       "zangi",
+      "simplex",
+      "protonmail",
       "exodus"
     ]);
     if (wrapperApps.has(normalized)) {
