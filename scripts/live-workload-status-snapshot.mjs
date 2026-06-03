@@ -13,7 +13,7 @@ const cfg = {
   workloadHost: process.env.SYLION_WORKLOAD_SSH || "root@65.109.123.72",
   g2Host: process.env.SYLION_G2_SSH || "sylion@178.105.203.31",
   gatewayIp: process.env.SYLION_WORKLOAD_GATEWAY_IP || "10.42.0.12",
-  timeoutMs: Number(process.env.SYLION_LIVE_WORKLOAD_STATUS_TIMEOUT_MS || 45_000)
+  timeoutMs: Number(process.env.SYLION_LIVE_WORKLOAD_STATUS_TIMEOUT_MS || 180_000)
 };
 
 const apps = Object.freeze([
@@ -138,13 +138,14 @@ print(json.dumps({"rows": rows}))
 PY
 while IFS='|' read -r app_key host; do
   headers="/tmp/sylion-live-status-$app_key.headers"
+  root_headers="/tmp/sylion-live-status-$app_key-root.headers"
   body="/tmp/sylion-live-status-$app_key.body"
   target="/vnc.html?autoconnect=true&resize=remote&path=websockify"
-  code="$(curl -k -sS -D "$headers" -o "$body" -w "%{http_code}" --resolve "$host:443:${cfg.gatewayIp}" --max-time 10 "https://$host$target" 2>/dev/null || true)"
-  root_code="$(curl -k -sS -o /dev/null -w "%{http_code}" --resolve "$host:443:${cfg.gatewayIp}" --max-time 8 "https://$host/" 2>/dev/null || true)"
-  grep -qi 'www-authenticate' "$headers" && auth_required=true || auth_required=false
+  code="$(curl -k -sS -D "$headers" -o "$body" -w "%{http_code}" --resolve "$host:443:${cfg.gatewayIp}" --connect-timeout 3 --max-time 10 "https://$host$target" 2>/dev/null || true)"
+  root_code="$(curl -k -sS -D "$root_headers" -o /dev/null -w "%{http_code}" --resolve "$host:443:${cfg.gatewayIp}" --connect-timeout 3 --max-time 6 "https://$host/" 2>/dev/null || true)"
+  { grep -qi 'www-authenticate' "$headers" || grep -qi 'www-authenticate' "$root_headers"; } && auth_required=true || auth_required=false
   grep -qi 'noVNC\\|KasmVNC' "$body" && stream_marker=true || stream_marker=false
-  grep -qi 'X-Sylion' "$headers" && sylion_headers=true || sylion_headers=false
+  { grep -qi 'X-Sylion' "$headers" || grep -qi 'X-Sylion' "$root_headers"; } && sylion_headers=true || sylion_headers=false
   printf '%s|%s|%s|%s|%s|%s\\n' "$app_key" "$root_code" "$code" "$auth_required" "$stream_marker" "$sylion_headers"
 done <<'SYLION_STATUS_APPS' | python3 -c 'import json,sys
 records=[]

@@ -301,7 +301,7 @@ async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
 
 async function defaultLiveWorkloadStatusProvider({ env = process.env } = {}) {
   const result = await execFileAsync(process.execPath, ["scripts/live-workload-status-snapshot.mjs"], {
-    timeout: Number(env.SYLION_LIVE_WORKLOAD_STATUS_TIMEOUT_MS || 60_000),
+    timeout: Number(env.SYLION_LIVE_WORKLOAD_STATUS_TIMEOUT_MS || 180_000),
     windowsHide: true,
     cwd: process.cwd(),
     env: {

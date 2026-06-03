@@ -100,6 +100,7 @@ async function main() {
   const outPath = argValue("out", DEFAULT_OUT);
   const apply = hasArg("apply") || process.env.SYLION_PULI_AX_IPSEC_APPLY === "true";
   const startTunnel = hasArg("start") || process.env.SYLION_PULI_AX_IPSEC_START === "true";
+  const loadKillSwitch = hasArg("load-killswitch") || process.env.SYLION_PULI_AX_LOAD_KILLSWITCH === "true";
   const g1Endpoint = argValue("g1-endpoint", process.env.SYLION_G1_PUBLIC_IP || "178.105.200.112");
   const identity = argValue("identity", "router.OP-001@sylion.internal");
   const tmpDir = resolve(".deploy", "puli-ax-ipsec-lab");
@@ -119,6 +120,7 @@ async function main() {
     completedAt: null,
     mode: apply ? "apply" : "dry_run",
     startTunnel,
+    loadKillSwitch,
     status: "started",
     facts: {},
     controls: {
@@ -341,7 +343,7 @@ uci -q del_list dhcp.@dnsmasq[0].server='/sylion.internal/10.42.0.11' 2>/dev/nul
 uci add_list dhcp.@dnsmasq[0].server='/sylion.internal/10.42.0.11'
 uci -q del_list dhcp.@dnsmasq[0].rebind_domain='sylion.internal' 2>/dev/null || true
 uci add_list dhcp.@dnsmasq[0].rebind_domain='sylion.internal'
-for host in operator session admin duckduckgo libreoffice whatsapp telegram threema signal zangi exodus; do
+for host in operator session admin duckduckgo libreoffice whatsapp telegram threema signal zangi exodus simplex protonmail; do
   uci -q del_list dhcp.@dnsmasq[0].address="/$host.sylion.internal/10.42.0.12" 2>/dev/null || true
   uci add_list dhcp.@dnsmasq[0].address="/$host.sylion.internal/10.42.0.12"
 done
@@ -380,6 +382,9 @@ iptables -t mangle -D FORWARD -s 192.168.8.0/24 -d 10.42.0.0/16 -p tcp --tcp-fla
 iptables -t mangle -I FORWARD 1 -s 192.168.8.0/24 -d 10.42.0.0/16 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
 iptables -t mangle -D FORWARD -s 10.42.0.0/16 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || true
 iptables -t mangle -I FORWARD 1 -s 10.42.0.0/16 -d 192.168.8.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
+if [ "${loadKillSwitch ? "true" : "false"}" = "true" ]; then
+  nft -f /etc/sylion/killswitch-pre-vpn.nft >/tmp/sylion-router-killswitch-load.log 2>&1 || true
+fi
 echo router_cert_installed=true
 echo router_ipsec_conf_installed=true
 echo router_killswitch_staged=true
@@ -390,8 +395,17 @@ echo router_tunnel_established="$(echo "$status" | grep -q 'ESTABLISHED' && echo
 echo router_child_installed="$(echo "$status" | grep -q 'INSTALLED' && echo true || echo false)"
 echo killswitch_loaded="$(nft list table inet sylion_killswitch >/dev/null 2>&1 && echo true || echo false)"
 echo router_internal_dns_forward="$(uci show dhcp 2>/dev/null | grep -q '/sylion.internal/10.42.0.11' && echo true || echo false)"
-echo router_internal_dns_static="$(uci show dhcp 2>/dev/null | grep -q '/operator.sylion.internal/10.42.0.12' && echo true || echo false)"
-echo router_internal_dns_resolves="$(nslookup operator.sylion.internal 127.0.0.1 2>/dev/null | grep -q '10.42.0.12' && echo true || echo false)"
+required_dns_hosts="operator session admin duckduckgo libreoffice whatsapp telegram threema signal zangi exodus simplex protonmail"
+missing_static=""
+missing_resolves=""
+for host in $required_dns_hosts; do
+  uci show dhcp 2>/dev/null | grep -q "/$host.sylion.internal/10.42.0.12" || missing_static="$missing_static,$host"
+  nslookup "$host.sylion.internal" 127.0.0.1 2>/dev/null | grep -q '10.42.0.12' || missing_resolves="$missing_resolves,$host"
+done
+echo router_internal_dns_static="$([ -z "$missing_static" ] && echo true || echo false)"
+echo router_internal_dns_resolves="$([ -z "$missing_resolves" ] && echo true || echo false)"
+echo router_internal_dns_static_missing="\${missing_static#,}"
+echo router_internal_dns_resolves_missing="\${missing_resolves#,}"
 `
   });
   if (!install.ok) {
@@ -411,6 +425,8 @@ echo router_internal_dns_resolves="$(nslookup operator.sylion.internal 127.0.0.1
 
   const tunnelEstablished = bool(result.facts.router_tunnel_established);
   const childInstalled = bool(result.facts.router_child_installed);
+  const killSwitchLoaded = bool(result.facts.killswitch_loaded);
+  result.controls.killSwitchLoaded = killSwitchLoaded;
   result.completedAt = isoNow();
   result.status = startTunnel
     ? tunnelEstablished && childInstalled ? "router_ipsec_established" : "router_ipsec_staged_but_not_established"
@@ -418,12 +434,15 @@ echo router_internal_dns_resolves="$(nslookup operator.sylion.internal 127.0.0.1
   result.blockers = [
     ...(startTunnel && !tunnelEstablished ? ["router_ipsec_sa_not_established"] : []),
     ...(startTunnel && !childInstalled ? ["router_ipsec_child_sa_not_installed"] : []),
-    "killswitch_not_loaded_until_tunnel_failure_test_window"
+    ...(killSwitchLoaded ? [] : [loadKillSwitch ? "killswitch_not_loaded" : "killswitch_not_loaded_until_tunnel_failure_test_window"])
   ];
   result.nextActions = result.blockers.length ? [
     "Inspect router /tmp/sylion-router-ipsec-up.log and G1 charon logs without printing private material.",
     "Verify traffic selectors before loading kill switch.",
     "Run T01-T10 in a controlled failure-test window."
+  ] : loadKillSwitch ? [
+    "Run T01-T10 kill-switch, DNS and IPsec failure tests.",
+    "Record sanitized router posture in Admin API."
   ] : [
     "Run T01-T10 in a controlled failure-test window.",
     "Only after pass: load kill switch and record router posture in Admin API."

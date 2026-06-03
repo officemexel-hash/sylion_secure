@@ -23,7 +23,9 @@ const workloadHosts = [
   "zangi",
   "duckduckgo",
   "libreoffice",
-  "exodus"
+  "exodus",
+  "simplex",
+  "protonmail"
 ];
 
 const workloadVisualExpectations = {
@@ -74,6 +76,18 @@ const workloadVisualExpectations = {
     pass: [/Exodus/i],
     blocker: [/SYLION Exodus|exodus\.com\/download|New Tab|Google|Search Google|Web Store|Add shortcut/i],
     blockerMessage: "Exodus reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Exodus wallet UI is not verified on Pixel."
+  },
+  simplex: {
+    pass: [/SimpleX/i],
+    allowCanvasEvidence: true,
+    blocker: [/simplex\.chat\/downloads|Download SimpleX|New Tab|Google|Search Google/i],
+    blockerMessage: "SimpleX reaches only a public download page or generic browser shell; an approved isolated SimpleX desktop/Android workload is not verified on Pixel."
+  },
+  protonmail: {
+    pass: [/Proton Mail|Proton/i],
+    allowCanvasEvidence: true,
+    blocker: [/New Tab|Google|Search Google|Chromium didn't shut down/i],
+    blockerMessage: "Proton Mail reaches only a generic browser shell; Proton Mail UI is not verified on Pixel."
   }
 };
 
@@ -419,7 +433,15 @@ async function collectNetworkEvidence(serial) {
   const route = (await adb(["-s", serial, "shell", "ip", "route"])).stdout;
   const tun = (await adb(["-s", serial, "shell", "ip", "addr", "show", "tun1"]).catch((error) => ({ stdout: "", stderr: String(error) }))).stdout;
   const pings = {};
-  for (const host of ["admin.sylion.internal", "operator.sylion.internal", "session.sylion.internal", "signal.sylion.internal", "duckduckgo.sylion.internal", "libreoffice.sylion.internal", "zangi.sylion.internal", "10.42.0.10", "10.42.0.12"]) {
+  const networkProbeHosts = [
+    "admin.sylion.internal",
+    "operator.sylion.internal",
+    "session.sylion.internal",
+    ...workloadHosts.map((app) => `${app}.sylion.internal`),
+    "10.42.0.10",
+    "10.42.0.12"
+  ];
+  for (const host of [...new Set(networkProbeHosts)]) {
     const ping = await adb(["-s", serial, "shell", "ping", "-c", "1", "-W", "3", host]).catch((error) => ({ stdout: "", stderr: String(error) }));
     pings[host] = {
       ok: /1 received|bytes from/i.test(ping.stdout),
@@ -441,7 +463,7 @@ async function collectNetworkEvidence(serial) {
 
 async function probeWorkloadsFromAdmin() {
   const script = String.raw`
-for h in admin operator signal duckduckgo libreoffice zangi whatsapp telegram threema exodus; do
+for h in admin operator signal duckduckgo libreoffice zangi whatsapp telegram threema exodus simplex protonmail; do
   path="/"
   if [ "$h" = "operator" ]; then path="/operator"; fi
   if [ "$h" = "admin" ]; then path="/admin"; fi
@@ -469,11 +491,11 @@ function analyze(seed, network, probes, pageResults) {
     const status = probes[app]?.status;
     if (status !== "200") {
       const message = `${app}.sylion.internal returned HTTP ${status || "unknown"} from server-side probe.`;
-      if (["zangi", "exodus"].includes(app)) knownGates.push(message);
+      if (["zangi", "exodus", "simplex"].includes(app)) knownGates.push(message);
       else issues.push(message);
     }
   }
-  for (const app of ["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal"]) {
+  for (const app of ["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal", "simplex", "protonmail"]) {
     if (probes[app]?.status === "200" && /Welcome to nginx/i.test(probes[app]?.title || "")) {
       issues.push(`${app} currently serves the nginx placeholder, not a verified real application UI.`);
     }
@@ -505,7 +527,7 @@ function analyze(seed, network, probes, pageResults) {
       continue;
     }
     if (!hasExpectedText || hasBlockerText) {
-      if (["zangi", "exodus"].includes(app)) knownGates.push(expectation.blockerMessage);
+      if (["zangi", "exodus", "simplex"].includes(app)) knownGates.push(expectation.blockerMessage);
       else issues.push(expectation.blockerMessage);
     }
   }

@@ -125,12 +125,22 @@ echo sylion_router_child_installed="$(echo "$ipsec_status" | grep -q 'INSTALLED'
 router_vip="$(ip -4 addr show 2>/dev/null | awk '$2 ~ /^10[.]43[.]/ { split($2,a,"/"); print a[1]; exit }')"
 [ -n "$router_vip" ] || router_vip="10.43.0.2"
 echo sylion_router_virtual_ip="$router_vip"
-echo sylion_lan_snat="$(iptables -t nat -C POSTROUTING -s 192.168.8.0/24 -d 10.42.0.0/24 -j SNAT --to-source "$router_vip" >/dev/null 2>&1 && echo true || echo false)"
-echo sylion_tcp_mss_clamp="$(iptables -t mangle -C FORWARD -s 192.168.8.0/24 -d 10.42.0.0/24 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 >/dev/null 2>&1 && echo true || echo false)"
-echo sylion_old_nat_bypass="$(iptables -t nat -C POSTROUTING -d 10.42.0.0/24 -j ACCEPT >/dev/null 2>&1 && echo true || echo false)"
+echo sylion_lan_snat="$(iptables -t nat -C POSTROUTING -s 192.168.8.0/24 -d 10.42.0.0/16 -j SNAT --to-source "$router_vip" >/dev/null 2>&1 && echo true || echo false)"
+echo sylion_tcp_mss_clamp="$(iptables -t mangle -C FORWARD -s 192.168.8.0/24 -d 10.42.0.0/16 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 >/dev/null 2>&1 && echo true || echo false)"
+echo sylion_old_nat_bypass="$(iptables -t nat -C POSTROUTING -d 10.42.0.0/16 -j ACCEPT >/dev/null 2>&1 && echo true || echo false)"
 echo sylion_internal_dns_forward="$(uci show dhcp 2>/dev/null | grep -q '/sylion.internal/10.42.0.11' && echo true || echo false)"
-echo sylion_internal_dns_static="$(uci show dhcp 2>/dev/null | grep -q '/operator.sylion.internal/10.42.0.12' && echo true || echo false)"
-echo sylion_internal_dns_resolves="$(nslookup operator.sylion.internal 127.0.0.1 2>/dev/null | grep -q '10.42.0.12' && echo true || echo false)"
+required_dns_hosts="operator session admin duckduckgo libreoffice whatsapp telegram threema signal zangi exodus simplex protonmail"
+missing_static=""
+missing_resolves=""
+for host in $required_dns_hosts; do
+  uci show dhcp 2>/dev/null | grep -q "/$host.sylion.internal/10.42.0.12" || missing_static="$missing_static,$host"
+  nslookup "$host.sylion.internal" 127.0.0.1 2>/dev/null | grep -q '10.42.0.12' || missing_resolves="$missing_resolves,$host"
+done
+echo sylion_internal_dns_required_hosts="$required_dns_hosts"
+echo sylion_internal_dns_static="$([ -z "$missing_static" ] && echo true || echo false)"
+echo sylion_internal_dns_resolves="$([ -z "$missing_resolves" ] && echo true || echo false)"
+echo sylion_internal_dns_static_missing="\${missing_static#,}"
+echo sylion_internal_dns_resolves_missing="\${missing_resolves#,}"
 ping -c 1 -W 2 10.42.0.12 >/dev/null 2>&1 && echo g2_private_ping=true || echo g2_private_ping=false
 echo sylion_dir_present="$([ -d /etc/sylion ] && echo true || echo false)"
 echo authorized_keys_present="$([ -s /etc/dropbear/authorized_keys ] && echo true || echo false)"
@@ -202,6 +212,9 @@ echo public_ip_redacted=true
     sylionInternalDnsForward: bool(kv.sylion_internal_dns_forward),
     sylionInternalDnsStatic: bool(kv.sylion_internal_dns_static),
     sylionInternalDnsResolves: bool(kv.sylion_internal_dns_resolves),
+    sylionInternalDnsRequiredHosts: (kv.sylion_internal_dns_required_hosts || "").split(/\s+/).filter(Boolean),
+    sylionInternalDnsStaticMissing: (kv.sylion_internal_dns_static_missing || "").split(",").filter(Boolean),
+    sylionInternalDnsResolvesMissing: (kv.sylion_internal_dns_resolves_missing || "").split(",").filter(Boolean),
     g2PrivatePingFromRouterSelfTraffic: bool(kv.g2_private_ping),
     brLanPresent: bool(kv.br_lan_present),
     openwrtModern,

@@ -8,7 +8,7 @@ import dns from "node:dns/promises";
 import { dirname, resolve } from "node:path";
 
 const DEFAULT_ROUTER_IP = "192.168.8.1";
-const DEFAULT_LOCAL_IP = "192.168.8.200";
+const DEFAULT_LOCAL_IP = null;
 const DEFAULT_OUT = "docs/admin-panel-v2/test-artifacts/puli-ax-physical-smoke/latest.json";
 
 function argValue(name, fallback = null) {
@@ -96,17 +96,17 @@ async function httpProbe(routerIp) {
   });
 }
 
-async function dnsProbe(routerIp) {
+async function dnsProbe(routerIp, hostname = "openai.com") {
   const previous = dns.getServers();
   try {
     dns.setServers([routerIp]);
     const result = await Promise.race([
-      dns.resolve4("openai.com"),
+      dns.resolve4(hostname),
       new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))
     ]);
-    return { reachable: true, answers: result.length };
+    return { reachable: true, query: hostname, answers: result.length, internalTargetObserved: result.includes("10.42.0.12") };
   } catch (error) {
-    return { reachable: false, reason: error.code || error.message || "dns_failed" };
+    return { reachable: false, query: hostname, reason: error.code || error.message || "dns_failed" };
   } finally {
     dns.setServers(previous);
   }
@@ -170,7 +170,8 @@ async function windowsNetFacts(routerIp) {
 
 async function main() {
   const routerIp = argValue("router-ip", DEFAULT_ROUTER_IP);
-  const localAddress = argValue("local-address", DEFAULT_LOCAL_IP);
+  const requestedLocalAddress = argValue("local-address", process.env.SYLION_PULI_AX_LOCAL_ADDRESS || DEFAULT_LOCAL_IP);
+  const expectKillSwitch = hasArg("expect-killswitch") || process.env.SYLION_PULI_AX_EXPECT_KILLSWITCH === "true";
   const outPath = argValue("out", DEFAULT_OUT);
   const ports = [22, 53, 80, 443, 500, 4500];
   const startedAt = isoNow();
@@ -178,18 +179,24 @@ async function main() {
   for (const port of ports) {
     tcp[String(port)] = await tcpOpen(routerIp, port);
   }
-  const [httpUi, dnsResult, wanResult, windows] = await Promise.all([
+  const windows = await windowsNetFacts(routerIp);
+  const detectedLocalAddress = String(windows?.IPv4Address || "").split(",").map((item) => item.trim()).find(Boolean) || null;
+  const localAddress = requestedLocalAddress || detectedLocalAddress || undefined;
+  const [httpUi, dnsResult, wanResult] = await Promise.all([
     httpProbe(routerIp),
-    dnsProbe(routerIp),
-    internetViaLocalAddress(localAddress),
-    windowsNetFacts(routerIp)
+    dnsProbe(routerIp, expectKillSwitch ? "operator.sylion.internal" : "openai.com"),
+    internetViaLocalAddress(localAddress)
   ]);
   const blockers = [
     ...(httpUi.glinetUiDetected ? [] : ["glinet_admin_ui_not_detected"]),
     ...(tcp["22"] ? [] : ["ssh_lan_not_open"]),
     ...(tcp["80"] || tcp["443"] ? [] : ["admin_panel_not_reachable"]),
-    ...(dnsResult.reachable ? [] : ["router_dns_not_answering"]),
-    ...(wanResult.reachable ? [] : ["wan_or_cellular_uplink_not_ready"]),
+    ...(expectKillSwitch
+      ? (dnsResult.reachable && dnsResult.internalTargetObserved ? [] : ["router_internal_dns_not_answering"])
+      : (dnsResult.reachable ? [] : ["router_dns_not_answering"])),
+    ...(expectKillSwitch
+      ? (wanResult.reachable ? ["lan_to_wan_not_blocked_under_killswitch"] : [])
+      : (wanResult.reachable ? [] : ["wan_or_cellular_uplink_not_ready"])),
     ...(tcp["500"] || tcp["4500"] ? ["ipsec_ports_open_on_lan_review_required"] : [])
   ];
   const summary = {
@@ -211,7 +218,8 @@ async function main() {
       passwordPrinted: false,
       terminalOperationalDataStored: false,
       productionExecutionAllowed: false,
-      sideEffectAllowed: false
+      sideEffectAllowed: false,
+      expectKillSwitch
     },
     blockers,
     nextActions: blockers.length ? [

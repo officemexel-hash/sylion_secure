@@ -83,6 +83,10 @@ test("Step 3.30 generates Puli AX router package without secrets and with IPsec 
     assert.deepEqual(pkg.manifest.ipsecProfiles.map((profile) => profile.id), ["T0", "T1", "T2"]);
     assert.ok(pkg.manifest.ipsecProfiles.every((profile) => profile.protocol === "ipsec_ikev2"));
     assert.ok(pkg.manifest.ipsecProfiles.every((profile) => profile.authentication === "mutual_certificate"));
+    assert.equal(pkg.manifest.controls.internalDns.resolver, "10.42.0.11");
+    assert.equal(pkg.manifest.controls.internalDns.staticHostTarget, "10.42.0.12");
+    assert.ok(pkg.manifest.controls.internalDns.requiredHosts.includes("simplex.sylion.internal"));
+    assert.ok(pkg.manifest.controls.internalDns.requiredHosts.includes("protonmail.sylion.internal"));
     assert.equal(JSON.stringify(pkg).includes("BEGIN PRIVATE KEY"), false);
     assert.equal(JSON.stringify(pkg).includes("apiKey"), false);
 

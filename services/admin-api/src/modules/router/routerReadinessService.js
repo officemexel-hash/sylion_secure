@@ -16,6 +16,21 @@ const REQUIRED_POSTURE = Object.freeze([
   ["signedFirmwareVerified", "Signed firmware verified"],
   ["packageInstalled", "SYLION router package installed"]
 ]);
+const PULI_AX_INTERNAL_DNS_HOSTS = Object.freeze([
+  "operator.sylion.internal",
+  "session.sylion.internal",
+  "admin.sylion.internal",
+  "duckduckgo.sylion.internal",
+  "libreoffice.sylion.internal",
+  "whatsapp.sylion.internal",
+  "telegram.sylion.internal",
+  "threema.sylion.internal",
+  "signal.sylion.internal",
+  "zangi.sylion.internal",
+  "exodus.sylion.internal",
+  "simplex.sylion.internal",
+  "protonmail.sylion.internal"
+]);
 
 function isoNow() {
   return new Date().toISOString();
@@ -130,6 +145,11 @@ export class RouterReadinessService {
         controls: {
           killSwitch: "nftables_default_drop_loaded_before_vpn",
           dnsPolicy: "dns_forwarding_through_tunnel_only",
+          internalDns: {
+            resolver: "10.42.0.11",
+            staticHostTarget: "10.42.0.12",
+            requiredHosts: PULI_AX_INTERNAL_DNS_HOSTS
+          },
           wanAdmin: "disabled",
           ssh: "key_auth_only",
           ipForwarding: "only_policy_routes_to_g1",
