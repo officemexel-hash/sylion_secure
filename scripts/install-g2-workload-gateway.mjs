@@ -13,7 +13,7 @@ const apps = [
     serverName: "duckduckgo.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3001,
-    noVnc: true,
+    noVnc: false,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-duckduckgo.conf"
   },
   {
@@ -21,7 +21,7 @@ const apps = [
     serverName: "libreoffice.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3002,
-    noVnc: true,
+    noVnc: false,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-libreoffice.conf"
   },
   {
@@ -29,7 +29,7 @@ const apps = [
     serverName: "whatsapp.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3010,
-    noVnc: true,
+    noVnc: false,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-whatsapp.conf"
   },
   {
@@ -46,7 +46,7 @@ const apps = [
     serverName: "telegram.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3011,
-    noVnc: true,
+    noVnc: false,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-telegram.conf"
   },
   {
@@ -54,15 +54,16 @@ const apps = [
     serverName: "threema.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3012,
-    noVnc: true,
+    noVnc: false,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-threema.conf"
   },
   {
     key: "signal",
     serverName: "signal.sylion.internal",
-    upstreamScheme: "http",
+    upstreamScheme: "https",
     upstreamPort: 3013,
-    noVnc: true,
+    noVnc: false,
+    proxySslVerify: false,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-signal.conf"
   },
   {
@@ -79,7 +80,7 @@ const apps = [
     serverName: "zangi.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3014,
-    noVnc: true,
+    noVnc: false,
     productionGate: "android_native_apk_provenance_required"
   },
   {
@@ -87,7 +88,7 @@ const apps = [
     serverName: "exodus.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3015,
-    noVnc: true,
+    noVnc: false,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-exodus.conf"
   }
 ];
@@ -113,7 +114,7 @@ const defaultPlan = {
     noG1G2Bypass: true,
     cdrRequiredForFileTransfer: true,
     noWorkloadSecretsInGeneratedConfig: true,
-    signalNativeNoVncUpstream: true
+    noDeadNoVncRedirects: true
   },
   apps
 };

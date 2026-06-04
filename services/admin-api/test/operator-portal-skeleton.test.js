@@ -148,6 +148,8 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(streamJs.body, /duckduckgo\.sylion\.internal/);
     assert.match(streamJs.body, /simplex\.sylion\.internal/);
     assert.match(streamJs.body, /protonmail\.sylion\.internal/);
+    assert.match(streamJs.body, /duckduckgo_browser:[\s\S]+directGateway: true/);
+    assert.match(streamJs.body, /libreoffice:[\s\S]+directGateway: true/);
     assert.match(streamJs.body, /protonmail:[\s\S]+directGateway: true/);
     assert.match(streamJs.body, /simplex:[\s\S]+directGateway: true/);
     assert.doesNotMatch(streamJs.body, /params\.get\("url"\)/);
@@ -175,7 +177,7 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal/);
     assert.match(html.body, /https:\/\/protonmail\.sylion\.internal/);
     assert.match(html.body, /https:\/\/simplex\.sylion\.internal/);
-    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-111"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-112"><\/script>/);
     assert.doesNotMatch(html.body, /unsafe-inline/);
   } finally {
     await close();

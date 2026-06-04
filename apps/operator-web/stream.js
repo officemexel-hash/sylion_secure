@@ -9,16 +9,16 @@
   const STREAM_PATH = "/vnc.html?autoconnect=true&resize=remote&path=websockify";
   const SELKIES_PATH = "/";
   const WORKLOADS = Object.freeze({
-    duckduckgo_browser: { label: "DuckDuckGo", host: "duckduckgo.sylion.internal", path: STREAM_PATH },
-    libreoffice: { label: "LibreOffice", host: "libreoffice.sylion.internal", path: STREAM_PATH },
-    whatsapp: { label: "WhatsApp", host: "whatsapp.sylion.internal", path: STREAM_PATH },
+    duckduckgo_browser: { label: "DuckDuckGo", host: "duckduckgo.sylion.internal", path: SELKIES_PATH, directGateway: true },
+    libreoffice: { label: "LibreOffice", host: "libreoffice.sylion.internal", path: SELKIES_PATH, directGateway: true },
+    whatsapp: { label: "WhatsApp", host: "whatsapp.sylion.internal", path: SELKIES_PATH, directGateway: true },
     protonmail: { label: "Proton Mail", host: "protonmail.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    telegram: { label: "Telegram", host: "telegram.sylion.internal", path: STREAM_PATH },
-    threema: { label: "Threema", host: "threema.sylion.internal", path: STREAM_PATH },
+    telegram: { label: "Telegram", host: "telegram.sylion.internal", path: SELKIES_PATH, directGateway: true },
+    threema: { label: "Threema", host: "threema.sylion.internal", path: SELKIES_PATH, directGateway: true },
     signal: { label: "Signal", host: "signal.sylion.internal", path: STREAM_PATH },
     simplex: { label: "SimpleX Chat", host: "simplex.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    zangi: { label: "Zangi", host: "zangi.sylion.internal", path: STREAM_PATH },
-    exodus: { label: "Exodus", host: "exodus.sylion.internal", path: STREAM_PATH }
+    zangi: { label: "Zangi", host: "zangi.sylion.internal", path: SELKIES_PATH, directGateway: true },
+    exodus: { label: "Exodus", host: "exodus.sylion.internal", path: SELKIES_PATH, directGateway: true }
   });
 
   const ALIASES = Object.freeze({

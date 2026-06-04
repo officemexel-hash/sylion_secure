@@ -12,7 +12,7 @@ const workloadHost = process.env.SYLION_WORKLOAD_SSH || "root@65.109.123.72";
 const g2Host = process.env.SYLION_G2_SSH || "sylion@178.105.203.31";
 const adbPath = process.env.SYLION_ADB_PATH || "C:\\Users\\razor\\Android\\platform-tools\\adb.exe";
 const gatewayIp = process.env.SYLION_WORKLOAD_GATEWAY_IP || "10.42.0.12";
-const workloadBind = process.env.SYLION_WORKLOAD_BIND || "10.44.0.13";
+const workloadBind = process.env.SYLION_WORKLOAD_BIND || "10.42.0.13";
 const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-62-factual-state-audit");
 const args = new Set(process.argv.slice(2));
 const argValue = (prefix) => process.argv.slice(2).find((arg) => arg.startsWith(`${prefix}=`))?.slice(prefix.length + 1);
@@ -27,7 +27,7 @@ const allApps = [
     host: "duckduckgo.sylion.internal",
     port: 3001,
     expectedRuntime: "firecracker_gui",
-    noVnc: true,
+    noVnc: false,
     pixelDelayMs: 12_000,
     pass: [/DuckDuckGo/i],
     blockers: [/New Tab|Google|Firefox Directory|Index of|vnc\.html/i]
@@ -37,7 +37,7 @@ const allApps = [
     host: "libreoffice.sylion.internal",
     port: 3002,
     expectedRuntime: "firecracker_gui",
-    noVnc: true,
+    noVnc: false,
     pixelDelayMs: 12_000,
     pass: [/LibreOffice|Writer|Calc|Impress/i],
     blockers: [/New Tab|Google|Firefox Directory|Index of|vnc\.html/i]
@@ -47,7 +47,7 @@ const allApps = [
     host: "whatsapp.sylion.internal",
     port: 3010,
     expectedRuntime: "firecracker_web_or_android_native",
-    noVnc: true,
+    noVnc: false,
     pixelDelayMs: 14_000,
     pass: [/WhatsApp|Use WhatsApp on your computer|link a device/i],
     blockers: [/New Tab|Google|Firefox Directory|Index of|vnc\.html/i]
@@ -57,7 +57,7 @@ const allApps = [
     host: "telegram.sylion.internal",
     port: 3011,
     expectedRuntime: "firecracker_web_or_android_native",
-    noVnc: true,
+    noVnc: false,
     pixelDelayMs: 14_000,
     pass: [/Telegram|Log in to Telegram|Telegram Web/i],
     blockers: [/New Tab|Google|Firefox Directory|Index of|vnc\.html/i]
@@ -67,7 +67,7 @@ const allApps = [
     host: "threema.sylion.internal",
     port: 3012,
     expectedRuntime: "firecracker_web_or_android_native",
-    noVnc: true,
+    noVnc: false,
     pixelDelayMs: 14_000,
     pass: [/Threema|Threema Web/i],
     blockers: [/New Tab|Google|Firefox Directory|Index of|vnc\.html/i]
@@ -77,7 +77,7 @@ const allApps = [
     host: "signal.sylion.internal",
     port: 3013,
     expectedRuntime: "firecracker_desktop_or_container_fallback",
-    noVnc: true,
+    noVnc: false,
     pixelDelayMs: 20_000,
     pass: [/Signal|Link your phone|Scan.*QR/i],
     blockers: [/requires a username and password|Username|Password|401|Index of|vnc\.html/i]
@@ -88,7 +88,7 @@ const allApps = [
     port: 3014,
     expectedRuntime: "android_native_required",
     androidPackage: "com.beint.zangi",
-    noVnc: true,
+    noVnc: false,
     pixelDelayMs: 16_000,
     pass: [/Zangi/i],
     blockers: [/Download Zangi|zangi\.com\/.*download|New Tab|Google|Index of/i]
@@ -98,10 +98,30 @@ const allApps = [
     host: "exodus.sylion.internal",
     port: 3015,
     expectedRuntime: "dedicated_wallet_runtime_required",
-    noVnc: true,
+    noVnc: false,
     pixelDelayMs: 14_000,
     pass: [/Exodus/i],
     blockers: [/Download Exodus|exodus\.com\/download|New Tab|Google|Index of|vnc\.html/i]
+  },
+  {
+    key: "protonmail",
+    host: "protonmail.sylion.internal",
+    port: 3016,
+    expectedRuntime: "firecracker_web_or_android_native",
+    noVnc: false,
+    pixelDelayMs: 14_000,
+    pass: [/Proton Mail|mail\.proton\.me|Sign in/i],
+    blockers: [/Index of|vnc\.html/i]
+  },
+  {
+    key: "simplex",
+    host: "simplex.sylion.internal",
+    port: 3017,
+    expectedRuntime: "firecracker_web_or_android_native",
+    noVnc: false,
+    pixelDelayMs: 14_000,
+    pass: [/SimpleX|simplex/i],
+    blockers: [/Index of|vnc\.html/i]
   }
 ];
 
