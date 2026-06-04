@@ -387,6 +387,26 @@ test("Step 3.32 live workload runner executes approved recreate and stores sanit
     assert.ok(audit.some((event) => event.action === "operator_portal.workload_live_runner_started"));
     assert.ok(audit.some((event) => event.action === "operator_portal.workload_live_runner_completed"));
     assert.equal(JSON.stringify(audit).includes("VNC_PW"), false);
+
+    const queuedProton = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
+      method: "POST",
+      body: {
+        action: "rotate_app",
+        rotateApp: "protonmail",
+        desiredCounts: { protonmail: 1 }
+      }
+    });
+    assert.equal(queuedProton.payload.request.executionPlan.liveRunner.command, "npm run live:workload-recreate -- --app=protonmail");
+
+    const executedProton = await operatorRequest(baseUrl, seeded.session.token, `/operator-api/workload-control/requests/${queuedProton.payload.request.id}/execute`, {
+      method: "POST",
+      body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" }
+    });
+    assert.equal(executedProton.payload.job.state, "completed_live_workload_recreate");
+    assert.equal(executedProton.payload.job.runnerApp, "protonmail");
+    assert.equal(executedProton.payload.job.result.smoke.protonmail, "200");
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[1], { app: "protonmail", wipeVolume: false });
   } finally {
     await close();
   }

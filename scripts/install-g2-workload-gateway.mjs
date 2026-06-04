@@ -37,7 +37,7 @@ const apps = [
     serverName: "protonmail.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3016,
-    noVnc: true,
+    noVnc: false,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-protonmail.conf",
     productionGate: "mail_account_human_test_required"
   },
@@ -70,7 +70,7 @@ const apps = [
     serverName: "simplex.sylion.internal",
     upstreamScheme: "http",
     upstreamPort: 3017,
-    noVnc: true,
+    noVnc: false,
     authInclude: "/etc/nginx/snippets/sylion-kasm-auth-simplex.conf",
     productionGate: "simplex_desktop_or_android_image_required"
   },
@@ -105,7 +105,7 @@ const defaultPlan = {
   },
   adminUpstream: process.env.SYLION_ADMIN_UPSTREAM || "http://10.42.0.10:8080",
   workload: {
-    bindAddress: process.env.SYLION_WORKLOAD_BIND || "10.44.0.13"
+    bindAddress: process.env.SYLION_WORKLOAD_BIND || "10.42.0.13"
   },
   invariants: {
     privateBindOnly: true,

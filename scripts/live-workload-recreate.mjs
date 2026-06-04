@@ -68,6 +68,24 @@ const apps = {
     extra: [],
     productionGate: "android_native_runner_required"
   },
+  protonmail: {
+    container: "sylion-protonmail-web",
+    volume: "sylion_protonmail_config",
+    port: "3016:3000",
+    image: "lscr.io/linuxserver/chromium:latest",
+    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION Proton Mail", "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://mail.proton.me/"],
+    extra: [],
+    productionGate: "mail_account_human_test_required"
+  },
+  simplex: {
+    container: "sylion-simplex-gate",
+    volume: "sylion_simplex_config",
+    port: "3017:3000",
+    image: "lscr.io/linuxserver/chromium:latest",
+    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION SimpleX Gate", "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://simplex.chat/downloads/"],
+    extra: [],
+    productionGate: "simplex_desktop_or_android_image_required"
+  },
   exodus: {
     container: "sylion-exodus",
     volume: "sylion_exodus_config",
@@ -253,7 +271,7 @@ async function main() {
     return;
   }
   if (!args.apply) {
-    console.error("Usage: node scripts/live-workload-recreate.mjs --print-plan --app=signal|all OR --apply --app=signal|all [--wipe-volume]");
+    console.error(`Usage: node scripts/live-workload-recreate.mjs --print-plan --app=${Object.keys(apps).join("|")}|all OR --apply --app=<app>|all [--wipe-volume]`);
     process.exitCode = 2;
     return;
   }

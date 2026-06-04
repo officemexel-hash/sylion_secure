@@ -7,15 +7,16 @@
   "use strict";
 
   const STREAM_PATH = "/vnc.html?autoconnect=true&resize=remote&path=websockify";
+  const SELKIES_PATH = "/";
   const WORKLOADS = Object.freeze({
     duckduckgo_browser: { label: "DuckDuckGo", host: "duckduckgo.sylion.internal", path: STREAM_PATH },
     libreoffice: { label: "LibreOffice", host: "libreoffice.sylion.internal", path: STREAM_PATH },
     whatsapp: { label: "WhatsApp", host: "whatsapp.sylion.internal", path: STREAM_PATH },
-    protonmail: { label: "Proton Mail", host: "protonmail.sylion.internal", path: STREAM_PATH },
+    protonmail: { label: "Proton Mail", host: "protonmail.sylion.internal", path: SELKIES_PATH, directGateway: true },
     telegram: { label: "Telegram", host: "telegram.sylion.internal", path: STREAM_PATH },
     threema: { label: "Threema", host: "threema.sylion.internal", path: STREAM_PATH },
     signal: { label: "Signal", host: "signal.sylion.internal", path: STREAM_PATH },
-    simplex: { label: "SimpleX Chat", host: "simplex.sylion.internal", path: STREAM_PATH },
+    simplex: { label: "SimpleX Chat", host: "simplex.sylion.internal", path: SELKIES_PATH, directGateway: true },
     zangi: { label: "Zangi", host: "zangi.sylion.internal", path: STREAM_PATH },
     exodus: { label: "Exodus", host: "exodus.sylion.internal", path: STREAM_PATH }
   });
@@ -352,8 +353,8 @@
     }
     label.textContent = workload.label;
     bindControls();
-    if (requestedBroker === "direct_lab") {
-      state.textContent = "Opening direct lab stream through internal G2 workload gateway...";
+    if (requestedBroker === "direct_lab" || workload.directGateway) {
+      state.textContent = "Opening direct stream through internal G2 workload gateway...";
       frame.src = appUrl(workload);
       return;
     }

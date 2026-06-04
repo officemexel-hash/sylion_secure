@@ -94,7 +94,7 @@ const LIVE_RECREATE_APP_MAP = Object.freeze({
   simplex: "simplex",
   exodus: "exodus"
 });
-const NATIVE_FIRECRACKER_RECREATE_APPS = new Set(["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal"]);
+const NATIVE_FIRECRACKER_RECREATE_APPS = new Set(["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal", "protonmail", "simplex"]);
 const TRAFFIC_MONITOR_SEGMENTS = Object.freeze([
   {
     id: "pixel_router",
