@@ -57,7 +57,7 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.body, /\/operator\/stream\.html\?app=duckduckgo_browser/);
     assert.match(html.body, /\/operator\/stream\.html\?app=libreoffice/);
     assert.match(html.body, /\/operator\/stream\.html\?app=simplex/);
-    assert.match(html.body, /\/operator\/stream\.html\?app=protonmail/);
+    assert.match(html.body, /\/operator\/stream\.html\?app=protonmail(?:&amp;|&)broker=blind_e2ee/);
     assert.match(html.body, /id="workload-broker-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/);
     assert.match(html.body, /id="runtime-gate-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/);
     assert.match(html.body, /id="stream-session-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/);
@@ -70,7 +70,7 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.body, /id="workload-recreate-form"/);
     assert.match(html.body, /Delete and recreate selected app/);
     assert.match(html.body, /RUN_LIVE_WORKLOAD_RECREATE/);
-    assert.match(html.body, /<script src="\/operator\/app\.js\?v=step3-110"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/app\.js\?v=step3-115"><\/script>/);
   } finally {
     await close();
   }
@@ -99,6 +99,8 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(js.body, /hashFromState/);
     assert.match(js.body, /\.sylion\.internal/);
     assert.match(js.body, /workloadStreamWrapperUrl/);
+    assert.match(js.body, /const broker = url\.searchParams\.get\("broker"\)/);
+    assert.match(js.body, /blindDefaultApps = new Set\(\["protonmail"\]\)/);
     assert.match(js.body, /sylion\.operator\.streamToken/);
     assert.match(js.body, /rememberStreamLaunchToken/);
     assert.match(js.body, /currentOperatorLaunchToken/);
@@ -134,6 +136,8 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(streamJs.body, /guacamole-handoff/);
     assert.match(streamJs.body, /blind-e2ee\/sessions/);
     assert.match(streamJs.body, /capture-once/);
+    assert.match(streamJs.body, /defaultBrokerForApp/);
+    assert.match(streamJs.body, /appKey === "protonmail" \? "blind_e2ee" : "guacamole"/);
     assert.match(streamJs.body, /bootstrapOperatorToken/);
     assert.match(streamJs.body, /params\.get\("op_token"\)/);
     assert.match(streamJs.body, /hashParams\.get\("op_token"\)/);
@@ -179,7 +183,7 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal/);
     assert.match(html.body, /https:\/\/protonmail\.sylion\.internal/);
     assert.match(html.body, /https:\/\/simplex\.sylion\.internal/);
-    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-114"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-115"><\/script>/);
     assert.doesNotMatch(html.body, /unsafe-inline/);
   } finally {
     await close();

@@ -181,7 +181,8 @@
     if (url.origin !== window.location.origin || url.pathname !== "/operator/stream.html") return;
 
     const appKey = url.searchParams.get("app");
-    const launchUrl = workloadStreamWrapperUrl(appKey || "duckduckgo_browser");
+    const broker = url.searchParams.get("broker");
+    const launchUrl = workloadStreamWrapperUrl(appKey || "duckduckgo_browser", "", broker);
     if (!currentOperatorLaunchToken() && !state.session) {
       event.preventDefault();
       setText("#session-status", "Workload stream blocked: missing active operator session. Reopen the operator package link.");
@@ -680,7 +681,7 @@
     return `blocked: ${(app.blockers || []).slice(0, 2).join(", ") || "evidence missing"}`;
   }
 
-  function workloadStreamWrapperUrl(appKey, fallbackUrl = "") {
+  function workloadStreamWrapperUrl(appKey, fallbackUrl = "", preferredBroker = "") {
     const normalized = normalizeWorkloadAppKey(appKey);
     const wrapperApps = new Set([
       "duckduckgo_browser",
@@ -697,6 +698,9 @@
     if (wrapperApps.has(normalized)) {
       const url = new URL("/operator/stream.html", window.location.origin);
       url.searchParams.set("app", normalized);
+      const blindDefaultApps = new Set(["protonmail"]);
+      const broker = String(preferredBroker || (blindDefaultApps.has(normalized) ? "blind_e2ee" : "")).toLowerCase();
+      if (broker) url.searchParams.set("broker", broker);
       const token = currentOperatorLaunchToken();
       if (token) {
         const launchHash = new URLSearchParams();

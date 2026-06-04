@@ -29,7 +29,7 @@
   const $ = (sel) => document.querySelector(sel);
   const params = new URLSearchParams(window.location.search);
   const requestedApp = normalizeApp(params.get("app") || "duckduckgo_browser");
-  const requestedBroker = String(params.get("broker") || "guacamole").toLowerCase();
+  const requestedBroker = String(params.get("broker") || defaultBrokerForApp(requestedApp)).toLowerCase();
   const operatorToken = bootstrapOperatorToken();
   const frame = $("#workload-stream-frame");
   const blindCanvas = $("#blind-e2ee-canvas");
@@ -50,6 +50,10 @@
   function normalizeApp(value) {
     const clean = String(value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
     return ALIASES[clean] || clean;
+  }
+
+  function defaultBrokerForApp(appKey) {
+    return appKey === "protonmail" ? "blind_e2ee" : "guacamole";
   }
 
   function bootstrapOperatorToken() {
