@@ -222,6 +222,18 @@ const BLIND_E2EE_ALLOWED_CONTENT_TYPES = new Set([
   "image/jpeg",
   "image/webp"
 ]);
+const BLIND_E2EE_RFB_SOURCES = Object.freeze({
+  duckduckgo_browser: { host: "172.16.58.2", port: 5900 },
+  libreoffice: { host: "172.16.58.6", port: 5900 },
+  whatsapp: { host: "172.16.58.10", port: 5900 },
+  telegram: { host: "172.16.58.14", port: 5900 },
+  threema: { host: "172.16.58.18", port: 5900 },
+  signal: { host: "172.16.58.22", port: 5900 },
+  zangi: { host: "127.0.0.1", port: 5916 },
+  protonmail: { host: "172.16.58.26", port: 5900 },
+  simplex: { host: "172.16.58.34", port: 5900 },
+  exodus: { host: "172.16.58.30", port: 5900 }
+});
 
 function isoNow() {
   return new Date().toISOString();
@@ -406,6 +418,61 @@ async function defaultWorkloadInputRunner({ app, text, submit = false, preKeys =
   });
 }
 
+async function defaultBlindE2eeFrameCaptureRunner({ session, env = process.env }) {
+  if (env.SYLION_BLIND_E2EE_ENCODER_REMOTE_ENABLED !== "true") {
+    throw new Error("blind_e2ee_remote_encoder_not_enabled");
+  }
+  const source = BLIND_E2EE_RFB_SOURCES[session.templateKey];
+  if (!source) {
+    throw new Error(`blind_e2ee_rfb_source_not_configured:${session.templateKey}`);
+  }
+  const terminalPublicKeyJwk = session.keyManagement?.terminalPublicKeyJwk;
+  if (!terminalPublicKeyJwk) {
+    throw new Error("blind_e2ee_terminal_public_key_missing");
+  }
+  const sshKey = env.SYLION_BLIND_E2EE_ENCODER_SSH_KEY || env.SYLION_ADMIN_SSH_KEY || (process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519");
+  const sshHost = env.SYLION_BLIND_E2EE_ENCODER_SSH_HOST || env.SYLION_WORKLOAD_NATIVE_SSH || "root@65.109.123.72";
+  const remoteScript = env.SYLION_BLIND_E2EE_ENCODER_REMOTE_SCRIPT || "/opt/sylion-secure/scripts/blind-e2ee-workload-frame-encoder.mjs";
+  const publicKeyB64 = Buffer.from(JSON.stringify(terminalPublicKeyJwk), "utf8").toString("base64");
+  const args = [
+    "-i", sshKey,
+    "-o", "BatchMode=yes",
+    "-o", "StrictHostKeyChecking=accept-new",
+    "-o", `ConnectTimeout=${Number(env.SYLION_BLIND_E2EE_ENCODER_SSH_CONNECT_TIMEOUT_SECONDS || 8)}`,
+    sshHost,
+    "node",
+    remoteScript,
+    `--terminal-public-key-jwk-b64=${publicKeyB64}`,
+    `--rfb-host=${source.host}`,
+    `--rfb-port=${source.port}`,
+    `--session-id=${session.id}`,
+    `--key-id=${session.keyManagement.keyId}`,
+    `--template-key=${session.templateKey}`,
+    `--width=${session.stream.targetWidth}`,
+    `--height=${session.stream.targetHeight}`,
+    "--content-type=image/png",
+    "--emit-frame-only"
+  ];
+  const { stdout } = await execFileAsync("ssh", args, {
+    timeout: Number(env.SYLION_BLIND_E2EE_ENCODER_TIMEOUT_MS || 45_000),
+    windowsHide: true,
+    cwd: process.cwd(),
+    maxBuffer: BLIND_E2EE_MAX_FRAME_BYTES + 2 * 1024 * 1024
+  });
+  const start = stdout.indexOf("{");
+  const end = stdout.lastIndexOf("}");
+  if (start < 0 || end < start) {
+    throw new Error("blind_e2ee_encoder_json_not_found");
+  }
+  const parsed = JSON.parse(stdout.slice(start, end + 1));
+  if (!parsed?.frame || typeof parsed.frame !== "object") {
+    throw new Error("blind_e2ee_encoder_frame_missing");
+  }
+  return parsed.frame;
+}
+
 export class OperatorPortalService {
   constructor({
     audit,
@@ -422,6 +489,7 @@ export class OperatorPortalService {
     liveWorkloadRunner = defaultLiveWorkloadRunner,
     liveWorkloadStatusProvider = defaultLiveWorkloadStatusProvider,
     workloadInputRunner = defaultWorkloadInputRunner,
+    blindE2eeFrameCaptureRunner = defaultBlindE2eeFrameCaptureRunner,
     workloadImageManifestResolver = null
   }) {
     this.audit = audit;
@@ -454,6 +522,7 @@ export class OperatorPortalService {
     this.liveWorkloadRunner = liveWorkloadRunner;
     this.liveWorkloadStatusProvider = liveWorkloadStatusProvider;
     this.workloadInputRunner = workloadInputRunner;
+    this.blindE2eeFrameCaptureRunner = blindE2eeFrameCaptureRunner;
     this.liveWorkloadStatusCache = null;
     this.workloadImageManifestResolver = workloadImageManifestResolver;
   }
@@ -2488,6 +2557,85 @@ export class OperatorPortalService {
         brokerVolatileCiphertextRelay: true
       }
     };
+  }
+
+  async captureBlindE2eeFrameOnce({ operatorActor, sessionId, correlationId }) {
+    const corr = requireCorrelationId(correlationId);
+    const session = this.#requireBlindE2eeSession({ operatorActor, sessionId });
+    if (session.state !== "blind_e2ee_session_ready") {
+      throw validationError("Blind E2EE session is not ready for workload capture", {
+        sessionId: session.id,
+        state: session.state,
+        blockers: session.blockers
+      });
+    }
+    if (!session.keyManagement?.terminalPublicKeyJwk) {
+      throw validationError("Blind E2EE capture requires terminal public key material", {
+        sessionId: session.id,
+        required: "terminalPublicKeyJwk"
+      });
+    }
+    let frame;
+    try {
+      frame = await this.blindE2eeFrameCaptureRunner({
+        session,
+        operatorActor,
+        env: this.env || {},
+        correlationId: corr
+      });
+    } catch (error) {
+      this.audit.record({
+        actorId: operatorActor.id,
+        action: "operator_portal.blind_e2ee_frame_capture_failed",
+        resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+        resourceId: session.id,
+        tenantId: operatorActor.tenantId,
+        operatorId: operatorActor.operatorId,
+        correlationId: corr,
+        policyDecision: "deny",
+        result: "blind_e2ee_frame_capture_failed",
+        newValue: {
+          sessionId: session.id,
+          templateKey: session.templateKey,
+          error: String(error.message || "capture_failed").slice(0, 160),
+          plaintextCapturedByBroker: false,
+          secretsPrinted: false
+        }
+      });
+      throw validationError("Blind E2EE workload encoder capture failed", {
+        sessionId: session.id,
+        templateKey: session.templateKey,
+        blocker: String(error.message || "capture_failed").slice(0, 160)
+      });
+    }
+    const proof = this.recordBlindE2eeFrameProof({
+      operatorActor,
+      sessionId: session.id,
+      body: frame,
+      correlationId: corr
+    });
+    this.audit.record({
+      actorId: operatorActor.id,
+      action: "operator_portal.blind_e2ee_frame_capture_completed",
+      resourceType: RESOURCE_TYPES.TERMINAL_CONNECTION_PROFILE,
+      resourceId: proof.id,
+      tenantId: operatorActor.tenantId,
+      operatorId: operatorActor.operatorId,
+      correlationId: corr,
+      policyDecision: "allow",
+      result: "blind_e2ee_frame_capture_completed",
+      newValue: {
+        sessionId: session.id,
+        templateKey: session.templateKey,
+        frameId: proof.frameId,
+        ciphertextSha256: proof.ciphertextSha256,
+        ciphertextLength: proof.ciphertextLength,
+        brokerCanDecrypt: false,
+        plaintextCapturedByBroker: false,
+        secretsPrinted: false
+      }
+    });
+    return proof;
   }
 
   async sendWorkloadInput({ operatorActor, body = {}, correlationId }) {

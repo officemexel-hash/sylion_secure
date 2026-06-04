@@ -1179,6 +1179,7 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     liveWorkloadRunner: liveExecutionOptions.liveWorkloadRunner,
     liveWorkloadStatusProvider: liveExecutionOptions.liveWorkloadStatusProvider,
     workloadInputRunner: liveExecutionOptions.workloadInputRunner,
+    blindE2eeFrameCaptureRunner: liveExecutionOptions.blindE2eeFrameCaptureRunner,
     workloadImageManifestResolver: (appKey) => liveExecution.latestReadyWorkloadImageManifestForApp(appKey)
   });
   const billingPortal = new BillingPortalService({
@@ -1648,6 +1649,19 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             operatorActor,
             sessionId: blindE2eeFrameMatch[1],
             body,
+            correlationId
+          })
+        }, {
+          "cache-control": "no-store"
+        });
+      }
+      const blindE2eeCaptureOnceMatch = url.pathname.match(/^\/operator-api\/blind-e2ee\/sessions\/([^/]+)\/frames\/capture-once$/);
+      if (req.method === "POST" && blindE2eeCaptureOnceMatch) {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 201, {
+          frame: await operatorPortal.captureBlindE2eeFrameOnce({
+            operatorActor,
+            sessionId: blindE2eeCaptureOnceMatch[1],
             correlationId
           })
         }, {

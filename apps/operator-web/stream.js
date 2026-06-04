@@ -44,6 +44,8 @@
   let inputBusy = false;
   let blindTerminalKeyPair = null;
   let blindLastFrameId = null;
+  let blindCaptureBusy = false;
+  let blindLastCaptureAt = 0;
 
   function normalizeApp(value) {
     const clean = String(value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
@@ -181,6 +183,34 @@
       throw new Error(payload?.error?.message || `HTTP ${res.status}`);
     }
     return payload.relay;
+  }
+
+  async function requestBlindE2eeCapture(session) {
+    if (blindCaptureBusy) return null;
+    const now = Date.now();
+    if (now - blindLastCaptureAt < 1200) return null;
+    blindCaptureBusy = true;
+    blindLastCaptureAt = now;
+    try {
+      const res = await fetch(`/operator-api/blind-e2ee/sessions/${encodeURIComponent(session.id)}/frames/capture-once`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "content-type": "application/json",
+          "x-correlation-id": `corr_operator_blind_capture_${crypto.randomUUID()}`,
+          "x-sylion-operator-csrf": "same-origin-ui",
+          ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
+        },
+        body: JSON.stringify({})
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.error?.message || `HTTP ${res.status}`);
+      }
+      return payload.frame;
+    } finally {
+      blindCaptureBusy = false;
+    }
   }
 
   async function sendWorkloadInput({ text = "", submit = false, preKeys = [], postKeys = [] } = {}) {
@@ -365,6 +395,11 @@
   async function pollBlindE2eeRelay(session) {
     drawBlindStatus("Waiting for encrypted workload frames...");
     while (true) {
+      try {
+        await requestBlindE2eeCapture(session);
+      } catch (error) {
+        state.textContent = `Blind workload capture blocked: ${error.message}`;
+      }
       const relay = await fetchBlindE2eeLatestFrame(session.frameEnvelope.latestFrameEndpoint);
       if (relay.latestFrameAvailable && relay.frame?.frameId !== blindLastFrameId) {
         blindLastFrameId = relay.frame.frameId;
