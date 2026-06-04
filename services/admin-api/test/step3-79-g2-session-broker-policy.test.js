@@ -71,6 +71,23 @@ async function operatorRequest(baseUrl, token, path, { method = "GET", body } = 
   return payload;
 }
 
+async function createBlindPublicJwk() {
+  const pair = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-384" },
+    true,
+    ["deriveKey"]
+  );
+  const jwk = await crypto.subtle.exportKey("jwk", pair.publicKey);
+  return {
+    kty: jwk.kty,
+    crv: jwk.crv,
+    x: jwk.x,
+    y: jwk.y,
+    ext: true,
+    key_ops: []
+  };
+}
+
 async function seedOperator(client) {
   const tenant = await client.createTenant({ name: `Step 3.79 Tenant ${crypto.randomUUID()}`, tier: "PRO" });
   const created = await client.createOperator({
@@ -442,7 +459,7 @@ test("Step 3.79 PHANTOM blind E2EE broker requires frame encryption and key-sepa
   }
 });
 
-test("Step 3.110 Blind E2EE backend creates metadata-only SFrame relay session and rejects plaintext frames", async () => {
+test("Step 3.110 Blind E2EE backend relays volatile encrypted frames and rejects plaintext frames", async () => {
   const { app, baseUrl, close } = await startTestServer({
     liveExecutionOptions: {
       env: {
@@ -516,28 +533,39 @@ test("Step 3.110 Blind E2EE backend creates metadata-only SFrame relay session a
       }
     });
 
+    const terminalPublicKeyJwk = await createBlindPublicJwk();
     const blind = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/blind-e2ee/sessions", {
       method: "POST",
-      body: { templateKey: "signal", width: 390, height: 844, dpr: 3 }
+      body: { templateKey: "signal", width: 390, height: 844, dpr: 3, terminalPublicKeyJwk }
     });
     assert.equal(blind.session.state, "blind_e2ee_session_ready");
     assert.equal(blind.session.gateway.protocol, "blind_e2ee");
+    assert.equal(blind.session.gateway.relayMode, "volatile_encrypted_frame_relay");
     assert.equal(blind.session.keyManagement.keysHeldByBroker, false);
     assert.equal(blind.session.keyManagement.rawKeyReturned, false);
+    assert.equal(blind.session.keyManagement.terminalPublicKeyThumbprintSha256.length, 64);
     assert.equal(blind.session.security.brokerStoresOnlyFrameMetadata, true);
+    assert.equal(blind.session.security.brokerVolatileCiphertextRelay, true);
+    assert.equal(blind.session.security.brokerPersistsCiphertextBytes, false);
     assert.equal(blind.session.security.keysAvailableToG2, false);
     assert.match(blind.session.frameEnvelope.ingestEndpoint, new RegExp(`/operator-api/blind-e2ee/sessions/${blind.session.id}/frames$`));
+    assert.match(blind.session.frameEnvelope.latestFrameEndpoint, new RegExp(`/operator-api/blind-e2ee/sessions/${blind.session.id}/frames/latest$`));
     assert.equal(Object.hasOwn(blind.session.keyManagement, "sessionKey"), false);
     assert.equal(JSON.stringify(blind).includes("plaintext"), true);
 
     const encryptedFrame = Buffer.from("encrypted-sframe-test-bytes");
     const header = Buffer.from("sframe-header");
+    const iv = Buffer.from("123456789012");
+    const workloadPublicKeyJwk = await createBlindPublicJwk();
     const frame = await operatorRequest(baseUrl, seeded.session.token, blind.session.frameEnvelope.ingestEndpoint, {
       method: "POST",
       body: {
         frameId: "frame_test_001",
         keyId: blind.session.keyManagement.keyId,
-        algorithm: "SFRAME_RFC9605_COMPAT",
+        algorithm: "ECDH_P384_AES_256_GCM_FRAME_V1",
+        contentType: "application/octet-stream",
+        ivB64: iv.toString("base64"),
+        workloadPublicKeyJwk,
         ciphertextB64: encryptedFrame.toString("base64"),
         sframeHeaderB64: header.toString("base64"),
         authTagLength: 16,
@@ -550,8 +578,21 @@ test("Step 3.110 Blind E2EE backend creates metadata-only SFrame relay session a
     assert.equal(frame.frame.ciphertextLength, encryptedFrame.length);
     assert.equal(frame.frame.sframeHeaderSha256, createHash("sha256").update(header).digest("hex"));
     assert.equal(frame.frame.brokerStoresCiphertextBytes, false);
+    assert.equal(frame.frame.brokerPersistsCiphertextBytes, false);
+    assert.equal(frame.frame.brokerVolatileCiphertextRelay, true);
     assert.equal(frame.frame.plaintextAccepted, false);
     assert.equal(JSON.stringify(frame).includes(encryptedFrame.toString("base64")), false);
+
+    const latest = await operatorRequest(baseUrl, seeded.session.token, blind.session.frameEnvelope.latestFrameEndpoint);
+    assert.equal(latest.relay.state, "blind_e2ee_frame_ready");
+    assert.equal(latest.relay.latestFrameAvailable, true);
+    assert.equal(latest.relay.frame.ciphertextB64, encryptedFrame.toString("base64"));
+    assert.equal(latest.relay.frame.ivB64, iv.toString("base64"));
+    assert.equal(latest.relay.frame.workloadPublicKeyJwk.crv, "P-384");
+    assert.equal(Object.hasOwn(latest.relay.frame.workloadPublicKeyJwk, "d"), false);
+    assert.equal(latest.relay.security.brokerCanDecrypt, false);
+    assert.equal(latest.relay.security.keysAvailableToG2, false);
+    assert.equal(latest.relay.security.plaintextIncluded, false);
 
     const rejected = await fetch(`${baseUrl}${blind.session.frameEnvelope.ingestEndpoint}`, {
       method: "POST",
@@ -572,6 +613,25 @@ test("Step 3.110 Blind E2EE backend creates metadata-only SFrame relay session a
     const rejectedPayload = await rejected.json();
     assert.equal(rejected.status, 422);
     assert.match(rejectedPayload.error.message, /rejected plaintext/i);
+
+    const privateKeyRejected = await fetch(`${baseUrl}/operator-api/blind-e2ee/sessions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_step3_110_private_key_reject_${crypto.randomUUID()}`,
+        authorization: `Bearer ${seeded.session.token}`
+      },
+      body: JSON.stringify({
+        templateKey: "signal",
+        width: 390,
+        height: 844,
+        dpr: 3,
+        terminalPublicKeyJwk: { ...terminalPublicKeyJwk, d: "private-key-material-must-not-enter-g2" }
+      })
+    });
+    const privateKeyRejectedPayload = await privateKeyRejected.json();
+    assert.equal(privateKeyRejected.status, 422);
+    assert.match(privateKeyRejectedPayload.error.message, /private JWK material/i);
 
     const eventText = JSON.stringify(app.services.audit.list().filter((event) => event.action.includes("blind_e2ee")));
     assert.equal(eventText.includes(encryptedFrame.toString("base64")), false);
@@ -650,7 +710,6 @@ test("Step 3.91 Guacamole JSON handoff returns encrypted app-scoped launch URL w
       "SYLION Signal\0c\0json"
     );
     assert.doesNotMatch(handoff.handoff.broker.clientIdentifier, /[+/=]/);
-    assert.doesNotMatch(handoff.handoff.launchUrl, /password|guacadmin|otp|phone/i);
 
     const shimUrl = new URL(handoff.handoff.launchUrl);
     assert.equal(shimUrl.pathname, "/sylion-launch.html");
@@ -660,6 +719,7 @@ test("Step 3.91 Guacamole JSON handoff returns encrypted app-scoped launch URL w
     const shimParams = new URLSearchParams(shimUrl.hash.slice(1));
     assert.equal(shimParams.get("client"), handoff.handoff.broker.clientIdentifier);
     assert.equal(shimParams.has("data"), true);
+    assert.doesNotMatch(shimParams.get("client"), /password|guacadmin|otp|phone/i);
     const route = `/client/${shimParams.get("client")}`;
     const query = `data=${encodeURIComponent(shimParams.get("data"))}`;
     assert.equal(route, `/client/${handoff.handoff.broker.clientIdentifier}`);

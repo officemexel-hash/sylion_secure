@@ -166,6 +166,7 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.contentType, /text\/html/);
     assert.match(html.body, /SYLION Workload Stream/);
     assert.match(html.body, /id="workload-stream-frame"/);
+    assert.match(html.body, /id="blind-e2ee-canvas"/);
     assert.match(html.body, /id="stream-input-panel"/);
     assert.match(html.body, /id="stream-input-text"/);
     assert.match(html.body, /enterkeyhint="go"/);
@@ -177,7 +178,7 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal/);
     assert.match(html.body, /https:\/\/protonmail\.sylion\.internal/);
     assert.match(html.body, /https:\/\/simplex\.sylion\.internal/);
-    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-112"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-113"><\/script>/);
     assert.doesNotMatch(html.body, /unsafe-inline/);
   } finally {
     await close();

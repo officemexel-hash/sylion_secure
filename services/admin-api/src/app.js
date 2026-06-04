@@ -1654,6 +1654,19 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           "cache-control": "no-store"
         });
       }
+      const blindE2eeLatestFrameMatch = url.pathname.match(/^\/operator-api\/blind-e2ee\/sessions\/([^/]+)\/frames\/latest$/);
+      if (req.method === "GET" && blindE2eeLatestFrameMatch) {
+        const operatorActor = operatorActorFromRequest(req);
+        return send(res, 200, {
+          relay: operatorPortal.latestBlindE2eeFrame({
+            operatorActor,
+            sessionId: blindE2eeLatestFrameMatch[1],
+            correlationId
+          })
+        }, {
+          "cache-control": "no-store"
+        });
+      }
       if (req.method === "POST" && url.pathname === "/operator-api/workload-input") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);

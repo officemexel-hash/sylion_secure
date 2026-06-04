@@ -576,6 +576,20 @@ dd {
   display: none;
 }
 
+.blind-e2ee-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #050608;
+  touch-action: none;
+}
+
+.blind-e2ee-canvas[hidden] {
+  display: none;
+}
+
 @media (max-width: 720px) {
   .stream-input-panel {
     grid-template-columns: 1fr 1fr;

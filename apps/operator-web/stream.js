@@ -32,6 +32,7 @@
   const requestedBroker = String(params.get("broker") || "guacamole").toLowerCase();
   const operatorToken = bootstrapOperatorToken();
   const frame = $("#workload-stream-frame");
+  const blindCanvas = $("#blind-e2ee-canvas");
   const blocker = $("#stream-blocker");
   const blockerTitle = $("#stream-blocker-title");
   const blockerReason = $("#stream-blocker-reason");
@@ -41,6 +42,8 @@
   const inputPanel = $("#stream-input-panel");
   const inputText = $("#stream-input-text");
   let inputBusy = false;
+  let blindTerminalKeyPair = null;
+  let blindLastFrameId = null;
 
   function normalizeApp(value) {
     const clean = String(value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
@@ -134,7 +137,7 @@
     return payload.handoff;
   }
 
-  async function fetchBlindE2eeSession(appKey) {
+  async function fetchBlindE2eeSession(appKey, terminalPublicKeyJwk) {
     const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
     const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
     const dpr = Number(window.devicePixelRatio || 1).toFixed(2);
@@ -147,13 +150,37 @@
         "x-sylion-operator-csrf": "same-origin-ui",
         ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
       },
-      body: JSON.stringify({ templateKey: appKey, width, height, dpr })
+      body: JSON.stringify({
+        templateKey: appKey,
+        width,
+        height,
+        dpr,
+        terminalPublicKeyJwk,
+        terminalCryptoProfile: "ECDH_P384_AES_256_GCM_FRAME_V1"
+      })
     });
     const payload = await res.json();
     if (!res.ok) {
       throw new Error(payload?.error?.message || `HTTP ${res.status}`);
     }
     return payload.session;
+  }
+
+  async function fetchBlindE2eeLatestFrame(endpoint) {
+    const res = await fetch(endpoint, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        "x-correlation-id": `corr_operator_blind_frame_${crypto.randomUUID()}`,
+        "x-sylion-operator-csrf": "same-origin-ui",
+        ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
+      }
+    });
+    const payload = await res.json();
+    if (!res.ok) {
+      throw new Error(payload?.error?.message || `HTTP ${res.status}`);
+    }
+    return payload.relay;
   }
 
   async function sendWorkloadInput({ text = "", submit = false, preKeys = [], postKeys = [] } = {}) {
@@ -196,10 +223,163 @@
 
   function showStreamMessage({ titleText, reasonText, stateText }) {
     frame.hidden = true;
+    if (blindCanvas) blindCanvas.hidden = true;
     blocker.hidden = false;
     blockerTitle.textContent = titleText;
     blockerReason.textContent = reasonText;
     state.textContent = stateText || titleText;
+  }
+
+  function showBlindCanvas() {
+    frame.hidden = true;
+    blocker.hidden = true;
+    if (blindCanvas) blindCanvas.hidden = false;
+  }
+
+  function base64ToBytes(value) {
+    const normalized = String(value || "").replaceAll("-", "+").replaceAll("_", "/");
+    const raw = window.atob(normalized);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i += 1) {
+      bytes[i] = raw.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  async function ensureBlindTerminalKeyPair() {
+    if (!window.crypto?.subtle) {
+      throw new Error("WebCrypto unavailable on this terminal");
+    }
+    if (!blindTerminalKeyPair) {
+      blindTerminalKeyPair = await crypto.subtle.generateKey(
+        { name: "ECDH", namedCurve: "P-384" },
+        true,
+        ["deriveKey"]
+      );
+    }
+    return blindTerminalKeyPair;
+  }
+
+  async function exportBlindTerminalPublicKey() {
+    const pair = await ensureBlindTerminalKeyPair();
+    const publicJwk = await crypto.subtle.exportKey("jwk", pair.publicKey);
+    return {
+      kty: publicJwk.kty,
+      crv: publicJwk.crv,
+      x: publicJwk.x,
+      y: publicJwk.y,
+      ext: true,
+      key_ops: []
+    };
+  }
+
+  async function decryptBlindFrame(frameEnvelope) {
+    if (frameEnvelope.algorithm !== "ECDH_P384_AES_256_GCM_FRAME_V1") {
+      throw new Error(`Unsupported terminal decoder algorithm: ${frameEnvelope.algorithm}`);
+    }
+    if (!frameEnvelope.workloadPublicKeyJwk || !frameEnvelope.ivB64 || !frameEnvelope.ciphertextB64) {
+      throw new Error("Encrypted frame is missing workload public key, IV, or ciphertext");
+    }
+    const pair = await ensureBlindTerminalKeyPair();
+    const workloadPublicKey = await crypto.subtle.importKey(
+      "jwk",
+      frameEnvelope.workloadPublicKeyJwk,
+      { name: "ECDH", namedCurve: "P-384" },
+      false,
+      []
+    );
+    const aesKey = await crypto.subtle.deriveKey(
+      { name: "ECDH", public: workloadPublicKey },
+      pair.privateKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["decrypt"]
+    );
+    const options = {
+      name: "AES-GCM",
+      iv: base64ToBytes(frameEnvelope.ivB64),
+      tagLength: Number(frameEnvelope.authTagLength || 16) * 8
+    };
+    if (frameEnvelope.sframeHeaderB64) {
+      options.additionalData = base64ToBytes(frameEnvelope.sframeHeaderB64);
+    }
+    const plaintext = await crypto.subtle.decrypt(options, aesKey, base64ToBytes(frameEnvelope.ciphertextB64));
+    return new Uint8Array(plaintext);
+  }
+
+  function resizeBlindCanvas(width, height) {
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+    const cssWidth = Math.max(1, Math.round(blindCanvas?.clientWidth || window.innerWidth || width || 390));
+    const cssHeight = Math.max(1, Math.round(blindCanvas?.clientHeight || window.innerHeight || height || 844));
+    blindCanvas.width = Math.round(cssWidth * dpr);
+    blindCanvas.height = Math.round(cssHeight * dpr);
+    return { cssWidth, cssHeight, dpr };
+  }
+
+  function drawBlindStatus(message) {
+    if (!blindCanvas) return;
+    showBlindCanvas();
+    const { dpr } = resizeBlindCanvas();
+    const ctx = blindCanvas.getContext("2d");
+    ctx.fillStyle = "#050608";
+    ctx.fillRect(0, 0, blindCanvas.width, blindCanvas.height);
+    ctx.fillStyle = "#d8dde8";
+    ctx.font = `${Math.round(14 * dpr)}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText(message, blindCanvas.width / 2, blindCanvas.height / 2);
+  }
+
+  async function renderBlindFrame(frameEnvelope) {
+    if (!blindCanvas) return;
+    showBlindCanvas();
+    const bytes = await decryptBlindFrame(frameEnvelope);
+    const contentType = frameEnvelope.contentType || "image/png";
+    if (!contentType.startsWith("image/")) {
+      throw new Error(`Decrypted frame content type is not renderable as image: ${contentType}`);
+    }
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: contentType }));
+    const { dpr } = resizeBlindCanvas(frameEnvelope.width, frameEnvelope.height);
+    const ctx = blindCanvas.getContext("2d");
+    ctx.fillStyle = "#050608";
+    ctx.fillRect(0, 0, blindCanvas.width, blindCanvas.height);
+    const canvasRatio = blindCanvas.width / blindCanvas.height;
+    const imageRatio = bitmap.width / bitmap.height;
+    let drawWidth = blindCanvas.width;
+    let drawHeight = blindCanvas.height;
+    if (imageRatio > canvasRatio) {
+      drawHeight = blindCanvas.width / imageRatio;
+    } else {
+      drawWidth = blindCanvas.height * imageRatio;
+    }
+    const x = Math.round((blindCanvas.width - drawWidth) / 2);
+    const y = Math.round((blindCanvas.height - drawHeight) / 2);
+    ctx.drawImage(bitmap, x, y, drawWidth, drawHeight);
+    ctx.fillStyle = "rgba(5, 6, 8, 0.72)";
+    ctx.fillRect(8 * dpr, 8 * dpr, 174 * dpr, 28 * dpr);
+    ctx.fillStyle = "#d8dde8";
+    ctx.font = `${Math.round(11 * dpr)}px system-ui, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.fillText(`Blind E2EE frame ${frameEnvelope.sequence}`, 16 * dpr, 26 * dpr);
+  }
+
+  async function pollBlindE2eeRelay(session) {
+    drawBlindStatus("Waiting for encrypted workload frames...");
+    while (true) {
+      const relay = await fetchBlindE2eeLatestFrame(session.frameEnvelope.latestFrameEndpoint);
+      if (relay.latestFrameAvailable && relay.frame?.frameId !== blindLastFrameId) {
+        blindLastFrameId = relay.frame.frameId;
+        try {
+          await renderBlindFrame(relay.frame);
+          state.textContent = `Blind E2EE frame ${relay.frame.sequence} decrypted on terminal.`;
+        } catch (error) {
+          drawBlindStatus("Encrypted frame received; terminal decoder blocked.");
+          state.textContent = `Blind decoder blocked: ${error.message}`;
+        }
+      } else if (!relay.latestFrameAvailable) {
+        state.textContent = "Blind E2EE backend active; waiting for workload encoder frame.";
+      }
+      await delay(Math.max(250, Math.min(relay.pollAfterMs || 1000, 2000)));
+    }
   }
 
   function postToStream(action, extra = {}) {
@@ -353,7 +533,7 @@
     }
     label.textContent = workload.label;
     bindControls();
-    if (requestedBroker === "direct_lab" || workload.directGateway) {
+    if (requestedBroker !== "blind_e2ee" && (requestedBroker === "direct_lab" || workload.directGateway)) {
       state.textContent = "Opening direct stream through internal G2 workload gateway...";
       frame.src = appUrl(workload);
       return;
@@ -361,15 +541,13 @@
     if (requestedBroker === "blind_e2ee") {
       state.textContent = "Requesting PHANTOM Blind E2EE/SFrame backend session...";
       try {
-        const blindSession = await fetchBlindE2eeSession(requestedApp);
+        const terminalPublicKeyJwk = await exportBlindTerminalPublicKey();
+        const blindSession = await fetchBlindE2eeSession(requestedApp, terminalPublicKeyJwk);
         if (blindSession?.state !== "blind_e2ee_session_ready") {
           throw new Error(`Blind E2EE blocked: ${(blindSession?.blockers || []).join(", ") || "unknown blocker"}`);
         }
-        showStreamMessage({
-          titleText: "Blind E2EE backend ready",
-          reasonText: `SFrame metadata relay is ready for ${workload.label}. Session ${blindSession.id}; frame proof endpoint ${blindSession.frameEnvelope.ingestEndpoint}. Broker stores hashes and lengths only.`,
-          stateText: "Blind E2EE metadata relay ready"
-        });
+        state.textContent = `Blind E2EE relay active for ${workload.label}.`;
+        await pollBlindE2eeRelay(blindSession);
       } catch (error) {
         showStreamMessage({
           titleText: "Stream blocked",
