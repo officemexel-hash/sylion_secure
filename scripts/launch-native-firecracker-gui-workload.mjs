@@ -20,6 +20,14 @@ const exodusDebUrl = process.env.SYLION_EXODUS_DEB_URL || defaultExodusDebUrl;
 const exodusHashUrl = process.env.SYLION_EXODUS_HASH_URL || defaultExodusHashUrl;
 const exodusDebSha256 = process.env.SYLION_EXODUS_DEB_SHA256 || defaultExodusDebSha256;
 
+const defaultTelegramVersion = process.env.SYLION_TELEGRAM_VERSION || "6.8.2";
+const defaultTelegramTarUrl = `https://td.telegram.org/tlinux/tsetup.${defaultTelegramVersion}.tar.xz`;
+const defaultTelegramTarSha256 = defaultTelegramVersion === "6.8.2"
+  ? "3e31fdabc2be8bc62e486da0586932e8115087e22dece8098977d14f1d13cf2b"
+  : "";
+const telegramTarUrl = process.env.SYLION_TELEGRAM_TAR_URL || defaultTelegramTarUrl;
+const telegramTarSha256 = process.env.SYLION_TELEGRAM_TAR_SHA256 || defaultTelegramTarSha256;
+
 const mozillaAptSetup = `
 mkdir -p "$mount_dir/etc/apt/keyrings"
 curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg \
@@ -158,15 +166,45 @@ const profiles = {
     guestMac: "AA:FC:00:00:58:22"
   },
   telegram: {
-    title: "SYLION Telegram Web",
-    url: "https://web.telegram.org/",
-    preAptSetup: mozillaAptSetup,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
-    launchCommand: firefoxApp("https://web.telegram.org/"),
-    waylandLaunchCommand: firefoxWaylandApp("https://web.telegram.org/"),
-    targetContentPattern: "Telegram",
-    visibleWindowPattern: "Telegram|Mozilla Firefox|Firefox",
-    processPattern: "firefox",
+    title: "SYLION Telegram Desktop",
+    url: "tg://",
+    preAptSetup: `
+mkdir -p "$mount_dir/tmp" "$mount_dir/opt"
+telegram_url=${shellQuote(telegramTarUrl)}
+telegram_sha256=${shellQuote(telegramTarSha256)}
+if [ -z "$telegram_sha256" ]; then
+  echo "telegram_sha256_required_for_artifact" >> "$run_dir/preflight.blockers"
+fi
+if ! curl -fL "$telegram_url" -o "$mount_dir/tmp/telegram.tar.xz"; then
+  echo "telegram_official_download_blocked_or_unavailable" >> "$run_dir/preflight.blockers"
+  rm -f "$mount_dir/tmp/telegram.tar.xz"
+fi
+if [ -n "$telegram_sha256" ] && [ -s "$mount_dir/tmp/telegram.tar.xz" ]; then
+  printf '%s  %s\\n' "$telegram_sha256" "$mount_dir/tmp/telegram.tar.xz" | sha256sum -c - >/dev/null \
+    || echo "telegram_sha256_mismatch" >> "$run_dir/preflight.blockers"
+fi
+`,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libgtk-3-0 libglib2.0-0t64 libfontconfig1 libfreetype6 libx11-6 libxcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0 libxkbcommon0 libgl1 libegl1 libglx-mesa0 libgl1-mesa-dri libglvnd0 libopengl0 libglx0",
+    postAptInstall: `
+if [ -s "$mount_dir/tmp/telegram.tar.xz" ]; then
+  tar -xJf "$mount_dir/tmp/telegram.tar.xz" -C "$mount_dir/opt"
+  rm -f "$mount_dir/tmp/telegram.tar.xz"
+  chroot "$mount_dir" chown -R root:root /opt/Telegram
+else
+  echo "telegram_tar_artifact_missing" >> "$run_dir/preflight.blockers"
+fi
+`,
+    vncBackend: "xorg-x11vnc",
+    launchCommand: [
+      "dbus-run-session -- env",
+      "LIBGL_ALWAYS_SOFTWARE=1",
+      "QT_QPA_PLATFORM=xcb",
+      "/opt/Telegram/Telegram",
+      "-workdir",
+      "/home/sylion/.local/share/TelegramDesktop"
+    ].join(" "),
+    visibleWindowPattern: "Telegram|telegram|TelegramDesktop",
+    processPattern: "Telegram|telegram",
     hostPort: 3011,
     guestIp: "172.16.58.14",
     hostTapIp: "172.16.58.13",
@@ -280,6 +318,14 @@ const display = {
   windowWidth: Number(process.env.SYLION_GUI_WINDOW_WIDTH || profile.windowWidth || process.env.SYLION_GUI_DISPLAY_WIDTH || profile.displayWidth || 960),
   windowHeight: Number(process.env.SYLION_GUI_WINDOW_HEIGHT || profile.windowHeight || process.env.SYLION_GUI_DISPLAY_HEIGHT || profile.displayHeight || 1680)
 };
+function dummyModeline(w, h) {
+  const hss = w + 40, hse = hss + 96, ht = hse + 104;
+  const vss = h + 3, vse = vss + 5, vt = vse + 42;
+  const pclk = (ht * vt * 60) / 1e6;
+  return `${pclk.toFixed(2)} ${w} ${hss} ${hse} ${ht} ${h} ${vss} ${vse} ${vt} -hsync +vsync`;
+}
+const xorgModeName = `${display.width}x${display.height}`;
+const xorgModeline = dummyModeline(display.width, display.height);
 const vncBackend = process.env.SYLION_GUI_VNC_BACKEND || profile.vncBackend || "kasmvnc";
 if (!["tigervnc", "x11vnc", "xorg-x11vnc", "weston-vnc", "kasmvnc"].includes(vncBackend)) {
   throw new Error(`Unsupported GUI VNC backend ${vncBackend}; supported=tigervnc,x11vnc,xorg-x11vnc,weston-vnc,kasmvnc`);
@@ -868,6 +914,7 @@ Section "Monitor"
   Identifier "DummyMonitor"
   HorizSync 5.0 - 1000.0
   VertRefresh 5.0 - 200.0
+  Modeline "${xorgModeName}" ${xorgModeline}
 EndSection
 Section "Screen"
   Identifier "Screen0"
@@ -876,6 +923,7 @@ Section "Screen"
   DefaultDepth 24
   SubSection "Display"
     Depth 24
+    Modes "${xorgModeName}"
     Virtual ${display.width} ${display.height}
   EndSubSection
 EndSection
@@ -933,7 +981,7 @@ fi
 sleep 35
 if [ "$vnc_backend" != "weston-vnc" ] && command -v xdotool >/dev/null 2>&1; then
   export XAUTHORITY=/home/sylion/.Xauthority
-  DISPLAY=:1 xdotool search --class 'Firefox|firefox|Navigator|navigator|Chrome|chrome|Signal|signal|LibreOffice|libreoffice|soffice|Exodus|exodus' windowmove %@ 0 0 windowsize %@ ${display.windowWidth} ${display.windowHeight} 2>/dev/null || true
+  DISPLAY=:1 xdotool search --class 'Firefox|firefox|Navigator|navigator|Chrome|chrome|Signal|signal|LibreOffice|libreoffice|soffice|Exodus|exodus|TelegramDesktop|Telegram|telegram' windowmove %@ 0 0 windowsize %@ ${display.windowWidth} ${display.windowHeight} 2>/dev/null || true
   if [ -n "$target_url" ]; then
     firefox_win="$(DISPLAY=:1 xdotool search --onlyvisible --class firefox 2>/dev/null | head -1 || true)"
     if [ -n "$firefox_win" ]; then
