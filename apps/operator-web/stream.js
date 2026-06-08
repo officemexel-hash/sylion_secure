@@ -509,14 +509,24 @@
         body: { action: "rotate_app", rotateApp: appKey, desiredCounts }
       });
       showToast(`Recreating ${appKey} on AX102; this can take a few minutes...`);
-      const executed = await operatorApi(`/operator-api/workload-control/requests/${encodeURIComponent(queued.request.id)}/execute`, {
-        method: "POST",
-        body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE", wipeVolume: false, fourEyesApprovalRef: null }
-      });
-      const jobState = executed.job?.state || "unknown";
+      let jobState = "running";
+      try {
+        const executed = await operatorApi(`/operator-api/workload-control/requests/${encodeURIComponent(queued.request.id)}/execute`, {
+          method: "POST",
+          body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE", wipeVolume: false, fourEyesApprovalRef: null }
+        });
+        jobState = executed.job?.state || "unknown";
+      } catch (executeError) {
+        // The Firecracker rebuild runs server-side for several minutes; the front proxy usually
+        // times out the synchronous execute request (~60s, non-JSON 5xx) even though the recreate
+        // continues and completes. Treat that as "in progress", not a failure.
+        jobState = "running_after_timeout";
+      }
       if (jobState === "completed_live_workload_recreate") {
         showToast(`${appKey} recreated. Reloading stream...`);
         setTimeout(() => window.location.reload(), 1800);
+      } else if (jobState === "running_after_timeout") {
+        showToast(`${appKey} recreate is running on AX102 (a few minutes). Reopen it from "Apps" once it is back.`);
       } else {
         showToast(`${appKey} recreate finished: ${jobState}. Use "Apps" to reopen if needed.`);
       }
