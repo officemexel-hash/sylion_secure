@@ -462,6 +462,71 @@
     showToast("Fit request sent to stream.");
   }
 
+  async function operatorApi(path, { method = "GET", body = null } = {}) {
+    const res = await fetch(path, {
+      method,
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_operator_recreate_${crypto.randomUUID()}`,
+        "x-sylion-operator-csrf": "same-origin-ui",
+        ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
+      },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(payload?.error?.message || `HTTP ${res.status}`);
+    }
+    return payload;
+  }
+
+  // Dev convenience: delete+recreate the current workload's Firecracker VM via the operator
+  // recreate runner, then reload the stream once it is back. Same flow the panel's Workload
+  // Control form uses, scoped to the app currently streamed.
+  let recreateBusy = false;
+  async function recreateWorkload() {
+    if (recreateBusy) return;
+    const appKey = requestedApp;
+    if (!window.confirm(`Delete and recreate the "${appKey}" workload?\n\nThis rebuilds the Firecracker VM on AX102 (a few minutes) and disconnects the current stream.`)) {
+      return;
+    }
+    recreateBusy = true;
+    try {
+      showToast(`Recreating ${appKey}: queuing request...`);
+      const control = await operatorApi("/operator-api/workload-control");
+      const currentCounts = control.control?.latestDesiredCounts || control.control?.currentCounts || {};
+      const appKeys = [
+        "whatsapp", "signal", "telegram", "threema", "zangi", "simplex",
+        "matrix_client", "matrix_server", "protonmail", "duckduckgo_browser", "libreoffice", "exodus"
+      ];
+      const desiredCounts = Object.fromEntries(appKeys.map((key) => [key, Number(currentCounts[key] || 0)]));
+      if (desiredCounts[appKey] === 0 && Object.prototype.hasOwnProperty.call(desiredCounts, appKey)) {
+        desiredCounts[appKey] = 1;
+      }
+      const queued = await operatorApi("/operator-api/workload-control/requests", {
+        method: "POST",
+        body: { action: "rotate_app", rotateApp: appKey, desiredCounts }
+      });
+      showToast(`Recreating ${appKey} on AX102; this can take a few minutes...`);
+      const executed = await operatorApi(`/operator-api/workload-control/requests/${encodeURIComponent(queued.request.id)}/execute`, {
+        method: "POST",
+        body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE", wipeVolume: false, fourEyesApprovalRef: null }
+      });
+      const jobState = executed.job?.state || "unknown";
+      if (jobState === "completed_live_workload_recreate") {
+        showToast(`${appKey} recreated. Reloading stream...`);
+        setTimeout(() => window.location.reload(), 1800);
+      } else {
+        showToast(`${appKey} recreate finished: ${jobState}. Use "Apps" to reopen if needed.`);
+      }
+    } catch (error) {
+      showToast(`Recreate blocked: ${error.message}`);
+    } finally {
+      recreateBusy = false;
+    }
+  }
+
   function bindControls() {
     document.addEventListener("click", (event) => {
       const button = event.target.closest("[data-stream-action]");
@@ -491,6 +556,9 @@
       }
       if (action === "fit") {
         requestFit();
+      }
+      if (action === "recreate") {
+        recreateWorkload();
       }
     });
 

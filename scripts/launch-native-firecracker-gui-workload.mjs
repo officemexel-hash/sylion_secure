@@ -326,7 +326,10 @@ function dummyModeline(w, h) {
 }
 const xorgModeName = `${display.width}x${display.height}`;
 const xorgModeline = dummyModeline(display.width, display.height);
-const vncBackend = process.env.SYLION_GUI_VNC_BACKEND || profile.vncBackend || "kasmvnc";
+// A profile-pinned vncBackend is a hard per-app requirement (e.g. telegram needs xorg-x11vnc
+// for working GL rendering), so it wins over the generic SYLION_GUI_VNC_BACKEND default that
+// the operator recreate runner injects. Apps without a pinned backend still honour the env.
+const vncBackend = profile.vncBackend || process.env.SYLION_GUI_VNC_BACKEND || "kasmvnc";
 if (!["tigervnc", "x11vnc", "xorg-x11vnc", "weston-vnc", "kasmvnc"].includes(vncBackend)) {
   throw new Error(`Unsupported GUI VNC backend ${vncBackend}; supported=tigervnc,x11vnc,xorg-x11vnc,weston-vnc,kasmvnc`);
 }

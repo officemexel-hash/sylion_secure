@@ -75,7 +75,7 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /stream-secrets/);
   assert.match(source, /install -m 0600 "\$stream_secret_file" "\$stream_credential_ref"/);
   assert.match(source, /allow_client_to_override_kasm_server_settings: false/);
-  assert.match(source, /profile\.vncBackend \|\| "kasmvnc"/);
+  assert.match(source, /profile\.vncBackend \|\| process\.env\.SYLION_GUI_VNC_BACKEND \|\| "kasmvnc"/);
   assert.match(source, /xsetroot -solid '#071014'/);
   assert.match(source, /DISPLAY=:1 XAUTHORITY=\/home\/sylion\/\.Xauthority HOME=\/home\/sylion/);
   assert.match(source, /xhost \+SI:localuser:root/);
