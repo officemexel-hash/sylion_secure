@@ -1244,7 +1244,15 @@ async function main() {
   }
   const launched = await ssh(cfg.workload, remoteLaunchScript(), { timeout: 1_800_000 });
   const evidence = JSON.parse(launched.stdout.slice(launched.stdout.indexOf("{"), launched.stdout.lastIndexOf("}") + 1));
-  const g2 = await verifyFromG2();
+  // The G2 guacamole-gateway verification is advisory: blind-E2EE workloads stream through the
+  // broker, not G2, and a G2 SSH/gateway hiccup must not abort an otherwise-successful recreate.
+  // Degrade to an empty result instead of throwing; readyThroughG2 then stays false.
+  let g2 = { error: null };
+  try {
+    g2 = await verifyFromG2();
+  } catch (error) {
+    g2 = { error: error.message };
+  }
   const result = {
     evidence,
     g2,
