@@ -94,6 +94,19 @@ const LIVE_RECREATE_APP_MAP = Object.freeze({
   simplex: "simplex",
   exodus: "exodus"
 });
+
+// Runner-app keys (LIVE_RECREATE_APP_MAP values) whose live stream is the blind-E2EE broker
+// rather than the Guacamole G2 gateway. Their recreate readiness is gated on workload evidence,
+// not readyThroughG2. Mirrors defaultBrokerForApp in apps/operator-web/stream.js.
+const BLIND_E2EE_RUNNER_APPS = new Set([
+  "protonmail",
+  "signal",
+  "duckduckgo",
+  "libreoffice",
+  "whatsapp",
+  "telegram",
+  "threema"
+]);
 const NATIVE_FIRECRACKER_RECREATE_APPS = new Set(["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal", "protonmail", "simplex"]);
 const TRAFFIC_MONITOR_SEGMENTS = Object.freeze([
   {
@@ -270,9 +283,13 @@ function publicSessionMetadata(session) {
 
 async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
   const nativeFirecracker = process.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE === "native_firecracker";
+  // Blind-E2EE workloads stream through the broker, not the Guacamole G2 gateway, so the
+  // readyThroughG2/--require-ready guacamole gate does not apply: readiness is the workload's
+  // own evidence (app running, visible window, RFB banner) captured by the launcher.
+  const isBlindE2ee = nativeFirecracker && BLIND_E2EE_RUNNER_APPS.has(app);
   const command = nativeFirecracker ? process.execPath : process.platform === "win32" ? "npm.cmd" : "npm";
   const args = nativeFirecracker
-    ? ["scripts/launch-native-firecracker-gui-workload.mjs", "--apply", "--require-ready"]
+    ? ["scripts/launch-native-firecracker-gui-workload.mjs", "--apply", ...(isBlindE2ee ? [] : ["--require-ready"])]
     : ["run", "live:workload-recreate", "--", `--app=${app}`];
   if (!nativeFirecracker && wipeVolume) args.push("--wipe-volume");
   const result = await execFileAsync(command, args, {
@@ -291,6 +308,18 @@ async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
   const json = stdout.slice(stdout.indexOf("{"), stdout.lastIndexOf("}") + 1);
   const parsed = JSON.parse(json);
   if (!nativeFirecracker) return parsed;
+
+  if (isBlindE2ee) {
+    return {
+      applied: parsed.evidence?.ready === true,
+      app,
+      mode: "native_firecracker",
+      broker: "blind_e2ee",
+      evidence: parsed.evidence,
+      g2: parsed.g2,
+      productionExecutionAllowed: false
+    };
+  }
 
   const forwardResult = await execFileAsync(process.execPath, ["scripts/install-workload-guacamole-vnc-forwards.mjs", "--apply"], {
     timeout: 420_000,
