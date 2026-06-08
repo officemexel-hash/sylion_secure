@@ -15,7 +15,7 @@
     protonmail: { label: "Proton Mail", host: "protonmail.sylion.internal", path: SELKIES_PATH, directGateway: true },
     telegram: { label: "Telegram", host: "telegram.sylion.internal", path: SELKIES_PATH, directGateway: true },
     threema: { label: "Threema", host: "threema.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    signal: { label: "Signal", host: "signal.sylion.internal", path: STREAM_PATH },
+    signal: { label: "Signal", host: "signal.sylion.internal", path: SELKIES_PATH, directGateway: true },
     simplex: { label: "SimpleX Chat", host: "simplex.sylion.internal", path: SELKIES_PATH, directGateway: true },
     zangi: { label: "Zangi", host: "zangi.sylion.internal", path: SELKIES_PATH, directGateway: true },
     exodus: { label: "Exodus", host: "exodus.sylion.internal", path: SELKIES_PATH, directGateway: true }
@@ -53,7 +53,7 @@
   }
 
   function defaultBrokerForApp(appKey) {
-    return appKey === "protonmail" ? "blind_e2ee" : "guacamole";
+    return ["protonmail", "signal", "duckduckgo_browser", "libreoffice", "whatsapp", "telegram", "threema"].includes(appKey) ? "blind_e2ee" : "guacamole";
   }
 
   function bootstrapOperatorToken() {

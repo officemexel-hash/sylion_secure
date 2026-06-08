@@ -137,7 +137,7 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(streamJs.body, /blind-e2ee\/sessions/);
     assert.match(streamJs.body, /capture-once/);
     assert.match(streamJs.body, /defaultBrokerForApp/);
-    assert.match(streamJs.body, /appKey === "protonmail" \? "blind_e2ee" : "guacamole"/);
+    assert.match(streamJs.body, /\["protonmail", "signal"[\s\S]*\]\.includes\(appKey\) \? "blind_e2ee" : "guacamole"/);
     assert.match(streamJs.body, /bootstrapOperatorToken/);
     assert.match(streamJs.body, /params\.get\("op_token"\)/);
     assert.match(streamJs.body, /hashParams\.get\("op_token"\)/);
