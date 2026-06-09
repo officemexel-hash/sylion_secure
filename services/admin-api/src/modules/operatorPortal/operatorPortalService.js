@@ -436,9 +436,9 @@ function spawnJsonWithStdin(command, args, { input, timeout, env, cwd } = {}) {
   });
 }
 
-async function defaultWorkloadInputRunner({ app, text, submit = false, preKeys = [], postKeys = [], env = process.env }) {
+async function defaultWorkloadInputRunner({ app, text, submit = false, preKeys = [], postKeys = [], pointer = null, env = process.env }) {
   return spawnJsonWithStdin(process.execPath, ["scripts/workload-input-bridge.mjs", `--app=${app}`], {
-    input: JSON.stringify({ text, submit, preKeys, postKeys }),
+    input: JSON.stringify({ text, submit, preKeys, postKeys, pointer }),
     timeout: Number(env.SYLION_WORKLOAD_INPUT_TIMEOUT_MS || 30_000),
     cwd: process.cwd(),
     env: {
@@ -2676,11 +2676,12 @@ export class OperatorPortalService {
     const submit = body.submit === true;
     const preKeys = this.#safeWorkloadInputKeys(body.preKeys, "preKeys");
     const postKeys = this.#safeWorkloadInputKeys(body.postKeys ?? body.keys, "postKeys");
+    const pointer = this.#safeWorkloadInputPointer(body.pointer);
     const specialKeyCount = preKeys.length + postKeys.length;
-    if (!text && !submit && specialKeyCount === 0) {
-      throw validationError("Workload input requires text, submit=true, or an allowed special key", {
+    if (!text && !submit && specialKeyCount === 0 && !pointer) {
+      throw validationError("Workload input requires text, submit=true, a pointer click, or an allowed special key", {
         templateKey,
-        allowed: "printable_ascii_text_or_allowed_special_key"
+        allowed: "printable_ascii_text_or_allowed_special_key_or_pointer"
       });
     }
     const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
@@ -2746,7 +2747,7 @@ export class OperatorPortalService {
 
     if (!blockers.length) {
       try {
-        const result = await this.workloadInputRunner({ app: templateKey, text, submit, preKeys, postKeys, env });
+        const result = await this.workloadInputRunner({ app: templateKey, text, submit, preKeys, postKeys, pointer, env });
         input.state = "workload_input_sent";
         input.result = this.#publicWorkloadInputRunnerResult(result);
       } catch (error) {
@@ -4226,6 +4227,22 @@ export class OperatorPortalService {
       }
       return normalized;
     });
+  }
+
+  #safeWorkloadInputPointer(value) {
+    if (value == null) return null;
+    if (typeof value !== "object") {
+      throw validationError("Workload input pointer must be an object", { contentStored: false });
+    }
+    const x = Number(value.x);
+    const y = Number(value.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > 8192 || y > 8192) {
+      throw validationError("Workload input pointer x/y out of range", {
+        range: "0..8192",
+        contentStored: false
+      });
+    }
+    return { x: Math.round(x), y: Math.round(y) };
   }
 
   #publicWorkloadInputRunnerResult(result = {}) {

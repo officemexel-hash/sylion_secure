@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 
-const APP_PORTS = Object.freeze({
-  duckduckgo_browser: 15901,
-  libreoffice: 15902,
-  whatsapp: 15910,
-  telegram: 15911,
-  threema: 15912,
-  signal: 15913,
-  zangi: 15916,
-  protonmail: 15917,
-  simplex: 15918,
-  exodus: 15915
+// Per-app workload microVM guest RFB endpoints on the AX102 workload host. Input is delivered
+// straight to the VM's raw VNC (key + pointer events), the same RFB the blind-E2EE encoder reads,
+// so G2 never sees the keystrokes — preserving the blind-E2EE property for input too.
+const GUEST_RFB = Object.freeze({
+  duckduckgo_browser: "172.16.58.2",
+  libreoffice: "172.16.58.6",
+  whatsapp: "172.16.58.10",
+  telegram: "172.16.58.14",
+  threema: "172.16.58.18",
+  signal: "172.16.58.22",
+  protonmail: "172.16.58.26",
+  exodus: "172.16.58.30",
+  simplex: "172.16.58.34"
 });
+const RFB_PORT = Number(process.env.SYLION_WORKLOAD_INPUT_RFB_PORT || 5900);
 
 const defaultSshKey = process.platform === "win32"
   ? ".deploy\\sylion_hetzner_admin_ed25519"
@@ -24,13 +27,12 @@ const args = new Map(process.argv.slice(2).map((arg) => {
 }));
 
 const app = normalizeApp(args.get("app") || process.env.SYLION_WORKLOAD_INPUT_APP || "duckduckgo_browser");
-const port = APP_PORTS[app];
-if (!port) fail("unsupported_app", { app, supported: Object.keys(APP_PORTS) });
+const guestIp = GUEST_RFB[app];
+if (!guestIp) fail("unsupported_app", { app, supported: Object.keys(GUEST_RFB) });
 
 const cfg = {
-  g2Host: process.env.SYLION_G2_SSH || "sylion@178.105.203.31",
+  workloadHost: process.env.SYLION_WORKLOAD_NATIVE_SSH || "root@65.109.123.72",
   sshKey: process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
-  bridgeHost: process.env.SYLION_G2_DOCKER_BRIDGE_IP || "172.18.0.1",
   connectTimeoutSeconds: Number(process.env.SYLION_WORKLOAD_INPUT_CONNECT_TIMEOUT_SECONDS || 8)
 };
 
@@ -39,16 +41,18 @@ const text = sanitizeInputText(input.text);
 const submit = input.submit === true;
 const preKeys = sanitizeSpecialKeys(input.preKeys);
 const postKeys = sanitizeSpecialKeys(input.postKeys ?? input.keys);
-if (!text && !submit && preKeys.length + postKeys.length === 0) fail("empty_input", { app });
+const pointer = sanitizePointer(input.pointer);
+if (!text && !submit && preKeys.length + postKeys.length === 0 && !pointer) fail("empty_input", { app });
 
 const remotePayload = JSON.stringify({
   app,
-  host: cfg.bridgeHost,
-  port,
+  host: guestIp,
+  port: RFB_PORT,
   text,
   submit,
   preKeys,
   postKeys,
+  pointer,
   connectTimeoutSeconds: cfg.connectTimeoutSeconds
 });
 
@@ -96,6 +100,19 @@ def recv_exact(sock, size):
 
 def key_event(sock, down, keysym):
     sock.sendall(struct.pack(">BBHI", 4, 1 if down else 0, 0, keysym))
+
+def pointer_event(sock, mask, x, y):
+    sock.sendall(struct.pack(">BBHH", 5, mask & 0xff, x & 0xffff, y & 0xffff))
+
+def click_at(sock, x, y, fb_w, fb_h):
+    cx = max(0, min(int(x), fb_w - 1)) if fb_w else max(0, int(x))
+    cy = max(0, min(int(y), fb_h - 1)) if fb_h else max(0, int(y))
+    pointer_event(sock, 0, cx, cy)
+    time.sleep(0.02)
+    pointer_event(sock, 1, cx, cy)
+    time.sleep(0.04)
+    pointer_event(sock, 0, cx, cy)
+    return (cx, cy)
 
 def tap_key(sock, ks):
     key_event(sock, True, ks)
@@ -148,6 +165,11 @@ with socket.create_connection((host, port), timeout) as sock:
         recv_exact(sock, name_len)
     keys_sent = 0
     special_keys_sent = 0
+    pointer_sent = None
+    pointer = payload.get("pointer")
+    if pointer is not None:
+        pointer_sent = click_at(sock, pointer.get("x", 0), pointer.get("y", 0), width, height)
+        time.sleep(0.05)
     for key in pre_keys:
         keys_sent += special_key(sock, key)
         special_keys_sent += 1
@@ -170,6 +192,7 @@ with socket.create_connection((host, port), timeout) as sock:
         "charsSent": len(text),
         "specialKeysSent": special_keys_sent,
         "submitSent": submit,
+        "pointerSent": pointer_sent,
         "framebuffer": {"width": width, "height": height},
         "securityType": "none",
         "inputContentPrinted": False,
@@ -183,7 +206,7 @@ const result = await spawnWithStdin("ssh", [
   "-o", "BatchMode=yes",
   "-o", "StrictHostKeyChecking=accept-new",
   "-o", `ConnectTimeout=${cfg.connectTimeoutSeconds}`,
-  cfg.g2Host,
+  cfg.workloadHost,
   remoteCommand
 ], remotePayload, Number(process.env.SYLION_WORKLOAD_INPUT_TIMEOUT_MS || 30_000));
 
@@ -207,6 +230,16 @@ function sanitizeInputText(value) {
     fail("unsupported_character", { allowed: "printable_ascii_tab_newline" });
   }
   return text;
+}
+
+function sanitizePointer(value) {
+  if (value == null) return null;
+  if (typeof value !== "object") fail("invalid_pointer", { reason: "not_object" });
+  const x = Number(value.x);
+  const y = Number(value.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) fail("invalid_pointer", { reason: "non_numeric" });
+  if (x < 0 || y < 0 || x > 8192 || y > 8192) fail("invalid_pointer", { reason: "out_of_range" });
+  return { x: Math.round(x), y: Math.round(y) };
 }
 
 function sanitizeSpecialKeys(value) {

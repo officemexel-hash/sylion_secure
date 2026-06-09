@@ -184,7 +184,7 @@ test("Operator Pixel stream wrapper is served with allowlisted internal frames",
     assert.match(html.body, /https:\/\/duckduckgo\.sylion\.internal/);
     assert.match(html.body, /https:\/\/protonmail\.sylion\.internal/);
     assert.match(html.body, /https:\/\/simplex\.sylion\.internal/);
-    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-117"><\/script>/);
+    assert.match(html.body, /<script src="\/operator\/stream\.js\?v=step3-118"><\/script>/);
     assert.doesNotMatch(html.body, /unsafe-inline/);
   } finally {
     await close();

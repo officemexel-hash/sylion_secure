@@ -46,6 +46,7 @@
   let blindLastFrameId = null;
   let blindCaptureBusy = false;
   let blindLastCaptureAt = 0;
+  let blindFrameRect = null;
 
   function normalizeApp(value) {
     const clean = String(value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
@@ -217,7 +218,7 @@
     }
   }
 
-  async function sendWorkloadInput({ text = "", submit = false, preKeys = [], postKeys = [] } = {}) {
+  async function sendWorkloadInput({ text = "", submit = false, preKeys = [], postKeys = [], pointer = null } = {}) {
     if (inputBusy) return null;
     inputBusy = true;
     state.textContent = "Sending keyboard events to workload...";
@@ -231,7 +232,7 @@
           "x-sylion-operator-csrf": "same-origin-ui",
           ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
         },
-        body: JSON.stringify({ templateKey: requestedApp, text, submit, preKeys, postKeys })
+        body: JSON.stringify({ templateKey: requestedApp, text, submit, preKeys, postKeys, ...(pointer ? { pointer } : {}) })
       });
       const payload = await res.json();
       if (!res.ok || payload?.input?.state !== "workload_input_sent") {
@@ -388,6 +389,9 @@
     const x = Math.round((blindCanvas.width - drawWidth) / 2);
     const y = Math.round((blindCanvas.height - drawHeight) / 2);
     ctx.drawImage(bitmap, x, y, drawWidth, drawHeight);
+    // Remember where the workload framebuffer is drawn (in canvas pixels) + its native size so a
+    // tap on the canvas can be mapped back to a VM pointer coordinate for click-to-focus/click.
+    blindFrameRect = { offsetX: x, offsetY: y, drawWidth, drawHeight, fbWidth: bitmap.width, fbHeight: bitmap.height };
     ctx.fillStyle = "rgba(5, 6, 8, 0.72)";
     ctx.fillRect(8 * dpr, 8 * dpr, 174 * dpr, 28 * dpr);
     ctx.fillStyle = "#d8dde8";
@@ -571,6 +575,28 @@
         recreateWorkload();
       }
     });
+
+    // Tap-to-click on the blind-E2EE workload framebuffer: map the tap position back to a VM
+    // pointer coordinate and send a left click (focus a field, press a button). Input is delivered
+    // straight to the VM RFB via the workload host, so it preserves the blind-E2EE property.
+    if (blindCanvas) {
+      blindCanvas.addEventListener("click", (event) => {
+        if (!blindFrameRect || blindCanvas.hidden) return;
+        const rect = blindCanvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const canvasX = (event.clientX - rect.left) * (blindCanvas.width / rect.width);
+        const canvasY = (event.clientY - rect.top) * (blindCanvas.height / rect.height);
+        const r = blindFrameRect;
+        if (canvasX < r.offsetX || canvasX > r.offsetX + r.drawWidth || canvasY < r.offsetY || canvasY > r.offsetY + r.drawHeight) {
+          return;
+        }
+        const vmX = Math.round((canvasX - r.offsetX) / r.drawWidth * r.fbWidth);
+        const vmY = Math.round((canvasY - r.offsetY) / r.drawHeight * r.fbHeight);
+        sendWorkloadInput({ pointer: { x: vmX, y: vmY } })
+          .then(() => showToast(`Tap sent (${vmX}, ${vmY})`))
+          .catch((error) => showToast(`Tap blocked: ${error.message}`));
+      });
+    }
 
     inputPanel?.addEventListener("submit", (event) => {
       event.preventDefault();
