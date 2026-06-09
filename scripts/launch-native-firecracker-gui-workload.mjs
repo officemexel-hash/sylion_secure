@@ -28,6 +28,22 @@ const defaultTelegramTarSha256 = defaultTelegramVersion === "6.8.2"
 const telegramTarUrl = process.env.SYLION_TELEGRAM_TAR_URL || defaultTelegramTarUrl;
 const telegramTarSha256 = process.env.SYLION_TELEGRAM_TAR_SHA256 || defaultTelegramTarSha256;
 
+const defaultSimplexVersion = process.env.SYLION_SIMPLEX_VERSION || "v6.5.4";
+const defaultSimplexDebUrl = `https://github.com/simplex-chat/simplex-chat/releases/download/${defaultSimplexVersion}/simplex-desktop-ubuntu-24_04-x86_64.deb`;
+const defaultSimplexDebSha256 = defaultSimplexVersion === "v6.5.4"
+  ? "ccd538f7a65d6f7a5f32e5e4a149ad243efcdc79b0f1d2b449949d5ca4471223"
+  : "";
+const simplexDebUrl = process.env.SYLION_SIMPLEX_DEB_URL || defaultSimplexDebUrl;
+const simplexDebSha256 = process.env.SYLION_SIMPLEX_DEB_SHA256 || defaultSimplexDebSha256;
+
+const defaultProtonMailVersion = process.env.SYLION_PROTONMAIL_VERSION || "1.0.6";
+const defaultProtonMailDebUrl = `https://github.com/ProtonMail/inbox-desktop/releases/download/${defaultProtonMailVersion}/proton-mail_${defaultProtonMailVersion}_amd64.deb`;
+const defaultProtonMailDebSha256 = defaultProtonMailVersion === "1.0.6"
+  ? "bfcb9f9d0404a934f972bedfabc168ce37bf343941cda09e288cc4eb253f6e21"
+  : "";
+const protonMailDebUrl = process.env.SYLION_PROTONMAIL_DEB_URL || defaultProtonMailDebUrl;
+const protonMailDebSha256 = process.env.SYLION_PROTONMAIL_DEB_SHA256 || defaultProtonMailDebSha256;
+
 const mozillaAptSetup = `
 mkdir -p "$mount_dir/etc/apt/keyrings"
 curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg \
@@ -132,38 +148,96 @@ const profiles = {
     guestMac: "AA:FC:00:00:58:0A"
   },
   protonmail: {
-    title: "SYLION Proton Mail",
-    url: "https://mail.proton.me/",
-    preAptSetup: mozillaAptSetup,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox onboard dconf-cli",
-    launchCommand: firefoxApp("https://mail.proton.me/"),
-    waylandLaunchCommand: firefoxWaylandApp("https://mail.proton.me/"),
-    targetContentPattern: "Proton",
-    visibleWindowPattern: "Proton|Mozilla Firefox|Firefox",
-    processPattern: "firefox",
+    title: "SYLION Proton Mail Desktop",
+    url: "proton-mail://",
+    preAptSetup: `
+mkdir -p "$mount_dir/tmp"
+protonmail_url=${shellQuote(protonMailDebUrl)}
+protonmail_sha256=${shellQuote(protonMailDebSha256)}
+if [ -z "$protonmail_sha256" ]; then
+  echo "protonmail_sha256_required_for_artifact" >> "$run_dir/preflight.blockers"
+fi
+if ! curl -fL "$protonmail_url" -o "$mount_dir/tmp/protonmail.deb"; then
+  echo "protonmail_official_download_blocked_or_unavailable" >> "$run_dir/preflight.blockers"
+  rm -f "$mount_dir/tmp/protonmail.deb"
+fi
+if [ -n "$protonmail_sha256" ] && [ -s "$mount_dir/tmp/protonmail.deb" ]; then
+  printf '%s  %s\\n' "$protonmail_sha256" "$mount_dir/tmp/protonmail.deb" | sha256sum -c - >/dev/null \
+    || echo "protonmail_sha256_mismatch" >> "$run_dir/preflight.blockers"
+fi
+`,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 onboard dconf-cli",
+    postAptInstall: `
+if [ -s "$mount_dir/tmp/protonmail.deb" ]; then
+  chroot "$mount_dir" apt-get install -y /tmp/protonmail.deb >/dev/null
+  rm -f "$mount_dir/tmp/protonmail.deb"
+else
+  echo "protonmail_deb_artifact_missing" >> "$run_dir/preflight.blockers"
+fi
+`,
+    awaitDnsHost: "mail.proton.me",
+    launchCommand: "dbus-run-session -- proton-mail --password-store=basic --ozone-platform=x11 --disable-features=UseOzonePlatform --disable-gpu --disable-gpu-compositing --disable-dev-shm-usage --enable-logging=stderr",
+    visibleWindowPattern: "Proton|proton",
+    processPattern: "proton-mail|electron",
     hostPort: 3016,
     guestIp: "172.16.58.26",
     hostTapIp: "172.16.58.25",
     tap: "syliongui6",
     serverName: "protonmail.sylion.internal",
-    guestMac: "AA:FC:00:00:58:1A"
+    guestMac: "AA:FC:00:00:58:1A",
+    vcpuCount: 4,
+    memSizeMib: 6144
   },
   simplex: {
-    title: "SYLION SimpleX Chat Gate",
-    url: "https://simplex.chat/downloads/",
-    preAptSetup: mozillaAptSetup,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
-    launchCommand: firefoxApp("https://simplex.chat/downloads/"),
-    waylandLaunchCommand: firefoxWaylandApp("https://simplex.chat/downloads/"),
-    targetContentPattern: "SimpleX",
-    visibleWindowPattern: "SimpleX|Mozilla Firefox|Firefox",
-    processPattern: "firefox",
+    title: "SYLION SimpleX Chat Desktop",
+    url: "simplex://",
+    preAptSetup: `
+mkdir -p "$mount_dir/tmp"
+simplex_url=${shellQuote(simplexDebUrl)}
+simplex_sha256=${shellQuote(simplexDebSha256)}
+if [ -z "$simplex_sha256" ]; then
+  echo "simplex_sha256_required_for_artifact" >> "$run_dir/preflight.blockers"
+fi
+if ! curl -fL "$simplex_url" -o "$mount_dir/tmp/simplex.deb"; then
+  echo "simplex_official_download_blocked_or_unavailable" >> "$run_dir/preflight.blockers"
+  rm -f "$mount_dir/tmp/simplex.deb"
+fi
+if [ -n "$simplex_sha256" ] && [ -s "$mount_dir/tmp/simplex.deb" ]; then
+  printf '%s  %s\\n' "$simplex_sha256" "$mount_dir/tmp/simplex.deb" | sha256sum -c - >/dev/null \
+    || echo "simplex_sha256_mismatch" >> "$run_dir/preflight.blockers"
+fi
+`,
+    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11",
+    postAptInstall: `
+if [ -s "$mount_dir/tmp/simplex.deb" ]; then
+  # The jpackage .deb postinst runs xdg-desktop-menu which fails under the minimal chroot
+  # (no desktop), but the app files are already unpacked and deps are configured first, so the
+  # postinst failure is non-fatal for our headless launch of /opt/simplex/bin/simplex.
+  chroot "$mount_dir" apt-get install -y /tmp/simplex.deb >/dev/null 2>&1 || true
+  if [ ! -x "$mount_dir/opt/simplex/bin/simplex" ]; then
+    echo "simplex_binary_missing_after_install" >> "$run_dir/preflight.blockers"
+  fi
+  rm -f "$mount_dir/tmp/simplex.deb"
+else
+  echo "simplex_deb_artifact_missing" >> "$run_dir/preflight.blockers"
+fi
+`,
+    vncBackend: "xorg-x11vnc",
+    launchCommand: [
+      "dbus-run-session -- env",
+      "LIBGL_ALWAYS_SOFTWARE=1",
+      "/opt/simplex/bin/simplex"
+    ].join(" "),
+    visibleWindowPattern: "SimpleX|simplex",
+    processPattern: "simplex|java",
     hostPort: 3017,
     guestIp: "172.16.58.34",
     hostTapIp: "172.16.58.33",
     tap: "syliongui8",
     serverName: "simplex.sylion.internal",
-    guestMac: "AA:FC:00:00:58:22"
+    guestMac: "AA:FC:00:00:58:22",
+    vcpuCount: 4,
+    memSizeMib: 6144
   },
   telegram: {
     title: "SYLION Telegram Desktop",
@@ -443,6 +517,10 @@ mount --bind /dev "$mount_dir/dev"
 mount -t devpts devpts "$mount_dir/dev/pts"
 mount -t proc proc "$mount_dir/proc"
 mount -t sysfs sysfs "$mount_dir/sys"
+# In the base image /etc/resolv.conf is a symlink into /run (systemd-resolved stub); writing
+# through it lands in /run (tmpfs) which is wiped at guest boot, leaving resolv.conf dangling
+# -> no DNS for apps using the system resolver (Electron/Chromium). Replace it with a real file.
+rm -f "$mount_dir/etc/resolv.conf"
 cat > "$mount_dir/etc/resolv.conf" <<'EOF'
 nameserver 1.1.1.1
 nameserver 9.9.9.9
@@ -549,6 +627,11 @@ fi
 ip addr add ${profile.guestIp}/30 dev "$iface" 2>/dev/null || true
 ip link set "$iface" up
 ip route replace default via ${profile.hostTapIp} dev "$iface" 2>/dev/null || true
+# Write a real /etc/resolv.conf at runtime: the base image ships it as a symlink into /run
+# (systemd stub) which is empty under this minimal init, so apps using the system resolver
+# (Electron/Chromium) get "Temporary failure in name resolution". A real file fixes DNS.
+rm -f /etc/resolv.conf
+printf 'nameserver 1.1.1.1\nnameserver 9.9.9.9\noptions timeout:2 attempts:3\n' > /etc/resolv.conf
 if command -v haveged >/dev/null 2>&1; then
   haveged -F -w 1024 >/tmp/sylion-haveged.log 2>&1 &
 fi
@@ -959,6 +1042,14 @@ else
   openbox-session &
 fi
 sleep 1
+await_dns_host="${profile.awaitDnsHost || ""}"
+if [ -n "$await_dns_host" ]; then
+  for i in $(seq 1 30); do
+    if getent hosts "$await_dns_host" >/dev/null 2>&1; then echo "sylion-dns-ready=$await_dns_host"; break; fi
+    echo "sylion-dns-wait=$await_dns_host"
+    sleep 1
+  done
+fi
 if [ "${profile.runAsRoot ? "true" : "false"}" = "true" ]; then
   mkdir -p /run/sylion-root
   chmod 0700 /run/sylion-root

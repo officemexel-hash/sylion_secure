@@ -53,7 +53,7 @@
   }
 
   function defaultBrokerForApp(appKey) {
-    return ["protonmail", "signal", "duckduckgo_browser", "libreoffice", "whatsapp", "telegram", "threema"].includes(appKey) ? "blind_e2ee" : "guacamole";
+    return ["protonmail", "signal", "duckduckgo_browser", "libreoffice", "whatsapp", "telegram", "threema", "simplex"].includes(appKey) ? "blind_e2ee" : "guacamole";
   }
 
   function bootstrapOperatorToken() {

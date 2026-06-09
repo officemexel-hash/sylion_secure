@@ -105,7 +105,8 @@ const BLIND_E2EE_RUNNER_APPS = new Set([
   "libreoffice",
   "whatsapp",
   "telegram",
-  "threema"
+  "threema",
+  "simplex"
 ]);
 const NATIVE_FIRECRACKER_RECREATE_APPS = new Set(["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal", "protonmail", "simplex"]);
 const TRAFFIC_MONITOR_SEGMENTS = Object.freeze([
