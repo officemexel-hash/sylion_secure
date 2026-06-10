@@ -41,6 +41,23 @@ Legenda statusu: OPEN · RESOLVED · IN_PROGRESS. HUMAN GATE: ✅ wymagany · �
 
 **Uwaga (zweryfikowane 2026-06-10):** ścieżka `executeWorkloadControlRequest` **NIE jest** otwartą dziurą — jest bramkowana env-flagiem + frazą potwierdzającą + four-eyes dla wipe + audytem na każdym kroku ([operatorPortalService.js:1099-1235](../../services/admin-api/src/modules/operatorPortal/operatorPortalService.js)). F-35 to dług architektoniczny (rozjazd dwóch płaszczyzn kontroli), nie luka bezpieczeństwa.
 
+## 2b. Live evidence Puli AX (2026-06-10, read-only SSH, GL-XE3000)
+
+Diagnostyka na żywym routerze (key-auth, bez mutacji). **Pozytywne — transport działa:**
+
+| Wymaganie [N] | Stan na sprzęcie | Evidence |
+|---|---|---|
+| IPsec IKEv2 do G1 (KS-ROUTER-5, KS-IPSEC-1) | ✅ **ESTABLISHED** (`router.OP-001@sylion.internal … g1.sylion.internal`), tunel `10.43.0.2/32 === 10.42.0.0/24` | `swanctl --list-sas` |
+| Cipher CNSA 2.0 (KS-ROUTER-5, KS-ROUTER-11) | ✅ `AES_GCM_16-256 / PRF_HMAC_SHA2_384 / ECP_384`, ESP `AES_GCM_16-256/ECP_384` | `swanctl` |
+| Kill switch nftables (KS-ROUTER-6) | ✅ `table inet sylion_killswitch`, policy drop input/forward/output; forward `br-lan ↔ 10.42.0.0/16` dozwolony; output DNS→`10.42.0.11:53`, IKE 500/4500, NTP | `nft list table inet sylion_killswitch` |
+| strongSwan full (KS-ROUTER-3) | ✅ strongSwan 5.9.2-full | `opkg list-installed` |
+
+**Luki / do domknięcia:**
+- ⚠️ **Data-plane do `10.42.0.11` niezweryfikowany** — ping/DNS z routera nie wraca (router źródłuje z `10.43.0.2`; kwestia strony G1 lub klienta LAN). End-to-end factual (KS-TEST-1) wymaga **Pixela jako klienta LAN** (obecnie adb unauthorized).
+- ⚠️ Uplink przez **wwan/Wi-Fi** (`apclix0`, default via `192.168.6.1`), port WAN eth0 down — OK dla lab, produkcja oczekuje zdefiniowanego uplinku. (Smoke `puli-ax-physical-smoke` fałszywie raportuje `wan_not_ready` bo sprawdza eth0, nie wwan — kandydat na fix skryptu.)
+
+| **F-36** | OpenWrt **21.02-SNAPSHOT** na Puli AX (GL-XE3000) — Księga 4.0 KS-ROUTER-3 wymaga **OpenWrt 23.05+**. Firmware poniżej bramki. | `gate_router_puli_ax` | hardware (firmware) | Hardware | OPEN |
+
 ## 3. Zależności blokad
 
 ```
