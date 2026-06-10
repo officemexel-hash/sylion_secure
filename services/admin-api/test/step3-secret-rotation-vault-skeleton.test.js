@@ -8,7 +8,7 @@ import {
 import { EnvSecretProvider } from "../src/modules/secrets/envSecretProvider.js";
 import {
   VaultSecretProvider,
-  VaultBackendNotIntegratedError
+  VaultNotConfiguredError
 } from "../src/modules/secrets/vaultSecretProvider.js";
 
 // Minimal stubs — RBAC always allows, audit captures events for assertions.
@@ -123,7 +123,10 @@ test("F-34 rotationTtlMs derives expiresAt and rotate() resets the window + audi
 });
 
 // ---------------------------------------------------------------------------
-// (c) F-25: VaultSecretProvider skeleton — not integrated, no plaintext.
+// (c) F-25: VaultSecretProvider — flag selection + unconfigured fail-closed.
+// (Real Vault HTTP integration is exercised against a mock in
+//  vault-secret-provider.test.js; here we only pin selection + graceful
+//  unconfigured behaviour without touching the network.)
 // ---------------------------------------------------------------------------
 
 test("F-25 SYLION_SECRET_BACKEND=vault selects VaultSecretProvider", () => {
@@ -131,28 +134,29 @@ test("F-25 SYLION_SECRET_BACKEND=vault selects VaultSecretProvider", () => {
   assert.ok(provider instanceof VaultSecretProvider);
 });
 
-test("F-25 VaultSecretProvider is not integrated, productionReady=false, no plaintext", () => {
+test("F-25 VaultSecretProvider unconfigured: not integrated, productionReady=false, no plaintext", async () => {
+  // Endpoint set but NO credentials => unconfigured => graceful, fail-closed.
   const provider = new VaultSecretProvider({
-    env: { SYLION_VAULT_ADDR: "vault://sylion-staging" }
+    env: { SYLION_VAULT_ADDR: "https://vault.sylion.internal:8200" }
   });
 
-  const status = provider.status();
+  const status = await provider.status();
   assert.equal(status.integrated, false);
-  assert.equal(status.reason, "vault_backend_not_integrated");
+  assert.equal(status.reason, "vault_not_configured");
   assert.equal(status.productionReady, false);
   assert.equal(status.humanGateRequired, true);
   assert.equal(status.plaintextRetrievalAllowed, false);
   assert.equal(status.plaintextExposed, false);
 
   // hasProviderSecret fails closed (no resolvable secret) rather than claiming true
-  assert.equal(provider.hasProviderSecret("hetzner"), false);
+  assert.equal(await provider.hasProviderSecret("hetzner"), false);
 
-  // getProviderToken MUST NOT return plaintext — it throws not_integrated.
-  assert.throws(
+  // getProviderToken MUST NOT return plaintext — it throws not_configured.
+  await assert.rejects(
     () => provider.getProviderToken("hetzner"),
     (err) => {
-      assert.ok(err instanceof VaultBackendNotIntegratedError);
-      assert.equal(err.reason, "vault_backend_not_integrated");
+      assert.ok(err instanceof VaultNotConfiguredError);
+      assert.equal(err.reason, "vault_not_configured");
       assert.equal(err.productionReady, false);
       assert.equal(err.humanGateRequired, true);
       return true;
@@ -160,6 +164,5 @@ test("F-25 VaultSecretProvider is not integrated, productionReady=false, no plai
   );
 
   // no token material is ever exposed through the provider surface
-  assert.equal(JSON.stringify(status).includes("vault_backend_not_integrated"), true);
   assert.equal(JSON.stringify(status).includes("token"), false);
 });
