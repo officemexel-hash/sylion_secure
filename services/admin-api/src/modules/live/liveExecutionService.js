@@ -214,6 +214,8 @@ function sanitizeProviderResource(resource = {}) {
 }
 
 export class LiveExecutionService {
+  #confidentialReadyHostCount = 0;
+
   constructor({
     audit,
     rbac,
@@ -276,6 +278,10 @@ export class LiveExecutionService {
       store,
       collection: "cpu_confidential_qualifications"
     });
+    for (const qualification of this.cpuQualifications.values()) {
+      if (qualification?.secretsReleaseAllowed) this.#confidentialReadyHostCount += 1;
+    }
+    this.#trackCpuQualificationMutations();
     this.rollbackPlans = new PersistentMap({ store, collection: "live_rollback_plans" });
     this.providerRehearsals = new PersistentMap({ store, collection: "live_provider_rehearsals" });
     this.phantomRequests = new PersistentMap({ store, collection: "phantom_execution_requests" });
@@ -312,9 +318,7 @@ export class LiveExecutionService {
       workloadNativeHosts: this.workloadNativeHosts.size,
       workloadImageManifests: this.workloadImageManifests.size,
       cpuQualifications: this.cpuQualifications.size,
-      confidentialReadyHosts: [...this.cpuQualifications.values()].filter(
-        (item) => item.secretsReleaseAllowed
-      ).length,
+      confidentialReadyHosts: this.#confidentialReadyHostCount,
       phantomExecutionRequests: this.phantomRequests.size,
       rollbackPlans: this.rollbackPlans.size,
       providerAdapters: [
@@ -1567,6 +1571,26 @@ export class LiveExecutionService {
       resourceType: RESOURCE_TYPES.PHANTOM_EXECUTION_REQUEST
     });
     return [...this.phantomRequests.values()];
+  }
+
+  // Cached metric: keeps confidentialReadyHosts in O(1) for summary() by tracking
+  // secretsReleaseAllowed transitions (false->true, true->false) on every set/delete.
+  #trackCpuQualificationMutations() {
+    const map = this.cpuQualifications;
+    const baseSet = PersistentMap.prototype.set.bind(map);
+    const baseDelete = PersistentMap.prototype.delete.bind(map);
+    map.set = (key, value) => {
+      const previous = map.get(key);
+      if (previous?.secretsReleaseAllowed) this.#confidentialReadyHostCount -= 1;
+      if (value?.secretsReleaseAllowed) this.#confidentialReadyHostCount += 1;
+      return baseSet(key, value);
+    };
+    map.delete = (key) => {
+      const previous = map.get(key);
+      const deleted = baseDelete(key);
+      if (deleted && previous?.secretsReleaseAllowed) this.#confidentialReadyHostCount -= 1;
+      return deleted;
+    };
   }
 
   #evaluateCloudGate({ providerKey, operatorId, region, liveConfirmed }) {

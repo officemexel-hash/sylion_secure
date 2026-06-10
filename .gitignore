@@ -60,3 +60,5 @@ phantom-router/
 # local Claude Code / editor settings (not deployment)
 .claude/settings.json
 .claude/settings.local.json
+# Derived artifact z PDF (pdftotext) — nie commitujemy, PDF jest zrodlem
+docs/ksiega-4-0-full/ksiega-full.txt

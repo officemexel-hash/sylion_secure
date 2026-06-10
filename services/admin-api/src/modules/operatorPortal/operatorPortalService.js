@@ -322,6 +322,7 @@ const BLIND_E2EE_ALLOWED_NONSECRET_FIELDS = new Set([
   "key_ops"
 ]);
 const BLIND_E2EE_RELAY_FRAME_TTL_MS = 30_000;
+const BLIND_E2EE_RELAY_MAX_FRAMES = 100;
 const BLIND_E2EE_ALLOWED_CONTENT_TYPES = new Set([
   "application/octet-stream",
   "application/sframe+json",
@@ -3030,6 +3031,8 @@ export class OperatorPortalService {
     if (body.ciphertextB64) {
       const expiresAt = new Date(Date.now() + BLIND_E2EE_RELAY_FRAME_TTL_MS).toISOString();
       this.#cleanupBlindE2eeRelayFrames();
+      this.blindE2eeFrameRelay.delete(session.id);
+      this.#enforceBlindE2eeRelayFrameCapacity();
       this.blindE2eeFrameRelay.set(session.id, {
         sessionId: session.id,
         operatorId: operatorActor.operatorId,
@@ -6110,6 +6113,16 @@ export class OperatorPortalService {
       if (Date.parse(frame.expiresAt) <= now) {
         this.blindE2eeFrameRelay.delete(sessionId);
       }
+    }
+  }
+
+  #enforceBlindE2eeRelayFrameCapacity() {
+    while (this.blindE2eeFrameRelay.size >= BLIND_E2EE_RELAY_MAX_FRAMES) {
+      const oldestSessionId = this.blindE2eeFrameRelay.keys().next().value;
+      if (oldestSessionId === undefined) {
+        return;
+      }
+      this.blindE2eeFrameRelay.delete(oldestSessionId);
     }
   }
 

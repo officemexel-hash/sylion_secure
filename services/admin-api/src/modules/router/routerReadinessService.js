@@ -73,8 +73,11 @@ function publicPackage(record) {
   };
 }
 
-function packageIpsecProfiles(operatorId) {
-  return [
+// Static IPsec profile templates built once at module load. The `certRef` field holds the
+// per-operator path suffix and is composed into `cert-ref://<operatorId>/<suffix>` per package;
+// spreading then overriding `certRef` keeps the original key order byte-for-byte.
+const IPSEC_PROFILE_TEMPLATES = Object.freeze(
+  [
     {
       id: "T0",
       name: "terminal-or-puli-to-g1",
@@ -83,7 +86,7 @@ function packageIpsecProfiles(operatorId) {
       protocol: "ipsec_ikev2",
       authentication: "mutual_certificate",
       cryptoProfile: "aes256gcm16-prfsha384-ecp384_planned",
-      certRef: `cert-ref://${operatorId}/terminal-or-router-to-g1`,
+      certRef: "terminal-or-router-to-g1",
       privateKeyMaterialIncluded: false
     },
     {
@@ -94,7 +97,7 @@ function packageIpsecProfiles(operatorId) {
       protocol: "ipsec_ikev2",
       authentication: "mutual_certificate",
       cryptoProfile: "aes256gcm16-prfsha384-ecp384_planned",
-      certRef: `cert-ref://${operatorId}/g1-to-g2`,
+      certRef: "g1-to-g2",
       privateKeyMaterialIncluded: false
     },
     {
@@ -105,10 +108,17 @@ function packageIpsecProfiles(operatorId) {
       protocol: "ipsec_ikev2",
       authentication: "mutual_certificate",
       cryptoProfile: "aes256gcm16-prfsha384-ecp384_planned",
-      certRef: `cert-ref://${operatorId}/g2-to-workload`,
+      certRef: "g2-to-workload",
       privateKeyMaterialIncluded: false
     }
-  ];
+  ].map((profile) => Object.freeze(profile))
+);
+
+function packageIpsecProfiles(operatorId) {
+  return IPSEC_PROFILE_TEMPLATES.map((template) => ({
+    ...template,
+    certRef: `cert-ref://${operatorId}/${template.certRef}`
+  }));
 }
 
 export class RouterReadinessService {

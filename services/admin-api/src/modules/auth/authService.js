@@ -42,6 +42,8 @@ function publicChallenge(challenge, { rpId = "localhost" } = {}) {
 }
 
 export class AuthService {
+  #credentialsByAdmin = new Map();
+
   constructor({
     audit,
     store = null,
@@ -70,6 +72,9 @@ export class AuthService {
     this.sessions = new PersistentMap({ store, collection: "auth_sessions" });
     this.challenges = new PersistentMap({ store, collection: "auth_challenges" });
     this.credentials = new PersistentMap({ store, collection: "auth_credentials" });
+    for (const credential of this.credentials.values()) {
+      this.#indexCredential(credential);
+    }
     this.failedAttempts = new PersistentMap({ store, collection: "auth_failed_attempts" });
     this.recoveryRequests = new PersistentMap({ store, collection: "auth_recovery_requests" });
     this.breakGlassRequests = new PersistentMap({ store, collection: "auth_break_glass_requests" });
@@ -188,6 +193,7 @@ export class AuthService {
       lastUsedAt: null
     };
     this.credentials.set(record.id, record);
+    this.#indexCredential(record);
     this.#recordAudit({
       actorId: admin.id,
       action: "auth.credential_enrolled",
@@ -767,6 +773,7 @@ export class AuthService {
       lastUsedAt: isoNow()
     };
     this.credentials.set(updated.id, updated);
+    this.#indexCredential(updated);
     return updated;
   }
 
@@ -791,6 +798,7 @@ export class AuthService {
       updatedBy: actor.id
     };
     this.credentials.set(updated.id, updated);
+    this.#indexCredential(updated);
     this.#recordAudit({
       actorId: actor.id,
       action: auditAction,
@@ -843,10 +851,28 @@ export class AuthService {
     return admin;
   }
 
+  #indexCredential(credential) {
+    let credentialIds = this.#credentialsByAdmin.get(credential.adminId);
+    if (!credentialIds) {
+      credentialIds = new Set();
+      this.#credentialsByAdmin.set(credential.adminId, credentialIds);
+    }
+    credentialIds.add(credential.id);
+  }
+
   #activeCredentialsForAdmin(adminId) {
-    return [...this.credentials.values()].filter(
-      (credential) => credential.adminId === adminId && credential.status === "active"
-    );
+    const credentialIds = this.#credentialsByAdmin.get(adminId);
+    if (!credentialIds) {
+      return [];
+    }
+    const active = [];
+    for (const credentialId of credentialIds) {
+      const credential = this.credentials.get(credentialId);
+      if (credential && credential.adminId === adminId && credential.status === "active") {
+        active.push(credential);
+      }
+    }
+    return active;
   }
 
   #publicCredential(credential) {

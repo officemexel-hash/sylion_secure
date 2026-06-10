@@ -38,8 +38,14 @@ export class DeviceInventoryService {
     this.operators = operators;
     this.devices = new PersistentMap({ store, collection: "devices" });
     this.serialIndex = new Map();
+    this.operatorIndex = new Map();
+    this.registrationOrder = new Map();
+    this.registrationSeq = 0;
     for (const device of this.devices.values()) {
       this.serialIndex.set(device.serial, device.id);
+      this.registrationOrder.set(device.id, this.registrationSeq);
+      this.registrationSeq += 1;
+      this.#addToOperatorIndex(device.assignedOperatorId, device.id);
     }
   }
 
@@ -95,6 +101,9 @@ export class DeviceInventoryService {
     };
     this.devices.set(device.id, device);
     this.serialIndex.set(device.serial, device.id);
+    this.registrationOrder.set(device.id, this.registrationSeq);
+    this.registrationSeq += 1;
+    this.#addToOperatorIndex(device.assignedOperatorId, device.id);
     this.audit.record({
       actorId: actor.id,
       action: "device.registered",
@@ -122,6 +131,7 @@ export class DeviceInventoryService {
       updatedAt: new Date().toISOString()
     };
     this.devices.set(deviceId, next);
+    this.#moveOperatorIndex(current.assignedOperatorId, next.assignedOperatorId, deviceId);
     this.audit.record({
       actorId: actor.id,
       action: "device.assigned",
@@ -165,6 +175,7 @@ export class DeviceInventoryService {
       updatedAt: new Date().toISOString()
     };
     this.devices.set(deviceId, next);
+    this.#moveOperatorIndex(current.assignedOperatorId, next.assignedOperatorId, deviceId);
     this.audit.record({
       actorId: actor.id,
       action: "device.posture_updated",
@@ -191,6 +202,7 @@ export class DeviceInventoryService {
       updatedAt: new Date().toISOString()
     };
     this.devices.set(deviceId, next);
+    this.#moveOperatorIndex(current.assignedOperatorId, next.assignedOperatorId, deviceId);
     this.audit.record({
       actorId: actor.id,
       action: "device.certificate_attached",
@@ -219,7 +231,42 @@ export class DeviceInventoryService {
   }
 
   listForOperatorScoped(operatorId) {
-    return [...this.devices.values()].filter((device) => device.assignedOperatorId === operatorId);
+    const deviceIds = this.operatorIndex.get(operatorId);
+    if (!deviceIds) {
+      return [];
+    }
+    return [...deviceIds]
+      .map((deviceId) => this.devices.get(deviceId))
+      .filter(Boolean)
+      .sort((a, b) => this.registrationOrder.get(a.id) - this.registrationOrder.get(b.id));
+  }
+
+  #addToOperatorIndex(operatorId, deviceId) {
+    let deviceIds = this.operatorIndex.get(operatorId);
+    if (!deviceIds) {
+      deviceIds = new Set();
+      this.operatorIndex.set(operatorId, deviceIds);
+    }
+    deviceIds.add(deviceId);
+  }
+
+  #removeFromOperatorIndex(operatorId, deviceId) {
+    const deviceIds = this.operatorIndex.get(operatorId);
+    if (!deviceIds) {
+      return;
+    }
+    deviceIds.delete(deviceId);
+    if (deviceIds.size === 0) {
+      this.operatorIndex.delete(operatorId);
+    }
+  }
+
+  #moveOperatorIndex(previousOperatorId, nextOperatorId, deviceId) {
+    if (previousOperatorId === nextOperatorId) {
+      return;
+    }
+    this.#removeFromOperatorIndex(previousOperatorId, deviceId);
+    this.#addToOperatorIndex(nextOperatorId, deviceId);
   }
 
   #requireDevice(deviceId) {

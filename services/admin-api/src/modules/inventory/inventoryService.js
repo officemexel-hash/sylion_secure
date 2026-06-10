@@ -49,8 +49,10 @@ export class InventoryService {
     this.vpsSets = new PersistentMap({ store, collection: "infrastructure_sets" });
     this.setIdToOperator = new Map();
     this.providerResourceOwners = new Map();
+    this.operatorSetIndex = new Map();
     for (const set of this.vpsSets.values()) {
       this.setIdToOperator.set(set.id, set.operatorId);
+      this.#addToOperatorSetIndex(set.operatorId, set.id);
       for (const item of set.vps || []) {
         this.providerResourceOwners.set(item.providerResourceId, {
           operatorId: set.operatorId,
@@ -123,6 +125,7 @@ export class InventoryService {
 
     this.vpsSets.set(infrastructureSetId, normalized);
     this.setIdToOperator.set(infrastructureSetId, operatorId);
+    this.#moveOperatorSetIndex(setOwner, operatorId, infrastructureSetId);
     for (const item of normalized.vps) {
       this.providerResourceOwners.set(item.providerResourceId, {
         operatorId,
@@ -152,7 +155,11 @@ export class InventoryService {
     if (!operator) {
       throw notFound("operator", operatorId);
     }
-    return [...this.vpsSets.values()].filter((set) => set.operatorId === operatorId);
+    const setIds = this.operatorSetIndex.get(operatorId);
+    if (!setIds) {
+      return [];
+    }
+    return [...setIds].map((setId) => this.vpsSets.get(setId)).filter(Boolean);
   }
 
   transitionLifecycle({ actor, infrastructureSetId, lifecycleState, correlationId }) {
@@ -179,6 +186,7 @@ export class InventoryService {
       updatedAt: new Date().toISOString()
     };
     this.vpsSets.set(infrastructureSetId, next);
+    this.#moveOperatorSetIndex(current.operatorId, next.operatorId, infrastructureSetId);
     this.audit.record({
       actorId: actor.id,
       action: "inventory.vps_set.lifecycle_transitioned",
@@ -216,6 +224,7 @@ export class InventoryService {
       updatedAt: new Date().toISOString()
     };
     this.vpsSets.set(infrastructureSetId, next);
+    this.#moveOperatorSetIndex(current.operatorId, next.operatorId, infrastructureSetId);
     this.audit.record({
       actorId: actor.id,
       action: "inventory.vps_set.certificate_attached",
@@ -232,6 +241,34 @@ export class InventoryService {
 
   get(infrastructureSetId) {
     return this.vpsSets.get(infrastructureSetId);
+  }
+
+  #addToOperatorSetIndex(operatorId, infrastructureSetId) {
+    let setIds = this.operatorSetIndex.get(operatorId);
+    if (!setIds) {
+      setIds = new Set();
+      this.operatorSetIndex.set(operatorId, setIds);
+    }
+    setIds.add(infrastructureSetId);
+  }
+
+  #removeFromOperatorSetIndex(operatorId, infrastructureSetId) {
+    const setIds = this.operatorSetIndex.get(operatorId);
+    if (!setIds) {
+      return;
+    }
+    setIds.delete(infrastructureSetId);
+    if (setIds.size === 0) {
+      this.operatorSetIndex.delete(operatorId);
+    }
+  }
+
+  #moveOperatorSetIndex(previousOperatorId, nextOperatorId, infrastructureSetId) {
+    if (previousOperatorId === nextOperatorId) {
+      return;
+    }
+    this.#removeFromOperatorSetIndex(previousOperatorId, infrastructureSetId);
+    this.#addToOperatorSetIndex(nextOperatorId, infrastructureSetId);
   }
 
   #normalizeVpsSet({
