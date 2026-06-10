@@ -52,8 +52,21 @@ Diagnostyka na żywym routerze (key-auth, bez mutacji). **Pozytywne — transpor
 | Kill switch nftables (KS-ROUTER-6) | ✅ `table inet sylion_killswitch`, policy drop input/forward/output; forward `br-lan ↔ 10.42.0.0/16` dozwolony; output DNS→`10.42.0.11:53`, IKE 500/4500, NTP | `nft list table inet sylion_killswitch` |
 | strongSwan full (KS-ROUTER-3) | ✅ strongSwan 5.9.2-full | `opkg list-installed` |
 
+**End-to-end z Pixela (2026-06-10, Pixel 9 Pro / GrapheneOS, klient LAN `192.168.8.175`):**
+
+| Test | Wynik | Znaczenie |
+|---|---|---|
+| ping G1 internal DNS `10.42.0.11` | ✅ **3/3, ~60ms RTT** | Pixel → Puli AX → IPsec → G1 **działa** (KS-TEST-1 factual) |
+| ping G2 broker `10.42.0.12` | ✅ **3/3, ~89ms** | strefa G2 osiągalna przez tunel |
+| ping `10.42.0.10` | ✅ 2/2 | strefa G1 osiągalna |
+| ping workload `10.44.0.13` | ❌ 0/2 | oczekiwane — TS tunelu to tylko `10.42.0.0/24`; workloady przez G2 broker |
+| default route Pixela | brak poza `192.168.8.0/24` | Pixel rozmawia wyłącznie z siecią SYLION (postura kill-switch) |
+
+→ **Korekta:** data-plane Pixel→router→G1/G2 jest **zweryfikowany jako działający**. Wcześniejszy
+brak odpowiedzi dotyczył ruchu źródłowanego przez sam router (`10.43.0.2`), nie ścieżki klienta LAN.
+
 **Luki / do domknięcia:**
-- ⚠️ **Data-plane do `10.42.0.11` niezweryfikowany** — ping/DNS z routera nie wraca (router źródłuje z `10.43.0.2`; kwestia strony G1 lub klienta LAN). End-to-end factual (KS-TEST-1) wymaga **Pixela jako klienta LAN** (obecnie adb unauthorized).
+- ⚠️ Osiągalność **workloadów** (`10.44.0.0`) przez G2 session broker — do weryfikacji factual (uruchomiony workload + handoff).
 - ⚠️ Uplink przez **wwan/Wi-Fi** (`apclix0`, default via `192.168.6.1`), port WAN eth0 down — OK dla lab, produkcja oczekuje zdefiniowanego uplinku. (Smoke `puli-ax-physical-smoke` fałszywie raportuje `wan_not_ready` bo sprawdza eth0, nie wwan — kandydat na fix skryptu.)
 
 | **F-36** | OpenWrt **21.02-SNAPSHOT** na Puli AX (GL-XE3000) — Księga 4.0 KS-ROUTER-3 wymaga **OpenWrt 23.05+**. Firmware poniżej bramki. | `gate_router_puli_ax` | hardware (firmware) | Hardware | OPEN |
