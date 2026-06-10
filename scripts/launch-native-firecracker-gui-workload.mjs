@@ -1399,7 +1399,7 @@ async function main() {
   // The G2 guacamole-gateway verification is advisory: blind-E2EE workloads stream through the
   // broker, not G2, and a G2 SSH/gateway hiccup must not abort an otherwise-successful recreate.
   // Degrade to an empty result instead of throwing; readyThroughG2 then stays false.
-  let g2 = { error: null };
+  let g2;
   try {
     g2 = await verifyFromG2();
   } catch (error) {

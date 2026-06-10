@@ -195,7 +195,7 @@ test("Step 3.79 Guacamole deploy plan stays private and does not print secrets",
 });
 
 test("Step 3.79 noVNC is blocked as lab-only session broker", async () => {
-  const { app, baseUrl, close } = await startTestServer({
+  const { baseUrl, close } = await startTestServer({
     liveExecutionOptions: {
       env: {
         SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL: "true",
@@ -273,7 +273,7 @@ test("Step 3.79 noVNC is blocked as lab-only session broker", async () => {
 });
 
 test("Step 3.79 Guacamole remains an interim G2 broker and cannot satisfy PHANTOM blind broker readiness", async () => {
-  const { app, baseUrl, close } = await startTestServer({
+  const { baseUrl, close } = await startTestServer({
     liveExecutionOptions: {
       env: {
         SYLION_G2_SESSION_BROKER: "guacamole",

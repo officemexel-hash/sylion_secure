@@ -194,12 +194,6 @@ function bearerToken(req) {
   return header.startsWith("Bearer ") ? header.slice("Bearer ".length) : null;
 }
 
-function operatorBearerToken(req) {
-  const header = req.headers.authorization || "";
-  if (header.startsWith("Bearer ")) return header.slice("Bearer ".length);
-  return parseCookies(req).sylion_operator_session || null;
-}
-
 function operatorTokenSource(req) {
   const header = req.headers.authorization || "";
   if (header.startsWith("Bearer ")) {

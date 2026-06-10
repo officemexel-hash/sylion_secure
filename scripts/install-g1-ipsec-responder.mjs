@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
@@ -22,30 +22,6 @@ function hasArg(name) {
 
 function isoNow() {
   return new Date().toISOString();
-}
-
-function execFileAsync(command, args, options = {}) {
-  return new Promise((resolve) => {
-    execFile(
-      command,
-      args,
-      {
-        windowsHide: true,
-        timeout: options.timeout || 120_000,
-        maxBuffer: options.maxBuffer || 2 * 1024 * 1024,
-        input: options.input
-      },
-      (error, stdout, stderr) => {
-        resolve({
-          ok: !error,
-          code: error?.code || 0,
-          stdout: String(stdout || "").trim(),
-          stderr: String(stderr || "").trim(),
-          message: error?.message || null
-        });
-      }
-    );
-  });
 }
 
 function spawnWithInput(command, args, input, options = {}) {

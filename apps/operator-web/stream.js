@@ -6,7 +6,6 @@
 (function () {
   "use strict";
 
-  const STREAM_PATH = "/vnc.html?autoconnect=true&resize=remote&path=websockify";
   const SELKIES_PATH = "/";
   const WORKLOADS = Object.freeze({
     duckduckgo_browser: {

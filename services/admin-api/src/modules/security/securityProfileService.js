@@ -1,6 +1,6 @@
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
-import { newId, requireCorrelationId } from "../../lib/id.js";
+import { requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const FIDO2_MODES = new Set(["configuration_only", "enrollment_deferred", "enrollment_ready"]);

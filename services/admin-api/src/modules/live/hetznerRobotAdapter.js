@@ -30,7 +30,7 @@ function formBody(input = {}) {
 }
 
 async function sanitizedRobotError(response) {
-  let payload = null;
+  let payload;
   try {
     payload = await response.json();
   } catch {

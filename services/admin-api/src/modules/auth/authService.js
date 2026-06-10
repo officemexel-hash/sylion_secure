@@ -327,7 +327,7 @@ export class AuthService {
 
   verifyStepUp({ actor, challengeId, credentialId, assertion = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    const challenge = this.#consumeChallenge({
+    this.#consumeChallenge({
       challengeId,
       purpose: "step_up",
       actor,

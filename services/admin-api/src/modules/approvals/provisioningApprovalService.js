@@ -596,7 +596,6 @@ export class ProvisioningApprovalService {
     actor,
     planId = null,
     approvalId = null,
-    requireApproval = false,
     correlationId
   }) {
     const corr = requireCorrelationId(correlationId);

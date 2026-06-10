@@ -138,7 +138,7 @@ async function run() {
   const actions = [];
   const issues = [];
   const screenshots = [];
-  let summary = {};
+  let summary;
 
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });

@@ -275,7 +275,7 @@ async function installAdminPortalSecret({ adminHost, adminKey, portalPrivateIp =
     const envPath = join(tmp, "50-public-portal-secret.conf");
     await writeFile(
       envPath,
-      `[Service]\nEnvironment=\"SYLION_PUBLIC_PORTAL_SHARED_SECRET=${secret}\"\n`,
+      `[Service]\nEnvironment="SYLION_PUBLIC_PORTAL_SHARED_SECRET=${secret}"\n`,
       { mode: 0o600 }
     );
     scp(adminHost, adminKey, envPath, "/tmp/50-public-portal-secret.conf");

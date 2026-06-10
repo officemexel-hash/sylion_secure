@@ -50,7 +50,7 @@ test("Step 3.42 rendered gateway config has no embedded workload password and no
   assert.match(config, /ssl_certificate_key \/etc\/sylion\/tls\/sylion-internal-server\.key;/);
   assert.match(config, /server_name admin\.sylion\.internal;/);
   assert.match(config, /server_name operator\.sylion\.internal;/);
-  assert.match(config, /location = \/ \{\n    return 302 \/operator;/);
+  assert.match(config, /location = \/ \{\n {4}return 302 \/operator;/);
   assert.doesNotMatch(config, /server_name admin\.sylion\.internal operator\.sylion\.internal/);
   assert.doesNotMatch(config, /listen 0\.0\.0\.0:443/);
   assert.doesNotMatch(config, /sylion-signal-local/);

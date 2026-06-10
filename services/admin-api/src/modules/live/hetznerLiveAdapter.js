@@ -36,7 +36,7 @@ function serverName({ operatorId, role, idempotencyKey }) {
 }
 
 async function sanitizedProviderError(response) {
-  let payload = {};
+  let payload;
   try {
     payload = await response.json();
   } catch {

@@ -3,7 +3,6 @@ import { forbidden, notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
-const TEST_TYPES = new Set(["imei_change_characterization"]);
 const STATUSES = new Set([
   "draft",
   "legal_review",

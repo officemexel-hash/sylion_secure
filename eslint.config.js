@@ -31,6 +31,31 @@ export default [
     }
   },
   {
+    files: ["scripts/**/*.cjs"],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "commonjs",
+      globals: { ...globals.node }
+    },
+    rules: {
+      "no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" }
+      ]
+    }
+  },
+  {
+    // Skrypty Playwright: callbacki page.evaluate() wykonuja sie w przegladarce.
+    files: [
+      "scripts/admin-dashboard-smoke.mjs",
+      "scripts/admin-step3-28-human-live-promotion.mjs",
+      "scripts/operator-portal-smoke.mjs"
+    ],
+    languageOptions: {
+      globals: { ...globals.node, document: "readonly", window: "readonly" }
+    }
+  },
+  {
     files: ["apps/admin-web/**/*.js"],
     languageOptions: {
       ecmaVersion: 2024,

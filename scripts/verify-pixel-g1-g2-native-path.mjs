@@ -58,7 +58,7 @@ status="$(sudo -n swanctl --list-sas 2>/dev/null || sudo -n ipsec statusall 2>/d
 # A pixel-terminated tunnel ('pixel.OP-001@...') is also accepted for setups
 # where the GrapheneOS client dials in directly. Match either to avoid a false
 # 'down' verdict on the router-terminated path.
-echo "$status" | grep -qE '(pixel|router)\.OP-001@sylion.internal' && echo pixel_sa=true || echo pixel_sa=false
+echo "$status" | grep -qE '(pixel|router).OP-001@sylion.internal' && echo pixel_sa=true || echo pixel_sa=false
 echo "$status" | grep -q '10.43.0.' && echo pixel_pool=true || echo pixel_pool=false
 echo "$status" | grep -q '10.42.0.0/24' && echo g1_ts=true || echo g1_ts=false
 `;

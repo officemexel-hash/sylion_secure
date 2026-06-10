@@ -218,7 +218,7 @@ async function openUrl(serial, url, name, delayMs = 3500) {
   );
   await new Promise((resolve) => setTimeout(resolve, delayMs));
   const screenshot = await screencap(serial, name);
-  let uiText = "";
+  let uiText;
   try {
     uiText = await dumpUi(serial, name);
     if (/Restore pages\?|Chromium didn't shut down/i.test(uiText)) {
@@ -621,7 +621,7 @@ async function run() {
   const reachableHosts = Object.entries(networkBefore.pings || {})
     .filter(([, v]) => v?.ok)
     .map(([host]) => host);
-  let vpnEvidenceStatus = null;
+  let vpnEvidenceStatus;
   try {
     // The operator session lives on the admin-api at 127.0.0.1:8099 ON THE ADMIN SERVER
     // (seedLiveOperator runs there via SSH). Record the live VPN attestation on that same
