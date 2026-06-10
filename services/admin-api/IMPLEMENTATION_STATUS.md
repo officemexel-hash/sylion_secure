@@ -1,8 +1,17 @@
 # Admin API Implementation Status
 
-Status na 2026-05-21. Commit HEAD: `5b04e9f` (Step 3.16).
+Status zaktualizowany 2026-06-10 (domyka F-18 staleness). Snapshot poniżej obejmował
+Step 3.16 (commit `5b04e9f`); od tego czasu praca Codexa doszła do okolic Step 3.118
+(natywny Firecracker GUI, blind E2EE frame relay, RFB input bridge przez AX102, natywne
+ProtonMail/SimpleX/Telegram). **Aktualny wynik testów: 305 pass / 86 plików** (było 77).
 
-V1 jest zamrozone. V2 Step 1, Step 2, Step 3.1, Step 3.2, Step 3.3, Step 3.4, Step 3.5, Step 3.6, Step 3.7, Step 3.8, Step 3.9, Step 3.10, Step 3.11, Step 3.12, Step 3.13, Step 3.14, Step 3.15 i Step 3.16 sa zaimplementowane:
+> **Roadmapa do produkcji:** [`adr/ADR-production-readiness-roadmap-001.md`](../../adr/ADR-production-readiness-roadmap-001.md)
+> (macierz [N] Księgi 4.0 → release gate → faza → owner). Otwarte findings:
+> [`shared/references/findings-roadmap.md`](../../shared/references/findings-roadmap.md).
+
+V1 jest zamrozone. Poniższy snapshot list modułów/testów odpowiada Step 3.16; pełną aktualną
+listę kroków daje `docs/admin-panel-v2/` (najnowszy `step3-109` w docs, wersje skryptów do `step3-118`).
+Zaimplementowane (snapshot Step 1 – Step 3.16):
 
 ```text
 Step 1:    API SDK + SQLite persistence foundation
@@ -223,13 +232,16 @@ npm.cmd test
 npm.cmd run test:dashboard  # Playwright
 ```
 
-Aktualny wynik:
+Aktualny wynik (2026-06-10):
 
 ```text
-77 tests
-77 passing
+305 tests
+305 passing
 0 failing
+~12s wall (node --test --test-concurrency=1)
 ```
+
+(Snapshot Step 3.16 raportował 77 testów — wzrost odzwierciedla Step 3.17–3.118 + testy perf.)
 
 ## Dashboard / Playwright Regression
 
@@ -265,14 +277,26 @@ Pozostają HUMAN GATE blockery (per `releaseControlService` gates):
 
 ## Nastepny Priorytet (orientacyjnie, audit-driven)
 
+Pełne fazowanie i mapowanie na wymagania [N] Księgi 4.0:
+[`adr/ADR-production-readiness-roadmap-001.md`](../../adr/ADR-production-readiness-roadmap-001.md).
+Macierz findings: [`shared/references/findings-roadmap.md`](../../shared/references/findings-roadmap.md).
+
+Faza 1 (software trust foundation, feature-flagged OFF — bez HUMAN GATE do implementacji):
+
 ```text
-1. Vault/KMS/HSM backend pod EnvSecretProvider (zamknac F-25 final).
-2. WORM hardening audit hash chain (F-19) — HMAC w HSM lub external anchor.
-3. Token rotation policy + audit (F-34).
-4. Provider rate-limit/backoff (F-31).
-5. Persistent reconciliation history (F-32).
-6. Branch protection + signed commits (F-15, F-16) — GitHub admin.
-7. Rozwoj Step 3.17 - TBD (Codex decision).
+1. Vault/KMS backend pod EnvSecretProvider, Phase A (F-25).
+2. Token rotation policy + audit (F-34).
+3. WORM hardening audit hash chain (F-19 Phase A) — HMAC + fix kanonizacji (F-20).
+4. Ujednolicenie kontroli live: release gate autorytatywny vs env-flag (F-35).
+5. OPA/Rego policy engine + OIDC/mTLS service-to-service.
+6. CDR realny (weryfikacja cdrService + ClamAV/magic-bytes/mat2/DocBleach).
+7. Provider rate-limit/backoff (F-31), persistent reconciliation (F-32).
+8. CODEOWNERS realne slugs, branch protection + signed commits (F-15, F-16).
 ```
 
-PHANTOM v3.0 pozostaje `[A]` poza certifiable baseline. Wszystkie release gate decyzje to HUMAN GATE.
+Faza 2+ (hardware/compliance, HUMAN GATE): HSM, Firecracker per-tier, router firmware
+signing, GrapheneOS image pipeline, Matrix homeserver, confidential computing, certyfikacja.
+
+PHANTOM v3.0 pozostaje `[A]` poza certifiable baseline. Wszystkie release gate decyzje to
+HUMAN GATE. `productionExecutionAllowed=false` zmienialne wyłącznie decyzją
+Architect + CISO + Legal + Compliance po dowodzie 100% zgodności [N].
