@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createApp } from "../services/admin-api/src/app.js";
-import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
+import { createAdminApiClient } from "./lib/admin-api-client-factory.mjs";
 
 let baseUrl = process.env.SYLION_BASE_URL || null;
 const outputDir = join(
@@ -30,10 +30,7 @@ async function loadPlaywright() {
 }
 
 async function loginClient() {
-  const anon = new AdminApiClient({
-    baseUrl,
-    correlationIdFactory: () => `corr_step3_17_operator_smoke_${crypto.randomUUID()}`
-  });
+  const anon = createAdminApiClient(baseUrl, "corr_step3_17_operator_smoke_");
   const credentialId = `cred-step3-17-smoke-${crypto.randomUUID()}`;
   const enrollment = await anon.createEnrollmentOptions({
     email: "admin@sylion.local",

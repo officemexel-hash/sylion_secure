@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { ROLES, RESOURCE_TYPES } from "../../domain/constants.js";
 import { AppError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { isoNow } from "../../lib/utils.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 import { createWebAuthnVerifier } from "./webauthnVerifier.js";
 import { publicAuthPolicyMatrix } from "./authPolicy.js";
@@ -12,10 +13,6 @@ function hashSecret(value) {
 
 function nowMs() {
   return Date.now();
-}
-
-function isoNow() {
-  return new Date().toISOString();
 }
 
 function futureIso(ttlMs) {

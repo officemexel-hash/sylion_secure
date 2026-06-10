@@ -1,14 +1,11 @@
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { requireCorrelationId } from "../../lib/id.js";
+import { isoNow } from "../../lib/utils.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const FIDO2_MODES = new Set(["configuration_only", "enrollment_deferred", "enrollment_ready"]);
 const HSM_MODES = new Set(["reference_only", "byo_hsm_deferred", "vault_hsm_planned"]);
-
-function isoNow() {
-  return new Date().toISOString();
-}
 
 function requireScope(scope) {
   if (!["admin", "operator"].includes(scope)) {

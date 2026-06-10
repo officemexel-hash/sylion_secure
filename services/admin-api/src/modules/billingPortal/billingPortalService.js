@@ -2,6 +2,7 @@ import { createHmac, createHash, randomBytes, timingSafeEqual } from "node:crypt
 import { TIERS } from "../../domain/constants.js";
 import { AppError, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { isoNow } from "../../lib/utils.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const PROVIDERS = new Set(["stripe", "coingate", "mollie"]);
@@ -200,10 +201,6 @@ export const PORTAL_TOKEN_TYPES = Object.freeze({
   PHANTOM_REVIEW: "phantom_review",
   PHANTOM_ACCESS: "phantom_access"
 });
-
-function isoNow() {
-  return new Date().toISOString();
-}
 
 function requireText(value, field, min = 2) {
   if (!value || typeof value !== "string" || value.trim().length < min) {

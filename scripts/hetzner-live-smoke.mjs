@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createApp } from "../services/admin-api/src/app.js";
-import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
+import { createAdminApiClient } from "./lib/admin-api-client-factory.mjs";
 
 const outputDir = join(
   process.cwd(),
@@ -21,10 +21,7 @@ function requireEnv(name) {
 }
 
 async function loginClient(baseUrl) {
-  const anon = new AdminApiClient({
-    baseUrl,
-    correlationIdFactory: () => `corr_hetzner_live_smoke_${crypto.randomUUID()}`
-  });
+  const anon = createAdminApiClient(baseUrl, "corr_hetzner_live_smoke_");
   const credentialId = `cred-hetzner-live-smoke-${crypto.randomUUID()}`;
   const enrollment = await anon.createEnrollmentOptions({
     email: "admin@sylion.local",

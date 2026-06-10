@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { chromium } from "playwright";
 import { writeHumanEvidenceSummary } from "./lib/human-evidence.mjs";
 import { evaluateLibreOfficeFactualState } from "./lib/libreoffice-factual-evaluator.mjs";
-import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
+import { createAdminApiClient } from "./lib/admin-api-client-factory.mjs";
 
 const appKey = "libreoffice";
 const baseUrl = process.env.SYLION_BASE_URL || "http://127.0.0.1:18099";
@@ -45,10 +45,7 @@ function markerFromText(text) {
 }
 
 async function loginClient() {
-  const anon = new AdminApiClient({
-    baseUrl,
-    correlationIdFactory: () => `corr_step3_86_libre_${crypto.randomUUID()}`
-  });
+  const anon = createAdminApiClient(baseUrl, "corr_step3_86_libre_");
   const credentialId = `cred-step3-86-libre-${crypto.randomUUID()}`;
   try {
     const enrollment = await anon.createEnrollmentOptions({

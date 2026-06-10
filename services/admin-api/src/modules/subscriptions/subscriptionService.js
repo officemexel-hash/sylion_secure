@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { APP_STATUSES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { isoNow } from "../../lib/utils.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const TIER_VALUES = new Set(Object.values(TIERS));
@@ -194,10 +195,6 @@ const DEFAULT_PLANS = Object.freeze([
     supportLevel: "sovereign"
   }
 ]);
-
-function isoNow() {
-  return new Date().toISOString();
-}
 
 function requireText(value, field, min = 2) {
   if (!value || typeof value !== "string" || value.trim().length < min) {

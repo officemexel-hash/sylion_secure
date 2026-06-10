@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { writeHumanEvidenceSummary } from "./lib/human-evidence.mjs";
-import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
+import { createAdminApiClient } from "./lib/admin-api-client-factory.mjs";
 
 const baseUrl = process.env.SYLION_BASE_URL || "http://127.0.0.1:18099";
 const appFilter = process.env.SYLION_APP_UNDER_TEST || "all";
@@ -23,10 +23,7 @@ function repoRelativePath(path) {
 }
 
 async function loginClient() {
-  const anon = new AdminApiClient({
-    baseUrl,
-    correlationIdFactory: () => `corr_step3_86_app_runner_${crypto.randomUUID()}`
-  });
+  const anon = createAdminApiClient(baseUrl, "corr_step3_86_app_runner_");
   const credentialId = `cred-step3-86-app-runner-${crypto.randomUUID()}`;
   try {
     const enrollment = await anon.createEnrollmentOptions({

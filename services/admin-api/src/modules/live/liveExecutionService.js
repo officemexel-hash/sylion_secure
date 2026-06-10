@@ -2,15 +2,12 @@ import { existsSync } from "node:fs";
 import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { isoNow } from "../../lib/utils.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 import { HetznerLiveAdapter } from "./hetznerLiveAdapter.js";
 import { HetznerRobotAdapter } from "./hetznerRobotAdapter.js";
 import { OvhLiveAdapter } from "./ovhLiveAdapter.js";
 import { EnvSecretProvider } from "../secrets/envSecretProvider.js";
-
-function isoNow() {
-  return new Date().toISOString();
-}
 
 function splitEnvList(value) {
   return String(value || "")

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { OPERATOR_STATUSES, RESOURCE_TYPES, TIERS } from "../../domain/constants.js";
 import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
+import { isoNow } from "../../lib/utils.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const DISPOSABLE_OPERATOR_SCOPE = "operator_teardown_lab";
@@ -14,10 +15,6 @@ const DISPOSABLE_TEARDOWN_ACTIONS = new Set([
 const SECRET_FIELD_PATTERN =
   /(password|secret|token|api[_-]?key|panic.*code|otp|credential|private[_-]?key)/i;
 const SECRET_FIELD_ALLOWLIST = new Set(["confirmation", "correlationId"]);
-
-function isoNow() {
-  return new Date().toISOString();
-}
 
 function hashConfirmation(confirmation) {
   return createHash("sha256")
