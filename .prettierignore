@@ -1,0 +1,16 @@
+# Formatujemy tylko kod aplikacyjny: services/, apps/, scripts/ + configi w root.
+# Docs/ADR/skills/references są edytowane równolegle (Codex) — poza zakresem reformatu.
+node_modules/
+.data/
+.deploy/
+.tools/
+.github/
+docs/
+shared/
+skills/
+adr/
+infrastructure/
+phantom-router/
+..sylion_secure_router_im/
+package-lock.json
+*.md
