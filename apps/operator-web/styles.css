@@ -1184,10 +1184,9 @@ button.primary:disabled {
   }
 
   .stream-control-bar {
-    grid-template-columns: minmax(86px, 1fr) minmax(72px, auto) minmax(78px, auto) minmax(
-        42px,
-        auto
-      ) minmax(48px, auto);
+    grid-template-columns:
+      minmax(86px, 1fr) minmax(72px, auto) minmax(78px, auto) minmax(42px, auto)
+      minmax(48px, auto);
     gap: 5px;
     min-height: calc(58px + env(safe-area-inset-bottom));
   }

@@ -65,6 +65,30 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  lint:
+    name: Lint + format check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Prettier check
+        run: npm run format:check
+
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
@@ -82,8 +106,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           # Fail on any leak; treat as required check.
-          # Configuration can be tuned via .gitleaks.toml if added later.
-          config-path: ""
+          # Reguły SYLION (Hetzner/OVH/SYLION_* env) w .gitleaks.toml.
+          config-path: ".gitleaks.toml"
 
   prohibited-terms-check:
     name: Prohibited terms in production code

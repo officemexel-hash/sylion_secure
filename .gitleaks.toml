@@ -1,0 +1,35 @@
+# Gitleaks — konfiguracja SYLION Secure.
+# Rozszerza domyślne reguły o wzorce sekretów z infrastructure/deployment-secrets-contract.md.
+# Wartości sekretów NIGDY nie trafiają do repo (kontrakt §5.3); te reguły są siatką bezpieczeństwa.
+
+title = "SYLION Secure gitleaks config"
+
+[extend]
+useDefault = true
+
+# Token Hetzner Cloud (format per deployment-secrets-contract.md §2.1).
+[[rules]]
+id = "sylion-hetzner-cloud-token"
+description = "Hetzner Cloud API token (hcloud_...)"
+regex = '''\bhcloud_[A-Za-z0-9]{64}\b'''
+keywords = ["hcloud_"]
+
+# Przypisanie realnie wyglądającej wartości do zmiennej sekretowej SYLION/providera.
+# Placeholdery (<...>, puste, "set outside chat") nie matchują klasy wartości.
+[[rules]]
+id = "sylion-env-secret-assignment"
+description = "Wartość przypisana do zmiennej sekretowej SYLION_*/HETZNER_*/OVH_*"
+regex = '''(?i)\b(SYLION_[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PRIVATE_KEY)|HETZNER_API_TOKEN|OVH_APPLICATION_SECRET|OVH_CONSUMER_KEY)\b\s*[=:]\s*["']?([A-Za-z0-9+/=_-]{20,})'''
+secretGroup = 2
+keywords = ["SYLION_", "HETZNER_API_TOKEN", "OVH_"]
+
+[rules.allowlist]
+description = "Fałszywe tokeny w fixture'ach testowych (polityka: testy nigdy nie zawierają realnych sekretów; reguły domyślne nadal je skanują) oraz dokumentacja kontraktowa bez wartości."
+paths = [
+  '''services/admin-api/test/''',
+  '''docs/''',
+  '''\.env\.example$'''
+]
+regexes = [
+  '''(?i)(example|placeholder|redacted|changeme|test-token|never-leak|step3-\d+)'''
+]

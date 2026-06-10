@@ -592,12 +592,7 @@ export class ProvisioningApprovalService {
       .map(publicLifecycle);
   }
 
-  assertExecutionApproved({
-    actor,
-    planId = null,
-    approvalId = null,
-    correlationId
-  }) {
+  assertExecutionApproved({ actor, planId = null, approvalId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     if (!approvalId) {
       throw validationError("Provisioning approval is required before orchestrator execution", {
