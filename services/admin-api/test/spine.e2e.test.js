@@ -15,7 +15,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_test" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_test" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -64,18 +68,25 @@ test("human spine flow: login, create tenant, create operator, generate provisio
     assert.equal(operatorResult.payload.operator.baseline.vpsPerOperator, 3);
     assert.equal(operatorResult.payload.operator.baseline.cdrMandatory, true);
 
-    const planResult = await request(baseUrl, `/operators/${operatorResult.payload.operator.id}/provisioning-plan`, {
-      method: "POST",
-      token,
-      body: {
-        requestedApps: ["WhatsApp", "Signal", "Telegram"],
-        jurisdictionPolicy: { mode: "limited_manual", regions: ["eu-central"] }
+    const planResult = await request(
+      baseUrl,
+      `/operators/${operatorResult.payload.operator.id}/provisioning-plan`,
+      {
+        method: "POST",
+        token,
+        body: {
+          requestedApps: ["WhatsApp", "Signal", "Telegram"],
+          jurisdictionPolicy: { mode: "limited_manual", regions: ["eu-central"] }
+        }
       }
-    });
+    );
     assert.equal(planResult.status, 201);
     const plan = planResult.payload.plan;
     assert.equal(plan.baseline.vps.length, 3);
-    assert.deepEqual(plan.baseline.vps.map((vps) => vps.role), ["G1", "G2", "WORKLOAD"]);
+    assert.deepEqual(
+      plan.baseline.vps.map((vps) => vps.role),
+      ["G1", "G2", "WORKLOAD"]
+    );
     assert.ok(plan.baseline.vps.every((vps) => vps.shared === false));
     assert.equal(plan.baseline.router.model, "GL.iNet GL-XE3000 Puli AX");
     assert.equal(plan.baseline.cdr.mandatory, true);
@@ -124,13 +135,29 @@ test("entitlements block workload count above STANDARD limit", async () => {
       }
     });
 
-    const plan = await request(baseUrl, `/operators/${operator.payload.operator.id}/provisioning-plan`, {
-      method: "POST",
-      token,
-      body: {
-        requestedApps: ["WhatsApp", "Signal", "Telegram", "Threema", "Zangi", "DuckDuckGo", "LibreOffice", "Exodus", "Matrix Client", "Matrix Server", "Signal 2"]
+    const plan = await request(
+      baseUrl,
+      `/operators/${operator.payload.operator.id}/provisioning-plan`,
+      {
+        method: "POST",
+        token,
+        body: {
+          requestedApps: [
+            "WhatsApp",
+            "Signal",
+            "Telegram",
+            "Threema",
+            "Zangi",
+            "DuckDuckGo",
+            "LibreOffice",
+            "Exodus",
+            "Matrix Client",
+            "Matrix Server",
+            "Signal 2"
+          ]
+        }
       }
-    });
+    );
 
     assert.equal(plan.status, 422);
     assert.equal(plan.payload.error.code, "validation_error");

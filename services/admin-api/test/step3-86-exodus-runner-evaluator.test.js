@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateExodusFactualState, exodusEvaluatorPolicy } from "../../../scripts/lib/exodus-factual-evaluator.mjs";
+import {
+  evaluateExodusFactualState,
+  exodusEvaluatorPolicy
+} from "../../../scripts/lib/exodus-factual-evaluator.mjs";
 
 const matrixItem = {
   appKey: "exodus",
@@ -132,7 +135,13 @@ test("Step 3.86 Exodus evaluator fails forbidden wallet fields and public stream
 
 test("Step 3.86 Exodus evaluator policy documents wallet-data gates", () => {
   assert.equal(exodusEvaluatorPolicy.appKey, "exodus");
-  assert.deepEqual(exodusEvaluatorPolicy.requiredChecks, ["uiVisible", "walletWorkflow", "riskAcceptance"]);
+  assert.deepEqual(exodusEvaluatorPolicy.requiredChecks, [
+    "uiVisible",
+    "walletWorkflow",
+    "riskAcceptance"
+  ]);
   assert.ok(exodusEvaluatorPolicy.passRequires.includes("walletDataStored=false"));
-  assert.ok(exodusEvaluatorPolicy.failFast.includes("seed, mnemonic, recovery phrase or private-key fields"));
+  assert.ok(
+    exodusEvaluatorPolicy.failFast.includes("seed, mnemonic, recovery phrase or private-key fields")
+  );
 });

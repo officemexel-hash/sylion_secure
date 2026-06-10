@@ -31,7 +31,15 @@ export class ProviderDryRunService {
     this.plans = new PersistentMap({ store, collection: "provider_dry_run_plans" });
   }
 
-  planVps({ actor, providerId, operatorId, region, vpsPerOperator = 3, mutationMode = "dry_run", correlationId }) {
+  planVps({
+    actor,
+    providerId,
+    operatorId,
+    region,
+    vpsPerOperator = 3,
+    mutationMode = "dry_run",
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "provider.dry_run.plan", {
       operatorId,
@@ -50,11 +58,16 @@ export class ProviderDryRunService {
     if (!operator) throw notFound("operator", operatorId);
     const count = requirePositiveInteger(vpsPerOperator, "vpsPerOperator");
     if (count !== 3) {
-      throw validationError("Provider dry-run must preserve 3 VPS per operator baseline", { vpsPerOperator: count });
+      throw validationError("Provider dry-run must preserve 3 VPS per operator baseline", {
+        vpsPerOperator: count
+      });
     }
     const normalizedRegion = requireText(region, "region");
     if (!provider.regions.includes(normalizedRegion)) {
-      throw validationError("Region is not enabled for provider", { providerId, region: normalizedRegion });
+      throw validationError("Region is not enabled for provider", {
+        providerId,
+        region: normalizedRegion
+      });
     }
     const plan = {
       id: newId("provider_dry_run"),
@@ -94,7 +107,11 @@ export class ProviderDryRunService {
 
   list({ actor, operatorId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "provider.dry_run.plan", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.PROVIDER_DRY_RUN_PLAN });
+    this.rbac.assert(actor, "provider.dry_run.plan", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PROVIDER_DRY_RUN_PLAN
+    });
     return [...this.plans.values()].filter((plan) => !operatorId || plan.operatorId === operatorId);
   }
 }

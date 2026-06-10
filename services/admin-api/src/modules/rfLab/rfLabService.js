@@ -13,10 +13,12 @@ const STATUSES = new Set([
   "closed"
 ]);
 const REQUIRED_APPROVALS = Object.freeze(["legal", "ciso", "architect", "hardware"]);
-const FORBIDDEN_KEY_PATTERN = /(imsi|iccid|ki|opc|tac|at[_-]?command|command|unlock|nv[_-]?item|qcdm|firehose|diag|pool)/i;
+const FORBIDDEN_KEY_PATTERN =
+  /(imsi|iccid|ki|opc|tac|at[_-]?command|command|unlock|nv[_-]?item|qcdm|firehose|diag|pool)/i;
 const IMEI_KEY_PATTERN = /imei/i;
 const HASH_KEY_PATTERN = /hash$/i;
-const OPERATIONAL_VALUE_PATTERN = /(AT\+|EGMR|QCDM|QFirehose|EDL|NV\s*item|diagnostic\s+port|write\s+imei|unlock\s+modem)/i;
+const OPERATIONAL_VALUE_PATTERN =
+  /(AT\+|EGMR|QCDM|QFirehose|EDL|NV\s*item|diagnostic\s+port|write\s+imei|unlock\s+modem)/i;
 const RAW_CELLULAR_IDENTIFIER_PATTERN = /\b\d{14,20}\b/;
 const ROUTER_PREFLIGHT_COMPONENT = "puli_ax_rf_lab_router_preflight";
 const ROUTER_PREFLIGHT_STATUSES = new Set([
@@ -74,7 +76,9 @@ function rejectOperationalRadioDetails(value, path = "payload") {
   if (value === null || value === undefined) return;
   if (typeof value === "string") {
     if (OPERATIONAL_VALUE_PATTERN.test(value) || RAW_CELLULAR_IDENTIFIER_PATTERN.test(value)) {
-      throw validationError("RF lab records must not contain operational radio identity details", { field: path });
+      throw validationError("RF lab records must not contain operational radio identity details", {
+        field: path
+      });
     }
     return;
   }
@@ -87,9 +91,12 @@ function rejectOperationalRadioDetails(value, path = "payload") {
     const nextPath = `${path}.${key}`;
     const rawIdentityKey = IMEI_KEY_PATTERN.test(key) && !HASH_KEY_PATTERN.test(key);
     if (FORBIDDEN_KEY_PATTERN.test(key) || rawIdentityKey) {
-      throw validationError("RF lab records must use hashes and evidence references, not raw radio identity fields", {
-        field: nextPath
-      });
+      throw validationError(
+        "RF lab records must use hashes and evidence references, not raw radio identity fields",
+        {
+          field: nextPath
+        }
+      );
     }
     rejectOperationalRadioDetails(nested, nextPath);
   }
@@ -99,7 +106,9 @@ function rejectOperationalRadioValueOnly(value, path = "payload") {
   if (value === null || value === undefined) return;
   if (typeof value === "string") {
     if (OPERATIONAL_VALUE_PATTERN.test(value) || RAW_CELLULAR_IDENTIFIER_PATTERN.test(value)) {
-      throw validationError("RF lab records must not contain operational radio identity details", { field: path });
+      throw validationError("RF lab records must not contain operational radio identity details", {
+        field: path
+      });
     }
     return;
   }
@@ -138,22 +147,31 @@ function normalizeRouterPreflight(preflight) {
     });
   }
   if (!ROUTER_PREFLIGHT_STATUSES.has(preflight.status)) {
-    throw validationError("Unsupported RF lab router preflight status", { status: preflight.status });
-  }
-  const capabilities = safeBooleanMap(preflight.facts?.capabilities || {}, ROUTER_PREFLIGHT_CAPABILITY_FIELDS);
-  const controls = safeBooleanMap(preflight.controls || {}, ROUTER_PREFLIGHT_CONTROL_FIELDS);
-  if (controls.rawCellularIdentifiersRead
-    || controls.simSecretMaterialRead
-    || controls.mutationCommandsExecuted
-    || controls.productRuntimeExecutorAvailable
-    || controls.sideEffectAllowed
-    || controls.productionExecutionAllowed
-    || controls.passwordPrinted
-    || controls.secretsStored
-  ) {
-    throw validationError("RF lab router preflight indicates forbidden side effects or secret exposure", {
-      field: "preflight.controls"
+    throw validationError("Unsupported RF lab router preflight status", {
+      status: preflight.status
     });
+  }
+  const capabilities = safeBooleanMap(
+    preflight.facts?.capabilities || {},
+    ROUTER_PREFLIGHT_CAPABILITY_FIELDS
+  );
+  const controls = safeBooleanMap(preflight.controls || {}, ROUTER_PREFLIGHT_CONTROL_FIELDS);
+  if (
+    controls.rawCellularIdentifiersRead ||
+    controls.simSecretMaterialRead ||
+    controls.mutationCommandsExecuted ||
+    controls.productRuntimeExecutorAvailable ||
+    controls.sideEffectAllowed ||
+    controls.productionExecutionAllowed ||
+    controls.passwordPrinted ||
+    controls.secretsStored
+  ) {
+    throw validationError(
+      "RF lab router preflight indicates forbidden side effects or secret exposure",
+      {
+        field: "preflight.controls"
+      }
+    );
   }
   return {
     component: ROUTER_PREFLIGHT_COMPONENT,
@@ -220,7 +238,9 @@ export class RfLabService {
       resourceType: RESOURCE_TYPES.RF_LAB_TEST
     });
     const operator = operatorId ? this.#requireOperator(operatorId) : null;
-    const router = routerDeviceId ? this.#requireDevice(routerDeviceId, DEVICE_TYPES.ROUTER, operatorId) : null;
+    const router = routerDeviceId
+      ? this.#requireDevice(routerDeviceId, DEVICE_TYPES.ROUTER, operatorId)
+      : null;
     rejectOperationalRadioDetails({ purpose, evidenceRefs, extra });
     const record = {
       id: newId("rf_lab_test"),
@@ -266,7 +286,10 @@ export class RfLabService {
     });
     const test = this.#requireTest(testId);
     if (!REQUIRED_APPROVALS.includes(role)) {
-      throw validationError("Unsupported RF lab approval role", { role, supported: REQUIRED_APPROVALS });
+      throw validationError("Unsupported RF lab approval role", {
+        role,
+        supported: REQUIRED_APPROVALS
+      });
     }
     rejectOperationalRadioDetails({ comment, evidenceRef });
     const next = {
@@ -315,12 +338,21 @@ export class RfLabService {
       });
     }
     if (isolationStillActive !== true || publicNetworkObserved !== false) {
-      throw validationError("RF lab evidence requires active isolation and no public mobile network observation", {
-        isolationStillActive,
-        publicNetworkObserved
-      });
+      throw validationError(
+        "RF lab evidence requires active isolation and no public mobile network observation",
+        {
+          isolationStillActive,
+          publicNetworkObserved
+        }
+      );
     }
-    rejectOperationalRadioDetails({ resultSummary, spectrumMonitorRef, evidenceRefs, preChangeIdentifierHash, postChangeIdentifierHash });
+    rejectOperationalRadioDetails({
+      resultSummary,
+      spectrumMonitorRef,
+      evidenceRefs,
+      preChangeIdentifierHash,
+      postChangeIdentifierHash
+    });
     const evidence = {
       id: newId("rf_lab_evidence"),
       isolationStillActive: true,
@@ -346,13 +378,7 @@ export class RfLabService {
     return publicRecord(next);
   }
 
-  recordRouterSoftwarePreflight({
-    actor,
-    testId,
-    preflight,
-    evidenceRefs = [],
-    correlationId
-  }) {
+  recordRouterSoftwarePreflight({ actor, testId, preflight, evidenceRefs = [], correlationId }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "rf_lab.test.manage", {
       correlationId: corr,
@@ -360,9 +386,12 @@ export class RfLabService {
     });
     const test = this.#requireTest(testId);
     if (test.status === "rejected" || test.status === "closed") {
-      throw validationError("RF lab router preflight cannot be attached to a closed or rejected test", {
-        status: test.status
-      });
+      throw validationError(
+        "RF lab router preflight cannot be attached to a closed or rejected test",
+        {
+          status: test.status
+        }
+      );
     }
     rejectOperationalRadioDetails({ evidenceRefs });
     const normalized = normalizeRouterPreflight(preflight);
@@ -411,7 +440,8 @@ export class RfLabService {
       correlationId: corr,
       resourceType: RESOURCE_TYPES.RF_LAB_TEST
     });
-    if (status && !STATUSES.has(status)) throw validationError("Unsupported RF lab test status", { status });
+    if (status && !STATUSES.has(status))
+      throw validationError("Unsupported RF lab test status", { status });
     return [...this.tests.values()]
       .filter((record) => !operatorId || record.operatorId === operatorId)
       .filter((record) => !status || record.status === status)
@@ -434,7 +464,13 @@ export class RfLabService {
       resourceType: RESOURCE_TYPES.RF_LAB_TEST
     });
     const test = this.#requireTest(testId);
-    this.#audit(actor, "rf_lab.product_execution_denied", test, corr, "product_runtime_executor_forbidden");
+    this.#audit(
+      actor,
+      "rf_lab.product_execution_denied",
+      test,
+      corr,
+      "product_runtime_executor_forbidden"
+    );
     throw forbidden("rf_lab.product_runtime_imei_change_executor");
   }
 
@@ -447,7 +483,12 @@ export class RfLabService {
   #requireDevice(deviceId, type, operatorId) {
     const device = this.devices.get(deviceId);
     if (!device) throw notFound("device", deviceId);
-    if (device.type !== type) throw validationError("Device type mismatch", { deviceId, expected: type, actual: device.type });
+    if (device.type !== type)
+      throw validationError("Device type mismatch", {
+        deviceId,
+        expected: type,
+        actual: device.type
+      });
     if (operatorId && device.assignedOperatorId !== operatorId) {
       throw validationError("Device is not assigned to this operator", { deviceId, operatorId });
     }

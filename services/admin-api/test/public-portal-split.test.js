@@ -55,17 +55,23 @@ test("public portal edge serves only portal assets and allowlisted portal API", 
         SYLION_PUBLIC_PORTAL_SHARED_SECRET: sharedSecret,
         STRIPE_SECRET_KEY: "sk_test_redacted"
       },
-      fetcher: async () => new Response(JSON.stringify({
-        id: "cs_public_split",
-        url: "https://checkout.stripe.test/public-split"
-      }), { status: 200 })
+      fetcher: async () =>
+        new Response(
+          JSON.stringify({
+            id: "cs_public_split",
+            url: "https://checkout.stripe.test/public-split"
+          }),
+          { status: 200 }
+        )
     }
   });
   const admin = await startServer(adminApp);
-  const publicPortal = await startServer(createPublicPortalApp({
-    controlPlaneBaseUrl: admin.baseUrl,
-    portalSecret: sharedSecret
-  }));
+  const publicPortal = await startServer(
+    createPublicPortalApp({
+      controlPlaneBaseUrl: admin.baseUrl,
+      portalSecret: sharedSecret
+    })
+  );
 
   try {
     const directCheckout = await jsonRequest(admin.baseUrl, "/portal-api/checkouts", {
@@ -98,8 +104,14 @@ test("public portal edge serves only portal assets and allowlisted portal API", 
       body: checkoutBody()
     });
     assert.equal(checkout.status, 201);
-    assert.equal(checkout.payload.checkout.providerCheckoutUrl, "https://checkout.stripe.test/public-split");
-    assert.equal(JSON.stringify(adminApp.services.audit.list()).includes("must-not-forward"), false);
+    assert.equal(
+      checkout.payload.checkout.providerCheckoutUrl,
+      "https://checkout.stripe.test/public-split"
+    );
+    assert.equal(
+      JSON.stringify(adminApp.services.audit.list()).includes("must-not-forward"),
+      false
+    );
   } finally {
     await publicPortal.close();
     await admin.close();

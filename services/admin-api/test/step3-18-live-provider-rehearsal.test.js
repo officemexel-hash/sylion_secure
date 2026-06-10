@@ -92,14 +92,29 @@ test("Step 3.18 runs Hetzner adapter sandbox rehearsal without runtime token or 
     assert.equal(result.rehearsal.rehearsalMode, "adapter_sandbox");
     assert.equal(result.rehearsal.sideEffectAllowed, false);
     assert.equal(result.rehearsal.productionExecutionAllowed, false);
-    assert.deepEqual(result.rehearsal.resources.map((resource) => resource.role), ["G1", "G2", "WORKLOAD"]);
-    assert.ok(result.rehearsal.resources.every((resource) => resource.providerResourceId.startsWith("sandbox://")));
-    assert.ok(result.rehearsal.phases.some((phase) => phase.name === "cleanup_rollback" && phase.status === "passed"));
+    assert.deepEqual(
+      result.rehearsal.resources.map((resource) => resource.role),
+      ["G1", "G2", "WORKLOAD"]
+    );
+    assert.ok(
+      result.rehearsal.resources.every((resource) =>
+        resource.providerResourceId.startsWith("sandbox://")
+      )
+    );
+    assert.ok(
+      result.rehearsal.phases.some(
+        (phase) => phase.name === "cleanup_rollback" && phase.status === "passed"
+      )
+    );
     assert.equal(JSON.stringify(result).includes("stored-reference-only-step3-18"), false);
 
     const listed = await client.listLiveProviderRehearsals();
     assert.ok(listed.rehearsals.some((item) => item.id === result.rehearsal.id));
-    assert.ok(app.services.audit.list().some((event) => event.action === "live_cloud.provider_rehearsal_completed"));
+    assert.ok(
+      app.services.audit
+        .list()
+        .some((event) => event.action === "live_cloud.provider_rehearsal_completed")
+    );
   } finally {
     await close();
   }
@@ -154,9 +169,33 @@ test("Step 3.18 live provider rehearsal calls create, list, and cleanup only beh
     async createVpsSet(input) {
       calls.push(["create", input]);
       return [
-        { role: "G1", providerResourceId: "hcloud-18-g1", rollback: { action: "delete_server", providerResourceId: "hcloud-18-g1", idempotencyKey: input.idempotencyKey } },
-        { role: "G2", providerResourceId: "hcloud-18-g2", rollback: { action: "delete_server", providerResourceId: "hcloud-18-g2", idempotencyKey: input.idempotencyKey } },
-        { role: "WORKLOAD", providerResourceId: "hcloud-18-workload", rollback: { action: "delete_server", providerResourceId: "hcloud-18-workload", idempotencyKey: input.idempotencyKey } }
+        {
+          role: "G1",
+          providerResourceId: "hcloud-18-g1",
+          rollback: {
+            action: "delete_server",
+            providerResourceId: "hcloud-18-g1",
+            idempotencyKey: input.idempotencyKey
+          }
+        },
+        {
+          role: "G2",
+          providerResourceId: "hcloud-18-g2",
+          rollback: {
+            action: "delete_server",
+            providerResourceId: "hcloud-18-g2",
+            idempotencyKey: input.idempotencyKey
+          }
+        },
+        {
+          role: "WORKLOAD",
+          providerResourceId: "hcloud-18-workload",
+          rollback: {
+            action: "delete_server",
+            providerResourceId: "hcloud-18-workload",
+            idempotencyKey: input.idempotencyKey
+          }
+        }
       ];
     },
     async listVpsSet(input) {
@@ -194,7 +233,10 @@ test("Step 3.18 live provider rehearsal calls create, list, and cleanup only beh
     assert.equal(result.rehearsal.status, "smoke_passed");
     assert.equal(result.rehearsal.sideEffectAllowed, true);
     assert.equal(result.rehearsal.productionExecutionAllowed, false);
-    assert.deepEqual(calls.map(([name]) => name), ["create", "list", "delete"]);
+    assert.deepEqual(
+      calls.map(([name]) => name),
+      ["create", "list", "delete"]
+    );
     assert.equal(JSON.stringify(result).includes("env-token-step3-18-live-secret"), false);
   } finally {
     await close();
@@ -209,7 +251,9 @@ test("Step 3.18 Hetzner adapter attempts partial cleanup when create fails mid-b
       return {
         ok: true,
         async json() {
-          return { server: { id: 1818, name: "partial-g1", datacenter: { location: { name: "fsn1" } } } };
+          return {
+            server: { id: 1818, name: "partial-g1", datacenter: { location: { name: "fsn1" } } }
+          };
         }
       };
     }
@@ -229,11 +273,12 @@ test("Step 3.18 Hetzner adapter attempts partial cleanup when create fails mid-b
   };
   const adapter = new HetznerLiveAdapter({ token: "test-token-with-safe-length", transport });
   await assert.rejects(
-    () => adapter.createVpsSet({
-      operatorId: "op_partial_cleanup",
-      region: "fsn1",
-      idempotencyKey: "step3-18-partial-cleanup"
-    }),
+    () =>
+      adapter.createVpsSet({
+        operatorId: "op_partial_cleanup",
+        region: "fsn1",
+        idempotencyKey: "step3-18-partial-cleanup"
+      }),
     /partial cleanup was attempted/
   );
   assert.equal(calls.filter(([method]) => method === "DELETE").length, 1);

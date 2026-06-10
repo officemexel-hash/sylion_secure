@@ -68,7 +68,8 @@ export class ProvisioningPlanService {
           code: "puli_ax_production_qualification",
           required: true,
           owner: "Infra/Security",
-          reason: "Puli AX is selected product router but production baseline requires firmware and failure-mode qualification."
+          reason:
+            "Puli AX is selected product router but production baseline requires firmware and failure-mode qualification."
         }
       ],
       approvalsRequired: ["provisioning.approve"],

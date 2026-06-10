@@ -12,7 +12,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_provider_e2e" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_provider_e2e" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -94,7 +98,10 @@ test("provider creation, list, and rotation expose secret references only", asyn
     assert.equal(created.payload.provider.billingHealth.status, "healthy");
     assert.equal(created.payload.provider.runtimeCapabilities.containers, true);
     assert.equal(created.payload.provider.runtimeCapabilities.firecracker, "dedicated_only");
-    assert.match(created.payload.provider.apiSecretReference.secretReference, /^secret:\/\/admin-api\/secret_/);
+    assert.match(
+      created.payload.provider.apiSecretReference.secretReference,
+      /^secret:\/\/admin-api\/secret_/
+    );
     assert.equal(JSON.stringify(created.payload).includes(firstSecret), false);
 
     const listed = await request(baseUrl, "/providers", { token });
@@ -103,14 +110,18 @@ test("provider creation, list, and rotation expose secret references only", asyn
     assert.equal(listed.payload.providers[0].providerKey, "hetzner");
     assert.equal(JSON.stringify(listed.payload).includes(firstSecret), false);
 
-    const rotated = await request(baseUrl, `/providers/${created.payload.provider.id}/secret-rotation`, {
-      method: "POST",
-      token,
-      body: {
-        apiSecret: rotatedSecret,
-        testConnection: { mode: "mock", status: "passed" }
+    const rotated = await request(
+      baseUrl,
+      `/providers/${created.payload.provider.id}/secret-rotation`,
+      {
+        method: "POST",
+        token,
+        body: {
+          apiSecret: rotatedSecret,
+          testConnection: { mode: "mock", status: "passed" }
+        }
       }
-    });
+    );
     assert.equal(rotated.status, 200);
     assert.equal(rotated.payload.provider.apiSecretReference.version, 2);
     assert.notEqual(
@@ -153,10 +164,16 @@ test("custom providers are accepted with explicit metadata", async () => {
     assert.equal(created.status, 201);
     assert.equal(created.payload.provider.providerKey, "sovereign-lab");
     assert.equal(created.payload.provider.metadata.extensible, true);
-    assert.equal(created.payload.provider.metadata.docsUrl, "https://example.invalid/provider-docs");
+    assert.equal(
+      created.payload.provider.metadata.docsUrl,
+      "https://example.invalid/provider-docs"
+    );
     assert.equal(created.payload.provider.runtimeCapabilities.containers, true);
     assert.equal(created.payload.provider.runtimeCapabilities.firecracker, false);
-    assert.equal(JSON.stringify(created.payload).includes("custom-provider-secret-never-leak"), false);
+    assert.equal(
+      JSON.stringify(created.payload).includes("custom-provider-secret-never-leak"),
+      false
+    );
   } finally {
     await close();
   }

@@ -16,28 +16,76 @@ const DESTRUCTIVE_ACTIONS = new Set([
 const DEFAULT_RUNBOOKS = Object.freeze({
   ipsec_down: [
     { title: "Confirm tunnel endpoint health", action: "network.inspect", destructive: false },
-    { title: "Rotate affected IPsec certificate if compromise is suspected", action: "cert.rotate", destructive: true },
-    { title: "Suspend affected operator access if tunnel cannot be restored", action: "operator.suspend", destructive: true }
+    {
+      title: "Rotate affected IPsec certificate if compromise is suspected",
+      action: "cert.rotate",
+      destructive: true
+    },
+    {
+      title: "Suspend affected operator access if tunnel cannot be restored",
+      action: "operator.suspend",
+      destructive: true
+    }
   ],
   dns_leak: [
-    { title: "Confirm resolver path and kill switch state", action: "network.inspect", destructive: false },
-    { title: "Isolate affected workload while resolver policy is repaired", action: "workload.isolate", destructive: true }
+    {
+      title: "Confirm resolver path and kill switch state",
+      action: "network.inspect",
+      destructive: false
+    },
+    {
+      title: "Isolate affected workload while resolver policy is repaired",
+      action: "workload.isolate",
+      destructive: true
+    }
   ],
   microvm_crash_loop: [
-    { title: "Collect crash-loop metadata and image version", action: "microvm.inspect", destructive: false },
-    { title: "Rebuild microVM from approved immutable image", action: "microvm.rebuild", destructive: true }
+    {
+      title: "Collect crash-loop metadata and image version",
+      action: "microvm.inspect",
+      destructive: false
+    },
+    {
+      title: "Rebuild microVM from approved immutable image",
+      action: "microvm.rebuild",
+      destructive: true
+    }
   ],
   cert_expiry: [
-    { title: "Identify certificate owner and service identity", action: "cert.inspect", destructive: false },
-    { title: "Rotate certificate through PKI approval flow", action: "cert.rotate", destructive: true }
+    {
+      title: "Identify certificate owner and service identity",
+      action: "cert.inspect",
+      destructive: false
+    },
+    {
+      title: "Rotate certificate through PKI approval flow",
+      action: "cert.rotate",
+      destructive: true
+    }
   ],
   cdr_failure: [
-    { title: "Confirm CDR queue and evidence reference", action: "cdr.inspect", destructive: false },
-    { title: "Isolate affected workload ingress and egress", action: "workload.isolate", destructive: true }
+    {
+      title: "Confirm CDR queue and evidence reference",
+      action: "cdr.inspect",
+      destructive: false
+    },
+    {
+      title: "Isolate affected workload ingress and egress",
+      action: "workload.isolate",
+      destructive: true
+    }
   ],
   provider_drift: [
-    { title: "Compare provider state with approved inventory", action: "provider.inspect", destructive: false },
-    { title: "Suspend operator access if ownership boundaries are uncertain", action: "operator.suspend", destructive: true }
+    {
+      title: "Compare provider state with approved inventory",
+      action: "provider.inspect",
+      destructive: false
+    },
+    {
+      title: "Suspend operator access if ownership boundaries are uncertain",
+      action: "operator.suspend",
+      destructive: true
+    }
   ]
 });
 
@@ -59,9 +107,15 @@ function normalizeRunbookTask(task, index) {
 }
 
 function defaultRunbook(signal) {
-  return (DEFAULT_RUNBOOKS[signal] || [
-    { title: "Triage alert metadata and affected resources", action: "incident.triage", destructive: false }
-  ]).map(normalizeRunbookTask);
+  return (
+    DEFAULT_RUNBOOKS[signal] || [
+      {
+        title: "Triage alert metadata and affected resources",
+        action: "incident.triage",
+        destructive: false
+      }
+    ]
+  ).map(normalizeRunbookTask);
 }
 
 export class IncidentService {
@@ -72,7 +126,15 @@ export class IncidentService {
     this.incidents = new PersistentMap({ store, collection: "incidents" });
   }
 
-  createFromAlert({ actor, alertId, ownerId, severity, affectedResources, runbookTasks, correlationId }) {
+  createFromAlert({
+    actor,
+    alertId,
+    ownerId,
+    severity,
+    affectedResources,
+    runbookTasks,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "incident.manage", { correlationId: corr });
     const alert = this.monitoring.get(alertId);
@@ -80,7 +142,10 @@ export class IncidentService {
       throw notFound("monitoring_event", alertId);
     }
     if (!["alert", "anomaly_event"].includes(alert.eventType)) {
-      throw validationError("Incidents can only be created from alerts or anomaly events", { alertId, eventType: alert.eventType });
+      throw validationError("Incidents can only be created from alerts or anomaly events", {
+        alertId,
+        eventType: alert.eventType
+      });
     }
 
     const resources = affectedResources || [alert.resource];
@@ -98,7 +163,9 @@ export class IncidentService {
       operatorId: alert.operatorId,
       ownerId: ownerId || actor.id,
       affectedResources: resources,
-      runbookTasks: runbookTasks ? runbookTasks.map(normalizeRunbookTask) : defaultRunbook(alert.signal),
+      runbookTasks: runbookTasks
+        ? runbookTasks.map(normalizeRunbookTask)
+        : defaultRunbook(alert.signal),
       timeline: [
         {
           id: newId("tl"),

@@ -5,8 +5,15 @@ import { buildLiveBaselineUserData } from "../services/admin-api/src/modules/liv
 
 const HETZNER_API = "https://api.hetzner.cloud/v1";
 const baseUrl = process.env.SYLION_ADMIN_API_URL || "http://127.0.0.1:8099";
-const outputDir = process.env.SYLION_LIVE_BASELINE_OUTPUT_DIR
-  || join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-33-hetzner-live-operator-baseline");
+const outputDir =
+  process.env.SYLION_LIVE_BASELINE_OUTPUT_DIR ||
+  join(
+    process.cwd(),
+    "docs",
+    "admin-panel-v2",
+    "test-artifacts",
+    "step3-33-hetzner-live-operator-baseline"
+  );
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -20,9 +27,22 @@ async function hetznerPreflight({ token, region, serverType, image }) {
   const headers = { authorization: `Bearer ${token}` };
   const checks = [];
   for (const [name, path, predicate] of [
-    ["locations", "/locations?per_page=100", (payload) => (payload.locations || []).some((item) => item.name === region)],
-    ["server_types", "/server_types?per_page=100", (payload) => (payload.server_types || []).some((item) => item.name === serverType)],
-    ["images", "/images?type=system&per_page=100", (payload) => (payload.images || []).some((item) => item.name === image || item.description === image)]
+    [
+      "locations",
+      "/locations?per_page=100",
+      (payload) => (payload.locations || []).some((item) => item.name === region)
+    ],
+    [
+      "server_types",
+      "/server_types?per_page=100",
+      (payload) => (payload.server_types || []).some((item) => item.name === serverType)
+    ],
+    [
+      "images",
+      "/images?type=system&per_page=100",
+      (payload) =>
+        (payload.images || []).some((item) => item.name === image || item.description === image)
+    ]
   ]) {
     const response = await fetch(`${HETZNER_API}${path}`, { headers });
     if (!response.ok) {
@@ -32,7 +52,9 @@ async function hetznerPreflight({ token, region, serverType, image }) {
     const payload = await response.json();
     checks.push({ name, status: response.status, ok: true, containsRequested: predicate(payload) });
   }
-  const missing = checks.filter((check) => check.containsRequested === false).map((check) => check.name);
+  const missing = checks
+    .filter((check) => check.containsRequested === false)
+    .map((check) => check.name);
   return {
     ok: missing.length === 0,
     reason: missing.length ? "hetzner_requested_catalog_item_missing" : "ok",
@@ -107,7 +129,8 @@ function sanitizeCreated(payload) {
 
 async function readSshPublicKey() {
   if (process.env.SYLION_LIVE_SSH_PUBLIC_KEY) return process.env.SYLION_LIVE_SSH_PUBLIC_KEY.trim();
-  const publicKeyPath = process.env.SYLION_LIVE_SSH_PUBLIC_KEY_PATH || ".deploy/sylion_hetzner_admin_ed25519.pub";
+  const publicKeyPath =
+    process.env.SYLION_LIVE_SSH_PUBLIC_KEY_PATH || ".deploy/sylion_hetzner_admin_ed25519.pub";
   try {
     return (await readFile(publicKeyPath, "utf8")).trim();
   } catch {
@@ -145,7 +168,9 @@ runcmd:
 async function run() {
   const token = requireEnv("HETZNER_API_TOKEN");
   if (process.env.SYLION_LIVE_BASELINE_CONFIRM !== "I_UNDERSTAND_COST_AND_ROLLBACK") {
-    throw new Error("Set SYLION_LIVE_BASELINE_CONFIRM=I_UNDERSTAND_COST_AND_ROLLBACK before creating real Hetzner VPS");
+    throw new Error(
+      "Set SYLION_LIVE_BASELINE_CONFIRM=I_UNDERSTAND_COST_AND_ROLLBACK before creating real Hetzner VPS"
+    );
   }
   const region = process.env.SYLION_LIVE_REGION || "fsn1";
   const serverType = process.env.SYLION_HETZNER_SERVER_TYPE || "cpx22";
@@ -153,14 +178,21 @@ async function run() {
   await mkdir(outputDir, { recursive: true });
   const preflight = await hetznerPreflight({ token, region, serverType, image });
   if (!preflight.ok) {
-    await writeFile(join(outputDir, "preflight-failed.json"), JSON.stringify({
-      provider: "hetzner",
-      status: "preflight_failed",
-      reason: preflight.reason,
-      checks: preflight.checks,
-      tokenLogged: false,
-      checkedAt: new Date().toISOString()
-    }, null, 2));
+    await writeFile(
+      join(outputDir, "preflight-failed.json"),
+      JSON.stringify(
+        {
+          provider: "hetzner",
+          status: "preflight_failed",
+          reason: preflight.reason,
+          checks: preflight.checks,
+          tokenLogged: false,
+          checkedAt: new Date().toISOString()
+        },
+        null,
+        2
+      )
+    );
     throw new Error(`Hetzner live baseline preflight failed: ${preflight.reason}`);
   }
   const { client, credentialId } = await loginClient();
@@ -180,7 +212,9 @@ async function run() {
       containers: true,
       firecracker: false,
       confidentialComputing: false,
-      notes: ["Hetzner Cloud baseline VPS; Firecracker requires KVM-capable host or dedicated provider tier."]
+      notes: [
+        "Hetzner Cloud baseline VPS; Firecracker requires KVM-capable host or dedicated provider tier."
+      ]
     },
     testConnection: { mode: "live_operator_baseline", status: "preflight_passed" }
   });
@@ -189,7 +223,10 @@ async function run() {
     tenantId: tenant.tenant.id,
     displayName: process.env.SYLION_LIVE_OPERATOR_NAME || `SYLION Live Operator ${Date.now()}`,
     tier: process.env.SYLION_LIVE_TIER || "PRO",
-    requestedTemplates: (process.env.SYLION_LIVE_TEMPLATES || "whatsapp,signal,telegram").split(",").map((item) => item.trim()).filter(Boolean),
+    requestedTemplates: (process.env.SYLION_LIVE_TEMPLATES || "whatsapp,signal,telegram")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
     liveBaseline: {
       enabled: true,
       providerKey: "hetzner",
@@ -219,7 +256,9 @@ async function run() {
   if (summary.status !== "executed_provider_mutation") {
     throw new Error(`Live operator baseline did not execute: ${summary.status}`);
   }
-  console.log(`Hetzner live operator baseline created; evidence=${join(outputDir, "summary.json")}`);
+  console.log(
+    `Hetzner live operator baseline created; evidence=${join(outputDir, "summary.json")}`
+  );
 }
 
 await run();

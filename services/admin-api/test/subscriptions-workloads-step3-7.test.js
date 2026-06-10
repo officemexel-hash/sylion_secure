@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_step3_7" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_step3_7" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -46,7 +50,11 @@ async function createTenantOperatorAndApp(baseUrl, token, { tier = "PRO" } = {})
   const operator = await request(baseUrl, "/operators", {
     method: "POST",
     token,
-    body: { tenantId: tenant.payload.tenant.id, displayName: `Step 3.7 Operator ${Date.now()}`, tier }
+    body: {
+      tenantId: tenant.payload.tenant.id,
+      displayName: `Step 3.7 Operator ${Date.now()}`,
+      tier
+    }
   });
   assert.equal(operator.status, 201);
   const app = await request(baseUrl, "/apps", {
@@ -66,9 +74,16 @@ async function createTenantOperatorAndApp(baseUrl, token, { tier = "PRO" } = {})
     }
   });
   assert.equal(app.status, 201);
-  const approved = await request(baseUrl, `/apps/${app.payload.app.id}/approve`, { method: "POST", token });
+  const approved = await request(baseUrl, `/apps/${app.payload.app.id}/approve`, {
+    method: "POST",
+    token
+  });
   assert.equal(approved.status, 200);
-  return { tenant: tenant.payload.tenant, operator: operator.payload.operator, app: approved.payload.app };
+  return {
+    tenant: tenant.payload.tenant,
+    operator: operator.payload.operator,
+    app: approved.payload.app
+  };
 }
 
 test("Step 3.7 subscription plans and tenant ledger are initialized and guarded", async () => {
@@ -127,7 +142,9 @@ test("Step 3.7 workload allocation quote, allocation and placement are quota con
   const { app: testApp, baseUrl, close } = await startTestServer();
   try {
     const token = await login(baseUrl);
-    const { operator, app } = await createTenantOperatorAndApp(baseUrl, token, { tier: "STANDARD" });
+    const { operator, app } = await createTenantOperatorAndApp(baseUrl, token, {
+      tier: "STANDARD"
+    });
 
     const quote = await request(baseUrl, `/operators/${operator.id}/workload-allocations/quote`, {
       method: "POST",
@@ -138,7 +155,11 @@ test("Step 3.7 workload allocation quote, allocation and placement are quota con
     assert.equal(quote.payload.decision.decision, "allow");
     assert.equal(quote.payload.decision.sideEffectAllowed, false);
 
-    const beforeAllocation = await request(baseUrl, `/operators/${operator.id}/workload-allocations`, { token });
+    const beforeAllocation = await request(
+      baseUrl,
+      `/operators/${operator.id}/workload-allocations`,
+      { token }
+    );
     assert.equal(beforeAllocation.payload.allocations.length, 0);
 
     const allocation = await request(baseUrl, `/operators/${operator.id}/workload-allocations`, {
@@ -171,7 +192,9 @@ test("Step 3.7 workload allocation quote, allocation and placement are quota con
     assert.equal(denied.status, 422);
     assert.ok(denied.payload.error.details.blockers.includes("max_workload_environments_exceeded"));
 
-    const afterDenied = await request(baseUrl, `/operators/${operator.id}/workload-allocations`, { token });
+    const afterDenied = await request(baseUrl, `/operators/${operator.id}/workload-allocations`, {
+      token
+    });
     assert.equal(afterDenied.payload.allocations.length, 1);
 
     const audit = testApp.services.audit.list();
@@ -209,7 +232,10 @@ test("Step 3.7 add-ons gate Matrix and keep PHANTOM non-executable", async () =>
       body: { addons: ["matrix_custom_server", "phantom_admin_lifecycle"] }
     });
     assert.equal(addons.status, 200);
-    assert.deepEqual(addons.payload.subscription.addons.sort(), ["matrix_custom_server", "phantom_admin_lifecycle"].sort());
+    assert.deepEqual(
+      addons.payload.subscription.addons.sort(),
+      ["matrix_custom_server", "phantom_admin_lifecycle"].sort()
+    );
     assert.equal(addons.payload.subscription.effectiveLimits.phantomExecutionAllowed, false);
 
     const matrix = await request(baseUrl, "/matrix/servers", {
@@ -239,7 +265,9 @@ test("Step 3.7 billing suspension blocks new allocation and provisioning without
   const { baseUrl, close } = await startTestServer();
   try {
     const token = await login(baseUrl);
-    const { tenant, operator, app } = await createTenantOperatorAndApp(baseUrl, token, { tier: "PRO" });
+    const { tenant, operator, app } = await createTenantOperatorAndApp(baseUrl, token, {
+      tier: "PRO"
+    });
     const suspended = await request(baseUrl, `/tenants/${tenant.id}/billing-state`, {
       method: "POST",
       token,
@@ -255,7 +283,9 @@ test("Step 3.7 billing suspension blocks new allocation and provisioning without
       body: { appId: app.id, requestedCount: 1 }
     });
     assert.equal(allocation.status, 422);
-    assert.ok(allocation.payload.error.details.blockers.includes("billing_state_blocks_new_allocation"));
+    assert.ok(
+      allocation.payload.error.details.blockers.includes("billing_state_blocks_new_allocation")
+    );
 
     const provisioning = await request(baseUrl, `/operators/${operator.id}/provisioning-plan`, {
       method: "POST",
@@ -266,7 +296,9 @@ test("Step 3.7 billing suspension blocks new allocation and provisioning without
 
     const audit = await request(baseUrl, "/audit/events", { token });
     assert.equal(audit.status, 200);
-    assert.ok(audit.payload.events.some((event) => event.action === "subscription.billing_state_changed"));
+    assert.ok(
+      audit.payload.events.some((event) => event.action === "subscription.billing_state_changed")
+    );
   } finally {
     await close();
   }

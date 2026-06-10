@@ -4,7 +4,13 @@ import { createApp } from "../services/admin-api/src/app.js";
 import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
 
 let baseUrl = process.env.SYLION_BASE_URL || null;
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-17-operator-portal-smoke");
+const outputDir = join(
+  process.cwd(),
+  "docs",
+  "admin-panel-v2",
+  "test-artifacts",
+  "step3-17-operator-portal-smoke"
+);
 
 async function startOwnedServer() {
   if (baseUrl) return null;
@@ -82,7 +88,11 @@ async function seedOperator(client) {
       deviceId: pixel.device.id
     }
   });
-  return { operatorId, operatorName: created.operator.displayName, operatorSession: session.session };
+  return {
+    operatorId,
+    operatorName: created.operator.displayName,
+    operatorSession: session.session
+  };
 }
 
 async function run() {
@@ -97,18 +107,37 @@ async function run() {
   try {
     const page = await browser.newPage({ viewport: { width: 1360, height: 900 } });
     await page.goto(`${baseUrl}/operator`, { waitUntil: "domcontentloaded" });
-    await page.evaluate((payload) => {
-      sessionStorage.setItem("sylion.operator.token", payload.token);
-      sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
-    }, {
-      token: seeded.operatorSession.token,
-      session: seeded.operatorSession
-    });
+    await page.evaluate(
+      (payload) => {
+        sessionStorage.setItem("sylion.operator.token", payload.token);
+        sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
+      },
+      {
+        token: seeded.operatorSession.token,
+        session: seeded.operatorSession
+      }
+    );
     await page.reload({ waitUntil: "networkidle" });
     await page.getByText(seeded.operatorName, { exact: false }).waitFor({ timeout: 10000 });
     actions.push("operator_session_loaded");
 
-    for (const label of ["Devices", "Workload Control", "Connection Path", "Signal Preview", "Runtime Gate", "Account Bootstrap", "VPN status", "Security Unlock", "Backup & Panic", "Jurisdiction", "Matrix Server", "FIDO2 policy", "HSM refs", "Subscription", "My audit"]) {
+    for (const label of [
+      "Devices",
+      "Workload Control",
+      "Connection Path",
+      "Signal Preview",
+      "Runtime Gate",
+      "Account Bootstrap",
+      "VPN status",
+      "Security Unlock",
+      "Backup & Panic",
+      "Jurisdiction",
+      "Matrix Server",
+      "FIDO2 policy",
+      "HSM refs",
+      "Subscription",
+      "My audit"
+    ]) {
       await page.getByRole("link", { name: label }).click();
       await page.waitForTimeout(250);
       actions.push(`view_${label.toLowerCase().replaceAll(" ", "_")}`);
@@ -120,7 +149,9 @@ async function run() {
     await page.locator('input[name="zangi"]').fill("1");
     await page.locator('input[name="exodus"]').fill("1");
     await page.getByRole("button", { name: "Queue workload change" }).click();
-    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Workload control queued"));
+    await page.waitForFunction(() =>
+      document.querySelector("#session-status")?.textContent?.includes("Workload control queued")
+    );
     actions.push("operator_workload_control_queued");
 
     await page.getByRole("link", { name: "Account Bootstrap" }).click();
@@ -129,12 +160,22 @@ async function run() {
     await bootstrapSection.locator('select[name="mode"]').selectOption("physical_mobile_companion");
     await bootstrapSection.locator('select[name="runtimeMode"]').selectOption("desktop");
     await bootstrapSection.getByRole("button", { name: "Create bootstrap session" }).click();
-    await page.waitForFunction(() => document.querySelector("#account-bootstrap-status")?.textContent?.includes("Bootstrap session created"));
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#account-bootstrap-status")
+        ?.textContent?.includes("Bootstrap session created")
+    );
     await bootstrapSection.locator('select[name="result"]').selectOption("blocked");
     await bootstrapSection.locator('input[name="uiVisible"]').check();
-    await bootstrapSection.locator('input[name="evidenceArtifactIds"]').fill("artifact://operator-smoke/signal-visible");
+    await bootstrapSection
+      .locator('input[name="evidenceArtifactIds"]')
+      .fill("artifact://operator-smoke/signal-visible");
     await bootstrapSection.getByRole("button", { name: "Record evidence" }).click();
-    await page.waitForFunction(() => document.querySelector("#account-bootstrap-status")?.textContent?.includes("Evidence recorded"));
+    await page.waitForFunction(() =>
+      document
+        .querySelector("#account-bootstrap-status")
+        ?.textContent?.includes("Evidence recorded")
+    );
     actions.push("operator_account_bootstrap_evidence_recorded");
 
     await page.getByRole("link", { name: "Security Unlock" }).click();
@@ -143,7 +184,9 @@ async function run() {
     await page.locator('input[name="g2Password"]').fill("Layer passphrase local only 23456");
     await page.locator('input[name="workloadPassword"]').fill("Layer passphrase local only 34567");
     await page.getByRole("button", { name: "Save unlock policy" }).click();
-    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Unlock policy saved"));
+    await page.waitForFunction(() =>
+      document.querySelector("#session-status")?.textContent?.includes("Unlock policy saved")
+    );
     actions.push("operator_unlock_policy_saved");
 
     await page.getByRole("link", { name: "Backup & Panic" }).click();
@@ -151,7 +194,9 @@ async function run() {
     await page.locator('input[name="inactivityWipeDays"]').fill("10");
     await page.locator('input[name="data_wipeCode"]').fill("Panic level one local 12345");
     await page.getByRole("button", { name: "Save safety policy" }).click();
-    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Safety policy saved"));
+    await page.waitForFunction(() =>
+      document.querySelector("#session-status")?.textContent?.includes("Safety policy saved")
+    );
     actions.push("operator_safety_policy_saved");
 
     await page.getByRole("link", { name: "Jurisdiction" }).click();
@@ -160,25 +205,35 @@ async function run() {
     await jurisdictionSection.locator('input[name="regions"]').fill("de,fi,nl");
     await jurisdictionSection.locator('input[name="countries"]').fill("DE,FI,NL");
     await jurisdictionSection.getByRole("button", { name: "Save jurisdiction policy" }).click();
-    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Jurisdiction policy saved"));
+    await page.waitForFunction(() =>
+      document.querySelector("#session-status")?.textContent?.includes("Jurisdiction policy saved")
+    );
     actions.push("operator_jurisdiction_policy_saved");
 
     await page.getByRole("link", { name: "Matrix Server" }).click();
     await page.getByPlaceholder("matrix.operator.example").fill("matrix.step317.local");
     await page.getByRole("button", { name: "Request Matrix server" }).click();
-    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("Matrix request queued"));
+    await page.waitForFunction(() =>
+      document.querySelector("#session-status")?.textContent?.includes("Matrix request queued")
+    );
     actions.push("operator_matrix_request_queued");
 
     await page.getByRole("link", { name: "FIDO2 policy" }).click();
     await page.getByRole("button", { name: "Save FIDO2 policy" }).click();
-    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("FIDO2 policy saved"));
+    await page.waitForFunction(() =>
+      document.querySelector("#session-status")?.textContent?.includes("FIDO2 policy saved")
+    );
     actions.push("operator_fido2_policy_saved");
 
     await page.getByRole("link", { name: "HSM refs" }).click();
     await page.getByPlaceholder("hsm-ref://operator/key").fill("hsm-ref://operator/browser-smoke");
-    await page.getByPlaceholder("evidence://operator/hsm").fill("evidence://operator/browser-smoke");
+    await page
+      .getByPlaceholder("evidence://operator/hsm")
+      .fill("evidence://operator/browser-smoke");
     await page.getByRole("button", { name: "Save HSM references" }).click();
-    await page.waitForFunction(() => document.querySelector("#session-status")?.textContent?.includes("HSM references saved"));
+    await page.waitForFunction(() =>
+      document.querySelector("#session-status")?.textContent?.includes("HSM references saved")
+    );
     actions.push("operator_hsm_refs_saved");
 
     await page.getByRole("link", { name: "Connection Path" }).click();
@@ -187,14 +242,24 @@ async function run() {
     const postureText = await page.locator("#path-router-posture").innerText();
     if (!postureText.trim()) issues.push("Missing operator portal router posture value");
     const mainText = await page.locator("main").innerText();
-    for (const expected of ["Connection Path", "VPN segments", "Communicator microVMs", "ipsec_ikev2"]) {
+    for (const expected of [
+      "Connection Path",
+      "VPN segments",
+      "Communicator microVMs",
+      "ipsec_ikev2"
+    ]) {
       if (!mainText.includes(expected)) issues.push(`Missing operator portal text: ${expected}`);
     }
 
     await page.getByRole("link", { name: "Signal Preview" }).click();
     await page.getByText("Production gates", { exact: true }).waitFor({ timeout: 10000 });
     const signalText = await page.locator("#signal-preview").innerText();
-    for (const expected of ["Signal Preview", "WORKLOAD microVM preview", "CDR required for files", "real_firecracker_binary_not_configured"]) {
+    for (const expected of [
+      "Signal Preview",
+      "WORKLOAD microVM preview",
+      "CDR required for files",
+      "real_firecracker_binary_not_configured"
+    ]) {
       if (!signalText.includes(expected)) issues.push(`Missing Signal preview text: ${expected}`);
     }
 
@@ -209,14 +274,21 @@ async function run() {
   if (issues.length) {
     throw new Error(`Operator portal smoke issues:\n${issues.join("\n")}`);
   }
-  await writeFile(join(outputDir, "summary.json"), JSON.stringify({
-    baseUrl,
-    operatorId: seeded.operatorId,
-    status: "passed",
-    actions,
-    issues,
-    checkedAt: new Date().toISOString()
-  }, null, 2));
+  await writeFile(
+    join(outputDir, "summary.json"),
+    JSON.stringify(
+      {
+        baseUrl,
+        operatorId: seeded.operatorId,
+        status: "passed",
+        actions,
+        issues,
+        checkedAt: new Date().toISOString()
+      },
+      null,
+      2
+    )
+  );
   console.log(`Operator portal smoke completed against ${baseUrl}/operator`);
 }
 

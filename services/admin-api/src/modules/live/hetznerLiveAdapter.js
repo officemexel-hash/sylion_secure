@@ -4,10 +4,13 @@ const HETZNER_API = "https://api.hetzner.cloud/v1";
 
 function requireToken(token) {
   if (!token || String(token).trim().length < 12) {
-    throw validationError("Hetzner live adapter requires HETZNER_API_TOKEN from runtime secret storage", {
-      secretSource: "environment",
-      secretLogged: false
-    });
+    throw validationError(
+      "Hetzner live adapter requires HETZNER_API_TOKEN from runtime secret storage",
+      {
+        secretSource: "environment",
+        secretLogged: false
+      }
+    );
   }
   return String(token);
 }
@@ -123,21 +126,26 @@ export class HetznerLiveAdapter {
           idempotencyKey
         }))
       });
-      throw validationError("Hetzner live server creation failed and partial cleanup was attempted", {
-        partialResourceCount: created.length,
-        cleanupResults,
-        tokenLogged: false,
-        cause: error.code || error.message,
-        providerStatus: error.details?.status || null,
-        providerErrorCode: error.details?.providerErrorCode || null,
-        providerErrorMessage: error.details?.providerErrorMessage || null
-      });
+      throw validationError(
+        "Hetzner live server creation failed and partial cleanup was attempted",
+        {
+          partialResourceCount: created.length,
+          cleanupResults,
+          tokenLogged: false,
+          cause: error.code || error.message,
+          providerStatus: error.details?.status || null,
+          providerErrorCode: error.details?.providerErrorCode || null,
+          providerErrorMessage: error.details?.providerErrorMessage || null
+        }
+      );
     }
   }
 
   async listVpsSet({ operatorId }) {
     const token = requireToken(this.token);
-    const selector = encodeURIComponent(`sylion_operator=${operatorId},sylion_baseline=three_vps_per_operator`);
+    const selector = encodeURIComponent(
+      `sylion_operator=${operatorId},sylion_baseline=three_vps_per_operator`
+    );
     const response = await this.transport(`${HETZNER_API}/servers?label_selector=${selector}`, {
       method: "GET",
       headers: { authorization: `Bearer ${token}` }
@@ -168,10 +176,13 @@ export class HetznerLiveAdapter {
         results.push({ ...action, status: "skipped" });
         continue;
       }
-      const response = await this.transport(`${HETZNER_API}/servers/${encodeURIComponent(action.providerResourceId)}`, {
-        method: "DELETE",
-        headers: { authorization: `Bearer ${token}` }
-      });
+      const response = await this.transport(
+        `${HETZNER_API}/servers/${encodeURIComponent(action.providerResourceId)}`,
+        {
+          method: "DELETE",
+          headers: { authorization: `Bearer ${token}` }
+        }
+      );
       if (!response.ok && response.status !== 404) {
         const providerError = await sanitizedProviderError(response);
         throw validationError("Hetzner live server deletion failed", {
@@ -179,7 +190,10 @@ export class HetznerLiveAdapter {
           ...providerError
         });
       }
-      results.push({ ...action, status: response.status === 404 ? "already_absent" : "delete_requested" });
+      results.push({
+        ...action,
+        status: response.status === 404 ? "already_absent" : "delete_requested"
+      });
     }
     return results;
   }

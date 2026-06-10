@@ -10,11 +10,16 @@ export class LocalSimulatorVerifier {
   verifyAssertion({ challenge, credential, assertion = {} }) {
     const mode = assertion.mode || "local_simulator";
     if (mode !== "local_simulator") {
-      throw new AppError("unsupported_webauthn_mode", "WebAuthn verification mode is not enabled", 422, {
-        mode,
-        enabledMode: this.mode,
-        humanGateRequired: mode === "browser"
-      });
+      throw new AppError(
+        "unsupported_webauthn_mode",
+        "WebAuthn verification mode is not enabled",
+        422,
+        {
+          mode,
+          enabledMode: this.mode,
+          humanGateRequired: mode === "browser"
+        }
+      );
     }
     const expected = `simulated:${challenge.id}:${credential.id}`;
     if (assertion.signature !== expected) {
@@ -33,7 +38,11 @@ export class LocalSimulatorVerifier {
 }
 
 export class BrowserWebAuthnVerifier {
-  constructor({ rpId = "localhost", origin = "http://localhost", attestationPolicy = "human_gate_required" } = {}) {
+  constructor({
+    rpId = "localhost",
+    origin = "http://localhost",
+    attestationPolicy = "human_gate_required"
+  } = {}) {
     this.mode = "browser";
     this.rpId = rpId;
     this.origin = origin;
@@ -57,15 +66,25 @@ export class BrowserWebAuthnVerifier {
         expectedOrigin: this.origin
       });
     }
-    throw new AppError("webauthn_human_gate_required", "Production WebAuthn verifier requires human-approved attestation policy", 501, {
-      verificationMode: this.mode,
-      attestationPolicy: this.attestationPolicy,
-      humanGateRequired: true
-    });
+    throw new AppError(
+      "webauthn_human_gate_required",
+      "Production WebAuthn verifier requires human-approved attestation policy",
+      501,
+      {
+        verificationMode: this.mode,
+        attestationPolicy: this.attestationPolicy,
+        humanGateRequired: true
+      }
+    );
   }
 }
 
-export function createWebAuthnVerifier({ mode = "local_simulator", rpId, origin, attestationPolicy } = {}) {
+export function createWebAuthnVerifier({
+  mode = "local_simulator",
+  rpId,
+  origin,
+  attestationPolicy
+} = {}) {
   if (mode === "local_simulator") {
     return new LocalSimulatorVerifier({ rpId, origin });
   }

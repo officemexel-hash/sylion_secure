@@ -39,7 +39,10 @@ function parseArgs(argv = process.argv.slice(2)) {
 function stableJson(value) {
   if (Array.isArray(value)) return `[${value.map((entry) => stableJson(entry)).join(",")}]`;
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+      .join(",")}}`;
   }
   return JSON.stringify(value);
 }
@@ -53,7 +56,12 @@ function b64(bytes) {
 }
 
 function fromB64(value) {
-  return Buffer.from(String(value || "").replaceAll("-", "+").replaceAll("_", "/"), "base64");
+  return Buffer.from(
+    String(value || "")
+      .replaceAll("-", "+")
+      .replaceAll("_", "/"),
+    "base64"
+  );
 }
 
 function safeInteger(value, fallback, min, max) {
@@ -75,7 +83,9 @@ function safePublicJwk(value, field = "terminalPublicKeyJwk") {
     x: String(value.x || "").trim(),
     y: String(value.y || "").trim(),
     ext: value.ext === true,
-    key_ops: Array.isArray(value.key_ops) ? value.key_ops.filter((op) => typeof op === "string").slice(0, 4) : []
+    key_ops: Array.isArray(value.key_ops)
+      ? value.key_ops.filter((op) => typeof op === "string").slice(0, 4)
+      : []
   };
   if (publicJwk.kty !== "EC" || publicJwk.crv !== "P-384") {
     throw new Error(`${field}_must_use_ec_p384`);
@@ -123,7 +133,11 @@ async function captureWithPlaywright({ sourceUrl, width, height, timeoutMs }) {
 
 async function captureWithCommand({ commandJson, timeoutMs }) {
   const parsed = JSON.parse(commandJson);
-  if (!Array.isArray(parsed) || !parsed.length || parsed.some((entry) => typeof entry !== "string")) {
+  if (
+    !Array.isArray(parsed) ||
+    !parsed.length ||
+    parsed.some((entry) => typeof entry !== "string")
+  ) {
     throw new Error("capture_command_json_must_be_string_array");
   }
   const outputPath = join(tmpdir(), `sylion-blind-frame-${randomBytes(8).toString("hex")}.png`);
@@ -313,7 +327,8 @@ async function captureRfbPng({ host, port, timeoutMs }) {
     const height = init.readUInt16BE(2);
     const nameLength = init.readUInt32BE(20);
     if (nameLength) await reader.read(nameLength);
-    if (width < 1 || height < 1 || width > 8192 || height > 8192) throw new Error("rfb_framebuffer_dimensions_invalid");
+    if (width < 1 || height < 1 || width > 8192 || height > 8192)
+      throw new Error("rfb_framebuffer_dimensions_invalid");
 
     const pixelFormat = Buffer.alloc(20);
     pixelFormat[0] = 0;
@@ -417,23 +432,28 @@ async function encryptFrame({
     false,
     ["encrypt"]
   );
-  const sframeHeader = Buffer.from(stableJson({
-    alg: ALGORITHM,
-    contentType,
-    height,
-    keyId,
-    sequence,
-    sessionId,
-    templateKey,
-    timestampMs,
-    width
-  }), "utf8");
+  const sframeHeader = Buffer.from(
+    stableJson({
+      alg: ALGORITHM,
+      contentType,
+      height,
+      keyId,
+      sequence,
+      sessionId,
+      templateKey,
+      timestampMs,
+      width
+    }),
+    "utf8"
+  );
   const iv = randomBytes(12);
-  const ciphertext = Buffer.from(await webcrypto.subtle.encrypt(
-    { name: "AES-GCM", iv, additionalData: sframeHeader, tagLength: 128 },
-    aesKey,
-    plaintext
-  ));
+  const ciphertext = Buffer.from(
+    await webcrypto.subtle.encrypt(
+      { name: "AES-GCM", iv, additionalData: sframeHeader, tagLength: 128 },
+      aesKey,
+      plaintext
+    )
+  );
   return {
     frameId: `frame_${randomBytes(12).toString("hex")}`,
     keyId,
@@ -471,29 +491,34 @@ async function decryptFrameForTest({ frame, terminalPrivateKey }) {
     false,
     ["decrypt"]
   );
-  return Buffer.from(await webcrypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv: fromB64(frame.ivB64),
-      additionalData: fromB64(frame.sframeHeaderB64),
-      tagLength: frame.authTagLength * 8
-    },
-    aesKey,
-    fromB64(frame.ciphertextB64)
-  ));
+  return Buffer.from(
+    await webcrypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: fromB64(frame.ivB64),
+        additionalData: fromB64(frame.sframeHeaderB64),
+        tagLength: frame.authTagLength * 8
+      },
+      aesKey,
+      fromB64(frame.ciphertextB64)
+    )
+  );
 }
 
 async function postFrame({ apiBase, operatorToken, sessionId, frame, correlationId }) {
-  const response = await fetch(`${apiBase.replace(/\/$/, "")}/operator-api/blind-e2ee/sessions/${encodeURIComponent(sessionId)}/frames`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-correlation-id": correlationId || `corr_blind_encoder_${randomBytes(8).toString("hex")}`,
-      authorization: `Bearer ${operatorToken}`,
-      "x-sylion-operator-csrf": "same-origin-ui"
-    },
-    body: JSON.stringify(frame)
-  });
+  const response = await fetch(
+    `${apiBase.replace(/\/$/, "")}/operator-api/blind-e2ee/sessions/${encodeURIComponent(sessionId)}/frames`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": correlationId || `corr_blind_encoder_${randomBytes(8).toString("hex")}`,
+        authorization: `Bearer ${operatorToken}`,
+        "x-sylion-operator-csrf": "same-origin-ui"
+      },
+      body: JSON.stringify(frame)
+    }
+  );
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(payload?.error?.message || `frame_post_failed_http_${response.status}`);
@@ -541,7 +566,9 @@ async function encodeOnce(args) {
     ciphertextSha256: frame.ciphertextSha256,
     ciphertextLength: frame.ciphertextLength,
     sframeHeaderSha256: frame.sframeHeaderSha256,
-    workloadPublicKeyThumbprintSha256: sha256Hex(Buffer.from(stableJson(frame.workloadPublicKeyJwk), "utf8")),
+    workloadPublicKeyThumbprintSha256: sha256Hex(
+      Buffer.from(stableJson(frame.workloadPublicKeyJwk), "utf8")
+    ),
     postedFrameId: posted?.frameId || null,
     plaintextPrinted: false,
     contentPrinted: false,
@@ -555,14 +582,23 @@ async function main() {
   process.stdout.write(JSON.stringify(result, null, 2));
 }
 
-if (import.meta.url === `file://${process.argv[1]?.replaceAll("\\", "/")}` || process.argv[1]?.endsWith("blind-e2ee-workload-frame-encoder.mjs")) {
+if (
+  import.meta.url === `file://${process.argv[1]?.replaceAll("\\", "/")}` ||
+  process.argv[1]?.endsWith("blind-e2ee-workload-frame-encoder.mjs")
+) {
   main().catch((error) => {
-    process.stderr.write(JSON.stringify({
-      ok: false,
-      error: error.message,
-      secretsPrinted: false,
-      contentPrinted: false
-    }, null, 2));
+    process.stderr.write(
+      JSON.stringify(
+        {
+          ok: false,
+          error: error.message,
+          secretsPrinted: false,
+          contentPrinted: false
+        },
+        null,
+        2
+      )
+    );
     process.exit(1);
   });
 }

@@ -4,9 +4,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const cfg = {
   sshKey: process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
@@ -28,16 +29,20 @@ async function run(command, args, options = {}) {
 }
 
 async function ssh(host, script, options = {}) {
-  return run("ssh", [
-    "-i",
-    cfg.sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    script
-  ], options);
+  return run(
+    "ssh",
+    [
+      "-i",
+      cfg.sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      host,
+      script
+    ],
+    options
+  );
 }
 
 function parseBoolLine(output, key) {
@@ -125,7 +130,10 @@ function allTrue(object) {
 
 async function verifyPixelHumanRegression() {
   try {
-    const content = await readFile("docs/admin-panel-v2/test-artifacts/step3-40-pixel-live-human-regression/summary.json", "utf8");
+    const content = await readFile(
+      "docs/admin-panel-v2/test-artifacts/step3-40-pixel-live-human-regression/summary.json",
+      "utf8"
+    );
     const summary = JSON.parse(content);
     return {
       ready: ["passed", "passed_with_known_gates"].includes(summary.status),

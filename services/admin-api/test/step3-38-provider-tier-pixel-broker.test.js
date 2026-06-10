@@ -55,7 +55,12 @@ async function stepUp(client, credentialId) {
   });
 }
 
-async function operatorRequest(baseUrl, token, path, { method = "GET", body, expectOk = true } = {}) {
+async function operatorRequest(
+  baseUrl,
+  token,
+  path,
+  { method = "GET", body, expectOk = true } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -126,9 +131,7 @@ test("Step 3.38 provider registry supports country and Firecracker/confidential 
       apiSecret: "step3-38-provider-secret-never-return-hetzner",
       countries: ["DE"],
       regions: ["fsn1"],
-      regionCatalog: [
-        { region: "fsn1", country: "DE", city: "Falkenstein" }
-      ],
+      regionCatalog: [{ region: "fsn1", country: "DE", city: "Falkenstein" }],
       runtimeCapabilities: {
         containers: true,
         nestedKvm: false,
@@ -142,56 +145,81 @@ test("Step 3.38 provider registry supports country and Firecracker/confidential 
       testConnection: { mode: "mock", status: "passed" }
     });
 
-    const eligible = await client.request("/providers/eligible?capability=firecracker&country=PL&tier=PRO");
+    const eligible = await client.request(
+      "/providers/eligible?capability=firecracker&country=PL&tier=PRO"
+    );
     assert.equal(eligible.providers.length, 1);
     assert.equal(eligible.providers[0].providerKey, "scaleway");
     assert.equal(eligible.providers[0].regions[0].region, "pl-waw");
     assert.equal(eligible.providers[0].productionExecutionAllowed, false);
 
     const seeded = await seedOperator(client, "PRO");
-    const options = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/jurisdiction/options");
+    const options = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/settings/jurisdiction/options"
+    );
     assert.equal(options.payload.options.providerCatalogConfigured, true);
     assert.equal(options.payload.options.requiredRuntime, "firecracker");
     assert.deepEqual(options.payload.options.countries, ["DE", "FR", "PL"]);
-    assert.ok(options.payload.options.regions.some((region) => region.providerKey === "scaleway" && region.region === "pl-waw"));
+    assert.ok(
+      options.payload.options.regions.some(
+        (region) => region.providerKey === "scaleway" && region.region === "pl-waw"
+      )
+    );
 
-    const unavailable = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/jurisdiction", {
-      method: "POST",
-      expectOk: false,
-      body: {
-        mode: "scheduled",
-        countries: ["GB"],
-        providers: ["ovh"],
-        regions: ["lon1"],
-        frequencyHours: 24
+    const unavailable = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/settings/jurisdiction",
+      {
+        method: "POST",
+        expectOk: false,
+        body: {
+          mode: "scheduled",
+          countries: ["GB"],
+          providers: ["ovh"],
+          regions: ["lon1"],
+          frequencyHours: 24
+        }
       }
-    });
+    );
     assert.equal(unavailable.status, 422);
-    const incompatible = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/jurisdiction", {
-      method: "POST",
-      expectOk: false,
-      body: {
-        mode: "scheduled",
-        countries: ["DE"],
-        providers: ["scaleway"],
-        regions: ["fsn1"],
-        frequencyHours: 24
+    const incompatible = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/settings/jurisdiction",
+      {
+        method: "POST",
+        expectOk: false,
+        body: {
+          mode: "scheduled",
+          countries: ["DE"],
+          providers: ["scaleway"],
+          regions: ["fsn1"],
+          frequencyHours: 24
+        }
       }
-    });
+    );
     assert.equal(incompatible.status, 422);
     assert.deepEqual(incompatible.payload.error.details.incompatibleRegions, ["fsn1"]);
     assert.deepEqual(incompatible.payload.error.details.incompatibleCountries, ["DE"]);
 
-    const saved = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/jurisdiction", {
-      method: "POST",
-      body: {
-        mode: "scheduled",
-        countries: ["PL"],
-        providers: ["scaleway"],
-        regions: ["pl-waw"],
-        frequencyHours: 24
+    const saved = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/settings/jurisdiction",
+      {
+        method: "POST",
+        body: {
+          mode: "scheduled",
+          countries: ["PL"],
+          providers: ["scaleway"],
+          regions: ["pl-waw"],
+          frequencyHours: 24
+        }
       }
-    });
+    );
     assert.deepEqual(saved.payload.policy.providers, ["scaleway"]);
     assert.deepEqual(saved.payload.policy.regions, ["pl-waw"]);
   } finally {
@@ -223,29 +251,39 @@ test("Step 3.38 operator jurisdiction policy includes countries, providers and t
   try {
     const { client } = await loginClient(baseUrl);
     const standard = await seedOperator(client, "STANDARD");
-    const denied = await operatorRequest(baseUrl, standard.session.token, "/operator-api/settings/jurisdiction", {
-      method: "POST",
-      expectOk: false,
-      body: {
-        mode: "scheduled",
-        countries: ["DE", "FI"],
-        providers: ["hetzner", "ovh"],
-        frequencyHours: 24
+    const denied = await operatorRequest(
+      baseUrl,
+      standard.session.token,
+      "/operator-api/settings/jurisdiction",
+      {
+        method: "POST",
+        expectOk: false,
+        body: {
+          mode: "scheduled",
+          countries: ["DE", "FI"],
+          providers: ["hetzner", "ovh"],
+          frequencyHours: 24
+        }
       }
-    });
+    );
     assert.equal(denied.status, 422);
 
     const pro = await seedOperator(client, "PRO");
-    const saved = await operatorRequest(baseUrl, pro.session.token, "/operator-api/settings/jurisdiction", {
-      method: "POST",
-      body: {
-        mode: "scheduled",
-        regions: ["fsn1", "hel1"],
-        countries: ["DE", "FI"],
-        providers: ["hetzner", "scaleway"],
-        frequencyHours: 24
+    const saved = await operatorRequest(
+      baseUrl,
+      pro.session.token,
+      "/operator-api/settings/jurisdiction",
+      {
+        method: "POST",
+        body: {
+          mode: "scheduled",
+          regions: ["fsn1", "hel1"],
+          countries: ["DE", "FI"],
+          providers: ["hetzner", "scaleway"],
+          frequencyHours: 24
+        }
       }
-    });
+    );
     assert.deepEqual(saved.payload.policy.countries, ["DE", "FI"]);
     assert.deepEqual(saved.payload.policy.providers, ["hetzner", "scaleway"]);
     assert.equal(saved.payload.policy.frequencyHours, 24);
@@ -270,13 +308,21 @@ test("Step 3.38 Pixel CA provisioning and workload session broker stay reference
   try {
     const { client } = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const ca = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/pixel-ca-provisioning");
+    const ca = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/pixel-ca-provisioning"
+    );
     assert.equal(ca.payload.package.privateKeyIncluded, undefined);
     assert.equal(ca.payload.package.validation.privateKeyIncluded, false);
     assert.equal(ca.payload.package.caCertificatePem, caPem);
     assert.equal(ca.payload.package.installMethods[1].status, "blocked_on_grapheneos_file_uri");
 
-    const broker = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-session-broker/signal");
+    const broker = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-session-broker/signal"
+    );
     assert.equal(broker.payload.broker.authMode, "g2_session_broker_required");
     assert.equal(broker.payload.broker.sessionBroker.requiredLayer, "G2");
     assert.equal(broker.payload.broker.sessionBroker.noVncProductionApproved, false);
@@ -302,17 +348,27 @@ test("Step 3.60 workload broker normalizes DuckDuckGo and reports live route tru
   try {
     const { client } = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const broker = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-session-broker/duckduckgo");
+    const broker = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-session-broker/duckduckgo"
+    );
 
     assert.equal(broker.payload.broker.templateKey, "duckduckgo_browser");
     assert.equal(broker.payload.broker.appName, "DuckDuckGo Browser");
-    assert.equal(broker.payload.broker.url, "https://duckduckgo.sylion.internal/vnc.html?autoconnect=true&resize=remote&path=websockify");
+    assert.equal(
+      broker.payload.broker.url,
+      "https://duckduckgo.sylion.internal/vnc.html?autoconnect=true&resize=remote&path=websockify"
+    );
     assert.equal(broker.payload.broker.routeStatus.ready, true);
     assert.equal(broker.payload.broker.routeStatus.httpStatus, 200);
     assert.equal(broker.payload.broker.handoff.storesOperationalDataOnTerminal, false);
     assert.equal(broker.payload.broker.routeStatus.cdrRequired, true);
     assert.equal(broker.payload.broker.productionExecutionAllowed, false);
-    assert.equal(broker.payload.broker.blockers.includes("duckduckgo_browser_native_workload_not_built"), false);
+    assert.equal(
+      broker.payload.broker.blockers.includes("duckduckgo_browser_native_workload_not_built"),
+      false
+    );
     assert.equal(JSON.stringify(broker.payload).includes("privateKey"), false);
   } finally {
     await close();
@@ -332,7 +388,11 @@ test("Step 3.60 workload broker exposes not-built state for missing native apps"
   try {
     const { client } = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const broker = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-session-broker/signal");
+    const broker = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-session-broker/signal"
+    );
 
     assert.equal(broker.payload.broker.appName, "Signal");
     assert.equal(broker.payload.broker.routeStatus.state, "not_built");

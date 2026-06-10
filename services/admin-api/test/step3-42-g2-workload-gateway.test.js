@@ -55,17 +55,47 @@ test("Step 3.42 rendered gateway config has no embedded workload password and no
   assert.doesNotMatch(config, /listen 0\.0\.0\.0:443/);
   assert.doesNotMatch(config, /sylion-signal-local/);
   assert.doesNotMatch(config, /a2FzbV91c2VyOnN5bGlvbi1zaWduYWwtbG9jYWw=/);
-  assert.doesNotMatch(config, /return 302 \/vnc\.html\?autoconnect=true&resize=remote&path=websockify;/);
+  assert.doesNotMatch(
+    config,
+    /return 302 \/vnc\.html\?autoconnect=true&resize=remote&path=websockify;/
+  );
   assert.doesNotMatch(config, /include \/etc\/nginx\/snippets\/sylion-signal-auth\.conf;/);
-  assert.match(config, /server_name duckduckgo\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-duckduckgo\.conf;/);
-  assert.match(config, /server_name signal\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-signal\.conf;/);
-  assert.match(config, /server_name signal\.sylion\.internal;[\s\S]+proxy_ssl_verify off;[\s\S]+proxy_pass https:\/\/10\.42\.0\.13:3013;/);
-  assert.match(config, /server_name duckduckgo\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.42\.0\.13:3001;/);
-  assert.match(config, /server_name zangi\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.42\.0\.13:3014;/);
-  assert.match(config, /server_name protonmail\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-protonmail\.conf;/);
-  assert.match(config, /server_name protonmail\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.42\.0\.13:3016;/);
-  assert.match(config, /server_name simplex\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-simplex\.conf;/);
-  assert.match(config, /server_name simplex\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.42\.0\.13:3017;/);
+  assert.match(
+    config,
+    /server_name duckduckgo\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-duckduckgo\.conf;/
+  );
+  assert.match(
+    config,
+    /server_name signal\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-signal\.conf;/
+  );
+  assert.match(
+    config,
+    /server_name signal\.sylion\.internal;[\s\S]+proxy_ssl_verify off;[\s\S]+proxy_pass https:\/\/10\.42\.0\.13:3013;/
+  );
+  assert.match(
+    config,
+    /server_name duckduckgo\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.42\.0\.13:3001;/
+  );
+  assert.match(
+    config,
+    /server_name zangi\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.42\.0\.13:3014;/
+  );
+  assert.match(
+    config,
+    /server_name protonmail\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-protonmail\.conf;/
+  );
+  assert.match(
+    config,
+    /server_name protonmail\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.42\.0\.13:3016;/
+  );
+  assert.match(
+    config,
+    /server_name simplex\.sylion\.internal;[\s\S]+include \/etc\/nginx\/snippets\/sylion-kasm-auth-simplex\.conf;/
+  );
+  assert.match(
+    config,
+    /server_name simplex\.sylion\.internal;[\s\S]+proxy_pass http:\/\/10\.42\.0\.13:3017;/
+  );
   assert.match(config, /X-Sylion-Terminal-Data-Stored "false"/);
   assert.match(config, /X-Sylion-G1-G2-Bypass "false"/);
   assert.match(config, /X-Sylion-CDR-Required "true"/);

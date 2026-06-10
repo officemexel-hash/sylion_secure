@@ -8,9 +8,10 @@ function arg(name, fallback = null) {
   return found ? found.slice(prefix.length) : fallback;
 }
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 export const g1DnsPlan = Object.freeze({
   component: "g1_internal_dns",
@@ -137,41 +138,62 @@ async function main() {
     return;
   }
   if (!apply || confirmation !== "INSTALL_G1_DNS") {
-    console.log(JSON.stringify({
-      ...g1DnsPlan,
-      mode: "blocked_before_apply",
-      applied: false,
-      blockers: [
-        ...(apply ? [] : ["apply_flag_missing"]),
-        ...(confirmation === "INSTALL_G1_DNS" ? [] : ["confirmation_phrase_missing"])
-      ]
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          ...g1DnsPlan,
+          mode: "blocked_before_apply",
+          applied: false,
+          blockers: [
+            ...(apply ? [] : ["apply_flag_missing"]),
+            ...(confirmation === "INSTALL_G1_DNS" ? [] : ["confirmation_phrase_missing"])
+          ]
+        },
+        null,
+        2
+      )
+    );
     return;
   }
-  const { stdout } = await run("ssh", [
-    "-i",
-    sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "ConnectTimeout=10",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    target,
-    "bash -s"
-  ], {
-    input: renderRemoteScript(),
-    timeout: 120_000
-  });
-  console.log(JSON.stringify({
-    ...g1DnsPlan,
-    mode: "applied",
-    applied: true,
-    evidence: Object.fromEntries(stdout.split(/\r?\n/).filter(Boolean).map((line) => {
-      const [key, ...rest] = line.split("=");
-      return [key, rest.join("=")];
-    }))
-  }, null, 2));
+  const { stdout } = await run(
+    "ssh",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "ConnectTimeout=10",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      target,
+      "bash -s"
+    ],
+    {
+      input: renderRemoteScript(),
+      timeout: 120_000
+    }
+  );
+  console.log(
+    JSON.stringify(
+      {
+        ...g1DnsPlan,
+        mode: "applied",
+        applied: true,
+        evidence: Object.fromEntries(
+          stdout
+            .split(/\r?\n/)
+            .filter(Boolean)
+            .map((line) => {
+              const [key, ...rest] = line.split("=");
+              return [key, rest.join("=")];
+            })
+        )
+      },
+      null,
+      2
+    )
+  );
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

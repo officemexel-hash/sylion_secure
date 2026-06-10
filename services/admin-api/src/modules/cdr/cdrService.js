@@ -57,7 +57,10 @@ export class CdrService {
     const corr = requireCorrelationId(correlationId);
     const cdrDirection = requireText(direction, "direction");
     if (!DIRECTIONS.has(cdrDirection)) {
-      throw validationError("Unsupported CDR direction", { direction: cdrDirection, supported: [...DIRECTIONS] });
+      throw validationError("Unsupported CDR direction", {
+        direction: cdrDirection,
+        supported: [...DIRECTIONS]
+      });
     }
 
     const app = this.appCatalog.get(appId);
@@ -65,15 +68,24 @@ export class CdrService {
       throw notFound("authorized_app", appId);
     }
     if (app.status !== APP_STATUSES.APPROVED || app.cdrRequired !== true) {
-      throw new AppError("cdr_app_not_authorized", "CDR can only process approved catalog apps that require CDR", 409, {
-        appId,
-        status: app.status,
-        cdrRequired: app.cdrRequired
-      });
+      throw new AppError(
+        "cdr_app_not_authorized",
+        "CDR can only process approved catalog apps that require CDR",
+        409,
+        {
+          appId,
+          status: app.status,
+          cdrRequired: app.cdrRequired
+        }
+      );
     }
 
     const fileRecord = sanitizeFile(file);
-    const decision = this.resolveDecision({ scanVerdict, file: fileRecord, reconstructedObjectRef });
+    const decision = this.resolveDecision({
+      scanVerdict,
+      file: fileRecord,
+      reconstructedObjectRef
+    });
     const record = {
       id: newId("cdr"),
       tenantId: requireText(tenantId, "tenantId"),
@@ -83,7 +95,8 @@ export class CdrService {
       file: fileRecord,
       scanVerdict,
       decision,
-      reconstructedObjectRef: decision === CDR_DECISIONS.ALLOW_RECONSTRUCTED ? reconstructedObjectRef : null,
+      reconstructedObjectRef:
+        decision === CDR_DECISIONS.ALLOW_RECONSTRUCTED ? reconstructedObjectRef : null,
       evidence: {
         scanner: evidence.scanner || "local-cdr-simulator",
         signatureSet: evidence.signatureSet || "dev",
@@ -152,7 +165,12 @@ export class CdrService {
     this.emitMonitoringEvent({ transfer, correlationId: corr });
 
     if (!allowed) {
-      throw new AppError("cdr_decision_required", "No file ingress/egress without CDR decision", 409, transfer);
+      throw new AppError(
+        "cdr_decision_required",
+        "No file ingress/egress without CDR decision",
+        409,
+        transfer
+      );
     }
     return transfer;
   }
@@ -161,7 +179,10 @@ export class CdrService {
     const event = {
       id: newId("mon"),
       eventType: decision ? "cdr.decision" : "cdr.file_transfer",
-      severity: decision?.decision === CDR_DECISIONS.ALLOW_RECONSTRUCTED || transfer?.allowed ? "info" : "warning",
+      severity:
+        decision?.decision === CDR_DECISIONS.ALLOW_RECONSTRUCTED || transfer?.allowed
+          ? "info"
+          : "warning",
       tenantId: decision?.tenantId || transfer?.tenantId || null,
       operatorId: decision?.operatorId || transfer?.operatorId || null,
       correlationId,

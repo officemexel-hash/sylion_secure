@@ -7,9 +7,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const plan = {
   step: "3.79",
@@ -28,7 +29,8 @@ const plan = {
     composePath: "/opt/sylion-guacamole/docker-compose.yml",
     envPath: "/etc/sylion/guacamole.env",
     extensionsDir: "/opt/sylion-guacamole/extensions",
-    jsonAuthArchiveUrl: "https://archive.apache.org/dist/guacamole/1.6.0/binary/guacamole-auth-json-1.6.0.tar.gz",
+    jsonAuthArchiveUrl:
+      "https://archive.apache.org/dist/guacamole/1.6.0/binary/guacamole-auth-json-1.6.0.tar.gz",
     jsonAuthJar: "/opt/sylion-guacamole/extensions/guacamole-auth-json-1.6.0.jar",
     guacdTlsDir: "/opt/sylion-guacamole/tls",
     guacdTlsCertificate: "/opt/sylion-guacamole/tls/guacd.crt",
@@ -43,9 +45,27 @@ const plan = {
     postgresImage: "postgres:16-alpine"
   },
   workloadSources: [
-    { key: "signal", protocol: "vnc", host: "10.44.0.13", port: 3013, labAdapter: "novnc_source_until_vnc_direct_seed" },
-    { key: "duckduckgo_browser", protocol: "vnc", host: "10.44.0.13", port: 3001, labAdapter: "novnc_source_until_vnc_direct_seed" },
-    { key: "libreoffice", protocol: "vnc", host: "10.44.0.13", port: 3002, labAdapter: "novnc_source_until_vnc_direct_seed" }
+    {
+      key: "signal",
+      protocol: "vnc",
+      host: "10.44.0.13",
+      port: 3013,
+      labAdapter: "novnc_source_until_vnc_direct_seed"
+    },
+    {
+      key: "duckduckgo_browser",
+      protocol: "vnc",
+      host: "10.44.0.13",
+      port: 3001,
+      labAdapter: "novnc_source_until_vnc_direct_seed"
+    },
+    {
+      key: "libreoffice",
+      protocol: "vnc",
+      host: "10.44.0.13",
+      port: 3002,
+      labAdapter: "novnc_source_until_vnc_direct_seed"
+    }
   ],
   invariants: {
     g2Only: true,
@@ -314,15 +334,21 @@ async function deploy(input = plan) {
   await writeFile(launchHtmlPath, renderLaunchShimHtml(input), "utf8");
   await writeFile(launchJsPath, renderLaunchShimJs(input), "utf8");
 
-  await run("scp", [
-    "-i", sshKey,
-    "-o", "StrictHostKeyChecking=accept-new",
-    composePath,
-    nginxPath,
-    launchHtmlPath,
-    launchJsPath,
-    `${input.gateway.host}:/tmp/`
-  ], { timeout: 90_000 });
+  await run(
+    "scp",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      composePath,
+      nginxPath,
+      launchHtmlPath,
+      launchJsPath,
+      `${input.gateway.host}:/tmp/`
+    ],
+    { timeout: 90_000 }
+  );
 
   const remoteScript = `
 set -euo pipefail
@@ -415,13 +441,20 @@ sudo ss -ltnp | grep '${input.gateway.bindAddress}:443' >/dev/null
 printf '{"component":"g2_guacamole_session_broker","deployed":true,"httpStatus":%s,"serverName":"%s","privateBind":"%s","guacdSsl":true,"guacamoleToGuacdTransport":"tls","jsonAuthHandoffEnabled":true,"secretsPrinted":false,"terminalDataStored":false,"productionExecutionAllowed":false}\\n' "$guac_code" "${input.gateway.serverName}" "${input.gateway.bindAddress}"
 `;
   const encoded = Buffer.from(remoteScript, "utf8").toString("base64");
-  const result = await run("ssh", [
-    "-i", sshKey,
-    "-o", "BatchMode=yes",
-    "-o", "StrictHostKeyChecking=accept-new",
-    input.gateway.host,
-    `printf %s ${shellQuote(encoded)} | base64 -d | bash`
-  ], { timeout: 1_200_000 });
+  const result = await run(
+    "ssh",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      input.gateway.host,
+      `printf %s ${shellQuote(encoded)} | base64 -d | bash`
+    ],
+    { timeout: 1_200_000 }
+  );
   console.log(result.stdout);
 }
 
@@ -448,7 +481,9 @@ async function main() {
     await deploy();
     return;
   }
-  console.error("Usage: node scripts/install-g2-guacamole-broker.mjs --print-plan|--render-compose|--render-nginx|--render-launch-shim|--deploy");
+  console.error(
+    "Usage: node scripts/install-g2-guacamole-broker.mjs --print-plan|--render-compose|--render-nginx|--render-launch-shim|--deploy"
+  );
   process.exitCode = 2;
 }
 

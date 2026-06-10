@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_step3_39_blue_team" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_step3_39_blue_team" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -136,11 +140,19 @@ test("Step 3.39 Blue Team dashboard shows mandatory CDR coverage and metadata-on
     assert.equal(dashboard.payload.dashboard.metadataOnly, true);
     assert.equal(dashboard.payload.dashboard.communicationContentStored, false);
     assert.equal(dashboard.payload.dashboard.cdrMandatoryForAllOperators, true);
-    assert.ok(dashboard.payload.dashboard.metadataSignals.some((item) => item.key === "auth_attack_events" && item.value >= 2));
+    assert.ok(
+      dashboard.payload.dashboard.metadataSignals.some(
+        (item) => item.key === "auth_attack_events" && item.value >= 2
+      )
+    );
     assert.ok(dashboard.payload.dashboard.alerts.some((alert) => alert.signal === "auth_attack"));
-    assert.ok(dashboard.payload.dashboard.alerts.some((alert) => alert.signal === "key_material_change"));
+    assert.ok(
+      dashboard.payload.dashboard.alerts.some((alert) => alert.signal === "key_material_change")
+    );
 
-    const coverage = dashboard.payload.dashboard.cdrCoverage.find((item) => item.operatorId === operator.payload.operator.id);
+    const coverage = dashboard.payload.dashboard.cdrCoverage.find(
+      (item) => item.operatorId === operator.payload.operator.id
+    );
     assert.equal(coverage.status, "active");
     assert.equal(coverage.cdrMandatory, true);
     assert.equal(coverage.decisions, 1);
@@ -172,7 +184,10 @@ test("Step 3.39 Blue Team rejects content-bearing telemetry before audit storage
     assert.equal(rejected.payload.error.details.invariant, "no_communication_content");
 
     const audit = await request(baseUrl, "/audit/events", { token });
-    assert.equal(JSON.stringify(audit.payload.events).includes("secret chat body that must never be accepted"), false);
+    assert.equal(
+      JSON.stringify(audit.payload.events).includes("secret chat body that must never be accepted"),
+      false
+    );
   } finally {
     await close();
   }

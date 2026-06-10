@@ -169,15 +169,20 @@ test("Step 3.43 streaming session is blocked until live access and G2 stream gat
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const session = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
-      method: "POST",
-      body: {
-        templateKey: "signal",
-        width: 390,
-        height: 844,
-        dpr: 3
+    const session = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/streaming-sessions",
+      {
+        method: "POST",
+        body: {
+          templateKey: "signal",
+          width: 390,
+          height: 844,
+          dpr: 3
+        }
       }
-    });
+    );
     assert.equal(session.session.state, "stream_session_blocked");
     assert.ok(session.session.blockers.includes("live_access:t0_pixel_to_g1_ipsec"));
     assert.ok(session.session.blockers.includes("g2_stream_gateway_not_ready"));
@@ -219,22 +224,34 @@ test("Step 3.43 Signal, DuckDuckGo and LibreOffice can become ready for G2 thin 
     const seeded = await seedOperator(client, "PRO");
     await recordLiveVpnEvidence(baseUrl, seeded.session.token);
     for (const templateKey of ["signal", "duckduckgo_browser", "libreoffice"]) {
-      const session = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
-        method: "POST",
-        body: {
-          templateKey,
-          width: 390,
-          height: 844,
-          dpr: 3
+      const session = await operatorRequest(
+        baseUrl,
+        seeded.session.token,
+        "/operator-api/streaming-sessions",
+        {
+          method: "POST",
+          body: {
+            templateKey,
+            width: 390,
+            height: 844,
+            dpr: 3
+          }
         }
-      });
+      );
       assert.equal(session.session.state, "stream_session_ready");
       assert.equal(session.session.blockers.length, 0);
       assert.match(session.session.launchUrl, /^https:\/\/.+\.sylion\.internal\//);
       assert.equal(session.session.gateway.launchMode, "private_app_stream");
-      assert.equal(session.session.source.directProbeMode, "private_websockify_probe_not_production_broker");
+      assert.equal(
+        session.session.source.directProbeMode,
+        "private_websockify_probe_not_production_broker"
+      );
       assert.equal(session.session.stream.operationalDataOnTerminal, false);
-      assert.deepEqual(session.session.stream.terminalReceives, ["video_pixels", "audio_optional", "input_events"]);
+      assert.deepEqual(session.session.stream.terminalReceives, [
+        "video_pixels",
+        "audio_optional",
+        "input_events"
+      ]);
       assert.ok(session.session.stream.terminalForbidden.includes("message_database"));
       assert.ok(session.session.stream.terminalForbidden.includes("wallet_seed"));
       assert.equal(session.session.security.fileIngressEgress, "blocked_without_cdr_decision");
@@ -271,10 +288,15 @@ test("Step 3.43 operator-scoped stream readiness evidence unlocks only approved 
     const seeded = await seedOperator(client, "PRO");
     await recordLiveVpnEvidence(baseUrl, seeded.session.token);
 
-    const blocked = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
-      method: "POST",
-      body: { templateKey: "signal", width: 390, height: 844, dpr: 3 }
-    });
+    const blocked = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/streaming-sessions",
+      {
+        method: "POST",
+        body: { templateKey: "signal", width: 390, height: 844, dpr: 3 }
+      }
+    );
     assert.ok(blocked.session.blockers.includes("signal_stream_source_not_ready"));
     assert.ok(blocked.session.blockers.includes("g2_stream_gateway_not_ready"));
 
@@ -287,10 +309,15 @@ test("Step 3.43 operator-scoped stream readiness evidence unlocks only approved 
     assert.equal(manifest.manifest.gateway.bindAddress, "10.42.0.12");
     assert.equal(manifest.manifest.guardrails.terminalReceivesOnlyPixels, true);
 
-    const ready = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
-      method: "POST",
-      body: { templateKey: "signal", width: 390, height: 844, dpr: 3 }
-    });
+    const ready = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/streaming-sessions",
+      {
+        method: "POST",
+        body: { templateKey: "signal", width: 390, height: 844, dpr: 3 }
+      }
+    );
     assert.equal(ready.session.state, "stream_session_ready");
     assert.equal(ready.session.gateway.evidenceId, readiness.evidence.id);
     assert.equal(ready.session.gateway.runtimeManifestId, manifest.manifest.id);
@@ -365,17 +392,27 @@ test("Step 3.43 Zangi and Exodus remain blocked by app-specific streaming gates"
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
     await recordLiveVpnEvidence(baseUrl, seeded.session.token);
-    const zangi = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
-      method: "POST",
-      body: { templateKey: "zangi", width: 390, height: 844, dpr: 3 }
-    });
+    const zangi = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/streaming-sessions",
+      {
+        method: "POST",
+        body: { templateKey: "zangi", width: 390, height: 844, dpr: 3 }
+      }
+    );
     assert.equal(zangi.session.state, "stream_session_blocked");
     assert.ok(zangi.session.blockers.includes("android_native_stream_runner_required"));
 
-    const exodus = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/streaming-sessions", {
-      method: "POST",
-      body: { templateKey: "exodus", width: 390, height: 844, dpr: 3 }
-    });
+    const exodus = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/streaming-sessions",
+      {
+        method: "POST",
+        body: { templateKey: "exodus", width: 390, height: 844, dpr: 3 }
+      }
+    );
     assert.equal(exodus.session.state, "stream_session_blocked");
     assert.ok(exodus.session.blockers.includes("operator_wallet_risk_acceptance_required"));
     assert.equal(JSON.stringify(exodus).includes("wallet_seed_value"), false);

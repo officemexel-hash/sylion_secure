@@ -63,7 +63,10 @@ export class AppCatalogService {
     }
     const appRiskClass = requireText(riskClass, "riskClass");
     if (!RISK_CLASSES.has(appRiskClass)) {
-      throw validationError("Unsupported risk class", { riskClass: appRiskClass, supported: [...RISK_CLASSES] });
+      throw validationError("Unsupported risk class", {
+        riskClass: appRiskClass,
+        supported: [...RISK_CLASSES]
+      });
     }
 
     const app = {
@@ -86,7 +89,9 @@ export class AppCatalogService {
     };
 
     if (app.cdrRequired !== true) {
-      throw validationError("Authorized apps must require CDR for file ingress/egress", { cdrRequired });
+      throw validationError("Authorized apps must require CDR for file ingress/egress", {
+        cdrRequired
+      });
     }
 
     this.apps.set(app.id, app);
@@ -103,13 +108,28 @@ export class AppCatalogService {
 
   approve({ actor, appId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "app.approve", { resourceType: RESOURCE_TYPES.AUTHORIZED_APP, resourceId: appId, correlationId: corr });
-    return this.updateStatus({ actor, appId, status: APP_STATUSES.APPROVED, action: "authorized_app.approved", timestampField: "approvedAt", correlationId: corr });
+    this.rbac.assert(actor, "app.approve", {
+      resourceType: RESOURCE_TYPES.AUTHORIZED_APP,
+      resourceId: appId,
+      correlationId: corr
+    });
+    return this.updateStatus({
+      actor,
+      appId,
+      status: APP_STATUSES.APPROVED,
+      action: "authorized_app.approved",
+      timestampField: "approvedAt",
+      correlationId: corr
+    });
   }
 
   block({ actor, appId, reason, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "app.block", { resourceType: RESOURCE_TYPES.AUTHORIZED_APP, resourceId: appId, correlationId: corr });
+    this.rbac.assert(actor, "app.block", {
+      resourceType: RESOURCE_TYPES.AUTHORIZED_APP,
+      resourceId: appId,
+      correlationId: corr
+    });
     const previous = this.apps.get(appId);
     if (!previous) {
       throw notFound("authorized_app", appId);

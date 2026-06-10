@@ -89,7 +89,10 @@ test("Step 3.16 resolves Hetzner token through EnvSecretProvider without exposin
   });
   assert.equal(secretProvider.hasProviderSecret("hetzner"), true);
   assert.equal(secretProvider.status().providers.hetzner.configured, true);
-  assert.equal(JSON.stringify(secretProvider.status()).includes("env-token-step3-16-secret"), false);
+  assert.equal(
+    JSON.stringify(secretProvider.status()).includes("env-token-step3-16-secret"),
+    false
+  );
 });
 
 test("Step 3.16 reconciles and executes Hetzner rollback through gated sandbox adapter", async () => {
@@ -106,9 +109,33 @@ test("Step 3.16 reconciles and executes Hetzner rollback through gated sandbox a
     async createVpsSet(input) {
       calls.push(["create", input]);
       return [
-        { role: "G1", providerResourceId: "hcloud-16-g1", rollback: { action: "delete_server", providerResourceId: "hcloud-16-g1", idempotencyKey: input.idempotencyKey } },
-        { role: "G2", providerResourceId: "hcloud-16-g2", rollback: { action: "delete_server", providerResourceId: "hcloud-16-g2", idempotencyKey: input.idempotencyKey } },
-        { role: "WORKLOAD", providerResourceId: "hcloud-16-workload", rollback: { action: "delete_server", providerResourceId: "hcloud-16-workload", idempotencyKey: input.idempotencyKey } }
+        {
+          role: "G1",
+          providerResourceId: "hcloud-16-g1",
+          rollback: {
+            action: "delete_server",
+            providerResourceId: "hcloud-16-g1",
+            idempotencyKey: input.idempotencyKey
+          }
+        },
+        {
+          role: "G2",
+          providerResourceId: "hcloud-16-g2",
+          rollback: {
+            action: "delete_server",
+            providerResourceId: "hcloud-16-g2",
+            idempotencyKey: input.idempotencyKey
+          }
+        },
+        {
+          role: "WORKLOAD",
+          providerResourceId: "hcloud-16-workload",
+          rollback: {
+            action: "delete_server",
+            providerResourceId: "hcloud-16-workload",
+            idempotencyKey: input.idempotencyKey
+          }
+        }
       ];
     },
     async listVpsSet(input) {
@@ -164,7 +191,9 @@ test("Step 3.16 reconciles and executes Hetzner rollback through gated sandbox a
     assert.ok(calls.some(([name]) => name === "list"));
     assert.ok(calls.some(([name]) => name === "delete"));
     assert.equal(JSON.stringify(rolledBack).includes("env-token-step3-16-secret"), false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "live_cloud.rollback_executed"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "live_cloud.rollback_executed")
+    );
   } finally {
     await close();
   }

@@ -13,7 +13,17 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, headers = {}, correlationId = "corr_device_image_orchestrator" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  {
+    method = "GET",
+    token,
+    body,
+    headers = {},
+    correlationId = "corr_device_image_orchestrator"
+  } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -235,11 +245,15 @@ test("M20 executes provisioning plan idempotently and creates inventory, certs, 
       }
     });
     assert.equal(approval.status, 201);
-    const approved = await request(baseUrl, `/provisioning/approvals/${approval.payload.approval.id}/status`, {
-      method: "POST",
-      token,
-      body: { status: "approved_for_execution", note: "Provisioning execution approved" }
-    });
+    const approved = await request(
+      baseUrl,
+      `/provisioning/approvals/${approval.payload.approval.id}/status`,
+      {
+        method: "POST",
+        token,
+        body: { status: "approved_for_execution", note: "Provisioning execution approved" }
+      }
+    );
     assert.equal(approved.status, 200);
 
     const executeBody = {
@@ -273,13 +287,17 @@ test("M20 executes provisioning plan idempotently and creates inventory, certs, 
     assert.equal(repeated.status, 201);
     assert.equal(repeated.payload.job.id, job.payload.job.id);
 
-    const inventory = await request(baseUrl, `/operators/${operator.id}/infrastructure-sets`, { token });
+    const inventory = await request(baseUrl, `/operators/${operator.id}/infrastructure-sets`, {
+      token
+    });
     assert.equal(inventory.status, 200);
     assert.equal(inventory.payload.infrastructureSets.length, 1);
     assert.equal(inventory.payload.infrastructureSets[0].vps.length, 3);
     assert.ok(inventory.payload.infrastructureSets[0].vps.every((vps) => vps.shared === false));
 
-    const artifacts = await request(baseUrl, `/images/artifacts?operatorId=${operator.id}`, { token });
+    const artifacts = await request(baseUrl, `/images/artifacts?operatorId=${operator.id}`, {
+      token
+    });
     assert.equal(artifacts.status, 200);
     assert.equal(artifacts.payload.artifacts.length, 4);
   } finally {

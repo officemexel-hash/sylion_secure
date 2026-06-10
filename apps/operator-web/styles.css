@@ -80,9 +80,15 @@ body {
   display: inline-block;
 }
 
-.dot-warn { background: var(--accent-warn); }
-.dot-error { background: var(--accent-error); }
-.dot-ok { background: var(--accent-ok); }
+.dot-warn {
+  background: var(--accent-warn);
+}
+.dot-error {
+  background: var(--accent-error);
+}
+.dot-ok {
+  background: var(--accent-ok);
+}
 
 .sidebar {
   grid-area: side;
@@ -309,7 +315,8 @@ table {
   overflow: hidden;
 }
 
-th, td {
+th,
+td {
   text-align: left;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
@@ -951,8 +958,7 @@ dd {
   padding: 22px;
   background:
     linear-gradient(rgb(255 255 255 / 4%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px),
-    #0b0f16;
+    linear-gradient(90deg, rgb(255 255 255 / 4%) 1px, transparent 1px), #0b0f16;
   background-size: 38px 38px;
 }
 
@@ -1178,7 +1184,10 @@ button.primary:disabled {
   }
 
   .stream-control-bar {
-    grid-template-columns: minmax(86px, 1fr) minmax(72px, auto) minmax(78px, auto) minmax(42px, auto) minmax(48px, auto);
+    grid-template-columns: minmax(86px, 1fr) minmax(72px, auto) minmax(78px, auto) minmax(
+        42px,
+        auto
+      ) minmax(48px, auto);
     gap: 5px;
     min-height: calc(58px + env(safe-area-inset-bottom));
   }

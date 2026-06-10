@@ -33,9 +33,12 @@ function assertNoSecretMaterial(payload, path = "profile") {
   for (const [key, value] of Object.entries(payload)) {
     const current = `${path}.${key}`;
     if (/secret|private.*key|seed|password|token|pem/i.test(key)) {
-      throw validationError("Security profiles must store references and policy only, never secret material", {
-        field: current
-      });
+      throw validationError(
+        "Security profiles must store references and policy only, never secret material",
+        {
+          field: current
+        }
+      );
     }
     assertNoSecretMaterial(value, current);
   }
@@ -51,7 +54,13 @@ export class SecurityProfileService {
 
   getFido2Policy({ actor, scope = "admin", operatorId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.#assertAccess({ actor, action: "security.profile.read", scope, operatorId, correlationId: corr });
+    this.#assertAccess({
+      actor,
+      action: "security.profile.read",
+      scope,
+      operatorId,
+      correlationId: corr
+    });
     return this.#getOrCreateFido2Policy({ scope, operatorId });
   }
 
@@ -70,7 +79,13 @@ export class SecurityProfileService {
   }) {
     const corr = requireCorrelationId(correlationId);
     assertNoSecretMaterial(extra);
-    this.#assertAccess({ actor, action: "security.profile.manage", scope, operatorId, correlationId: corr });
+    this.#assertAccess({
+      actor,
+      action: "security.profile.manage",
+      scope,
+      operatorId,
+      correlationId: corr
+    });
     requireScope(scope);
     if (scope === "operator") this.#requireOperator(operatorId);
     if (!FIDO2_MODES.has(mode)) {
@@ -78,7 +93,9 @@ export class SecurityProfileService {
     }
     const sessionHours = Number(defaultSessionHours);
     if (!Number.isInteger(sessionHours) || sessionHours < 1 || sessionHours > 24) {
-      throw validationError("defaultSessionHours must be an integer from 1 to 24", { defaultSessionHours });
+      throw validationError("defaultSessionHours must be an integer from 1 to 24", {
+        defaultSessionHours
+      });
     }
     const previous = this.#getOrCreateFido2Policy({ scope, operatorId });
     const next = {
@@ -96,13 +113,25 @@ export class SecurityProfileService {
     };
     assertNoSecretMaterial(next);
     this.profiles.set(next.id, next);
-    this.#audit({ actor, action: "security.fido2_policy.updated", profile: next, previous, correlationId: corr });
+    this.#audit({
+      actor,
+      action: "security.fido2_policy.updated",
+      profile: next,
+      previous,
+      correlationId: corr
+    });
     return next;
   }
 
   getHsmProfile({ actor, scope = "admin", operatorId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.#assertAccess({ actor, action: "security.profile.read", scope, operatorId, correlationId: corr });
+    this.#assertAccess({
+      actor,
+      action: "security.profile.read",
+      scope,
+      operatorId,
+      correlationId: corr
+    });
     return this.#getOrCreateHsmProfile({ scope, operatorId });
   }
 
@@ -121,14 +150,24 @@ export class SecurityProfileService {
   }) {
     const corr = requireCorrelationId(correlationId);
     assertNoSecretMaterial(extra);
-    this.#assertAccess({ actor, action: "security.profile.manage", scope, operatorId, correlationId: corr });
+    this.#assertAccess({
+      actor,
+      action: "security.profile.manage",
+      scope,
+      operatorId,
+      correlationId: corr
+    });
     requireScope(scope);
     if (scope === "operator") this.#requireOperator(operatorId);
     if (!HSM_MODES.has(mode)) {
       throw validationError("Unsupported HSM mode", { mode, allowed: [...HSM_MODES] });
     }
     const normalizedRotationDays = Number(rotationDays);
-    if (!Number.isInteger(normalizedRotationDays) || normalizedRotationDays < 1 || normalizedRotationDays > 365) {
+    if (
+      !Number.isInteger(normalizedRotationDays) ||
+      normalizedRotationDays < 1 ||
+      normalizedRotationDays > 365
+    ) {
       throw validationError("rotationDays must be an integer from 1 to 365", { rotationDays });
     }
     const previous = this.#getOrCreateHsmProfile({ scope, operatorId });
@@ -147,7 +186,13 @@ export class SecurityProfileService {
     };
     assertNoSecretMaterial(next);
     this.profiles.set(next.id, next);
-    this.#audit({ actor, action: "security.hsm_profile.updated", profile: next, previous, correlationId: corr });
+    this.#audit({
+      actor,
+      action: "security.hsm_profile.updated",
+      profile: next,
+      previous,
+      correlationId: corr
+    });
     return next;
   }
 

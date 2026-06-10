@@ -8,7 +8,13 @@ const appFilter = process.env.SYLION_APP_UNDER_TEST || "all";
 const terminalMode = process.env.SYLION_TERMINAL_MODE || "pixel_grapheneos";
 const runtimeMode = process.env.SYLION_RUNTIME_MODE || "unknown";
 const indexHumanEvidence = process.env.SYLION_INDEX_HUMAN_EVIDENCE === "true";
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-86-workload-factual-human-runner");
+const outputDir = join(
+  process.cwd(),
+  "docs",
+  "admin-panel-v2",
+  "test-artifacts",
+  "step3-86-workload-factual-human-runner"
+);
 
 function repoRelativePath(path) {
   return path.startsWith(process.cwd())
@@ -29,7 +35,11 @@ async function loginClient() {
     });
     await anon.verifyEnrollment({
       challengeId: enrollment.challenge.id,
-      credential: { id: credentialId, publicKey: `simulated-public-key:${credentialId}`, transports: ["usb"] }
+      credential: {
+        id: credentialId,
+        publicKey: `simulated-public-key:${credentialId}`,
+        transports: ["usb"]
+      }
     });
   } catch {
     // Existing admin enrollment is acceptable for repeatable local harness runs.
@@ -38,7 +48,8 @@ async function loginClient() {
     email: "admin@sylion.local",
     password: "ChangeMe-LocalOnly-1!"
   });
-  const loginCredentialId = loginOptions.challenge.publicKey.allowCredentials?.at(-1)?.id || credentialId;
+  const loginCredentialId =
+    loginOptions.challenge.publicKey.allowCredentials?.at(-1)?.id || credentialId;
   const session = await anon.verifyWebAuthnLogin({
     challengeId: loginOptions.challenge.id,
     credentialId: loginCredentialId,
@@ -52,57 +63,63 @@ async function loginClient() {
 
 function selectedApps(matrix) {
   if (appFilter === "all") return matrix;
-  const wanted = new Set(appFilter.split(",").map((item) => item.trim()).filter(Boolean));
+  const wanted = new Set(
+    appFilter
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+  );
   return matrix.filter((item) => wanted.has(item.appKey));
 }
 
 async function writeAppEvidence({ client, item }) {
   const appDir = join(outputDir, item.appKey);
-  const evidence = await writeHumanEvidenceSummary(appDir, {
-    testId: `step3-86-app-${item.appKey}-human-factual`,
-    testVersion: "step3.86",
-    tester: "Codex app factual runner scaffold",
-    environment: {
-      mode: "scaffold_pending_human_execution",
-      adminApi: "local_or_configured_admin_api",
-      appKey: item.appKey,
-      appClass: item.appClass,
-      runtimeMode,
-      productionMutationAllowed: false
+  const evidence = await writeHumanEvidenceSummary(
+    appDir,
+    {
+      testId: `step3-86-app-${item.appKey}-human-factual`,
+      testVersion: "step3.86",
+      tester: "Codex app factual runner scaffold",
+      environment: {
+        mode: "scaffold_pending_human_execution",
+        adminApi: "local_or_configured_admin_api",
+        appKey: item.appKey,
+        appClass: item.appClass,
+        runtimeMode,
+        productionMutationAllowed: false
+      },
+      terminal: {
+        type: terminalMode,
+        operationalDataOnTerminal: false
+      },
+      pathTested: `${terminalMode} -> operator panel -> workload selector -> ${item.label} workload`,
+      expectedBehavior: item.expectedBehavior,
+      preconditions: [
+        "Workload factual matrix is available.",
+        "Operator path and terminal harness are selected.",
+        "No app content, OTP, phone number, wallet data, file content or message content will be stored."
+      ],
+      actions: item.humanSteps,
+      evidenceRefs: [
+        "matrix:/release/workload-factual-matrix",
+        `app:${item.appKey}`,
+        `requiredChecks:${item.mandatoryChecks.join(",")}`
+      ],
+      result: "UNKNOWN",
+      blockers: [
+        "app_human_test_not_executed_yet",
+        `required_checks_pending:${item.mandatoryChecks.join(",")}`,
+        "strict_pass_requires_real_human_ui_and_metadata_evidence"
+      ],
+      residualRisk: [
+        "This scaffold does not prove app usability.",
+        "The exact app test must be executed through Pixel or laptop terminal harness before factual PASS."
+      ],
+      nextRequiredAction: item.repairPrompt,
+      notes: [`passCriteria=${item.passCriteria.join(" | ")}`, `failIf=${item.failIf.join(" | ")}`]
     },
-    terminal: {
-      type: terminalMode,
-      operationalDataOnTerminal: false
-    },
-    pathTested: `${terminalMode} -> operator panel -> workload selector -> ${item.label} workload`,
-    expectedBehavior: item.expectedBehavior,
-    preconditions: [
-      "Workload factual matrix is available.",
-      "Operator path and terminal harness are selected.",
-      "No app content, OTP, phone number, wallet data, file content or message content will be stored."
-    ],
-    actions: item.humanSteps,
-    evidenceRefs: [
-      "matrix:/release/workload-factual-matrix",
-      `app:${item.appKey}`,
-      `requiredChecks:${item.mandatoryChecks.join(",")}`
-    ],
-    result: "UNKNOWN",
-    blockers: [
-      "app_human_test_not_executed_yet",
-      `required_checks_pending:${item.mandatoryChecks.join(",")}`,
-      "strict_pass_requires_real_human_ui_and_metadata_evidence"
-    ],
-    residualRisk: [
-      "This scaffold does not prove app usability.",
-      "The exact app test must be executed through Pixel or laptop terminal harness before factual PASS."
-    ],
-    nextRequiredAction: item.repairPrompt,
-    notes: [
-      `passCriteria=${item.passCriteria.join(" | ")}`,
-      `failIf=${item.failIf.join(" | ")}`
-    ]
-  }, { fileName: "human-evidence.json" });
+    { fileName: "human-evidence.json" }
+  );
   const summary = {
     appKey: item.appKey,
     label: item.label,

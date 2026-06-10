@@ -13,11 +13,22 @@ const g2Host = process.env.SYLION_G2_SSH || "sylion@178.105.203.31";
 const adbPath = process.env.SYLION_ADB_PATH || "C:\\Users\\razor\\Android\\platform-tools\\adb.exe";
 const gatewayIp = process.env.SYLION_WORKLOAD_GATEWAY_IP || "10.42.0.12";
 const workloadBind = process.env.SYLION_WORKLOAD_BIND || "10.42.0.13";
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-62-factual-state-audit");
+const outputDir = join(
+  process.cwd(),
+  "docs",
+  "admin-panel-v2",
+  "test-artifacts",
+  "step3-62-factual-state-audit"
+);
 const args = new Set(process.argv.slice(2));
-const argValue = (prefix) => process.argv.slice(2).find((arg) => arg.startsWith(`${prefix}=`))?.slice(prefix.length + 1);
+const argValue = (prefix) =>
+  process.argv
+    .slice(2)
+    .find((arg) => arg.startsWith(`${prefix}=`))
+    ?.slice(prefix.length + 1);
 const recordApi = args.has("--record-api");
-const adminApiBaseUrl = argValue("--admin-api") || process.env.SYLION_ADMIN_API_BASE_URL || "http://127.0.0.1:8080";
+const adminApiBaseUrl =
+  argValue("--admin-api") || process.env.SYLION_ADMIN_API_BASE_URL || "http://127.0.0.1:8080";
 const adminApiToken = process.env.SYLION_ADMIN_API_TOKEN || "";
 const operatorId = argValue("--operator-id") || process.env.SYLION_OPERATOR_ID || "";
 
@@ -168,16 +179,11 @@ async function run(command, args, options = {}) {
 async function ssh(host, script, options = {}) {
   const encoded = Buffer.from(script, "utf8").toString("base64");
   const remote = `printf %s ${shellSingle(encoded)} | base64 -d | bash`;
-  return run("ssh", [
-    "-i",
-    sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    remote
-  ], options);
+  return run(
+    "ssh",
+    ["-i", sshKey, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", host, remote],
+    options
+  );
 }
 
 async function adb(args, options = {}) {
@@ -198,7 +204,7 @@ function parseDeviceList(output) {
 
 function xmlDecode(value) {
   return value
-    .replace(/&quot;/g, "\"")
+    .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -218,9 +224,13 @@ function evaluateText(app, text) {
   const normalized = text
     .replace(new RegExp(app.host.replace(/\./g, "\\."), "ig"), "")
     .replace(new RegExp(app.key, "ig"), "")
-    .replace(/Wyszukaj w\s*DuckDuckGo lub wpisz adres URL|Customize and control Vanadium|Połączenie jest bezpieczne|Nowa karta|Zobacz \d+\s*karty|Otwórz stronę główną|Widok sieci/ig, "");
-  const browserChromeOnly = normalized.trim().length < 16
-    || (text.includes(app.host) && /Nowa karta|Customize and control Vanadium|Wyszukaj/i.test(text));
+    .replace(
+      /Wyszukaj w\s*DuckDuckGo lub wpisz adres URL|Customize and control Vanadium|Połączenie jest bezpieczne|Nowa karta|Zobacz \d+\s*karty|Otwórz stronę główną|Widok sieci/gi,
+      ""
+    );
+  const browserChromeOnly =
+    normalized.trim().length < 16 ||
+    (text.includes(app.host) && /Nowa karta|Customize and control Vanadium|Wyszukaj/i.test(text));
   const blocker = app.blockers.find((pattern) => pattern.test(normalized));
   const pass = app.pass.some((pattern) => pattern.test(normalized));
   return {
@@ -268,9 +278,9 @@ function parsePngStats(buffer) {
     const filter = raw[rawOffset++];
     for (let x = 0; x < stride; x += 1) {
       let value = raw[rawOffset++];
-      const left = x >= channels ? pixels[(y * stride) + x - channels] : 0;
-      const up = y > 0 ? pixels[((y - 1) * stride) + x] : 0;
-      const upLeft = y > 0 && x >= channels ? pixels[((y - 1) * stride) + x - channels] : 0;
+      const left = x >= channels ? pixels[y * stride + x - channels] : 0;
+      const up = y > 0 ? pixels[(y - 1) * stride + x] : 0;
+      const upLeft = y > 0 && x >= channels ? pixels[(y - 1) * stride + x - channels] : 0;
       if (filter === 1) value = (value + left) & 0xff;
       else if (filter === 2) value = (value + up) & 0xff;
       else if (filter === 3) value = (value + Math.floor((left + up) / 2)) & 0xff;
@@ -284,7 +294,7 @@ function parsePngStats(buffer) {
       } else if (filter !== 0) {
         throw new Error(`unsupported_png_filter:${filter}`);
       }
-      pixels[(y * stride) + x] = value;
+      pixels[y * stride + x] = value;
     }
   }
 
@@ -299,11 +309,11 @@ function parsePngStats(buffer) {
   const y1 = Math.floor(height * 0.96);
   for (let y = y0; y < y1; y += 4) {
     for (let x = 0; x < width; x += 4) {
-      const index = (y * stride) + (x * channels);
+      const index = y * stride + x * channels;
       const r = pixels[index];
       const g = pixels[index + 1];
       const b = pixels[index + 2];
-      const luma = (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
+      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
       count += 1;
       sum += luma;
       sum2 += luma * luma;
@@ -314,7 +324,7 @@ function parsePngStats(buffer) {
     }
   }
   const meanLuma = count ? sum / count : 0;
-  const lumaStdDev = count ? Math.sqrt(Math.max(0, (sum2 / count) - (meanLuma * meanLuma))) : 0;
+  const lumaStdDev = count ? Math.sqrt(Math.max(0, sum2 / count - meanLuma * meanLuma)) : 0;
   return {
     width,
     height,
@@ -333,20 +343,27 @@ export function pixelVisualVerdictFromStats(stats) {
   const loadingLike = stats.darkRatio > 0.9 && stats.lumaStdDev < 28;
   const websockifyFailureLike = (stats.redAlertRatio || 0) > 0.015;
   const highContrastRendered = stats.colorBuckets >= 80 && stats.lumaStdDev >= 24;
-  const lightUiRendered = stats.whiteRatio < 0.99 && stats.colorBuckets >= 50 && stats.lumaStdDev >= 12;
-  const rendered = !blankLike && !loadingLike && !websockifyFailureLike && (highContrastRendered || lightUiRendered);
+  const lightUiRendered =
+    stats.whiteRatio < 0.99 && stats.colorBuckets >= 50 && stats.lumaStdDev >= 12;
+  const rendered =
+    !blankLike &&
+    !loadingLike &&
+    !websockifyFailureLike &&
+    (highContrastRendered || lightUiRendered);
   return {
     rendered,
     blankLike,
     loadingLike,
     websockifyFailureLike,
-    blocker: rendered ? null : blankLike
-      ? "pixel_stream_blank_or_gateway_error"
-      : loadingLike
-        ? "pixel_stream_loading_or_disconnected"
-        : websockifyFailureLike
-          ? "pixel_stream_websockify_connection_failed"
-          : "pixel_stream_visual_not_proven",
+    blocker: rendered
+      ? null
+      : blankLike
+        ? "pixel_stream_blank_or_gateway_error"
+        : loadingLike
+          ? "pixel_stream_loading_or_disconnected"
+          : websockifyFailureLike
+            ? "pixel_stream_websockify_connection_failed"
+            : "pixel_stream_visual_not_proven",
     stats
   };
 }
@@ -391,7 +408,14 @@ function factualRecordForApp(appResult) {
   const documentWorkflow = boolEnv(envName(prefix, "DOCUMENT_WORKFLOW_VERIFIED"));
   const walletWorkflow = boolEnv(envName(prefix, "WALLET_WORKFLOW_VERIFIED"));
   const riskAcceptance = boolEnv(envName(prefix, "RISK_ACCEPTANCE_VERIFIED"));
-  const communicator = ["whatsapp", "signal", "telegram", "threema", "zangi", "matrix_client"].includes(key);
+  const communicator = [
+    "whatsapp",
+    "signal",
+    "telegram",
+    "threema",
+    "zangi",
+    "matrix_client"
+  ].includes(key);
   const passed = communicator
     ? uiVisible && accountBootstrap && sendReceive
     : key === "duckduckgo_browser"
@@ -405,19 +429,53 @@ function factualRecordForApp(appResult) {
     operatorId,
     appKey: key,
     terminalMode: "pixel_grapheneos",
-    runtimeMode: appResult.expectedRuntime === "android_native_required" ? "android_native"
-      : appResult.expectedRuntime.includes("firecracker_gui") ? "firecracker_gui"
-        : appResult.expectedRuntime.includes("desktop") ? "desktop"
-          : appResult.expectedRuntime.includes("web") ? "web" : "unknown",
+    runtimeMode:
+      appResult.expectedRuntime === "android_native_required"
+        ? "android_native"
+        : appResult.expectedRuntime.includes("firecracker_gui")
+          ? "firecracker_gui"
+          : appResult.expectedRuntime.includes("desktop")
+            ? "desktop"
+            : appResult.expectedRuntime.includes("web")
+              ? "web"
+              : "unknown",
     result: passed ? "passed" : "blocked",
     checks: {
-      uiVisible: factualCheck(uiVisible, "Expected UI visible on Pixel screenshot or UI dump", appResult.pixelBlockerMarker || "UI marker not visible"),
-      accountBootstrap: factualCheck(accountBootstrap, "Account bootstrap/linking verified by human", "Account bootstrap/linking not verified"),
-      sendReceive: factualCheck(sendReceive, "Send/receive verified by human", "Send/receive not verified"),
-      browsing: factualCheck(browsing, "Browsing through workload verified by human", "Browsing workflow not verified"),
-      documentWorkflow: factualCheck(documentWorkflow, "LibreOffice document workflow verified by human", "Document workflow not verified"),
-      walletWorkflow: factualCheck(walletWorkflow, "Test-only Exodus wallet workflow verified by human", "Wallet workflow not verified"),
-      riskAcceptance: factualCheck(riskAcceptance, "Operator risk acceptance recorded", "Risk acceptance not recorded")
+      uiVisible: factualCheck(
+        uiVisible,
+        "Expected UI visible on Pixel screenshot or UI dump",
+        appResult.pixelBlockerMarker || "UI marker not visible"
+      ),
+      accountBootstrap: factualCheck(
+        accountBootstrap,
+        "Account bootstrap/linking verified by human",
+        "Account bootstrap/linking not verified"
+      ),
+      sendReceive: factualCheck(
+        sendReceive,
+        "Send/receive verified by human",
+        "Send/receive not verified"
+      ),
+      browsing: factualCheck(
+        browsing,
+        "Browsing through workload verified by human",
+        "Browsing workflow not verified"
+      ),
+      documentWorkflow: factualCheck(
+        documentWorkflow,
+        "LibreOffice document workflow verified by human",
+        "Document workflow not verified"
+      ),
+      walletWorkflow: factualCheck(
+        walletWorkflow,
+        "Test-only Exodus wallet workflow verified by human",
+        "Wallet workflow not verified"
+      ),
+      riskAcceptance: factualCheck(
+        riskAcceptance,
+        "Operator risk acceptance recorded",
+        "Risk acceptance not recorded"
+      )
     },
     evidenceArtifactIds: [
       ...(appResult.screenshot ? [`artifact://pixel/${appResult.key}/screenshot`] : []),
@@ -452,13 +510,19 @@ async function postAdminApi(path, body) {
 async function recordFactualResults(appResults) {
   if (!recordApi) return [];
   if (!adminApiToken) throw new Error("SYLION_ADMIN_API_TOKEN is required with --record-api");
-  if (!operatorId) throw new Error("SYLION_OPERATOR_ID or --operator-id is required with --record-api");
+  if (!operatorId)
+    throw new Error("SYLION_OPERATOR_ID or --operator-id is required with --record-api");
   const records = [];
   for (const appResult of appResults) {
     const body = factualRecordForApp(appResult);
     try {
       const result = await postAdminApi("/release/workload-factual-tests", body);
-      records.push({ appKey: body.appKey, status: "recorded", testId: result.test?.id, result: result.test?.result });
+      records.push({
+        appKey: body.appKey,
+        status: "recorded",
+        testId: result.test?.id,
+        result: result.test?.result
+      });
     } catch (error) {
       records.push({
         appKey: body.appKey,
@@ -487,7 +551,9 @@ find /opt/sylion-workloads/evidence -maxdepth 1 -name 'native-firecracker-gui-*.
 }
 
 async function g2RouteProbe() {
-  const appRows = apps.map((app) => `${app.key}|${app.host}|${app.noVnc ? "true" : "false"}`).join("\n");
+  const appRows = apps
+    .map((app) => `${app.key}|${app.host}|${app.noVnc ? "true" : "false"}`)
+    .join("\n");
   const script = `
 set -uo pipefail
 while IFS='|' read -r h host no_vnc; do
@@ -513,30 +579,38 @@ ${appRows}
 SYLION_APPS
 `;
   const { stdout } = await ssh(g2Host, script, { timeout: 120_000 });
-  return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
-    const [key, rootCode, code, noVnc, noVncMarker, webSocketStatus, title, safety, targetPath] = line.split("|");
-    const status = Number(code);
-    const webSocketSwitching = /^HTTP\/[0-9.]+ 101\b/.test(webSocketStatus || "");
-    const routeNoVnc = noVnc === "true";
-    const transportReady = status === 200 && (!routeNoVnc || (noVncMarker === "true" && webSocketSwitching));
-    return {
-      key,
-      rootCode: Number(rootCode),
-      code: status,
-      noVnc: routeNoVnc,
-      noVncMarker: noVncMarker === "true",
-      webSocketStatus,
-      webSocketSwitching,
-      transportReady,
-      title,
-      safety,
-      targetPath
-    };
-  });
+  return stdout
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const [key, rootCode, code, noVnc, noVncMarker, webSocketStatus, title, safety, targetPath] =
+        line.split("|");
+      const status = Number(code);
+      const webSocketSwitching = /^HTTP\/[0-9.]+ 101\b/.test(webSocketStatus || "");
+      const routeNoVnc = noVnc === "true";
+      const transportReady =
+        status === 200 && (!routeNoVnc || (noVncMarker === "true" && webSocketSwitching));
+      return {
+        key,
+        rootCode: Number(rootCode),
+        code: status,
+        noVnc: routeNoVnc,
+        noVncMarker: noVncMarker === "true",
+        webSocketStatus,
+        webSocketSwitching,
+        transportReady,
+        title,
+        safety,
+        targetPath
+      };
+    });
 }
 
 async function workloadGuiHealthProbe() {
-  const appRows = apps.filter((app) => app.noVnc).map((app) => `${app.key}|${app.expectedRuntime}|${app.port}|${app.androidPackage || ""}`).join("\n");
+  const appRows = apps
+    .filter((app) => app.noVnc)
+    .map((app) => `${app.key}|${app.expectedRuntime}|${app.port}|${app.androidPackage || ""}`)
+    .join("\n");
   if (!appRows) return [];
   const script = `
 set -uo pipefail
@@ -628,38 +702,43 @@ ${appRows}
 SYLION_APPS
 `;
   const { stdout } = await ssh(workloadHost, script, { timeout: 120_000 });
-  return stdout.split(/\r?\n/).filter(Boolean).map((line) => {
-    const [
-      key,
-      evidenceReady,
-      bannerReady,
-      banner,
-      firecrackerCpu,
-      packageInstalled,
-      appRunning,
-      appCrashed,
-      visibleWindow,
-      targetContentRequired,
-      targetContentVerified
-    ] = line.split("|");
-    return {
-      key,
-      evidenceReady: evidenceReady === "true",
-      vncBannerReady: bannerReady === "true",
-      vncBanner: banner,
-      firecrackerCpu: Number(firecrackerCpu) || 0,
-      androidPackageInstalled: packageInstalled === "true" ? true : packageInstalled === "false" ? false : null,
-      appRunning: appRunning === "true",
-      appCrashed: appCrashed === "true",
-      visibleWindow: visibleWindow === "true",
-      targetContentRequired: targetContentRequired === "true",
-      targetContentVerified: targetContentVerified === "true",
-      workloadAppUiVisible: appRunning === "true"
-        && appCrashed !== "true"
-        && visibleWindow === "true"
-        && (targetContentRequired !== "true" || targetContentVerified === "true")
-    };
-  });
+  return stdout
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const [
+        key,
+        evidenceReady,
+        bannerReady,
+        banner,
+        firecrackerCpu,
+        packageInstalled,
+        appRunning,
+        appCrashed,
+        visibleWindow,
+        targetContentRequired,
+        targetContentVerified
+      ] = line.split("|");
+      return {
+        key,
+        evidenceReady: evidenceReady === "true",
+        vncBannerReady: bannerReady === "true",
+        vncBanner: banner,
+        firecrackerCpu: Number(firecrackerCpu) || 0,
+        androidPackageInstalled:
+          packageInstalled === "true" ? true : packageInstalled === "false" ? false : null,
+        appRunning: appRunning === "true",
+        appCrashed: appCrashed === "true",
+        visibleWindow: visibleWindow === "true",
+        targetContentRequired: targetContentRequired === "true",
+        targetContentVerified: targetContentVerified === "true",
+        workloadAppUiVisible:
+          appRunning === "true" &&
+          appCrashed !== "true" &&
+          visibleWindow === "true" &&
+          (targetContentRequired !== "true" || targetContentVerified === "true")
+      };
+    });
 }
 
 async function pixelAudit() {
@@ -681,33 +760,54 @@ async function pixelAudit() {
       const remoteXml = `/sdcard/Download/${xmlName}`;
       const localPng = join(outputDir, screenshotName);
       const localXml = join(outputDir, xmlName);
-      await adb(["-s", pixel.serial, "shell", "am", "force-stop", "app.vanadium.browser"], { timeout: 10_000 }).catch(() => {});
+      await adb(["-s", pixel.serial, "shell", "am", "force-stop", "app.vanadium.browser"], {
+        timeout: 10_000
+      }).catch(() => {});
       const targetUrl = app.noVnc
         ? `https://${app.host}/vnc.html?autoconnect=true&resize=remote&path=websockify`
         : `https://${app.host}/`;
-      await adb([
-        "-s", pixel.serial,
-        "shell", "am", "start",
-        "-a", "android.intent.action.VIEW",
-        "-d", targetUrl
-      ], { timeout: 10_000 });
+      await adb(
+        [
+          "-s",
+          pixel.serial,
+          "shell",
+          "am",
+          "start",
+          "-a",
+          "android.intent.action.VIEW",
+          "-d",
+          targetUrl
+        ],
+        { timeout: 10_000 }
+      );
       await new Promise((resolve) => setTimeout(resolve, app.pixelDelayMs || 10_000));
       await adb(["-s", pixel.serial, "shell", "screencap", "-p", remotePng], { timeout: 10_000 });
       await adb(["-s", pixel.serial, "pull", remotePng, localPng], { timeout: 10_000 });
       let uiText = "";
       try {
-        await adb(["-s", pixel.serial, "shell", "uiautomator", "dump", remoteXml], { timeout: 10_000 });
+        await adb(["-s", pixel.serial, "shell", "uiautomator", "dump", remoteXml], {
+          timeout: 10_000
+        });
         await adb(["-s", pixel.serial, "pull", remoteXml, localXml], { timeout: 10_000 });
         const raw = await readFile(localXml, "utf8");
-        uiText = visibleUiText(raw).replace(/op_token=op_[A-Za-z0-9]+/g, "op_token=REDACTED_OPERATOR_TOKEN");
-        await writeFile(localXml, raw.replace(/op_token=op_[A-Za-z0-9]+/g, "op_token=REDACTED_OPERATOR_TOKEN"), "utf8");
+        uiText = visibleUiText(raw).replace(
+          /op_token=op_[A-Za-z0-9]+/g,
+          "op_token=REDACTED_OPERATOR_TOKEN"
+        );
+        await writeFile(
+          localXml,
+          raw.replace(/op_token=op_[A-Za-z0-9]+/g, "op_token=REDACTED_OPERATOR_TOKEN"),
+          "utf8"
+        );
       } catch {
         uiText = "";
       }
       const verdict = evaluateText(app, uiText);
       let visualEvidence = await analyzeScreenshot(localPng);
       if (app.noVnc && /(?:Połącz|Connect)/i.test(uiText)) {
-        await adb(["-s", pixel.serial, "shell", "input", "tap", "490", "1295"], { timeout: 10_000 }).catch(() => {});
+        await adb(["-s", pixel.serial, "shell", "input", "tap", "490", "1295"], {
+          timeout: 10_000
+        }).catch(() => {});
         await new Promise((resolve) => setTimeout(resolve, 15_000));
         await adb(["-s", pixel.serial, "shell", "screencap", "-p", remotePng], { timeout: 10_000 });
         await adb(["-s", pixel.serial, "pull", remotePng, localPng], { timeout: 10_000 });
@@ -753,25 +853,40 @@ async function pixelAudit() {
 
 async function main() {
   if (args.has("--list-apps")) {
-    console.log(JSON.stringify({
-      supportedApps: allApps.map((app) => app.key),
-      selectedApps: apps.map((app) => app.key)
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          supportedApps: allApps.map((app) => app.key),
+          selectedApps: apps.map((app) => app.key)
+        },
+        null,
+        2
+      )
+    );
     return;
   }
   await mkdir(outputDir, { recursive: true });
-  const runtime = await workloadRuntimeAudit().catch((error) => `runtime_audit_failed:${error.message}`);
+  const runtime = await workloadRuntimeAudit().catch(
+    (error) => `runtime_audit_failed:${error.message}`
+  );
   const guiHealth = await workloadGuiHealthProbe().catch((error) => {
-    return apps.filter((app) => app.noVnc).map((app) => ({
-      key: app.key,
-      evidenceReady: false,
-      vncBannerReady: false,
-      vncBanner: `gui_health_probe_failed:${error.message}`,
-      firecrackerCpu: 0
-    }));
+    return apps
+      .filter((app) => app.noVnc)
+      .map((app) => ({
+        key: app.key,
+        evidenceReady: false,
+        vncBannerReady: false,
+        vncBanner: `gui_health_probe_failed:${error.message}`,
+        firecrackerCpu: 0
+      }));
   });
   const routes = await g2RouteProbe().catch((error) => {
-    return apps.map((app) => ({ key: app.key, code: 0, title: `g2_probe_failed:${error.message}`, safety: "" }));
+    return apps.map((app) => ({
+      key: app.key,
+      code: 0,
+      title: `g2_probe_failed:${error.message}`,
+      safety: ""
+    }));
   });
   const pixel = args.has("--pixel")
     ? await pixelAudit()
@@ -792,7 +907,9 @@ async function main() {
     const androidPackageInstalled = androidNativeRequired
       ? currentGuiHealth?.androidPackageInstalled === true
       : true;
-    const pixelStreamRendered = pixelResult?.pixelStreamRendered === true || pixelResult?.pixelVisualEvidence?.rendered === true;
+    const pixelStreamRendered =
+      pixelResult?.pixelStreamRendered === true ||
+      pixelResult?.pixelVisualEvidence?.rendered === true;
     const appUiMarkerVisible = pixelResult?.appUiMarkerVisible === true;
     const workloadAppUiVisible = currentGuiHealth?.workloadAppUiVisible === true;
     const key = canonicalAppKey(app.key);
@@ -803,17 +920,27 @@ async function main() {
         ? pixelStreamRendered && appUiMarkerVisible
         : pixelStreamRendered && (appUiMarkerVisible || workloadAppUiVisible);
     const prefix = app.key === "duckduckgo" ? "DUCKDUCKGO" : key.toUpperCase();
-    const communicator = ["whatsapp", "signal", "telegram", "threema", "zangi", "matrix_client"].includes(key);
+    const communicator = [
+      "whatsapp",
+      "signal",
+      "telegram",
+      "threema",
+      "zangi",
+      "matrix_client"
+    ].includes(key);
     const workflowVerified = communicator
-      ? boolEnv(envName(prefix, "ACCOUNT_BOOTSTRAP_VERIFIED")) && boolEnv(envName(prefix, "SEND_RECEIVE_VERIFIED"))
+      ? boolEnv(envName(prefix, "ACCOUNT_BOOTSTRAP_VERIFIED")) &&
+        boolEnv(envName(prefix, "SEND_RECEIVE_VERIFIED"))
       : key === "duckduckgo_browser"
         ? boolEnv(envName(prefix, "BROWSING_VERIFIED"))
         : key === "libreoffice"
           ? boolEnv(envName(prefix, "DOCUMENT_WORKFLOW_VERIFIED"))
           : key === "exodus"
-            ? boolEnv(envName(prefix, "WALLET_WORKFLOW_VERIFIED")) && boolEnv(envName(prefix, "RISK_ACCEPTANCE_VERIFIED"))
+            ? boolEnv(envName(prefix, "WALLET_WORKFLOW_VERIFIED")) &&
+              boolEnv(envName(prefix, "RISK_ACCEPTANCE_VERIFIED"))
             : pixelUiVisible;
-    const functionalReady = transportReady && pixelUiVisible && androidPackageInstalled && workflowVerified;
+    const functionalReady =
+      transportReady && pixelUiVisible && androidPackageInstalled && workflowVerified;
     return {
       key: app.key,
       host: app.host,
@@ -875,14 +1002,20 @@ async function main() {
   };
   const summaryPath = join(outputDir, "summary.json");
   await writeFile(summaryPath, JSON.stringify(summary, null, 2), "utf8");
-  console.log(JSON.stringify({
-    summaryPath,
-    pixelAvailable: summary.pixelAvailable,
-    transportReadyApps: summary.transportReadyApps,
-    pixelUiVisibleApps: summary.pixelUiVisibleApps,
-    functionalReadyApps: summary.functionalReadyApps,
-    blockedApps: summary.blockedApps
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        summaryPath,
+        pixelAvailable: summary.pixelAvailable,
+        transportReadyApps: summary.transportReadyApps,
+        pixelUiVisibleApps: summary.pixelUiVisibleApps,
+        functionalReadyApps: summary.functionalReadyApps,
+        blockedApps: summary.blockedApps
+      },
+      null,
+      2
+    )
+  );
   if (summary.blockedApps.length) process.exitCode = 1;
 }
 

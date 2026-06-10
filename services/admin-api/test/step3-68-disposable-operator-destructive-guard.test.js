@@ -28,7 +28,10 @@ async function loginClient(baseUrl) {
 }
 
 async function createTenant(client, tier = "PRO") {
-  const tenant = await client.createTenant({ name: `Step 3.68 Tenant ${crypto.randomUUID()}`, tier });
+  const tenant = await client.createTenant({
+    name: `Step 3.68 Tenant ${crypto.randomUUID()}`,
+    tier
+  });
   return tenant.tenant;
 }
 
@@ -39,13 +42,14 @@ test("Step 3.68 disposable operator creation requires explicit destructive lab m
     const tenant = await createTenant(client);
 
     await assert.rejects(
-      () => client.createOperator({
-        tenantId: tenant.id,
-        displayName: "OP-DESTRUCTIVE-001",
-        tier: "PRO",
-        disposable: true,
-        destructiveTestScope: "operator_teardown_lab"
-      }),
+      () =>
+        client.createOperator({
+          tenantId: tenant.id,
+          displayName: "OP-DESTRUCTIVE-001",
+          tier: "PRO",
+          disposable: true,
+          destructiveTestScope: "operator_teardown_lab"
+        }),
       (error) => {
         assert.equal(error.status, 422);
         assert.match(error.message, /DISPOSABLE/);
@@ -95,15 +99,24 @@ test("Step 3.68 destructive teardown plan is plan-only, audited and scoped to di
     assert.equal(plan.plan.guardrails.productionExecutionAllowed, false);
     assert.equal(plan.plan.guardrails.auditRetentionRequired, true);
     assert.equal(plan.plan.secretMaterialAccepted, false);
-    assert.ok(plan.plan.resourceDiff.some((item) => item.layer === "g1" && item.operation === "destroy"));
-    assert.ok(plan.plan.resourceDiff.some((item) => item.layer === "audit" && item.operation === "preserve"));
-    assert.match(plan.plan.confirmationPhrase, new RegExp(`^DESTROY_DISPOSABLE_OPERATOR:${created.operator.id}$`));
+    assert.ok(
+      plan.plan.resourceDiff.some((item) => item.layer === "g1" && item.operation === "destroy")
+    );
+    assert.ok(
+      plan.plan.resourceDiff.some((item) => item.layer === "audit" && item.operation === "preserve")
+    );
+    assert.match(
+      plan.plan.confirmationPhrase,
+      new RegExp(`^DESTROY_DISPOSABLE_OPERATOR:${created.operator.id}$`)
+    );
 
     const listed = await client.listDisposableTeardownPlans(created.operator.id);
     assert.equal(listed.plans.length, 1);
     assert.equal(listed.plans[0].id, plan.plan.id);
 
-    const audit = app.services.audit.list().filter((event) => event.operatorId === created.operator.id);
+    const audit = app.services.audit
+      .list()
+      .filter((event) => event.operatorId === created.operator.id);
     assert.ok(audit.some((event) => event.action === "operator.disposable_teardown_plan_created"));
     assert.equal(JSON.stringify(audit).includes("human regression destructive lab"), true);
   } finally {
@@ -123,10 +136,11 @@ test("Step 3.68 destructive teardown rejects non-disposable operators before sid
     });
 
     await assert.rejects(
-      () => client.createDisposableTeardownPlan(created.operator.id, {
-        requestedAction: "operator_teardown",
-        reason: "negative safety test"
-      }),
+      () =>
+        client.createDisposableTeardownPlan(created.operator.id, {
+          requestedAction: "operator_teardown",
+          reason: "negative safety test"
+        }),
       (error) => {
         assert.equal(error.status, 422);
         assert.equal(error.payload.error.details.sideEffectPrevented, true);
@@ -137,7 +151,9 @@ test("Step 3.68 destructive teardown rejects non-disposable operators before sid
     const after = await client.request(`/operators?tenantId=${encodeURIComponent(tenant.id)}`);
     assert.equal(after.operators[0].status, "draft");
     assert.equal(after.operators[0].disposable, false);
-    const audit = app.services.audit.list().filter((event) => event.operatorId === created.operator.id);
+    const audit = app.services.audit
+      .list()
+      .filter((event) => event.operatorId === created.operator.id);
     assert.ok(audit.some((event) => event.action === "operator.disposable_teardown_rejected"));
   } finally {
     await close();
@@ -161,10 +177,11 @@ test("Step 3.68 destructive teardown requires exact confirmation and preserves a
     });
 
     await assert.rejects(
-      () => client.executeDisposableTeardown(created.operator.id, {
-        planId: plan.plan.id,
-        confirmation: "wrong"
-      }),
+      () =>
+        client.executeDisposableTeardown(created.operator.id, {
+          planId: plan.plan.id,
+          confirmation: "wrong"
+        }),
       (error) => {
         assert.equal(error.status, 422);
         assert.equal(error.payload.error.details.confirmationMaterialStored, false);
@@ -172,7 +189,9 @@ test("Step 3.68 destructive teardown requires exact confirmation and preserves a
       }
     );
 
-    const beforeExecute = await client.request(`/operators?tenantId=${encodeURIComponent(tenant.id)}`);
+    const beforeExecute = await client.request(
+      `/operators?tenantId=${encodeURIComponent(tenant.id)}`
+    );
     assert.equal(beforeExecute.operators[0].status, "draft");
 
     const executed = await client.executeDisposableTeardown(created.operator.id, {
@@ -183,15 +202,27 @@ test("Step 3.68 destructive teardown requires exact confirmation and preserves a
     assert.equal(executed.job.state, "completed_control_plane_teardown");
     assert.equal(executed.job.providerMutationAllowed, false);
     assert.equal(executed.job.auditRetention, "preserved");
-    assert.ok(executed.job.resourceResults.every((item) => item.scope === "operator_only" || item.scope === "operator_evidence"));
-    assert.ok(executed.job.resourceResults.some((item) => item.layer === "audit" && item.result === "preserved"));
+    assert.ok(
+      executed.job.resourceResults.every(
+        (item) => item.scope === "operator_only" || item.scope === "operator_evidence"
+      )
+    );
+    assert.ok(
+      executed.job.resourceResults.some(
+        (item) => item.layer === "audit" && item.result === "preserved"
+      )
+    );
 
-    const afterExecute = await client.request(`/operators?tenantId=${encodeURIComponent(tenant.id)}`);
+    const afterExecute = await client.request(
+      `/operators?tenantId=${encodeURIComponent(tenant.id)}`
+    );
     assert.equal(afterExecute.operators[0].status, "revoked");
     assert.equal(afterExecute.operators[0].teardown.state, "completed_control_plane");
     assert.equal(afterExecute.operators[0].teardown.providerMutationAllowed, false);
 
-    const serializedAudit = JSON.stringify(app.services.audit.list().filter((event) => event.operatorId === created.operator.id));
+    const serializedAudit = JSON.stringify(
+      app.services.audit.list().filter((event) => event.operatorId === created.operator.id)
+    );
     assert.match(serializedAudit, /operator\.disposable_teardown_rejected/);
     assert.match(serializedAudit, /operator\.disposable_teardown_completed/);
     assert.equal(serializedAudit.includes(plan.plan.confirmationPhrase), false);
@@ -214,10 +245,11 @@ test("Step 3.68 disposable teardown requests reject plaintext secret fields", as
     });
 
     await assert.rejects(
-      () => client.createDisposableTeardownPlan(created.operator.id, {
-        requestedAction: "operator_teardown",
-        panicCode: "do-not-store-this"
-      }),
+      () =>
+        client.createDisposableTeardownPlan(created.operator.id, {
+          requestedAction: "operator_teardown",
+          panicCode: "do-not-store-this"
+        }),
       (error) => {
         assert.equal(error.status, 422);
         assert.ok(error.payload.error.details.fields.includes("panicCode"));

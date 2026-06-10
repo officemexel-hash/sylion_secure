@@ -5,12 +5,14 @@ import { dirname, join, resolve } from "node:path";
 
 const DEFAULT_ROUTER_IP = "192.168.8.1";
 const DEFAULT_G1_HOST = "sylion@178.105.200.112";
-const DEFAULT_ROUTER_KEY = process.platform === "win32"
-  ? ".deploy\\sylion_puli_ax_ed25519"
-  : ".deploy/sylion_puli_ax_ed25519";
-const DEFAULT_G1_KEY = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const DEFAULT_ROUTER_KEY =
+  process.platform === "win32"
+    ? ".deploy\\sylion_puli_ax_ed25519"
+    : ".deploy/sylion_puli_ax_ed25519";
+const DEFAULT_G1_KEY =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 const DEFAULT_OUT = "docs/admin-panel-v2/test-artifacts/puli-ax-router-ipsec-lab/latest.json";
 
 function argValue(name, fallback = null) {
@@ -29,51 +31,64 @@ function isoNow() {
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve) => {
-    execFile(command, args, {
-      windowsHide: true,
-      timeout: options.timeout || 120_000,
-      maxBuffer: options.maxBuffer || 2 * 1024 * 1024
-    }, (error, stdout, stderr) => {
-      resolve({
-        ok: !error,
-        code: error?.code || 0,
-        stdout: String(stdout || "").trim(),
-        stderr: String(stderr || "").trim(),
-        message: error?.message || null
-      });
-    });
+    execFile(
+      command,
+      args,
+      {
+        windowsHide: true,
+        timeout: options.timeout || 120_000,
+        maxBuffer: options.maxBuffer || 2 * 1024 * 1024
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          ok: !error,
+          code: error?.code || 0,
+          stdout: String(stdout || "").trim(),
+          stderr: String(stderr || "").trim(),
+          message: error?.message || null
+        });
+      }
+    );
   });
 }
 
 async function ssh({ host, keyPath, script, timeout = 120_000 }) {
-  return execFileAsync("ssh", [
-    "-i",
-    keyPath,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "PasswordAuthentication=no",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    script
-  ], { timeout });
+  return execFileAsync(
+    "ssh",
+    [
+      "-i",
+      keyPath,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "PasswordAuthentication=no",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      host,
+      script
+    ],
+    { timeout }
+  );
 }
 
 async function scp({ keyPath, from, to, timeout = 120_000 }) {
-  return execFileAsync("scp", [
-    "-O",
-    "-i",
-    keyPath,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "PasswordAuthentication=no",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    from,
-    to
-  ], { timeout });
+  return execFileAsync(
+    "scp",
+    [
+      "-O",
+      "-i",
+      keyPath,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "PasswordAuthentication=no",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      from,
+      to
+    ],
+    { timeout }
+  );
 }
 
 function parseKeyValueLines(output) {
@@ -94,13 +109,17 @@ function bool(value) {
 async function main() {
   const routerIp = argValue("router-ip", DEFAULT_ROUTER_IP);
   const routerUser = argValue("router-user", "root");
-  const routerKey = argValue("router-key", process.env.SYLION_PULI_AX_SSH_KEY || DEFAULT_ROUTER_KEY);
+  const routerKey = argValue(
+    "router-key",
+    process.env.SYLION_PULI_AX_SSH_KEY || DEFAULT_ROUTER_KEY
+  );
   const g1Host = argValue("g1-host", process.env.SYLION_G1_SSH || DEFAULT_G1_HOST);
   const g1Key = argValue("g1-key", process.env.SYLION_ADMIN_SSH_KEY || DEFAULT_G1_KEY);
   const outPath = argValue("out", DEFAULT_OUT);
   const apply = hasArg("apply") || process.env.SYLION_PULI_AX_IPSEC_APPLY === "true";
   const startTunnel = hasArg("start") || process.env.SYLION_PULI_AX_IPSEC_START === "true";
-  const loadKillSwitch = hasArg("load-killswitch") || process.env.SYLION_PULI_AX_LOAD_KILLSWITCH === "true";
+  const loadKillSwitch =
+    hasArg("load-killswitch") || process.env.SYLION_PULI_AX_LOAD_KILLSWITCH === "true";
   const g1Endpoint = argValue("g1-endpoint", process.env.SYLION_G1_PUBLIC_IP || "178.105.200.112");
   const identity = argValue("identity", "router.OP-001@sylion.internal");
   const tmpDir = resolve(".deploy", "puli-ax-ipsec-lab");
@@ -146,7 +165,9 @@ async function main() {
       routerIpsecWillBeStaged: true,
       tunnelWillStart: false
     };
-    result.nextActions = ["Rerun with --apply to generate router key/CSR, sign cert on G1, and stage IPsec config."];
+    result.nextActions = [
+      "Rerun with --apply to generate router key/CSR, sign cert on G1, and stage IPsec config."
+    ];
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;
   }
@@ -233,7 +254,11 @@ echo ca_private_key_left_g1=false
   Object.assign(result.facts, parseKeyValueLines(sign.stdout));
 
   const certCopy = await scp({ keyPath: g1Key, from: `${g1Host}:${g1RemoteCert}`, to: localCert });
-  const caCopy = await scp({ keyPath: g1Key, from: `${g1Host}:/tmp/sylion-router-ca.pem`, to: localCa });
+  const caCopy = await scp({
+    keyPath: g1Key,
+    from: `${g1Host}:/tmp/sylion-router-ca.pem`,
+    to: localCa
+  });
   if (!certCopy.ok || !caCopy.ok) {
     result.status = "blocked_cert_download_failed";
     result.blockers.push("router_cert_download_failed");
@@ -242,8 +267,16 @@ echo ca_private_key_left_g1=false
     process.exitCode = 1;
     return;
   }
-  const routerCertCopy = await scp({ keyPath: routerKey, from: localCert, to: `${routerHost}:/tmp/sylion-router.cert.pem` });
-  const routerCaCopy = await scp({ keyPath: routerKey, from: localCa, to: `${routerHost}:/tmp/sylion-g1.ca.pem` });
+  const routerCertCopy = await scp({
+    keyPath: routerKey,
+    from: localCert,
+    to: `${routerHost}:/tmp/sylion-router.cert.pem`
+  });
+  const routerCaCopy = await scp({
+    keyPath: routerKey,
+    from: localCa,
+    to: `${routerHost}:/tmp/sylion-g1.ca.pem`
+  });
   if (!routerCertCopy.ok || !routerCaCopy.ok) {
     result.status = "blocked_router_cert_upload_failed";
     result.blockers.push("router_cert_upload_failed");
@@ -418,7 +451,12 @@ echo router_internal_dns_resolves_missing="\${missing_resolves#,}"
   }
   Object.assign(result.facts, parseKeyValueLines(install.stdout));
 
-  await ssh({ host: g1Host, keyPath: g1Key, script: `rm -f ${g1RemoteCsr} ${g1RemoteCert} /tmp/sylion-router-ca.pem`, timeout: 30_000 }).catch(() => {});
+  await ssh({
+    host: g1Host,
+    keyPath: g1Key,
+    script: `rm -f ${g1RemoteCsr} ${g1RemoteCert} /tmp/sylion-router-ca.pem`,
+    timeout: 30_000
+  }).catch(() => {});
   await rm(localCsr, { force: true }).catch(() => {});
   await rm(localCert, { force: true }).catch(() => {});
   await rm(localCa, { force: true }).catch(() => {});
@@ -429,24 +467,36 @@ echo router_internal_dns_resolves_missing="\${missing_resolves#,}"
   result.controls.killSwitchLoaded = killSwitchLoaded;
   result.completedAt = isoNow();
   result.status = startTunnel
-    ? tunnelEstablished && childInstalled ? "router_ipsec_established" : "router_ipsec_staged_but_not_established"
+    ? tunnelEstablished && childInstalled
+      ? "router_ipsec_established"
+      : "router_ipsec_staged_but_not_established"
     : "router_ipsec_staged";
   result.blockers = [
     ...(startTunnel && !tunnelEstablished ? ["router_ipsec_sa_not_established"] : []),
     ...(startTunnel && !childInstalled ? ["router_ipsec_child_sa_not_installed"] : []),
-    ...(killSwitchLoaded ? [] : [loadKillSwitch ? "killswitch_not_loaded" : "killswitch_not_loaded_until_tunnel_failure_test_window"])
+    ...(killSwitchLoaded
+      ? []
+      : [
+          loadKillSwitch
+            ? "killswitch_not_loaded"
+            : "killswitch_not_loaded_until_tunnel_failure_test_window"
+        ])
   ];
-  result.nextActions = result.blockers.length ? [
-    "Inspect router /tmp/sylion-router-ipsec-up.log and G1 charon logs without printing private material.",
-    "Verify traffic selectors before loading kill switch.",
-    "Run T01-T10 in a controlled failure-test window."
-  ] : loadKillSwitch ? [
-    "Run T01-T10 kill-switch, DNS and IPsec failure tests.",
-    "Record sanitized router posture in Admin API."
-  ] : [
-    "Run T01-T10 in a controlled failure-test window.",
-    "Only after pass: load kill switch and record router posture in Admin API."
-  ];
+  result.nextActions = result.blockers.length
+    ? [
+        "Inspect router /tmp/sylion-router-ipsec-up.log and G1 charon logs without printing private material.",
+        "Verify traffic selectors before loading kill switch.",
+        "Run T01-T10 in a controlled failure-test window."
+      ]
+    : loadKillSwitch
+      ? [
+          "Run T01-T10 kill-switch, DNS and IPsec failure tests.",
+          "Record sanitized router posture in Admin API."
+        ]
+      : [
+          "Run T01-T10 in a controlled failure-test window.",
+          "Only after pass: load kill switch and record router posture in Admin API."
+        ];
 
   if (outPath && !hasArg("no-write")) {
     const absolute = resolve(outPath);

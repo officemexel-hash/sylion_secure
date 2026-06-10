@@ -97,7 +97,11 @@ test("Step 3.52 registers a delivered WORKLOAD_NATIVE lab host with no productio
     assert.equal(result.host.readyForLabWorkloads, true);
     assert.equal(result.host.readyForProduction, false);
     assert.equal(result.host.productionExecutionAllowed, false);
-    assert.ok(result.host.checks.every((check) => check.requiredForLab === false || check.status === "passed"));
+    assert.ok(
+      result.host.checks.every(
+        (check) => check.requiredForLab === false || check.status === "passed"
+      )
+    );
 
     const listed = await client.listWorkloadNativeHosts();
     assert.equal(listed.hosts.length, 1);
@@ -113,19 +117,20 @@ test("Step 3.52 blocks sensitive material in workload-native host evidence", asy
     const client = await loginClient(baseUrl);
 
     await assert.rejects(
-      () => client.registerWorkloadNativeHost({
-        hostId: "WORKLOAD_NATIVE_LAB_02",
-        serverNumber: "2983994",
-        productId: "AX102-U",
-        region: "hel1",
-        lifecycleState: "lab_qualified",
-        tenancyMode: "shared_pool",
-        evidence: {
-          ...labEvidence,
-          accidentalSecret: "api_key_should_never_be_here"
-        },
-        productionBlockers: ["tenant_isolation_not_validated"]
-      }),
+      () =>
+        client.registerWorkloadNativeHost({
+          hostId: "WORKLOAD_NATIVE_LAB_02",
+          serverNumber: "2983994",
+          productId: "AX102-U",
+          region: "hel1",
+          lifecycleState: "lab_qualified",
+          tenancyMode: "shared_pool",
+          evidence: {
+            ...labEvidence,
+            accidentalSecret: "api_key_should_never_be_here"
+          },
+          productionBlockers: ["tenant_isolation_not_validated"]
+        }),
       /sensitive runtime data/
     );
   } finally {

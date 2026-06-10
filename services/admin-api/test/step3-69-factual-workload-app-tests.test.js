@@ -47,16 +47,17 @@ test("Step 3.69 messenger factual PASS requires bootstrap plus send/receive, not
     const operator = await seedOperator(client);
 
     await assert.rejects(
-      () => client.recordWorkloadFactualTest({
-        operatorId: operator.id,
-        appKey: "signal",
-        terminalMode: "pixel_grapheneos",
-        runtimeMode: "desktop",
-        result: "passed",
-        checks: {
-          uiVisible: { status: "passed", evidence: "QR/link screen visible" }
-        }
-      }),
+      () =>
+        client.recordWorkloadFactualTest({
+          operatorId: operator.id,
+          appKey: "signal",
+          terminalMode: "pixel_grapheneos",
+          runtimeMode: "desktop",
+          result: "passed",
+          checks: {
+            uiVisible: { status: "passed", evidence: "QR/link screen visible" }
+          }
+        }),
       (error) => {
         assert.equal(error.status, 422);
         assert.ok(error.payload.error.details.missingRequired.includes("accountBootstrap"));
@@ -66,18 +67,19 @@ test("Step 3.69 messenger factual PASS requires bootstrap plus send/receive, not
     );
 
     await assert.rejects(
-      () => client.recordWorkloadFactualTest({
-        operatorId: operator.id,
-        appKey: "signal",
-        terminalMode: "pixel_grapheneos",
-        runtimeMode: "web",
-        result: "passed",
-        checks: {
-          uiVisible: { status: "passed" },
-          accountBootstrap: { status: "passed", mode: "web_link_only" },
-          sendReceive: { status: "passed" }
-        }
-      }),
+      () =>
+        client.recordWorkloadFactualTest({
+          operatorId: operator.id,
+          appKey: "signal",
+          terminalMode: "pixel_grapheneos",
+          runtimeMode: "web",
+          result: "passed",
+          checks: {
+            uiVisible: { status: "passed" },
+            accountBootstrap: { status: "passed", mode: "web_link_only" },
+            sendReceive: { status: "passed" }
+          }
+        }),
       (error) => {
         assert.equal(error.status, 422);
         assert.match(error.message, /web-link-only/);
@@ -93,7 +95,11 @@ test("Step 3.69 messenger factual PASS requires bootstrap plus send/receive, not
       result: "blocked",
       checks: {
         uiVisible: { status: "passed", evidence: "Signal link screen visible in workload stream" },
-        accountBootstrap: { status: "blocked", mode: "android_native_required", note: "Disposable account not bootstrapped yet" },
+        accountBootstrap: {
+          status: "blocked",
+          mode: "android_native_required",
+          note: "Disposable account not bootstrapped yet"
+        },
         sendReceive: { status: "not_run" }
       },
       evidenceArtifactIds: ["artifact://pixel/signal-link-screen"],
@@ -147,7 +153,9 @@ test("Step 3.69 non-messenger factual PASS can promote app readiness only with r
     assert.equal(passed.test.blockers.length, 0);
 
     const readiness = await client.getProductionReadiness();
-    const duck = readiness.readiness.operators[0].apps.find((item) => item.key === "duckduckgo_browser");
+    const duck = readiness.readiness.operators[0].apps.find(
+      (item) => item.key === "duckduckgo_browser"
+    );
     assert.equal(duck.state, "ready");
     assert.equal(duck.factualStateVerified, true);
     assert.equal(duck.latestFactualTest.id, passed.test.id);
@@ -165,18 +173,19 @@ test("Step 3.69 factual app tests reject OTP, seed or token fields", async () =>
     const client = await loginClient(baseUrl);
     const operator = await seedOperator(client);
     await assert.rejects(
-      () => client.recordWorkloadFactualTest({
-        operatorId: operator.id,
-        appKey: "whatsapp",
-        terminalMode: "pixel_grapheneos",
-        runtimeMode: "android_native",
-        result: "blocked",
-        checks: {
-          uiVisible: { status: "passed" },
-          accountBootstrap: { status: "blocked", otp: "123456" },
-          sendReceive: { status: "not_run" }
-        }
-      }),
+      () =>
+        client.recordWorkloadFactualTest({
+          operatorId: operator.id,
+          appKey: "whatsapp",
+          terminalMode: "pixel_grapheneos",
+          runtimeMode: "android_native",
+          result: "blocked",
+          checks: {
+            uiVisible: { status: "passed" },
+            accountBootstrap: { status: "blocked", otp: "123456" },
+            sendReceive: { status: "not_run" }
+          }
+        }),
       (error) => {
         assert.equal(error.status, 422);
         assert.ok(error.payload.error.details.fields.includes("checks.accountBootstrap.otp"));

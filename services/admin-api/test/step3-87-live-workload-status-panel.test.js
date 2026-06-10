@@ -56,14 +56,34 @@ test("Step 3.87 operator app switcher gets sanitized live AX102/G2 status", asyn
         evidenceKey: "signal",
         name: "Signal",
         host: "signal.sylion.internal",
-        launchUrl: "https://signal.sylion.internal/vnc.html?autoconnect=true&resize=remote&path=websockify",
+        launchUrl:
+          "https://signal.sylion.internal/vnc.html?autoconnect=true&resize=remote&path=websockify",
         runtime: "firecracker_desktop",
         class: "communicator",
-        transport: { state: "reachable_auth_required", rootHttpStatus: 302, targetHttpStatus: 401, authRequired: true, sylionHeadersObserved: true },
-        workload: { state: "ready", evidencePresent: true, checkedAt: "2026-05-24T07:59:00.000Z", streamReady: true, streamAuthRequired: true, appRunning: true, appCrashed: false, visibleWindow: true, vncBannerReady: true },
+        transport: {
+          state: "reachable_auth_required",
+          rootHttpStatus: 302,
+          targetHttpStatus: 401,
+          authRequired: true,
+          sylionHeadersObserved: true
+        },
+        workload: {
+          state: "ready",
+          evidencePresent: true,
+          checkedAt: "2026-05-24T07:59:00.000Z",
+          streamReady: true,
+          streamAuthRequired: true,
+          appRunning: true,
+          appCrashed: false,
+          visibleWindow: true,
+          vncBannerReady: true
+        },
         functionalState: "ui_ready_account_test_required",
         operatorAction: "bootstrap_account_then_run_send_receive_human_test",
-        blockers: ["communicator_account_send_receive_not_proven", "token_like_field_should_not_be_added"],
+        blockers: [
+          "communicator_account_send_receive_not_proven",
+          "token_like_field_should_not_be_added"
+        ],
         cdrRequired: true,
         terminalDataStored: false,
         secretsPrinted: false
@@ -73,10 +93,17 @@ test("Step 3.87 operator app switcher gets sanitized live AX102/G2 status", asyn
         evidenceKey: "zangi",
         name: "Zangi",
         host: "zangi.sylion.internal",
-        launchUrl: "https://zangi.sylion.internal/vnc.html?autoconnect=true&resize=remote&path=websockify",
+        launchUrl:
+          "https://zangi.sylion.internal/vnc.html?autoconnect=true&resize=remote&path=websockify",
         runtime: "android_native_required",
         class: "communicator",
-        transport: { state: "reachable", rootHttpStatus: 302, targetHttpStatus: 200, authRequired: false, sylionHeadersObserved: true },
+        transport: {
+          state: "reachable",
+          rootHttpStatus: 302,
+          targetHttpStatus: 200,
+          authRequired: false,
+          sylionHeadersObserved: true
+        },
         workload: { state: "blocked", evidencePresent: false },
         functionalState: "blocked_android_native_provenance",
         operatorAction: "approve_android_image_and_zangi_apk_then_run_android_native_test",
@@ -113,7 +140,11 @@ test("Step 3.87 operator app switcher gets sanitized live AX102/G2 status", asyn
       }
     });
 
-    const result = await operatorRequest(baseUrl, session.session.token, "/operator-api/live-workload-status");
+    const result = await operatorRequest(
+      baseUrl,
+      session.session.token,
+      "/operator-api/live-workload-status"
+    );
     assert.equal(result.status.operatorId, created.operator.id);
     assert.equal(result.status.summary.workloadUiReady, 1);
     const signal = result.status.apps.find((app) => app.key === "signal");

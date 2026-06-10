@@ -77,7 +77,10 @@ async function createOperatorWithDevices(client) {
   });
   await client.request(`/operators/${operatorId}/router-package`, {
     method: "POST",
-    body: { routerDeviceId: router.device.id, evidenceRefs: ["evidence://step3-106-router-package"] }
+    body: {
+      routerDeviceId: router.device.id,
+      evidenceRefs: ["evidence://step3-106-router-package"]
+    }
   });
   await client.request(`/operators/${operatorId}/router-posture`, {
     method: "POST",
@@ -107,10 +110,11 @@ test("Step 3.106 blocks every prohibited cellular identity action in product pol
     const client = await loginClient(baseUrl);
     for (const action of PROHIBITED_CELLULAR_ACTIONS) {
       await assert.rejects(
-        () => client.request("/cellular/policy/evaluate-action", {
-          method: "POST",
-          body: { action, reason: "negative policy test" }
-        }),
+        () =>
+          client.request("/cellular/policy/evaluate-action", {
+            method: "POST",
+            body: { action, reason: "negative policy test" }
+          }),
         (error) => error.status === 403 && error.payload.error.details.action === action
       );
     }
@@ -143,9 +147,18 @@ test("Step 3.106 records cellular inventory without exposing raw IMEI, IMSI or I
     });
     const serialized = JSON.stringify(response);
     assert.equal(response.inventory.rawValuesRedacted, true);
-    assert.equal(response.inventory.modem.imeiHash, createHash("sha256").update(rawImei).digest("hex"));
-    assert.equal(response.inventory.sim.imsiHash, createHash("sha256").update(rawImsi).digest("hex"));
-    assert.equal(response.inventory.sim.iccidHash, createHash("sha256").update(rawIccid).digest("hex"));
+    assert.equal(
+      response.inventory.modem.imeiHash,
+      createHash("sha256").update(rawImei).digest("hex")
+    );
+    assert.equal(
+      response.inventory.sim.imsiHash,
+      createHash("sha256").update(rawImsi).digest("hex")
+    );
+    assert.equal(
+      response.inventory.sim.iccidHash,
+      createHash("sha256").update(rawIccid).digest("hex")
+    );
     assert.equal(serialized.includes(rawImei), false);
     assert.equal(serialized.includes(rawImsi), false);
     assert.equal(serialized.includes(rawIccid), false);

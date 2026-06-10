@@ -39,7 +39,9 @@ function isoNow() {
 function rejectSecrets(value, path = "payload") {
   if (value === null || value === undefined) return;
   if (typeof value === "string") {
-    if (/-----BEGIN|private[_ -]?key|api[_ -]?key|password|secret|token|seed|mnemonic/i.test(value)) {
+    if (
+      /-----BEGIN|private[_ -]?key|api[_ -]?key|password|secret|token|seed|mnemonic/i.test(value)
+    ) {
       throw validationError("Router package payload must not contain secrets", { field: path });
     }
     return;
@@ -52,7 +54,9 @@ function rejectSecrets(value, path = "payload") {
     for (const [key, nested] of Object.entries(value)) {
       const nestedPath = `${path}.${key}`;
       if (/private.*key|api.*key|password|secret|token|seed|mnemonic/i.test(key)) {
-        throw validationError("Router package payload must not contain secrets", { field: nestedPath });
+        throw validationError("Router package payload must not contain secrets", {
+          field: nestedPath
+        });
       }
       rejectSecrets(nested, nestedPath);
     }
@@ -117,7 +121,15 @@ export class RouterReadinessService {
     this.postures = new PersistentMap({ store, collection: "router_postures" });
   }
 
-  generatePackage({ actor, operatorId, routerDeviceId = null, firmwareTarget = "openwrt-23.05+", packageVersion = "step3.30-readiness", evidenceRefs = [], correlationId }) {
+  generatePackage({
+    actor,
+    operatorId,
+    routerDeviceId = null,
+    firmwareTarget = "openwrt-23.05+",
+    packageVersion = "step3.30-readiness",
+    evidenceRefs = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "router.package.manage", {
       operatorId,
@@ -126,7 +138,9 @@ export class RouterReadinessService {
     });
     const operator = this.#requireOperator(operatorId);
     rejectSecrets({ firmwareTarget, packageVersion, evidenceRefs });
-    const router = routerDeviceId ? this.#requireRouterDevice(routerDeviceId, operatorId) : this.#latestRouter(operatorId);
+    const router = routerDeviceId
+      ? this.#requireRouterDevice(routerDeviceId, operatorId)
+      : this.#latestRouter(operatorId);
     const record = {
       id: newId("router_pkg"),
       operatorId,
@@ -140,7 +154,13 @@ export class RouterReadinessService {
       manifest: {
         targetHardware: PULI_AX_MODEL,
         firmwareBaseline: firmwareTarget,
-        packages: ["strongswan-full", "strongswan-mod-openssl", "nftables", "dnsmasq-full", "ca-bundle"],
+        packages: [
+          "strongswan-full",
+          "strongswan-mod-openssl",
+          "nftables",
+          "dnsmasq-full",
+          "ca-bundle"
+        ],
         removedOrDisabledServices: ["wan_admin", "upnp", "password_ssh", "lan_to_wan_bypass"],
         controls: {
           killSwitch: "nftables_default_drop_loaded_before_vpn",
@@ -201,10 +221,21 @@ export class RouterReadinessService {
   }
 
   latestPackageForOperator(operatorId) {
-    return [...this.packages.values()].filter((record) => record.operatorId === operatorId).at(-1) || null;
+    return (
+      [...this.packages.values()].filter((record) => record.operatorId === operatorId).at(-1) ||
+      null
+    );
   }
 
-  validatePosture({ actor, operatorId, packageId = null, routerDeviceId = null, evidence = {}, evidenceRefs = [], correlationId }) {
+  validatePosture({
+    actor,
+    operatorId,
+    packageId = null,
+    routerDeviceId = null,
+    evidence = {},
+    evidenceRefs = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "router.package.manage", {
       operatorId,
@@ -213,17 +244,27 @@ export class RouterReadinessService {
     });
     const operator = this.#requireOperator(operatorId);
     rejectSecrets({ evidence, evidenceRefs });
-    const pkg = packageId ? this.#requirePackage(packageId, operatorId) : this.latestPackageForOperator(operatorId);
-    const router = routerDeviceId ? this.#requireRouterDevice(routerDeviceId, operatorId) : this.#latestRouter(operatorId);
+    const pkg = packageId
+      ? this.#requirePackage(packageId, operatorId)
+      : this.latestPackageForOperator(operatorId);
+    const router = routerDeviceId
+      ? this.#requireRouterDevice(routerDeviceId, operatorId)
+      : this.#latestRouter(operatorId);
     const checks = REQUIRED_POSTURE.map(([key, label]) => {
-      const passed = key === "model"
-        ? String(evidence.model || router?.model || "").includes("GL-XE3000") || String(evidence.model || router?.model || "").includes("Puli AX")
-        : key === "firmwareVersion"
-          ? /openwrt|23\.05|24\./i.test(String(evidence.firmwareVersion || router?.firmwareVersion || ""))
-          : evidence[key] === true;
+      const passed =
+        key === "model"
+          ? String(evidence.model || router?.model || "").includes("GL-XE3000") ||
+            String(evidence.model || router?.model || "").includes("Puli AX")
+          : key === "firmwareVersion"
+            ? /openwrt|23\.05|24\./i.test(
+                String(evidence.firmwareVersion || router?.firmwareVersion || "")
+              )
+            : evidence[key] === true;
       return { key, label, status: passed ? "passed" : "blocked" };
     });
-    const blockers = checks.filter((check) => check.status !== "passed").map((check) => `${check.key}_required`);
+    const blockers = checks
+      .filter((check) => check.status !== "passed")
+      .map((check) => `${check.key}_required`);
     if (!pkg) blockers.push("router_package_required");
     if (!router) blockers.push("puli_ax_device_required");
     const posture = {
@@ -265,11 +306,16 @@ export class RouterReadinessService {
       correlationId: corr,
       resourceType: RESOURCE_TYPES.ROUTER_POSTURE
     });
-    return [...this.postures.values()].filter((record) => !operatorId || record.operatorId === operatorId);
+    return [...this.postures.values()].filter(
+      (record) => !operatorId || record.operatorId === operatorId
+    );
   }
 
   latestPostureForOperator(operatorId) {
-    return [...this.postures.values()].filter((record) => record.operatorId === operatorId).at(-1) || null;
+    return (
+      [...this.postures.values()].filter((record) => record.operatorId === operatorId).at(-1) ||
+      null
+    );
   }
 
   readinessForOperator(operatorId) {
@@ -301,10 +347,16 @@ export class RouterReadinessService {
     const device = this.devices.get(deviceId);
     if (!device) throw notFound("device", deviceId);
     if (device.type !== DEVICE_TYPES.ROUTER) {
-      throw validationError("Router package requires a Puli AX router device", { deviceId, type: device.type });
+      throw validationError("Router package requires a Puli AX router device", {
+        deviceId,
+        type: device.type
+      });
     }
     if (device.assignedOperatorId !== operatorId) {
-      throw validationError("Router device is not assigned to this operator", { deviceId, operatorId });
+      throw validationError("Router device is not assigned to this operator", {
+        deviceId,
+        operatorId
+      });
     }
     return device;
   }
@@ -313,12 +365,20 @@ export class RouterReadinessService {
     const pkg = this.packages.get(packageId);
     if (!pkg) throw notFound("router_package", packageId);
     if (pkg.operatorId !== operatorId) {
-      throw validationError("Router package does not match requested operator", { packageId, operatorId });
+      throw validationError("Router package does not match requested operator", {
+        packageId,
+        operatorId
+      });
     }
     return pkg;
   }
 
   #latestRouter(operatorId) {
-    return this.devices.listForOperatorScoped(operatorId).filter((device) => device.type === DEVICE_TYPES.ROUTER).at(-1) || null;
+    return (
+      this.devices
+        .listForOperatorScoped(operatorId)
+        .filter((device) => device.type === DEVICE_TYPES.ROUTER)
+        .at(-1) || null
+    );
   }
 }

@@ -14,7 +14,11 @@ async function startTestServer() {
   };
 }
 
-async function loginClient(baseUrl, email = "admin@sylion.local", password = "ChangeMe-LocalOnly-1!") {
+async function loginClient(
+  baseUrl,
+  email = "admin@sylion.local",
+  password = "ChangeMe-LocalOnly-1!"
+) {
   const anon = new AdminApiClient({
     baseUrl,
     correlationIdFactory: () => `corr_step3_14_${crypto.randomUUID()}`
@@ -38,7 +42,10 @@ async function loginClient(baseUrl, email = "admin@sylion.local", password = "Ch
 }
 
 async function createReadyPipeline(client) {
-  const tenant = await client.createTenant({ name: `Harness Tenant ${crypto.randomUUID()}`, tier: "PRO" });
+  const tenant = await client.createTenant({
+    name: `Harness Tenant ${crypto.randomUUID()}`,
+    tier: "PRO"
+  });
   const created = await client.createOperator({
     tenantId: tenant.tenant.id,
     displayName: "Harness Operator",
@@ -63,12 +70,18 @@ test("Step 3.14 runs the local operator environment harness, injects failure, ro
 
     const started = await client.startLocalOperatorEnvironment(created.environment.id);
     assert.equal(started.environment.status, "environment_ready");
-    assert.ok(started.environment.localProvider.resources.every((resource) => resource.status === "running"));
-    assert.ok(started.environment.mockFirecracker.runtimes.every((runtime) => runtime.status === "running"));
+    assert.ok(
+      started.environment.localProvider.resources.every((resource) => resource.status === "running")
+    );
+    assert.ok(
+      started.environment.mockFirecracker.runtimes.every((runtime) => runtime.status === "running")
+    );
 
     const secrets = await client.checkOperatorEnvironmentSecretsRelease(created.environment.id);
     assert.equal(secrets.check.allowed, false);
-    assert.ok(secrets.check.blockers.includes("production_secret_release_not_enabled_in_local_lab"));
+    assert.ok(
+      secrets.check.blockers.includes("production_secret_release_not_enabled_in_local_lab")
+    );
 
     const failed = await client.injectOperatorEnvironmentFailure(created.environment.id, {
       failureType: "firecracker_start_failed",
@@ -76,14 +89,24 @@ test("Step 3.14 runs the local operator environment harness, injects failure, ro
     });
     assert.equal(failed.environment.status, "environment_failed");
     assert.equal(failed.environment.failure.type, "firecracker_start_failed");
-    assert.ok(failed.environment.mockFirecracker.runtimes.some((runtime) => runtime.status === "failed"));
+    assert.ok(
+      failed.environment.mockFirecracker.runtimes.some((runtime) => runtime.status === "failed")
+    );
 
     const rolledBack = await client.rollbackOperatorEnvironment(created.environment.id, {
       reason: "step3_14_cleanup"
     });
     assert.equal(rolledBack.environment.status, "rolled_back");
-    assert.ok(rolledBack.environment.localProvider.resources.every((resource) => resource.status === "released"));
-    assert.ok(rolledBack.environment.mockFirecracker.runtimes.every((runtime) => runtime.status === "stopped"));
+    assert.ok(
+      rolledBack.environment.localProvider.resources.every(
+        (resource) => resource.status === "released"
+      )
+    );
+    assert.ok(
+      rolledBack.environment.mockFirecracker.runtimes.every(
+        (runtime) => runtime.status === "stopped"
+      )
+    );
 
     const events = await client.listOperatorEnvironmentEvents(created.environment.id);
     assert.ok(events.events.some((event) => event.type === "environment_started"));
@@ -96,7 +119,12 @@ test("Step 3.14 runs the local operator environment harness, injects failure, ro
     assert.ok(auditActions.includes("operator_environment.rollback_completed"));
 
     const monitoringEvents = app.services.monitoring.list({ operatorId: pipeline.operatorId });
-    assert.ok(monitoringEvents.some((event) => event.signal === "health_status" && event.summary === "operator_environment healthy"));
+    assert.ok(
+      monitoringEvents.some(
+        (event) =>
+          event.signal === "health_status" && event.summary === "operator_environment healthy"
+      )
+    );
     assert.ok(monitoringEvents.some((event) => event.signal === "microvm_crash_loop"));
   } finally {
     await close();

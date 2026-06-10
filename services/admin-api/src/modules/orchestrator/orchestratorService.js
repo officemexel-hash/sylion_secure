@@ -3,7 +3,17 @@ import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 export class OrchestratorService {
-  constructor({ audit, rbac, provisioningPlans, inventory, pki, imageFactory, devices, monitoring, store = null }) {
+  constructor({
+    audit,
+    rbac,
+    provisioningPlans,
+    inventory,
+    pki,
+    imageFactory,
+    devices,
+    monitoring,
+    store = null
+  }) {
     this.audit = audit;
     this.rbac = rbac;
     this.provisioningPlans = provisioningPlans;
@@ -21,7 +31,17 @@ export class OrchestratorService {
     }
   }
 
-  executePlan({ actor, planId, provider, region, imageRef = "image://sylion/base/dev", pixelDeviceId = null, routerDeviceId = null, idempotencyKey, correlationId }) {
+  executePlan({
+    actor,
+    planId,
+    provider,
+    region,
+    imageRef = "image://sylion/base/dev",
+    pixelDeviceId = null,
+    routerDeviceId = null,
+    idempotencyKey,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "orchestrator.plan.execute", { correlationId: corr });
     if (!idempotencyKey) {
@@ -71,66 +91,88 @@ export class OrchestratorService {
         correlationId: corr
       });
       this.#step(job, "create_vps_set", "completed", { infrastructureSetId: infrastructureSet.id });
-      job.rollbackPlan.push({ action: "retire_vps_set", infrastructureSetId: infrastructureSet.id, approvalRequired: true });
+      job.rollbackPlan.push({
+        action: "retire_vps_set",
+        infrastructureSetId: infrastructureSet.id,
+        approvalRequired: true
+      });
 
       this.#step(job, "issue_certificates", "running");
-      const certificates = ["G1", "G2", "WORKLOAD"].map((role, index) => this.pki.issue({
-        actor,
-        operatorId: plan.operatorId,
-        subjectType: role,
-        subjectRef: infrastructureSet.vps[index].providerResourceId,
-        serial: `${job.id}-${role}-001`,
-        certificateRef: `cert://${plan.operatorId}/${role.toLowerCase()}/${job.id}`,
-        caRef: "ca://sylion/dev",
-        infrastructureSetId: infrastructureSet.id,
-        vpsRole: role,
-        correlationId: corr
-      }));
-      this.#step(job, "issue_certificates", "completed", { certificateIds: certificates.map((cert) => cert.id) });
-      job.rollbackPlan.push(...certificates.map((cert) => ({ action: "revoke_certificate", certificateId: cert.id, approvalRequired: true })));
+      const certificates = ["G1", "G2", "WORKLOAD"].map((role, index) =>
+        this.pki.issue({
+          actor,
+          operatorId: plan.operatorId,
+          subjectType: role,
+          subjectRef: infrastructureSet.vps[index].providerResourceId,
+          serial: `${job.id}-${role}-001`,
+          certificateRef: `cert://${plan.operatorId}/${role.toLowerCase()}/${job.id}`,
+          caRef: "ca://sylion/dev",
+          infrastructureSetId: infrastructureSet.id,
+          vpsRole: role,
+          correlationId: corr
+        })
+      );
+      this.#step(job, "issue_certificates", "completed", {
+        certificateIds: certificates.map((cert) => cert.id)
+      });
+      job.rollbackPlan.push(
+        ...certificates.map((cert) => ({
+          action: "revoke_certificate",
+          certificateId: cert.id,
+          approvalRequired: true
+        }))
+      );
 
       this.#step(job, "build_artifacts", "running");
       const artifacts = [];
       if (pixelDeviceId) {
-        artifacts.push(this.imageFactory.build({
-          actor,
-          artifactType: "pixel_grapheneos_profile",
-          operatorId: plan.operatorId,
-          tenantId: plan.tenantId,
-          sourceRef: "source://grapheneos/operator-profile",
-          policy: { storesOperationalData: false, thinClientOnly: true },
-          deviceId: pixelDeviceId,
-          version: "0.1.0",
-          correlationId: corr
-        }));
+        artifacts.push(
+          this.imageFactory.build({
+            actor,
+            artifactType: "pixel_grapheneos_profile",
+            operatorId: plan.operatorId,
+            tenantId: plan.tenantId,
+            sourceRef: "source://grapheneos/operator-profile",
+            policy: { storesOperationalData: false, thinClientOnly: true },
+            deviceId: pixelDeviceId,
+            version: "0.1.0",
+            correlationId: corr
+          })
+        );
       }
       if (routerDeviceId) {
-        artifacts.push(this.imageFactory.build({
-          actor,
-          artifactType: "puli_ax_router_config",
-          operatorId: plan.operatorId,
-          tenantId: plan.tenantId,
-          sourceRef: "source://openwrt/puli-ax-config",
-          policy: { ipsec: "ikev2", killSwitch: "nftables_pre_vpn", dnsThroughTunnelOnly: true },
-          deviceId: routerDeviceId,
-          certificateRef: certificates[0].certificateRef,
-          version: "0.1.0",
-          correlationId: corr
-        }));
+        artifacts.push(
+          this.imageFactory.build({
+            actor,
+            artifactType: "puli_ax_router_config",
+            operatorId: plan.operatorId,
+            tenantId: plan.tenantId,
+            sourceRef: "source://openwrt/puli-ax-config",
+            policy: { ipsec: "ikev2", killSwitch: "nftables_pre_vpn", dnsThroughTunnelOnly: true },
+            deviceId: routerDeviceId,
+            certificateRef: certificates[0].certificateRef,
+            version: "0.1.0",
+            correlationId: corr
+          })
+        );
       }
       for (const workload of plan.workloads) {
-        artifacts.push(this.imageFactory.build({
-          actor,
-          artifactType: "microvm_template",
-          operatorId: plan.operatorId,
-          tenantId: plan.tenantId,
-          sourceRef: `source://workloads/${workload.appName}`,
-          policy: { isolation: "firecracker_microvm", cdrRequired: true },
-          version: "0.1.0",
-          correlationId: corr
-        }));
+        artifacts.push(
+          this.imageFactory.build({
+            actor,
+            artifactType: "microvm_template",
+            operatorId: plan.operatorId,
+            tenantId: plan.tenantId,
+            sourceRef: `source://workloads/${workload.appName}`,
+            policy: { isolation: "firecracker_microvm", cdrRequired: true },
+            version: "0.1.0",
+            correlationId: corr
+          })
+        );
       }
-      this.#step(job, "build_artifacts", "completed", { artifactIds: artifacts.map((artifact) => artifact.id) });
+      this.#step(job, "build_artifacts", "completed", {
+        artifactIds: artifacts.map((artifact) => artifact.id)
+      });
 
       this.#step(job, "activate_monitoring", "running");
       this.monitoring.recordHealthStatus({

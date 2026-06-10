@@ -7,9 +7,10 @@ import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js"
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const config = {
   adminBaseUrl: process.env.SYLION_ADMIN_BASE_URL || "http://127.0.0.1:18111",
@@ -38,16 +39,20 @@ async function run(command, argv, options = {}) {
 }
 
 async function ssh(script, options = {}) {
-  return run("ssh", [
-    "-i",
-    config.sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    config.nativeSsh,
-    script
-  ], options);
+  return run(
+    "ssh",
+    [
+      "-i",
+      config.sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      config.nativeSsh,
+      script
+    ],
+    options
+  );
 }
 
 async function scp(localPath, remoteTarget) {
@@ -160,11 +165,18 @@ jq -n \
 async function writeManifestBundle(manifests) {
   const dir = await mkdtemp(join(tmpdir(), "sylion-native-manifests-"));
   const bundlePath = join(dir, "workload-image-manifests.json");
-  await writeFile(bundlePath, JSON.stringify({
-    hostId: config.hostId,
-    generatedAt: new Date().toISOString(),
-    manifests: manifests.map(sanitizeManifest)
-  }, null, 2));
+  await writeFile(
+    bundlePath,
+    JSON.stringify(
+      {
+        hostId: config.hostId,
+        generatedAt: new Date().toISOString(),
+        manifests: manifests.map(sanitizeManifest)
+      },
+      null,
+      2
+    )
+  );
   return bundlePath;
 }
 
@@ -172,7 +184,9 @@ async function main() {
   const options = args();
   const client = await login();
   const payload = await client.listWorkloadImageManifests();
-  const manifests = (payload.manifests || []).filter((manifest) => manifest.hostId === config.hostId);
+  const manifests = (payload.manifests || []).filter(
+    (manifest) => manifest.hostId === config.hostId
+  );
   const ports = manifests
     .map((manifest) => manifest.streamGateway?.sourcePort)
     .filter((port) => Number.isInteger(Number(port)));
@@ -181,19 +195,30 @@ async function main() {
     await ssh("mkdir -p /opt/sylion-workloads/manifests /opt/sylion-workloads/evidence");
     await scp(bundlePath, "/opt/sylion-workloads/manifests/workload-image-manifests.json");
   }
-  const remote = await ssh(remotePreflightScript({
-    apply: options.apply,
-    manifestCount: manifests.length,
-    ports
-  }), { timeout: 60_000 });
-  const evidence = JSON.parse(remote.stdout.slice(remote.stdout.indexOf("{"), remote.stdout.lastIndexOf("}") + 1));
-  console.log(JSON.stringify({
-    hostId: config.hostId,
-    manifestCount: manifests.length,
-    applied: options.apply,
-    evidence,
-    productionExecutionAllowed: false
-  }, null, 2));
+  const remote = await ssh(
+    remotePreflightScript({
+      apply: options.apply,
+      manifestCount: manifests.length,
+      ports
+    }),
+    { timeout: 60_000 }
+  );
+  const evidence = JSON.parse(
+    remote.stdout.slice(remote.stdout.indexOf("{"), remote.stdout.lastIndexOf("}") + 1)
+  );
+  console.log(
+    JSON.stringify(
+      {
+        hostId: config.hostId,
+        manifestCount: manifests.length,
+        applied: options.apply,
+        evidence,
+        productionExecutionAllowed: false
+      },
+      null,
+      2
+    )
+  );
   if (options.requireReady && !evidence.readyForLabImageBuild) {
     process.exitCode = 1;
   }

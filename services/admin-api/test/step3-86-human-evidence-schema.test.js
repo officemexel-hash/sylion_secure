@@ -28,9 +28,19 @@ function validSummary(overrides = {}) {
       screen: "1080x2400"
     },
     pathTested: "Pixel -> VPN -> G1 -> VPN -> G2 -> VPN -> WORKLOAD -> microVM",
-    expectedBehavior: "The operator can open the operator panel and app stream without terminal data landing on the terminal.",
-    preconditions: ["Pixel authorized over ADB", "Operator session created", "G1/G2 route policy present"],
-    actions: ["Open operator panel", "Open app switcher", "Open Signal workload", "Record metadata-only evidence"],
+    expectedBehavior:
+      "The operator can open the operator panel and app stream without terminal data landing on the terminal.",
+    preconditions: [
+      "Pixel authorized over ADB",
+      "Operator session created",
+      "G1/G2 route policy present"
+    ],
+    actions: [
+      "Open operator panel",
+      "Open app switcher",
+      "Open Signal workload",
+      "Record metadata-only evidence"
+    ],
     evidenceRefs: ["screenshot://pixel/operator-panel", "probe://g1-g2/ipsec-status"],
     result: "PASS",
     blockers: [],
@@ -58,11 +68,17 @@ test("Step 3.86 evidence schema rejects forbidden operational keys and raw secre
     /Forbidden evidence key/
   );
   assert.throws(
-    () => validateHumanEvidenceSummary(validSummary({ environment: { operatorToken: "REDACTED_OPERATOR_TOKEN" } })),
+    () =>
+      validateHumanEvidenceSummary(
+        validSummary({ environment: { operatorToken: "REDACTED_OPERATOR_TOKEN" } })
+      ),
     /Forbidden evidence key/
   );
   assert.throws(
-    () => assertMetadataOnly({ url: "https://operator.sylion.internal/operator?op_token=op_123456789012345678901234567890" }),
+    () =>
+      assertMetadataOnly({
+        url: "https://operator.sylion.internal/operator?op_token=op_123456789012345678901234567890"
+      }),
     /Forbidden evidence value/
   );
 });
@@ -84,11 +100,13 @@ test("Step 3.86 derived result preserves critical failure and blocks simulation 
   assert.equal(isProductionSatisfyingResult("LAB_PASS"), false);
   assert.equal(isProductionSatisfyingResult("SIMULATION_PASS"), false);
 
-  const built = await buildHumanEvidenceSummary(validSummary({
-    result: "LAB_PASS",
-    blockers: [],
-    notes: ["Dry-run evidence can support repair planning, not production sign-off."]
-  }));
+  const built = await buildHumanEvidenceSummary(
+    validSummary({
+      result: "LAB_PASS",
+      blockers: [],
+      notes: ["Dry-run evidence can support repair planning, not production sign-off."]
+    })
+  );
   assert.equal(built.productionSatisfyingResult, false);
   assert.equal(validateHumanEvidenceSummary(built), true);
 });

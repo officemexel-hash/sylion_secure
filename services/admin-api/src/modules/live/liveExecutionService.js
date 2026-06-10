@@ -36,10 +36,26 @@ function safeArray(value = [], field) {
 const CPU_VENDORS = new Set(["intel", "amd", "unknown"]);
 const CONFIDENTIAL_MODES = new Set(["none", "intel_tdx", "amd_sev_snp"]);
 const PROVIDER_REHEARSAL_MODES = new Set(["gate_only", "adapter_sandbox", "live_provider"]);
-const FIRECRACKER_REHEARSAL_WORKLOADS = new Set(["signal", "telegram", "whatsapp", "threema", "zangi", "simplex", "matrix", "protonmail"]);
+const FIRECRACKER_REHEARSAL_WORKLOADS = new Set([
+  "signal",
+  "telegram",
+  "whatsapp",
+  "threema",
+  "zangi",
+  "simplex",
+  "matrix",
+  "protonmail"
+]);
 const DEDICATED_ORDER_MODES = new Set(["plan_only", "robot_test", "live_order"]);
 const WORKLOAD_TENANCY_MODES = new Set(["shared_pool", "dedicated_operator"]);
-const WORKLOAD_NATIVE_LIFECYCLE = new Set(["ordered", "delivered", "bootstrapped", "lab_qualified", "degraded", "retired"]);
+const WORKLOAD_NATIVE_LIFECYCLE = new Set([
+  "ordered",
+  "delivered",
+  "bootstrapped",
+  "lab_qualified",
+  "degraded",
+  "retired"
+]);
 const WORKLOAD_IMAGE_APPS = new Set([
   "signal",
   "telegram",
@@ -52,7 +68,11 @@ const WORKLOAD_IMAGE_APPS = new Set([
   "exodus",
   "protonmail"
 ]);
-const WORKLOAD_RUNTIME_KINDS = new Set(["firecracker_microvm", "container_lab_helper", "android_native_workload"]);
+const WORKLOAD_RUNTIME_KINDS = new Set([
+  "firecracker_microvm",
+  "container_lab_helper",
+  "android_native_workload"
+]);
 
 function normalizeLower(value, field, allowed) {
   const normalized = requireText(value, field).toLowerCase();
@@ -75,21 +95,57 @@ function featureFlags(value = {}) {
 
 function confidentialChecks({ cpuVendor, confidentialMode, features, attestation }) {
   const checks = [
-    { key: "virtualization", status: features.virtualization ? "passed" : "blocked", detail: "VMX/SVM virtualization is required" },
-    { key: "iommu", status: features.iommu ? "passed" : "blocked", detail: "IOMMU is required for host isolation" },
-    { key: "tpm2", status: features.tpm2 ? "passed" : "blocked", detail: "TPM 2.0 is required for measured host posture" },
-    { key: "secure_boot", status: features.secureBoot ? "passed" : "blocked", detail: "Secure Boot must be enabled" },
-    { key: "kernel_lockdown", status: features.kernelLockdown ? "passed" : "blocked", detail: "Kernel lockdown must be active" },
-    { key: "microcode_current", status: features.microcodeCurrent ? "passed" : "blocked", detail: "CPU microcode must be current" }
+    {
+      key: "virtualization",
+      status: features.virtualization ? "passed" : "blocked",
+      detail: "VMX/SVM virtualization is required"
+    },
+    {
+      key: "iommu",
+      status: features.iommu ? "passed" : "blocked",
+      detail: "IOMMU is required for host isolation"
+    },
+    {
+      key: "tpm2",
+      status: features.tpm2 ? "passed" : "blocked",
+      detail: "TPM 2.0 is required for measured host posture"
+    },
+    {
+      key: "secure_boot",
+      status: features.secureBoot ? "passed" : "blocked",
+      detail: "Secure Boot must be enabled"
+    },
+    {
+      key: "kernel_lockdown",
+      status: features.kernelLockdown ? "passed" : "blocked",
+      detail: "Kernel lockdown must be active"
+    },
+    {
+      key: "microcode_current",
+      status: features.microcodeCurrent ? "passed" : "blocked",
+      detail: "CPU microcode must be current"
+    }
   ];
   if (confidentialMode === "intel_tdx") {
-    checks.push({ key: "tdx_vendor_match", status: cpuVendor === "intel" ? "passed" : "blocked", detail: "Intel TDX requires Intel CPU" });
+    checks.push({
+      key: "tdx_vendor_match",
+      status: cpuVendor === "intel" ? "passed" : "blocked",
+      detail: "Intel TDX requires Intel CPU"
+    });
   }
   if (confidentialMode === "amd_sev_snp") {
-    checks.push({ key: "sev_snp_vendor_match", status: cpuVendor === "amd" ? "passed" : "blocked", detail: "AMD SEV-SNP requires AMD CPU" });
+    checks.push({
+      key: "sev_snp_vendor_match",
+      status: cpuVendor === "amd" ? "passed" : "blocked",
+      detail: "AMD SEV-SNP requires AMD CPU"
+    });
   }
   if (confidentialMode !== "none") {
-    checks.push({ key: "remote_attestation", status: attestation?.verified === true ? "passed" : "blocked", detail: "Remote attestation must verify trusted measurements before secrets release" });
+    checks.push({
+      key: "remote_attestation",
+      status: attestation?.verified === true ? "passed" : "blocked",
+      detail: "Remote attestation must verify trusted measurements before secrets release"
+    });
   }
   return checks;
 }
@@ -107,33 +163,53 @@ function assertNoSensitiveRuntimeData(value, path = "payload") {
   for (const [key, nested] of Object.entries(value)) {
     const currentPath = `${path}.${key}`;
     if (/password|secret|private.*key|key.*private|token|session|cookie|pem/i.test(key)) {
-      throw validationError("Live workload host evidence must not contain sensitive runtime data", { field: currentPath });
+      throw validationError("Live workload host evidence must not contain sensitive runtime data", {
+        field: currentPath
+      });
     }
-    if (typeof nested === "string" && /-----BEGIN .*PRIVATE KEY-----|xox[baprs]-|ghp_|hcloud_|api[_-]?key/i.test(nested)) {
-      throw validationError("Live workload host evidence contains sensitive runtime data", { field: currentPath });
+    if (
+      typeof nested === "string" &&
+      /-----BEGIN .*PRIVATE KEY-----|xox[baprs]-|ghp_|hcloud_|api[_-]?key/i.test(nested)
+    ) {
+      throw validationError("Live workload host evidence contains sensitive runtime data", {
+        field: currentPath
+      });
     }
     assertNoSensitiveRuntimeData(nested, currentPath);
   }
 }
 
 function boolFromEvidence(value) {
-  return value === true || value === "true" || value === "present" || value === "yes" || value === "active" || value === "Running";
+  return (
+    value === true ||
+    value === "true" ||
+    value === "present" ||
+    value === "yes" ||
+    value === "active" ||
+    value === "Running"
+  );
 }
 
 function sanitizeProviderResource(resource = {}) {
   return {
     role: resource.role,
-    providerResourceId: String(resource.providerResourceId || resource.id || resource.name || "unknown"),
+    providerResourceId: String(
+      resource.providerResourceId || resource.id || resource.name || "unknown"
+    ),
     name: resource.name || null,
     location: resource.location || null,
     publicIpv4: resource.publicIpv4 || null,
     publicIpv6: resource.publicIpv6 || null,
     status: resource.status || "created",
-    rollback: resource.rollback ? {
-      action: resource.rollback.action || "delete_server",
-      providerResourceId: String(resource.rollback.providerResourceId || resource.providerResourceId || "unknown"),
-      idempotencyKey: resource.rollback.idempotencyKey || null
-    } : null
+    rollback: resource.rollback
+      ? {
+          action: resource.rollback.action || "delete_server",
+          providerResourceId: String(
+            resource.rollback.providerResourceId || resource.providerResourceId || "unknown"
+          ),
+          idempotencyKey: resource.rollback.idempotencyKey || null
+        }
+      : null
   };
 }
 
@@ -158,28 +234,48 @@ export class LiveExecutionService {
     this.approvals = approvals;
     this.env = env;
     this.secretProvider = secretProvider || new EnvSecretProvider({ env });
-    this.adapterFactory = adapterFactory || ((providerKey) => {
-      if (providerKey === "hetzner") return new HetznerLiveAdapter({ token: this.secretProvider.getProviderToken("hetzner") });
-      if (providerKey === "ovh") return new OvhLiveAdapter();
-      throw validationError("Live provider adapter is not implemented", { providerKey });
-    });
-    this.robotAdapterFactory = robotAdapterFactory || (() => new HetznerRobotAdapter({
-      user: this.env.SYLION_HETZNER_ROBOT_USER,
-      password: this.env.SYLION_HETZNER_ROBOT_PASSWORD
-    }));
-    this.hostProbe = hostProbe || (() => ({
-      platform: process.platform,
-      kvmDevicePresent: existsSync("/dev/kvm"),
-      firecrackerBinaryPresent: false,
-      nestedVirtualizationVerified: false
-    }));
+    this.adapterFactory =
+      adapterFactory ||
+      ((providerKey) => {
+        if (providerKey === "hetzner")
+          return new HetznerLiveAdapter({ token: this.secretProvider.getProviderToken("hetzner") });
+        if (providerKey === "ovh") return new OvhLiveAdapter();
+        throw validationError("Live provider adapter is not implemented", { providerKey });
+      });
+    this.robotAdapterFactory =
+      robotAdapterFactory ||
+      (() =>
+        new HetznerRobotAdapter({
+          user: this.env.SYLION_HETZNER_ROBOT_USER,
+          password: this.env.SYLION_HETZNER_ROBOT_PASSWORD
+        }));
+    this.hostProbe =
+      hostProbe ||
+      (() => ({
+        platform: process.platform,
+        kvmDevicePresent: existsSync("/dev/kvm"),
+        firecrackerBinaryPresent: false,
+        nestedVirtualizationVerified: false
+      }));
     this.requests = new PersistentMap({ store, collection: "live_execution_requests" });
-    this.hostQualifications = new PersistentMap({ store, collection: "firecracker_host_qualifications" });
-    this.firecrackerRehearsals = new PersistentMap({ store, collection: "firecracker_launch_rehearsals" });
+    this.hostQualifications = new PersistentMap({
+      store,
+      collection: "firecracker_host_qualifications"
+    });
+    this.firecrackerRehearsals = new PersistentMap({
+      store,
+      collection: "firecracker_launch_rehearsals"
+    });
     this.dedicatedOrders = new PersistentMap({ store, collection: "dedicated_workload_orders" });
     this.workloadNativeHosts = new PersistentMap({ store, collection: "workload_native_hosts" });
-    this.workloadImageManifests = new PersistentMap({ store, collection: "workload_image_manifests" });
-    this.cpuQualifications = new PersistentMap({ store, collection: "cpu_confidential_qualifications" });
+    this.workloadImageManifests = new PersistentMap({
+      store,
+      collection: "workload_image_manifests"
+    });
+    this.cpuQualifications = new PersistentMap({
+      store,
+      collection: "cpu_confidential_qualifications"
+    });
     this.rollbackPlans = new PersistentMap({ store, collection: "live_rollback_plans" });
     this.providerRehearsals = new PersistentMap({ store, collection: "live_provider_rehearsals" });
     this.phantomRequests = new PersistentMap({ store, collection: "phantom_execution_requests" });
@@ -191,7 +287,10 @@ export class LiveExecutionService {
 
   summary({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST });
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST
+    });
     return {
       providerMode: this.env.SYLION_PROVIDER_MODE || "dry_run",
       liveAllowed: this.env.SYLION_LIVE_ALLOWED === "true",
@@ -201,7 +300,8 @@ export class LiveExecutionService {
       allowlistedOperators: splitEnvList(this.env.SYLION_LIVE_ALLOWLIST_OPERATORS),
       maxServers: Number(this.env.SYLION_LIVE_MAX_SERVERS || 0),
       firecrackerHostMode: this.env.SYLION_FIRECRACKER_HOST_MODE || "blocked",
-      firecrackerLaunchRehearsalAllowed: this.env.SYLION_FIRECRACKER_LAUNCH_REHEARSAL_ALLOWED === "true",
+      firecrackerLaunchRehearsalAllowed:
+        this.env.SYLION_FIRECRACKER_LAUNCH_REHEARSAL_ALLOWED === "true",
       phantomLabAllowed: this.env.SYLION_PHANTOM_LAB_ALLOWED === "true",
       baselineUnlockState: this.#baselineUnlockState(),
       liveRequests: this.requests.size,
@@ -212,12 +312,18 @@ export class LiveExecutionService {
       workloadNativeHosts: this.workloadNativeHosts.size,
       workloadImageManifests: this.workloadImageManifests.size,
       cpuQualifications: this.cpuQualifications.size,
-      confidentialReadyHosts: [...this.cpuQualifications.values()].filter((item) => item.secretsReleaseAllowed).length,
+      confidentialReadyHosts: [...this.cpuQualifications.values()].filter(
+        (item) => item.secretsReleaseAllowed
+      ).length,
       phantomExecutionRequests: this.phantomRequests.size,
       rollbackPlans: this.rollbackPlans.size,
       providerAdapters: [
         { providerKey: "hetzner", status: "gated_live_adapter", rollbackRequired: true },
-        { providerKey: "hetzner_robot", status: "dedicated_order_adapter_human_gate", rollbackRequired: false },
+        {
+          providerKey: "hetzner_robot",
+          status: "dedicated_order_adapter_human_gate",
+          rollbackRequired: false
+        },
         { providerKey: "ovh", status: "stub_blocked", rollbackRequired: true }
       ],
       productionExecutionAllowed: false,
@@ -227,13 +333,19 @@ export class LiveExecutionService {
 
   listRequests({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST });
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST
+    });
     return [...this.requests.values()].map(publicRequest);
   }
 
   listRollbackPlans({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.LIVE_ROLLBACK_PLAN });
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.LIVE_ROLLBACK_PLAN
+    });
     return [...this.rollbackPlans.values()];
   }
 
@@ -274,12 +386,16 @@ export class LiveExecutionService {
   }
 
   latestReadyWorkloadImageManifestForApp(appKey) {
-    const normalizedAppKey = String(appKey || "").trim().toLowerCase();
-    return [...this.workloadImageManifests.values()]
-      .filter((manifest) => manifest.appKey === normalizedAppKey)
-      .filter((manifest) => manifest.readyForLabLaunch === true)
-      .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0))
-      .at(0) || null;
+    const normalizedAppKey = String(appKey || "")
+      .trim()
+      .toLowerCase();
+    return (
+      [...this.workloadImageManifests.values()]
+        .filter((manifest) => manifest.appKey === normalizedAppKey)
+        .filter((manifest) => manifest.readyForLabLaunch === true)
+        .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0))
+        .at(0) || null
+    );
   }
 
   registerWorkloadNativeHost({
@@ -313,7 +429,9 @@ export class LiveExecutionService {
     }
     const blockers = safeArray(productionBlockers, "productionBlockers");
     const checks = this.#workloadNativeHostChecks(evidence, blockers);
-    const readyForLabWorkloads = checks.filter((check) => check.requiredForLab !== false).every((check) => check.status === "passed");
+    const readyForLabWorkloads = checks
+      .filter((check) => check.requiredForLab !== false)
+      .every((check) => check.status === "passed");
     const record = {
       id: newId("workload_native_host"),
       hostId: requireText(hostId, "hostId"),
@@ -334,7 +452,9 @@ export class LiveExecutionService {
       productionExecutionAllowed: false,
       productionBlockers: blockers,
       nextActions: [
-        ...(readyForLabWorkloads ? ["build_first_firecracker_workload_image"] : ["resolve_lab_host_blockers"]),
+        ...(readyForLabWorkloads
+          ? ["build_first_firecracker_workload_image"]
+          : ["resolve_lab_host_blockers"]),
         "bind_g1_g2_private_path",
         "bind_g2_thin_stream_broker",
         "run_pixel_human_regression",
@@ -384,7 +504,9 @@ export class LiveExecutionService {
     assertNoSensitiveRuntimeData(streamGateway, "streamGateway");
     const normalizedAppKey = normalizeLower(appKey, "appKey", WORKLOAD_IMAGE_APPS);
     const normalizedRuntime = normalizeLower(runtimeKind, "runtimeKind", WORKLOAD_RUNTIME_KINDS);
-    const host = [...this.workloadNativeHosts.values()].find((item) => item.hostId === hostId || item.id === hostId);
+    const host = [...this.workloadNativeHosts.values()].find(
+      (item) => item.hostId === hostId || item.id === hostId
+    );
     if (!host) throw notFound("workload_native_host", hostId);
     const blockers = safeArray(productionBlockers, "productionBlockers");
     const normalized = {
@@ -409,7 +531,9 @@ export class LiveExecutionService {
       buildEvidence,
       productionBlockers: blockers
     });
-    const readyForLabLaunch = checks.filter((check) => check.requiredForLab !== false).every((check) => check.status === "passed");
+    const readyForLabLaunch = checks
+      .filter((check) => check.requiredForLab !== false)
+      .every((check) => check.status === "passed");
     const record = {
       id: newId("workload_image_manifest"),
       hostId: host.hostId,
@@ -434,7 +558,9 @@ export class LiveExecutionService {
       secretsReleaseAllowed: false,
       productionBlockers: blockers,
       nextActions: [
-        ...(readyForLabLaunch ? ["launch_lab_workload_private_stream"] : ["resolve_workload_image_blockers"]),
+        ...(readyForLabLaunch
+          ? ["launch_lab_workload_private_stream"]
+          : ["resolve_workload_image_blockers"]),
         "bind_g1_g2_private_path",
         "bind_g2_session_broker",
         "run_pixel_human_regression",
@@ -493,9 +619,16 @@ export class LiveExecutionService {
     const operator = this.operators.get(operatorId);
     if (!operator) throw notFound("operator", operatorId);
     if (operator.baseline?.vpsPerOperator !== 3) {
-      throw validationError("Dedicated workload order requires the 3-machine operator baseline", { operatorId });
+      throw validationError("Dedicated workload order requires the 3-machine operator baseline", {
+        operatorId
+      });
     }
-    const approval = this.approvals.assertExecutionApproved({ actor, approvalId, planId: null, correlationId: corr }).approval;
+    const approval = this.approvals.assertExecutionApproved({
+      actor,
+      approvalId,
+      planId: null,
+      correlationId: corr
+    }).approval;
     if (approval.operatorId !== operatorId) {
       throw validationError("Approval does not match requested operator", {
         approvalId,
@@ -504,7 +637,11 @@ export class LiveExecutionService {
       });
     }
     const mode = normalizeLower(orderMode, "orderMode", DEDICATED_ORDER_MODES);
-    const tenancyMode = normalizeLower(workloadTenancyMode, "workloadTenancyMode", WORKLOAD_TENANCY_MODES);
+    const tenancyMode = normalizeLower(
+      workloadTenancyMode,
+      "workloadTenancyMode",
+      WORKLOAD_TENANCY_MODES
+    );
     const gate = this.#evaluateDedicatedOrderGate({
       operator,
       operatorId,
@@ -530,7 +667,8 @@ export class LiveExecutionService {
       dist: requireText(dist, "dist"),
       authorizedKeyRef: requireText(authorizedKeyRef, "authorizedKeyRef"),
       addons: safeArray(addons, "addons"),
-      maxMonthlyPrice: maxMonthlyPrice === null || maxMonthlyPrice === undefined ? null : Number(maxMonthlyPrice),
+      maxMonthlyPrice:
+        maxMonthlyPrice === null || maxMonthlyPrice === undefined ? null : Number(maxMonthlyPrice),
       workloadTenancyMode: tenancyMode,
       phantomSensitive: phantomSensitive === true,
       orderMode: mode,
@@ -546,7 +684,13 @@ export class LiveExecutionService {
         status: gate.allowed ? "plan_ready_no_provider_mutation" : "blocked_human_gate",
         sideEffectAllowed: false,
         providerResource: null,
-        phases: [{ name: "dedicated_order_gate", status: gate.allowed ? "passed" : "blocked", details: { blockers: gate.blockers } }]
+        phases: [
+          {
+            name: "dedicated_order_gate",
+            status: gate.allowed ? "passed" : "blocked",
+            details: { blockers: gate.blockers }
+          }
+        ]
       };
       this.dedicatedOrders.set(planned.id, planned);
       this.audit.record({
@@ -581,13 +725,20 @@ export class LiveExecutionService {
       providerResource,
       phases: [
         { name: "dedicated_order_gate", status: "passed", details: { mode } },
-        { name: "robot_transaction", status: "passed", details: { providerResourceId: providerResource.providerResourceId } }
+        {
+          name: "robot_transaction",
+          status: "passed",
+          details: { providerResourceId: providerResource.providerResourceId }
+        }
       ]
     };
     this.dedicatedOrders.set(ordered.id, ordered);
     this.audit.record({
       actorId: actor.id,
-      action: mode === "live_order" ? "dedicated_workload.live_order_requested" : "dedicated_workload.robot_test_completed",
+      action:
+        mode === "live_order"
+          ? "dedicated_workload.live_order_requested"
+          : "dedicated_workload.robot_test_completed",
       resourceType: RESOURCE_TYPES.DEDICATED_WORKLOAD_ORDER,
       resourceId: ordered.id,
       tenantId: operator.tenantId,
@@ -634,10 +785,17 @@ export class LiveExecutionService {
       });
     }
     if (operator.baseline?.vpsPerOperator !== 3) {
-      throw validationError("Live provider rehearsal requires exactly 3 VPS per operator", { operatorId });
+      throw validationError("Live provider rehearsal requires exactly 3 VPS per operator", {
+        operatorId
+      });
     }
     const key = requireText(idempotencyKey, "idempotencyKey", 8);
-    const approval = this.approvals.assertExecutionApproved({ actor, approvalId, planId: null, correlationId: corr }).approval;
+    const approval = this.approvals.assertExecutionApproved({
+      actor,
+      approvalId,
+      planId: null,
+      correlationId: corr
+    }).approval;
     if (approval.operatorId !== operatorId) {
       throw validationError("Approval does not match requested operator", {
         approvalId,
@@ -680,18 +838,23 @@ export class LiveExecutionService {
 
     const adapter = this.#providerRehearsalAdapter(provider.providerKey, mode);
     const phases = [{ name: "gate_evaluated", status: "passed", details: { mode } }];
-    const resources = (await adapter.createVpsSet({
-      operatorId,
-      region,
-      serverType,
-      image,
-      labels: { sylion_tenant: operator.tenantId, sylion_rehearsal: "true" },
-      idempotencyKey: key
-    })).map(sanitizeProviderResource);
+    const resources = (
+      await adapter.createVpsSet({
+        operatorId,
+        region,
+        serverType,
+        image,
+        labels: { sylion_tenant: operator.tenantId, sylion_rehearsal: "true" },
+        idempotencyKey: key
+      })
+    ).map(sanitizeProviderResource);
     phases.push({
       name: "create_vps_set",
       status: "passed",
-      details: { resourceCount: resources.length, roles: resources.map((resource) => resource.role) }
+      details: {
+        resourceCount: resources.length,
+        roles: resources.map((resource) => resource.role)
+      }
     });
     const roleSet = new Set(resources.map((resource) => resource.role));
     const missingRoles = ["G1", "G2", "WORKLOAD"].filter((role) => !roleSet.has(role));
@@ -713,7 +876,11 @@ export class LiveExecutionService {
         correlationId: corr
       });
     }
-    phases.push({ name: "baseline_shape", status: "passed", details: { requiredRoles: ["G1", "G2", "WORKLOAD"] } });
+    phases.push({
+      name: "baseline_shape",
+      status: "passed",
+      details: { requiredRoles: ["G1", "G2", "WORKLOAD"] }
+    });
 
     let reconciliation = [];
     if (typeof adapter.listVpsSet === "function") {
@@ -762,16 +929,28 @@ export class LiveExecutionService {
 
   async reconcileProviderVpsSet({ actor, providerKey, providerId, operatorId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "live_execution.read", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST });
+    this.rbac.assert(actor, "live_execution.read", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST
+    });
     const provider = this.providers.get(providerId);
     if (!provider) throw notFound("provider", providerId);
     const operator = this.operators.get(operatorId);
     if (!operator) throw notFound("operator", operatorId);
     const requestedProviderKey = requireText(providerKey, "providerKey").toLowerCase();
     if (provider.providerKey !== requestedProviderKey) {
-      throw validationError("Provider route does not match provider record", { requestedProviderKey, providerKey: provider.providerKey });
+      throw validationError("Provider route does not match provider record", {
+        requestedProviderKey,
+        providerKey: provider.providerKey
+      });
     }
-    const gate = this.#evaluateCloudGate({ providerKey: provider.providerKey, operatorId, region: provider.regions?.[0] || "unknown", liveConfirmed: true });
+    const gate = this.#evaluateCloudGate({
+      providerKey: provider.providerKey,
+      operatorId,
+      region: provider.regions?.[0] || "unknown",
+      liveConfirmed: true
+    });
     if (!gate.allowed) {
       const result = {
         id: newId("live_rec"),
@@ -802,11 +981,15 @@ export class LiveExecutionService {
     }
     const adapter = this.adapterFactory(provider.providerKey);
     if (typeof adapter.listVpsSet !== "function") {
-      throw validationError("Live provider adapter does not support reconciliation", { providerKey: provider.providerKey });
+      throw validationError("Live provider adapter does not support reconciliation", {
+        providerKey: provider.providerKey
+      });
     }
     const resources = (await adapter.listVpsSet({ operatorId })).map(sanitizeProviderResource);
     const roles = new Set(resources.map((resource) => resource.role));
-    const drift = ["G1", "G2", "WORKLOAD"].filter((role) => !roles.has(role)).map((role) => `missing_${role.toLowerCase()}`);
+    const drift = ["G1", "G2", "WORKLOAD"]
+      .filter((role) => !roles.has(role))
+      .map((role) => `missing_${role.toLowerCase()}`);
     const result = {
       id: newId("live_rec"),
       providerId,
@@ -877,7 +1060,9 @@ export class LiveExecutionService {
     }
     const adapter = this.adapterFactory(plan.providerKey);
     if (typeof adapter.deleteVpsSet !== "function") {
-      throw validationError("Live provider adapter does not support rollback execution", { providerKey: plan.providerKey });
+      throw validationError("Live provider adapter does not support rollback execution", {
+        providerKey: plan.providerKey
+      });
     }
     const results = await adapter.deleteVpsSet({ actions: plan.actions });
     const executed = {
@@ -924,7 +1109,11 @@ export class LiveExecutionService {
     correlationId
   }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "live_execution.manage", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST });
+    this.rbac.assert(actor, "live_execution.manage", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST
+    });
     const key = requireText(idempotencyKey, "idempotencyKey", 8);
     if (this.idempotency.has(key)) {
       return publicRequest(this.requests.get(this.idempotency.get(key)));
@@ -935,16 +1124,35 @@ export class LiveExecutionService {
     if (!operator) throw notFound("operator", operatorId);
     const requestedProviderKey = requireText(providerKey, "providerKey").toLowerCase();
     if (provider.providerKey !== requestedProviderKey) {
-      throw validationError("Provider route does not match provider record", { requestedProviderKey, providerKey: provider.providerKey });
+      throw validationError("Provider route does not match provider record", {
+        requestedProviderKey,
+        providerKey: provider.providerKey
+      });
     }
     if (operator.baseline?.vpsPerOperator !== 3) {
-      throw validationError("Live cloud baseline requires exactly 3 VPS per operator", { operatorId });
+      throw validationError("Live cloud baseline requires exactly 3 VPS per operator", {
+        operatorId
+      });
     }
-    const approval = this.approvals.assertExecutionApproved({ actor, approvalId, planId: null, correlationId: corr }).approval;
+    const approval = this.approvals.assertExecutionApproved({
+      actor,
+      approvalId,
+      planId: null,
+      correlationId: corr
+    }).approval;
     if (approval.operatorId !== operatorId) {
-      throw validationError("Approval does not match requested operator", { approvalId, operatorId, approvalOperatorId: approval.operatorId });
+      throw validationError("Approval does not match requested operator", {
+        approvalId,
+        operatorId,
+        approvalOperatorId: approval.operatorId
+      });
     }
-    const gate = this.#evaluateCloudGate({ providerKey: provider.providerKey, operatorId, region, liveConfirmed });
+    const gate = this.#evaluateCloudGate({
+      providerKey: provider.providerKey,
+      operatorId,
+      region,
+      liveConfirmed
+    });
     if (!gate.allowed) {
       const denied = this.#recordCloudRequest({
         actor,
@@ -961,17 +1169,19 @@ export class LiveExecutionService {
       return publicRequest(denied);
     }
     const adapter = this.adapterFactory(provider.providerKey);
-    const resources = (await adapter.createVpsSet({
-      operatorId,
-      region,
-      serverType,
-      serverTypesByRole,
-      image,
-      sshKeys,
-      userDataByRole,
-      labels: { sylion_tenant: operator.tenantId },
-      idempotencyKey: key
-    })).map(sanitizeProviderResource);
+    const resources = (
+      await adapter.createVpsSet({
+        operatorId,
+        region,
+        serverType,
+        serverTypesByRole,
+        image,
+        sshKeys,
+        userDataByRole,
+        labels: { sylion_tenant: operator.tenantId },
+        idempotencyKey: key
+      })
+    ).map(sanitizeProviderResource);
     const request = this.#recordCloudRequest({
       actor,
       provider,
@@ -993,14 +1203,31 @@ export class LiveExecutionService {
 
   qualifyFirecrackerHost({ actor, hostId = "local-host", approvalId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "live_execution.manage", { correlationId: corr, resourceType: RESOURCE_TYPES.FIRECRACKER_HOST_QUALIFICATION });
+    this.rbac.assert(actor, "live_execution.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.FIRECRACKER_HOST_QUALIFICATION
+    });
     const probe = this.hostProbe();
     const checks = [
-      { key: "kvm_device", status: probe.kvmDevicePresent ? "passed" : "blocked", detail: "/dev/kvm must be present on the execution host" },
-      { key: "firecracker_binary", status: probe.firecrackerBinaryPresent ? "passed" : "blocked", detail: "Firecracker binary must be installed and pinned" },
-      { key: "nested_virtualization", status: probe.nestedVirtualizationVerified ? "passed" : "blocked", detail: "Cloud host must expose KVM/nested virtualization or be bare metal" }
+      {
+        key: "kvm_device",
+        status: probe.kvmDevicePresent ? "passed" : "blocked",
+        detail: "/dev/kvm must be present on the execution host"
+      },
+      {
+        key: "firecracker_binary",
+        status: probe.firecrackerBinaryPresent ? "passed" : "blocked",
+        detail: "Firecracker binary must be installed and pinned"
+      },
+      {
+        key: "nested_virtualization",
+        status: probe.nestedVirtualizationVerified ? "passed" : "blocked",
+        detail: "Cloud host must expose KVM/nested virtualization or be bare metal"
+      }
     ];
-    const ready = this.env.SYLION_FIRECRACKER_HOST_MODE === "local_qualification" && checks.every((check) => check.status === "passed");
+    const ready =
+      this.env.SYLION_FIRECRACKER_HOST_MODE === "local_qualification" &&
+      checks.every((check) => check.status === "passed");
     const record = {
       id: newId("fc_host"),
       hostId: requireText(hostId, "hostId"),
@@ -1031,7 +1258,10 @@ export class LiveExecutionService {
 
   listFirecrackerQualifications({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.FIRECRACKER_HOST_QUALIFICATION });
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.FIRECRACKER_HOST_QUALIFICATION
+    });
     return [...this.hostQualifications.values()];
   }
 
@@ -1059,24 +1289,33 @@ export class LiveExecutionService {
     if (!host) throw notFound("firecracker_host_qualification", hostQualificationId);
     const workloads = safeArray(workloadNames, "workloadNames").map((name) => name.toLowerCase());
     if (workloads.length === 0 || workloads.length > 10) {
-      throw validationError("Firecracker rehearsal requires 1-10 workloads", { workloadCount: workloads.length });
+      throw validationError("Firecracker rehearsal requires 1-10 workloads", {
+        workloadCount: workloads.length
+      });
     }
     const unsupported = workloads.filter((name) => !FIRECRACKER_REHEARSAL_WORKLOADS.has(name));
     if (unsupported.length) {
       throw validationError("Unsupported Firecracker rehearsal workload", { unsupported });
     }
     for (const [field, value] of Object.entries({ imageRef, kernelRef, rootfsRef, networkMode })) {
-      if (/secret|token|password|private|terminal[_ -]?data|message|chat/i.test(String(value || ""))) {
-        throw validationError("Firecracker rehearsal metadata must not contain secrets, terminal data or communication content", {
-          field,
-          contentRejected: true
-        });
+      if (
+        /secret|token|password|private|terminal[_ -]?data|message|chat/i.test(String(value || ""))
+      ) {
+        throw validationError(
+          "Firecracker rehearsal metadata must not contain secrets, terminal data or communication content",
+          {
+            field,
+            contentRejected: true
+          }
+        );
       }
     }
     const blockers = [
       ...(host.readyForFirecrackerLaunch ? [] : ["host_not_ready_for_firecracker_launch"]),
       ...(rehearsalConfirmed ? [] : ["rehearsal_confirmation_required"]),
-      ...(this.env.SYLION_FIRECRACKER_LAUNCH_REHEARSAL_ALLOWED === "true" ? [] : ["firecracker_launch_rehearsal_env_flag_disabled"])
+      ...(this.env.SYLION_FIRECRACKER_LAUNCH_REHEARSAL_ALLOWED === "true"
+        ? []
+        : ["firecracker_launch_rehearsal_env_flag_disabled"])
     ];
     const runtimes = workloads.map((name, index) => ({
       id: newId("fc_runtime"),
@@ -1091,15 +1330,15 @@ export class LiveExecutionService {
       secretsReleaseAllowed: false,
       status: blockers.length ? "planned_blocked" : "rehearsed_stopped"
     }));
-    const phases = blockers.length ? [
-      { name: "gate_evaluated", status: "blocked", details: { blockers } }
-    ] : [
-      { name: "gate_evaluated", status: "passed", details: { hostId: host.hostId } },
-      { name: "jailer_plan", status: "passed", details: { runtimeCount: runtimes.length } },
-      { name: "boot_rehearsal", status: "passed", details: { realKernelExecuted: false } },
-      { name: "health_probe", status: "passed", details: { contentInspection: false } },
-      { name: "stop_cleanup", status: "passed", details: { runtimesStopped: runtimes.length } }
-    ];
+    const phases = blockers.length
+      ? [{ name: "gate_evaluated", status: "blocked", details: { blockers } }]
+      : [
+          { name: "gate_evaluated", status: "passed", details: { hostId: host.hostId } },
+          { name: "jailer_plan", status: "passed", details: { runtimeCount: runtimes.length } },
+          { name: "boot_rehearsal", status: "passed", details: { realKernelExecuted: false } },
+          { name: "health_probe", status: "passed", details: { contentInspection: false } },
+          { name: "stop_cleanup", status: "passed", details: { runtimesStopped: runtimes.length } }
+        ];
     const record = {
       id: newId("fc_rehearsal"),
       hostQualificationId,
@@ -1177,8 +1416,10 @@ export class LiveExecutionService {
     const baseHostReady = checks
       .filter((check) => !["remote_attestation"].includes(check.key))
       .every((check) => check.status === "passed");
-    const confidentialReady = normalizedMode !== "none" && checks.every((check) => check.status === "passed");
-    const secretsReleaseAllowed = confidentialReady && safeArray(evidenceRefs, "evidenceRefs").length > 0;
+    const confidentialReady =
+      normalizedMode !== "none" && checks.every((check) => check.status === "passed");
+    const secretsReleaseAllowed =
+      confidentialReady && safeArray(evidenceRefs, "evidenceRefs").length > 0;
     const record = {
       id: newId("cpu_conf"),
       hostId: requireText(hostId, "hostId"),
@@ -1227,18 +1468,24 @@ export class LiveExecutionService {
 
   cpuConfidentialEvidenceSummary() {
     const records = [...this.cpuQualifications.values()];
-    const firecrackerHostApprovedObserved = records.some((record) => record.firecrackerHostApproved === true);
-    const confidentialApprovedObserved = records.some((record) => record.confidentialComputingApproved === true);
-    const secretsReleaseAllowedObserved = records.some((record) => record.secretsReleaseAllowed === true);
+    const firecrackerHostApprovedObserved = records.some(
+      (record) => record.firecrackerHostApproved === true
+    );
+    const confidentialApprovedObserved = records.some(
+      (record) => record.confidentialComputingApproved === true
+    );
+    const secretsReleaseAllowedObserved = records.some(
+      (record) => record.secretsReleaseAllowed === true
+    );
     const attestationObserved = records.some((record) => record.attestation?.verified === true);
-    const blockedAx102Observed = records.some((record) => (
-      record.hostId?.includes("AX102")
-      && record.confidentialComputingApproved === false
-      && record.productionExecutionAllowed === false
-    ));
-    const ready = confidentialApprovedObserved
-      && secretsReleaseAllowedObserved
-      && attestationObserved;
+    const blockedAx102Observed = records.some(
+      (record) =>
+        record.hostId?.includes("AX102") &&
+        record.confidentialComputingApproved === false &&
+        record.productionExecutionAllowed === false
+    );
+    const ready =
+      confidentialApprovedObserved && secretsReleaseAllowedObserved && attestationObserved;
     return {
       records: records.length,
       firecrackerHostApprovedObserved,
@@ -1247,11 +1494,13 @@ export class LiveExecutionService {
       attestationObserved,
       blockedAx102Observed,
       ready,
-      blockers: ready ? [] : [
-        ...(confidentialApprovedObserved ? [] : ["sev_snp_or_tdx_attestation_missing"]),
-        ...(secretsReleaseAllowedObserved ? [] : ["secrets_release_not_allowed"]),
-        ...(attestationObserved ? [] : ["remote_attestation_not_verified"])
-      ],
+      blockers: ready
+        ? []
+        : [
+            ...(confidentialApprovedObserved ? [] : ["sev_snp_or_tdx_attestation_missing"]),
+            ...(secretsReleaseAllowedObserved ? [] : ["secrets_release_not_allowed"]),
+            ...(attestationObserved ? [] : ["remote_attestation_not_verified"])
+          ],
       productionExecutionAllowed: false
     };
   }
@@ -1267,7 +1516,10 @@ export class LiveExecutionService {
     correlationId
   }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "live_execution.manage", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_EXECUTION_REQUEST });
+    this.rbac.assert(actor, "live_execution.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_EXECUTION_REQUEST
+    });
     const ownerSet = new Set(safeArray(owners, "owners"));
     const requiredOwners = ["legal", "ciso", "architect", "compliance"];
     const missingOwners = requiredOwners.filter((owner) => !ownerSet.has(owner));
@@ -1310,7 +1562,10 @@ export class LiveExecutionService {
 
   listPhantomExecutionRequests({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "live_execution.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_EXECUTION_REQUEST });
+    this.rbac.assert(actor, "live_execution.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_EXECUTION_REQUEST
+    });
     return [...this.phantomRequests.values()];
   }
 
@@ -1320,12 +1575,15 @@ export class LiveExecutionService {
     const allowedRegions = splitEnvList(this.env.SYLION_LIVE_ALLOWED_REGIONS);
     if (this.env.SYLION_PROVIDER_MODE !== "live") blockers.push("provider_mode_not_live");
     if (this.env.SYLION_LIVE_ALLOWED !== "true") blockers.push("live_allowed_flag_false");
-    if (providerKey === "hetzner" && !this.secretProvider.hasProviderSecret("hetzner")) blockers.push("hetzner_api_token_missing");
+    if (providerKey === "hetzner" && !this.secretProvider.hasProviderSecret("hetzner"))
+      blockers.push("hetzner_api_token_missing");
     if (providerKey === "ovh") blockers.push("ovh_live_adapter_not_implemented");
     if (!liveConfirmed) blockers.push("live_confirmation_missing");
-    if (!allowedOperators.includes("*") && !allowedOperators.includes(operatorId)) blockers.push("operator_not_allowlisted");
+    if (!allowedOperators.includes("*") && !allowedOperators.includes(operatorId))
+      blockers.push("operator_not_allowlisted");
     if (!allowedRegions.includes(region)) blockers.push("region_not_allowlisted");
-    if (Number(this.env.SYLION_LIVE_MAX_SERVERS || 0) < 3) blockers.push("live_server_cap_below_baseline");
+    if (Number(this.env.SYLION_LIVE_MAX_SERVERS || 0) < 3)
+      blockers.push("live_server_cap_below_baseline");
     return {
       allowed: blockers.length === 0,
       blockers,
@@ -1337,23 +1595,34 @@ export class LiveExecutionService {
     };
   }
 
-  #evaluateProviderRehearsalGate({ providerKey, operatorId, region, rehearsalMode, liveConfirmed, cleanupConfirmed }) {
+  #evaluateProviderRehearsalGate({
+    providerKey,
+    operatorId,
+    region,
+    rehearsalMode,
+    liveConfirmed,
+    cleanupConfirmed
+  }) {
     const cloudGate = this.#evaluateCloudGate({ providerKey, operatorId, region, liveConfirmed });
     const blockers = [...cloudGate.blockers];
     if (!PROVIDER_REHEARSAL_MODES.has(rehearsalMode)) blockers.push("unsupported_rehearsal_mode");
-    if (!cleanupConfirmed && rehearsalMode !== "gate_only") blockers.push("cleanup_confirmation_required");
+    if (!cleanupConfirmed && rehearsalMode !== "gate_only")
+      blockers.push("cleanup_confirmation_required");
     if (rehearsalMode === "live_provider" && this.env.SYLION_LIVE_SMOKE_ALLOWED !== "true") {
       blockers.push("live_smoke_env_flag_disabled");
     }
     if (rehearsalMode === "adapter_sandbox") {
-      const filtered = blockers.filter((blocker) => ![
-        "provider_mode_not_live",
-        "live_allowed_flag_false",
-        "hetzner_api_token_missing",
-        "operator_not_allowlisted",
-        "region_not_allowlisted",
-        "live_server_cap_below_baseline"
-      ].includes(blocker));
+      const filtered = blockers.filter(
+        (blocker) =>
+          ![
+            "provider_mode_not_live",
+            "live_allowed_flag_false",
+            "hetzner_api_token_missing",
+            "operator_not_allowlisted",
+            "region_not_allowlisted",
+            "live_server_cap_below_baseline"
+          ].includes(blocker)
+      );
       return {
         ...cloudGate,
         allowed: filtered.length === 0,
@@ -1375,37 +1644,72 @@ export class LiveExecutionService {
     };
   }
 
-  #evaluateDedicatedOrderGate({ operator, operatorId, region, productId, workloadTenancyMode, phantomSensitive, orderMode, liveConfirmed, costConfirmed, hardwareGateConfirmed, maxMonthlyPrice }) {
+  #evaluateDedicatedOrderGate({
+    operator,
+    operatorId,
+    region,
+    productId,
+    workloadTenancyMode,
+    phantomSensitive,
+    orderMode,
+    liveConfirmed,
+    costConfirmed,
+    hardwareGateConfirmed,
+    maxMonthlyPrice
+  }) {
     const blockers = [];
     const allowedOperators = splitEnvList(this.env.SYLION_LIVE_ALLOWLIST_OPERATORS);
     const allowedRegions = splitEnvList(this.env.SYLION_LIVE_ALLOWED_REGIONS);
     const allowedProducts = splitEnvList(this.env.SYLION_HETZNER_ROBOT_ALLOWED_PRODUCTS);
-    const maxEnvPrice = Number(this.env.SYLION_HETZNER_ROBOT_MAX_MONTHLY_EUR || this.env.SYLION_DEDICATED_MAX_MONTHLY_EUR || 0);
-    const labOverrideApplied = this.env.SYLION_WORKLOAD_TENANCY_LAB_OVERRIDE === "true"
-      && workloadTenancyMode === "shared_pool"
-      && (operator.tier === "SOVEREIGN" || phantomSensitive === true);
+    const maxEnvPrice = Number(
+      this.env.SYLION_HETZNER_ROBOT_MAX_MONTHLY_EUR ||
+        this.env.SYLION_DEDICATED_MAX_MONTHLY_EUR ||
+        0
+    );
+    const labOverrideApplied =
+      this.env.SYLION_WORKLOAD_TENANCY_LAB_OVERRIDE === "true" &&
+      workloadTenancyMode === "shared_pool" &&
+      (operator.tier === "SOVEREIGN" || phantomSensitive === true);
     if (!DEDICATED_ORDER_MODES.has(orderMode)) blockers.push("unsupported_order_mode");
-    if (!WORKLOAD_TENANCY_MODES.has(workloadTenancyMode)) blockers.push("unsupported_workload_tenancy_mode");
-    if (operator.tier === "SOVEREIGN" && workloadTenancyMode !== "dedicated_operator" && !labOverrideApplied) {
+    if (!WORKLOAD_TENANCY_MODES.has(workloadTenancyMode))
+      blockers.push("unsupported_workload_tenancy_mode");
+    if (
+      operator.tier === "SOVEREIGN" &&
+      workloadTenancyMode !== "dedicated_operator" &&
+      !labOverrideApplied
+    ) {
       blockers.push("sovereign_requires_dedicated_operator_workload");
     }
-    if (phantomSensitive === true && workloadTenancyMode !== "dedicated_operator" && !labOverrideApplied) {
+    if (
+      phantomSensitive === true &&
+      workloadTenancyMode !== "dedicated_operator" &&
+      !labOverrideApplied
+    ) {
       blockers.push("phantom_requires_dedicated_operator_workload");
     }
     if (!liveConfirmed) blockers.push("live_confirmation_missing");
     if (!costConfirmed) blockers.push("cost_confirmation_missing");
     if (!hardwareGateConfirmed) blockers.push("hardware_gate_confirmation_missing");
-    if (!allowedOperators.includes("*") && !allowedOperators.includes(operatorId)) blockers.push("operator_not_allowlisted");
+    if (!allowedOperators.includes("*") && !allowedOperators.includes(operatorId))
+      blockers.push("operator_not_allowlisted");
     if (!allowedRegions.includes(region)) blockers.push("region_not_allowlisted");
-    if (allowedProducts.length && !allowedProducts.includes(productId)) blockers.push("product_not_allowlisted");
-    if (maxMonthlyPrice !== null && maxMonthlyPrice !== undefined && maxEnvPrice > 0 && Number(maxMonthlyPrice) > maxEnvPrice) {
+    if (allowedProducts.length && !allowedProducts.includes(productId))
+      blockers.push("product_not_allowlisted");
+    if (
+      maxMonthlyPrice !== null &&
+      maxMonthlyPrice !== undefined &&
+      maxEnvPrice > 0 &&
+      Number(maxMonthlyPrice) > maxEnvPrice
+    ) {
       blockers.push("monthly_price_above_env_cap");
     }
     if (orderMode === "robot_test" || orderMode === "live_order") {
       if (this.env.SYLION_PROVIDER_MODE !== "live") blockers.push("provider_mode_not_live");
       if (this.env.SYLION_LIVE_ALLOWED !== "true") blockers.push("live_allowed_flag_false");
-      if (!this.secretProvider.hasProviderSecret("hetzner_robot")) blockers.push("hetzner_robot_credentials_missing");
-      if (this.env.SYLION_HETZNER_ROBOT_ORDERING_ENABLED !== "true") blockers.push("hetzner_robot_ordering_disabled");
+      if (!this.secretProvider.hasProviderSecret("hetzner_robot"))
+        blockers.push("hetzner_robot_credentials_missing");
+      if (this.env.SYLION_HETZNER_ROBOT_ORDERING_ENABLED !== "true")
+        blockers.push("hetzner_robot_ordering_disabled");
     }
     if (orderMode === "live_order" && this.env.SYLION_HETZNER_ROBOT_PAID_ORDER_ALLOWED !== "true") {
       blockers.push("paid_dedicated_order_env_gate_disabled");
@@ -1436,27 +1740,40 @@ export class LiveExecutionService {
     return [
       {
         key: "kvm_device",
-        status: boolFromEvidence(bootstrap.kvmDevice) || boolFromEvidence(hardware.kvmDevice) ? "passed" : "blocked",
+        status:
+          boolFromEvidence(bootstrap.kvmDevice) || boolFromEvidence(hardware.kvmDevice)
+            ? "passed"
+            : "blocked",
         detail: "/dev/kvm must be present on the dedicated host"
       },
       {
         key: "amd_virtualization",
-        status: Number(hardware.amdVirtualizationFlags || bootstrap.virtualizationFlags || 0) > 0 ? "passed" : "blocked",
+        status:
+          Number(hardware.amdVirtualizationFlags || bootstrap.virtualizationFlags || 0) > 0
+            ? "passed"
+            : "blocked",
         detail: "AMD-V/SVM or Intel VMX must be visible"
       },
       {
         key: "firecracker_binary",
-        status: install.firecrackerVersion || bootstrap.firecrackerBinary !== "missing" ? "passed" : "blocked",
+        status:
+          install.firecrackerVersion || bootstrap.firecrackerBinary !== "missing"
+            ? "passed"
+            : "blocked",
         detail: "Firecracker binary must be installed and pinned"
       },
       {
         key: "jailer_binary",
-        status: install.jailerVersion || bootstrap.jailerBinary !== "missing" ? "passed" : "blocked",
+        status:
+          install.jailerVersion || bootstrap.jailerBinary !== "missing" ? "passed" : "blocked",
         detail: "Jailer binary must be installed and pinned"
       },
       {
         key: "microvm_smoke",
-        status: firecracker.microvmStarted === true || firecracker.state === "Running" ? "passed" : "blocked",
+        status:
+          firecracker.microvmStarted === true || firecracker.state === "Running"
+            ? "passed"
+            : "blocked",
         detail: "A no-secret Firecracker microVM smoke test must reach Running"
       },
       {
@@ -1471,7 +1788,10 @@ export class LiveExecutionService {
       },
       {
         key: "container_helper_runtime",
-        status: boolFromEvidence(container.dockerActive) && boolFromEvidence(container.containerdActive) ? "passed" : "blocked",
+        status:
+          boolFromEvidence(container.dockerActive) && boolFromEvidence(container.containerdActive)
+            ? "passed"
+            : "blocked",
         detail: "Container runtime is helper-only for build/lab workflows",
         requiredForLab: false
       },
@@ -1498,7 +1818,12 @@ export class LiveExecutionService {
     productionBlockers = []
   }) {
     const bindAddress = String(streamGateway.bindAddress || "");
-    const privateBind = bindAddress === "127.0.0.1" || bindAddress === "::1" || bindAddress.startsWith("10.") || bindAddress.startsWith("172.16.") || bindAddress.startsWith("192.168.");
+    const privateBind =
+      bindAddress === "127.0.0.1" ||
+      bindAddress === "::1" ||
+      bindAddress.startsWith("10.") ||
+      bindAddress.startsWith("172.16.") ||
+      bindAddress.startsWith("192.168.");
     const isFirecracker = runtimeKind === "firecracker_microvm";
     const isAndroid = runtimeKind === "android_native_workload";
     const isContainerHelper = runtimeKind === "container_lab_helper";
@@ -1540,13 +1865,17 @@ export class LiveExecutionService {
       },
       {
         key: "android_binderfs_evidence",
-        status: !isAndroid || buildEvidence.binderfs === true || buildEvidence.androidRuntime === true ? "passed" : "blocked",
+        status:
+          !isAndroid || buildEvidence.binderfs === true || buildEvidence.androidRuntime === true
+            ? "passed"
+            : "blocked",
         detail: "Android native workloads require binderfs/runtime evidence"
       },
       {
         key: "zangi_android_runtime",
         status: appKey !== "zangi" || isAndroid ? "passed" : "blocked",
-        detail: "Zangi is tracked as Android-native until a supported desktop/microVM package is approved"
+        detail:
+          "Zangi is tracked as Android-native until a supported desktop/microVM package is approved"
       },
       {
         key: "cdr_policy",
@@ -1556,7 +1885,8 @@ export class LiveExecutionService {
       {
         key: "private_stream_binding",
         status: privateBind && streamGateway.publicExposureAllowed !== true ? "passed" : "blocked",
-        detail: "Workload stream must bind privately and reach Pixel through G2, not the public Internet"
+        detail:
+          "Workload stream must bind privately and reach Pixel through G2, not the public Internet"
       },
       {
         key: "g2_broker_declared",
@@ -1570,8 +1900,13 @@ export class LiveExecutionService {
       },
       {
         key: "container_helper_lab_only",
-        status: !isContainerHelper || productionBlockers.includes("container_helper_not_production_runtime") ? "passed" : "blocked",
-        detail: "Containers are allowed only as lab helpers unless a tier-specific ADR approves them",
+        status:
+          !isContainerHelper ||
+          productionBlockers.includes("container_helper_not_production_runtime")
+            ? "passed"
+            : "blocked",
+        detail:
+          "Containers are allowed only as lab helpers unless a tier-specific ADR approves them",
         requiredForLab: false
       },
       {
@@ -1663,7 +1998,8 @@ export class LiveExecutionService {
       approvalId,
       idempotencyKey,
       correlationId,
-      policyDecision: status === "smoke_passed" || status === "gate_passed_no_adapter_calls" ? "allow" : "deny",
+      policyDecision:
+        status === "smoke_passed" || status === "gate_passed_no_adapter_calls" ? "allow" : "deny",
       result: status,
       newValue: rehearsal
     });
@@ -1685,26 +2021,42 @@ export class LiveExecutionService {
       operatorId: operator.id,
       tenantId: operator.tenantId,
       region,
-      status: status === "executed_provider_mutation" ? "ready_for_provider_cleanup" : "planned_blocked_no_resources",
+      status:
+        status === "executed_provider_mutation"
+          ? "ready_for_provider_cleanup"
+          : "planned_blocked_no_resources",
       requiredBeforeMutation: true,
       sideEffectAllowed: false,
       productionExecutionAllowed: false,
-      actions: resources.length ? resources.map((resource) => ({
-        action: resource.rollback?.action || "delete_server",
-        role: resource.role,
-        providerResourceId: resource.providerResourceId,
-        idempotencyKey
-      })) : ["G1", "G2", "WORKLOAD"].map((role) => ({
-        action: "no_op_not_created",
-        role,
-        providerResourceId: null,
-        idempotencyKey
-      })),
+      actions: resources.length
+        ? resources.map((resource) => ({
+            action: resource.rollback?.action || "delete_server",
+            role: resource.role,
+            providerResourceId: resource.providerResourceId,
+            idempotencyKey
+          }))
+        : ["G1", "G2", "WORKLOAD"].map((role) => ({
+            action: "no_op_not_created",
+            role,
+            providerResourceId: null,
+            idempotencyKey
+          })),
       createdAt: isoNow()
     };
   }
 
-  #recordCloudRequest({ actor, provider, operator, region, approvalId, idempotencyKey, status, gate, resources, correlationId }) {
+  #recordCloudRequest({
+    actor,
+    provider,
+    operator,
+    region,
+    approvalId,
+    idempotencyKey,
+    status,
+    gate,
+    resources,
+    correlationId
+  }) {
     const requestId = newId("live_req");
     const sanitizedResources = resources.map(sanitizeProviderResource);
     const rollbackPlan = this.#rollbackPlanFor({
@@ -1757,7 +2109,10 @@ export class LiveExecutionService {
     });
     this.audit.record({
       actorId: actor.id,
-      action: status === "executed_provider_mutation" ? "live_cloud.vps_set_created" : "live_cloud.vps_set_blocked",
+      action:
+        status === "executed_provider_mutation"
+          ? "live_cloud.vps_set_created"
+          : "live_cloud.vps_set_blocked",
       resourceType: RESOURCE_TYPES.LIVE_EXECUTION_REQUEST,
       resourceId: request.id,
       tenantId: operator.tenantId,

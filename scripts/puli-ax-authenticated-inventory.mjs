@@ -4,10 +4,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 const DEFAULT_ROUTER_IP = "192.168.8.1";
-const DEFAULT_SSH_KEY = process.platform === "win32"
-  ? ".deploy\\sylion_puli_ax_ed25519"
-  : ".deploy/sylion_puli_ax_ed25519";
-const DEFAULT_OUT = "docs/admin-panel-v2/test-artifacts/puli-ax-authenticated-inventory/latest.json";
+const DEFAULT_SSH_KEY =
+  process.platform === "win32"
+    ? ".deploy\\sylion_puli_ax_ed25519"
+    : ".deploy/sylion_puli_ax_ed25519";
+const DEFAULT_OUT =
+  "docs/admin-panel-v2/test-artifacts/puli-ax-authenticated-inventory/latest.json";
 
 function argValue(name, fallback = null) {
   const prefix = `--${name}=`;
@@ -25,35 +27,44 @@ function isoNow() {
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve) => {
-    execFile(command, args, {
-      windowsHide: true,
-      timeout: options.timeout || 20_000,
-      maxBuffer: options.maxBuffer || 1024 * 1024
-    }, (error, stdout, stderr) => {
-      resolve({
-        ok: !error,
-        code: error?.code || 0,
-        stdout: String(stdout || "").trim(),
-        stderr: String(stderr || "").trim(),
-        message: error?.message || null
-      });
-    });
+    execFile(
+      command,
+      args,
+      {
+        windowsHide: true,
+        timeout: options.timeout || 20_000,
+        maxBuffer: options.maxBuffer || 1024 * 1024
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          ok: !error,
+          code: error?.code || 0,
+          stdout: String(stdout || "").trim(),
+          stderr: String(stderr || "").trim(),
+          message: error?.message || null
+        });
+      }
+    );
   });
 }
 
 async function ssh({ routerIp, user, keyPath, script, timeout = 20_000 }) {
-  return execFileAsync("ssh", [
-    "-i",
-    keyPath,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "PasswordAuthentication=no",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    `${user}@${routerIp}`,
-    script
-  ], { timeout });
+  return execFileAsync(
+    "ssh",
+    [
+      "-i",
+      keyPath,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "PasswordAuthentication=no",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      `${user}@${routerIp}`,
+      script
+    ],
+    { timeout }
+  );
 }
 
 function parseKeyValueLines(output) {
@@ -195,7 +206,8 @@ echo public_ip_redacted=true
     uciPresent: bool(kv.command_uci),
     nftPresent: bool(kv.command_nft),
     ipsecPresent: bool(kv.command_ipsec) || bool(kv.command_swanctl),
-    strongSwanInstalled: bool(kv.package_strongswan) || bool(kv.command_ipsec) || bool(kv.command_swanctl),
+    strongSwanInstalled:
+      bool(kv.package_strongswan) || bool(kv.command_ipsec) || bool(kv.command_swanctl),
     nftablesInstalled: bool(kv.package_nftables) || bool(kv.command_nft),
     dnsmasqPresent: bool(kv.package_dnsmasq) || bool(kv.package_dnsmasq_full),
     sshKeyAuthOnly: kv.dropbear_password_auth === "off" && kv.dropbear_root_password_auth === "off",
@@ -212,9 +224,15 @@ echo public_ip_redacted=true
     sylionInternalDnsForward: bool(kv.sylion_internal_dns_forward),
     sylionInternalDnsStatic: bool(kv.sylion_internal_dns_static),
     sylionInternalDnsResolves: bool(kv.sylion_internal_dns_resolves),
-    sylionInternalDnsRequiredHosts: (kv.sylion_internal_dns_required_hosts || "").split(/\s+/).filter(Boolean),
-    sylionInternalDnsStaticMissing: (kv.sylion_internal_dns_static_missing || "").split(",").filter(Boolean),
-    sylionInternalDnsResolvesMissing: (kv.sylion_internal_dns_resolves_missing || "").split(",").filter(Boolean),
+    sylionInternalDnsRequiredHosts: (kv.sylion_internal_dns_required_hosts || "")
+      .split(/\s+/)
+      .filter(Boolean),
+    sylionInternalDnsStaticMissing: (kv.sylion_internal_dns_static_missing || "")
+      .split(",")
+      .filter(Boolean),
+    sylionInternalDnsResolvesMissing: (kv.sylion_internal_dns_resolves_missing || "")
+      .split(",")
+      .filter(Boolean),
     g2PrivatePingFromRouterSelfTraffic: bool(kv.g2_private_ping),
     brLanPresent: bool(kv.br_lan_present),
     openwrtModern,
@@ -274,16 +292,18 @@ echo public_ip_redacted=true
       sideEffectAllowed: false
     },
     blockers,
-    nextActions: blockers.length ? [
-      "Install or verify strongSwan/nftables package set.",
-      "Apply SYLION kill-switch/IPsec/DNS package only after SSH key auth and package availability are confirmed.",
-      "Disable SSH password auth only after key-only verification passes.",
-      "Run T01-T10 and record sanitized evidence."
-    ] : [
-      "Run T01-T10 physical failure tests.",
-      "Register validated router posture in the Admin API.",
-      "Continue Pixel human regression through Puli AX."
-    ]
+    nextActions: blockers.length
+      ? [
+          "Install or verify strongSwan/nftables package set.",
+          "Apply SYLION kill-switch/IPsec/DNS package only after SSH key auth and package availability are confirmed.",
+          "Disable SSH password auth only after key-only verification passes.",
+          "Run T01-T10 and record sanitized evidence."
+        ]
+      : [
+          "Run T01-T10 physical failure tests.",
+          "Register validated router posture in the Admin API.",
+          "Continue Pixel human regression through Puli AX."
+        ]
   };
   if (outPath && !hasArg("no-write")) {
     const absolute = resolve(outPath);

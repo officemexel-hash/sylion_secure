@@ -6,41 +6,46 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const defaultExodusVersion = process.env.SYLION_EXODUS_VERSION || "26.5.7";
 const defaultExodusDebUrl = `https://downloads.exodus.com/releases/exodus-linux-x64-${defaultExodusVersion}.deb`;
 const defaultExodusHashUrl = `https://downloads.exodus.com/releases/hashes-exodus-${defaultExodusVersion}.txt`;
-const defaultExodusDebSha256 = defaultExodusVersion === "26.5.7"
-  ? "59d94608c3eca0d8682c73de7ee2e18d212a09cff54699e084d7015aa0f9ba43"
-  : "";
+const defaultExodusDebSha256 =
+  defaultExodusVersion === "26.5.7"
+    ? "59d94608c3eca0d8682c73de7ee2e18d212a09cff54699e084d7015aa0f9ba43"
+    : "";
 const exodusDebUrl = process.env.SYLION_EXODUS_DEB_URL || defaultExodusDebUrl;
 const exodusHashUrl = process.env.SYLION_EXODUS_HASH_URL || defaultExodusHashUrl;
 const exodusDebSha256 = process.env.SYLION_EXODUS_DEB_SHA256 || defaultExodusDebSha256;
 
 const defaultTelegramVersion = process.env.SYLION_TELEGRAM_VERSION || "6.8.2";
 const defaultTelegramTarUrl = `https://td.telegram.org/tlinux/tsetup.${defaultTelegramVersion}.tar.xz`;
-const defaultTelegramTarSha256 = defaultTelegramVersion === "6.8.2"
-  ? "3e31fdabc2be8bc62e486da0586932e8115087e22dece8098977d14f1d13cf2b"
-  : "";
+const defaultTelegramTarSha256 =
+  defaultTelegramVersion === "6.8.2"
+    ? "3e31fdabc2be8bc62e486da0586932e8115087e22dece8098977d14f1d13cf2b"
+    : "";
 const telegramTarUrl = process.env.SYLION_TELEGRAM_TAR_URL || defaultTelegramTarUrl;
 const telegramTarSha256 = process.env.SYLION_TELEGRAM_TAR_SHA256 || defaultTelegramTarSha256;
 
 const defaultSimplexVersion = process.env.SYLION_SIMPLEX_VERSION || "v6.5.4";
 const defaultSimplexDebUrl = `https://github.com/simplex-chat/simplex-chat/releases/download/${defaultSimplexVersion}/simplex-desktop-ubuntu-24_04-x86_64.deb`;
-const defaultSimplexDebSha256 = defaultSimplexVersion === "v6.5.4"
-  ? "ccd538f7a65d6f7a5f32e5e4a149ad243efcdc79b0f1d2b449949d5ca4471223"
-  : "";
+const defaultSimplexDebSha256 =
+  defaultSimplexVersion === "v6.5.4"
+    ? "ccd538f7a65d6f7a5f32e5e4a149ad243efcdc79b0f1d2b449949d5ca4471223"
+    : "";
 const simplexDebUrl = process.env.SYLION_SIMPLEX_DEB_URL || defaultSimplexDebUrl;
 const simplexDebSha256 = process.env.SYLION_SIMPLEX_DEB_SHA256 || defaultSimplexDebSha256;
 
 const defaultProtonMailVersion = process.env.SYLION_PROTONMAIL_VERSION || "1.0.6";
 const defaultProtonMailDebUrl = `https://github.com/ProtonMail/inbox-desktop/releases/download/${defaultProtonMailVersion}/proton-mail_${defaultProtonMailVersion}_amd64.deb`;
-const defaultProtonMailDebSha256 = defaultProtonMailVersion === "1.0.6"
-  ? "bfcb9f9d0404a934f972bedfabc168ce37bf343941cda09e288cc4eb253f6e21"
-  : "";
+const defaultProtonMailDebSha256 =
+  defaultProtonMailVersion === "1.0.6"
+    ? "bfcb9f9d0404a934f972bedfabc168ce37bf343941cda09e288cc4eb253f6e21"
+    : "";
 const protonMailDebUrl = process.env.SYLION_PROTONMAIL_DEB_URL || defaultProtonMailDebUrl;
 const protonMailDebSha256 = process.env.SYLION_PROTONMAIL_DEB_SHA256 || defaultProtonMailDebSha256;
 
@@ -102,7 +107,8 @@ const profiles = {
     title: "SYLION DuckDuckGo",
     url: "https://duckduckgo.com/",
     preAptSetup: mozillaAptSetup,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
+    installPackages:
+      "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
     launchCommand: firefoxApp("https://duckduckgo.com/"),
     waylandLaunchCommand: firefoxWaylandApp("https://duckduckgo.com/"),
     targetContentPattern: "DuckDuckGo",
@@ -121,7 +127,8 @@ const profiles = {
   libreoffice: {
     title: "SYLION LibreOffice",
     url: "about:blank",
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl libreoffice-writer libreoffice-calc fonts-dejavu-core",
+    installPackages:
+      "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl libreoffice-writer libreoffice-calc fonts-dejavu-core",
     launchCommand: "libreoffice --writer --nologo --nofirststartwizard",
     hostPort: 3002,
     guestIp: "172.16.58.6",
@@ -134,7 +141,8 @@ const profiles = {
     title: "SYLION WhatsApp Web",
     url: "https://web.whatsapp.com/",
     preAptSetup: mozillaAptSetup,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
+    installPackages:
+      "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
     launchCommand: firefoxApp("https://web.whatsapp.com/"),
     waylandLaunchCommand: firefoxWaylandApp("https://web.whatsapp.com/"),
     targetContentPattern: "WhatsApp",
@@ -166,7 +174,8 @@ if [ -n "$protonmail_sha256" ] && [ -s "$mount_dir/tmp/protonmail.deb" ]; then
     || echo "protonmail_sha256_mismatch" >> "$run_dir/preflight.blockers"
 fi
 `,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 onboard dconf-cli",
+    installPackages:
+      "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 onboard dconf-cli",
     postAptInstall: `
 if [ -s "$mount_dir/tmp/protonmail.deb" ]; then
   chroot "$mount_dir" apt-get install -y /tmp/protonmail.deb >/dev/null
@@ -176,7 +185,8 @@ else
 fi
 `,
     awaitDnsHost: "mail.proton.me",
-    launchCommand: "dbus-run-session -- proton-mail --password-store=basic --ozone-platform=x11 --disable-features=UseOzonePlatform --disable-gpu --disable-gpu-compositing --disable-dev-shm-usage --enable-logging=stderr",
+    launchCommand:
+      "dbus-run-session -- proton-mail --password-store=basic --ozone-platform=x11 --disable-features=UseOzonePlatform --disable-gpu --disable-gpu-compositing --disable-dev-shm-usage --enable-logging=stderr",
     visibleWindowPattern: "Proton|proton",
     processPattern: "proton-mail|electron",
     hostPort: 3016,
@@ -207,7 +217,8 @@ if [ -n "$simplex_sha256" ] && [ -s "$mount_dir/tmp/simplex.deb" ]; then
     || echo "simplex_sha256_mismatch" >> "$run_dir/preflight.blockers"
 fi
 `,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11",
+    installPackages:
+      "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11",
     postAptInstall: `
 if [ -s "$mount_dir/tmp/simplex.deb" ]; then
   # The jpackage .deb postinst runs xdg-desktop-menu which fails under the minimal chroot
@@ -258,7 +269,8 @@ if [ -n "$telegram_sha256" ] && [ -s "$mount_dir/tmp/telegram.tar.xz" ]; then
     || echo "telegram_sha256_mismatch" >> "$run_dir/preflight.blockers"
 fi
 `,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libgtk-3-0 libglib2.0-0t64 libfontconfig1 libfreetype6 libx11-6 libxcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0 libxkbcommon0 libgl1 libegl1 libglx-mesa0 libgl1-mesa-dri libglvnd0 libopengl0 libglx0",
+    installPackages:
+      "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libgtk-3-0 libglib2.0-0t64 libfontconfig1 libfreetype6 libx11-6 libxcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-render0 libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0 libxkbcommon0 libgl1 libegl1 libglx-mesa0 libgl1-mesa-dri libglvnd0 libopengl0 libglx0",
     postAptInstall: `
 if [ -s "$mount_dir/tmp/telegram.tar.xz" ]; then
   tar -xJf "$mount_dir/tmp/telegram.tar.xz" -C "$mount_dir/opt"
@@ -290,7 +302,8 @@ fi
     title: "SYLION Threema Web",
     url: "https://web.threema.ch/",
     preAptSetup: mozillaAptSetup,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
+    installPackages:
+      "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libdbus-glib-1-2 libgtk-3-0 firefox",
     launchCommand: firefoxApp("https://web.threema.ch/"),
     waylandLaunchCommand: firefoxWaylandApp("https://web.threema.ch/"),
     targetContentPattern: "Threema",
@@ -315,8 +328,10 @@ cat > "$mount_dir/etc/apt/sources.list.d/signal-xenial.list" <<'EOF'
 deb [arch=amd64 signed-by=/etc/apt/keyrings/signal-desktop-keyring.gpg] https://updates.signal.org/desktop/apt xenial main
 EOF
 `,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libasound2t64 libgtk-3-0 libnss3 libxss1 libgbm1 libdrm2 libxkbcommon0 libatspi2.0-0 libxdamage1 libxrandr2 libxcomposite1 libxext6 libxfixes3 libx11-xcb1 libxcb-dri3-0 signal-desktop",
-    launchCommand: "dbus-run-session -- signal-desktop --password-store=basic --ozone-platform=x11 --disable-features=UseOzonePlatform --disable-gpu --disable-gpu-compositing --disable-dev-shm-usage --enable-logging=stderr",
+    installPackages:
+      "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libasound2t64 libgtk-3-0 libnss3 libxss1 libgbm1 libdrm2 libxkbcommon0 libatspi2.0-0 libxdamage1 libxrandr2 libxcomposite1 libxext6 libxfixes3 libx11-xcb1 libxcb-dri3-0 signal-desktop",
+    launchCommand:
+      "dbus-run-session -- signal-desktop --password-store=basic --ozone-platform=x11 --disable-features=UseOzonePlatform --disable-gpu --disable-gpu-compositing --disable-dev-shm-usage --enable-logging=stderr",
     visibleWindowPattern: "Signal|signal",
     processPattern: "signal-desktop|electron",
     hostPort: 3013,
@@ -349,7 +364,8 @@ if [ -n "$exodus_sha256" ] && [ -s "$mount_dir/tmp/exodus.deb" ]; then
     || echo "exodus_sha256_mismatch" >> "$run_dir/preflight.blockers"
 fi
 `,
-    installPackages: "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1 libdrm2 libxkbcommon0 libatspi2.0-0 libatk-bridge2.0-0 libxdamage1 libxrandr2 libxcomposite1 libxext6 libxfixes3 libx11-xcb1 libxcb-dri3-0 libsecret-1-0 libnotify4 libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 mesa-vulkan-drivers",
+    installPackages:
+      "python3 iproute2 ca-certificates haveged xvfb openbox x11vnc x11-utils xdotool wmctrl fonts-dejavu-core dbus dbus-x11 libgtk-3-0 libnss3 libxss1 libasound2t64 libgbm1 libdrm2 libxkbcommon0 libatspi2.0-0 libatk-bridge2.0-0 libxdamage1 libxrandr2 libxcomposite1 libxext6 libxfixes3 libx11-xcb1 libxcb-dri3-0 libsecret-1-0 libnotify4 libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 mesa-vulkan-drivers",
     postAptInstall: `
 if [ -s "$mount_dir/tmp/exodus.deb" ]; then
   chroot "$mount_dir" apt-get install -y --no-install-recommends /tmp/exodus.deb >/dev/null
@@ -381,7 +397,9 @@ const commonGuiDiagnosticsPackages = "xinput x11-xkb-utils";
 
 const requestedAppKey = process.env.SYLION_GUI_APP || "duckduckgo";
 if (!profiles[requestedAppKey]) {
-  throw new Error(`Unsupported GUI app ${requestedAppKey}; supported=${Object.keys(profiles).join(",")}`);
+  throw new Error(
+    `Unsupported GUI app ${requestedAppKey}; supported=${Object.keys(profiles).join(",")}`
+  );
 }
 
 const appKey = profiles[requestedAppKey].aliasOf || requestedAppKey;
@@ -389,12 +407,28 @@ const profile = profiles[appKey];
 const display = {
   width: Number(process.env.SYLION_GUI_DISPLAY_WIDTH || profile.displayWidth || 960),
   height: Number(process.env.SYLION_GUI_DISPLAY_HEIGHT || profile.displayHeight || 1800),
-  windowWidth: Number(process.env.SYLION_GUI_WINDOW_WIDTH || profile.windowWidth || process.env.SYLION_GUI_DISPLAY_WIDTH || profile.displayWidth || 960),
-  windowHeight: Number(process.env.SYLION_GUI_WINDOW_HEIGHT || profile.windowHeight || process.env.SYLION_GUI_DISPLAY_HEIGHT || profile.displayHeight || 1680)
+  windowWidth: Number(
+    process.env.SYLION_GUI_WINDOW_WIDTH ||
+      profile.windowWidth ||
+      process.env.SYLION_GUI_DISPLAY_WIDTH ||
+      profile.displayWidth ||
+      960
+  ),
+  windowHeight: Number(
+    process.env.SYLION_GUI_WINDOW_HEIGHT ||
+      profile.windowHeight ||
+      process.env.SYLION_GUI_DISPLAY_HEIGHT ||
+      profile.displayHeight ||
+      1680
+  )
 };
 function dummyModeline(w, h) {
-  const hss = w + 40, hse = hss + 96, ht = hse + 104;
-  const vss = h + 3, vse = vss + 5, vt = vse + 42;
+  const hss = w + 40,
+    hse = hss + 96,
+    ht = hse + 104;
+  const vss = h + 3,
+    vse = vss + 5,
+    vt = vse + 42;
   const pclk = (ht * vt * 60) / 1e6;
   return `${pclk.toFixed(2)} ${w} ${hss} ${hse} ${ht} ${h} ${vss} ${vse} ${vt} -hsync +vsync`;
 }
@@ -405,13 +439,16 @@ const xorgModeline = dummyModeline(display.width, display.height);
 // the operator recreate runner injects. Apps without a pinned backend still honour the env.
 const vncBackend = profile.vncBackend || process.env.SYLION_GUI_VNC_BACKEND || "kasmvnc";
 if (!["tigervnc", "x11vnc", "xorg-x11vnc", "weston-vnc", "kasmvnc"].includes(vncBackend)) {
-  throw new Error(`Unsupported GUI VNC backend ${vncBackend}; supported=tigervnc,x11vnc,xorg-x11vnc,weston-vnc,kasmvnc`);
+  throw new Error(
+    `Unsupported GUI VNC backend ${vncBackend}; supported=tigervnc,x11vnc,xorg-x11vnc,weston-vnc,kasmvnc`
+  );
 }
 const vncDebug = process.env.SYLION_GUI_VNC_DEBUG === "true";
 const selfTestText = process.env.SYLION_GUI_SELF_TEST_TEXT || "";
-const launchCommand = vncBackend === "weston-vnc" && profile.waylandLaunchCommand
-  ? profile.waylandLaunchCommand
-  : profile.launchCommand;
+const launchCommand =
+  vncBackend === "weston-vnc" && profile.waylandLaunchCommand
+    ? profile.waylandLaunchCommand
+    : profile.launchCommand;
 const guestStreamPort = vncBackend === "kasmvnc" ? 6901 : 5900;
 const streamProbePath = vncBackend === "kasmvnc" ? "/" : "/vnc.html";
 const cfg = {
@@ -434,29 +471,40 @@ async function run(command, args, options = {}) {
 
 async function ssh(host, script, options = {}) {
   const remotePath = `/tmp/sylion-native-firecracker-gui-${Date.now()}-${Math.random().toString(16).slice(2)}.sh`;
-  const localPath = join(tmpdir(), `sylion-native-firecracker-gui-${Date.now()}-${Math.random().toString(16).slice(2)}.sh`);
+  const localPath = join(
+    tmpdir(),
+    `sylion-native-firecracker-gui-${Date.now()}-${Math.random().toString(16).slice(2)}.sh`
+  );
   await writeFile(localPath, script, { mode: 0o600 });
   try {
-    await run("scp", [
-      "-i",
-      cfg.sshKey,
-      "-o",
-      "BatchMode=yes",
-      "-o",
-      "StrictHostKeyChecking=accept-new",
-      localPath,
-      `${host}:${remotePath}`
-    ], { timeout: options.timeout ?? 60_000 });
-    return await run("ssh", [
-      "-i",
-      cfg.sshKey,
-      "-o",
-      "BatchMode=yes",
-      "-o",
-      "StrictHostKeyChecking=accept-new",
-      host,
-      `bash ${remotePath}; rc=$?; rm -f ${remotePath}; exit $rc`
-    ], options);
+    await run(
+      "scp",
+      [
+        "-i",
+        cfg.sshKey,
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        localPath,
+        `${host}:${remotePath}`
+      ],
+      { timeout: options.timeout ?? 60_000 }
+    );
+    return await run(
+      "ssh",
+      [
+        "-i",
+        cfg.sshKey,
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        host,
+        `bash ${remotePath}; rc=$?; rm -f ${remotePath}; exit $rc`
+      ],
+      options
+    );
   } finally {
     await unlink(localPath).catch(() => {});
   }
@@ -1307,34 +1355,47 @@ echo "$headers" | grep -q 'X-Sylion-Workload-Gateway: g2' && echo g2_header=true
 echo "$headers" | grep -q 'X-Sylion-Terminal-Data-Stored: false' && echo terminal_header=true || echo terminal_header=false
 `;
   const { stdout } = await ssh(cfg.g2, script, { timeout: 45_000 });
-  return Object.fromEntries(stdout.split(/\r?\n/).filter((line) => line.includes("=")).map((line) => {
-    const [key, ...rest] = line.split("=");
-    const value = rest.join("=");
-    if (value === "true") return [key, true];
-    if (value === "false") return [key, false];
-    return [key, value];
-  }));
+  return Object.fromEntries(
+    stdout
+      .split(/\r?\n/)
+      .filter((line) => line.includes("="))
+      .map((line) => {
+        const [key, ...rest] = line.split("=");
+        const value = rest.join("=");
+        if (value === "true") return [key, true];
+        if (value === "false") return [key, false];
+        return [key, value];
+      })
+  );
 }
 
 async function main() {
   const args = new Set(process.argv.slice(2));
   if (!args.has("--apply")) {
-    console.log(JSON.stringify({
-      component: "native_firecracker_gui_workload",
-      action: "plan_only",
-      appKey,
-      workload: cfg.workload,
-      g2: cfg.g2,
-      hostEndpoint: `${cfg.workloadPrivate}:${profile.hostPort}`,
-      serverName: profile.serverName,
-      display,
-      vncBackend,
-      productionExecutionAllowed: false
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          component: "native_firecracker_gui_workload",
+          action: "plan_only",
+          appKey,
+          workload: cfg.workload,
+          g2: cfg.g2,
+          hostEndpoint: `${cfg.workloadPrivate}:${profile.hostPort}`,
+          serverName: profile.serverName,
+          display,
+          vncBackend,
+          productionExecutionAllowed: false
+        },
+        null,
+        2
+      )
+    );
     return;
   }
   const launched = await ssh(cfg.workload, remoteLaunchScript(), { timeout: 1_800_000 });
-  const evidence = JSON.parse(launched.stdout.slice(launched.stdout.indexOf("{"), launched.stdout.lastIndexOf("}") + 1));
+  const evidence = JSON.parse(
+    launched.stdout.slice(launched.stdout.indexOf("{"), launched.stdout.lastIndexOf("}") + 1)
+  );
   // The G2 guacamole-gateway verification is advisory: blind-E2EE workloads stream through the
   // broker, not G2, and a G2 SSH/gateway hiccup must not abort an otherwise-successful recreate.
   // Degrade to an empty result instead of throwing; readyThroughG2 then stays false.
@@ -1348,11 +1409,12 @@ async function main() {
     evidence,
     g2,
     display,
-    readyThroughG2: evidence.ready === true
-      && (g2.code === "200" || (vncBackend === "kasmvnc" && g2.code === "401"))
-      && g2.marker === true
-      && g2.g2_header === true
-      && g2.terminal_header === true,
+    readyThroughG2:
+      evidence.ready === true &&
+      (g2.code === "200" || (vncBackend === "kasmvnc" && g2.code === "401")) &&
+      g2.marker === true &&
+      g2.g2_header === true &&
+      g2.terminal_header === true,
     productionExecutionAllowed: false
   };
   console.log(JSON.stringify(result, null, 2));

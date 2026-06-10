@@ -3,7 +3,13 @@ import { join } from "node:path";
 import { createApp } from "../services/admin-api/src/app.js";
 import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
 
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-18-hetzner-live-smoke");
+const outputDir = join(
+  process.cwd(),
+  "docs",
+  "admin-panel-v2",
+  "test-artifacts",
+  "step3-18-hetzner-live-smoke"
+);
 const HETZNER_API = "https://api.hetzner.cloud/v1";
 
 function requireEnv(name) {
@@ -57,7 +63,10 @@ async function stepUp(client, credentialId) {
 }
 
 async function createApprovedBaseline(client) {
-  const tenant = await client.createTenant({ name: "Step 3.18 Hetzner Live Smoke Tenant", tier: "PRO" });
+  const tenant = await client.createTenant({
+    name: "Step 3.18 Hetzner Live Smoke Tenant",
+    tier: "PRO"
+  });
   const operator = await client.createOperator({
     tenantId: tenant.tenant.id,
     displayName: "Step 3.18 Hetzner Live Smoke Operator",
@@ -130,16 +139,24 @@ async function hetznerPreflight({ token, region, serverType, image }) {
     }
     const payload = await response.json();
     if (name === "locations") {
-      checks[checks.length - 1].containsRequested = (payload.locations || []).some((item) => item.name === region);
+      checks[checks.length - 1].containsRequested = (payload.locations || []).some(
+        (item) => item.name === region
+      );
     }
     if (name === "server_types") {
-      checks[checks.length - 1].containsRequested = (payload.server_types || []).some((item) => item.name === serverType);
+      checks[checks.length - 1].containsRequested = (payload.server_types || []).some(
+        (item) => item.name === serverType
+      );
     }
     if (name === "images") {
-      checks[checks.length - 1].containsRequested = (payload.images || []).some((item) => item.name === image || item.description === image);
+      checks[checks.length - 1].containsRequested = (payload.images || []).some(
+        (item) => item.name === image || item.description === image
+      );
     }
   }
-  const missing = checks.filter((check) => check.containsRequested === false).map((check) => check.name);
+  const missing = checks
+    .filter((check) => check.containsRequested === false)
+    .map((check) => check.name);
   return {
     ok: missing.length === 0,
     reason: missing.length ? "hetzner_requested_catalog_item_missing" : "ok",
@@ -151,7 +168,9 @@ async function hetznerPreflight({ token, region, serverType, image }) {
 async function run() {
   requireEnv("HETZNER_API_TOKEN");
   if (process.env.SYLION_LIVE_SMOKE_CONFIRM !== "I_UNDERSTAND_COST_AND_CLEANUP") {
-    throw new Error("Set SYLION_LIVE_SMOKE_CONFIRM=I_UNDERSTAND_COST_AND_CLEANUP to run real Hetzner smoke");
+    throw new Error(
+      "Set SYLION_LIVE_SMOKE_CONFIRM=I_UNDERSTAND_COST_AND_CLEANUP to run real Hetzner smoke"
+    );
   }
   await mkdir(outputDir, { recursive: true });
   const region = process.env.SYLION_LIVE_REGION || "fsn1";
@@ -164,14 +183,21 @@ async function run() {
     image
   });
   if (!preflight.ok) {
-    await writeFile(join(outputDir, "preflight-failed.json"), JSON.stringify({
-      provider: "hetzner",
-      status: "preflight_failed",
-      reason: preflight.reason,
-      checks: preflight.checks,
-      tokenLogged: false,
-      checkedAt: new Date().toISOString()
-    }, null, 2));
+    await writeFile(
+      join(outputDir, "preflight-failed.json"),
+      JSON.stringify(
+        {
+          provider: "hetzner",
+          status: "preflight_failed",
+          reason: preflight.reason,
+          checks: preflight.checks,
+          tokenLogged: false,
+          checkedAt: new Date().toISOString()
+        },
+        null,
+        2
+      )
+    );
     throw new Error(`Hetzner live smoke preflight failed: ${preflight.reason}`);
   }
   const env = {
@@ -207,18 +233,25 @@ async function run() {
       });
     } catch (error) {
       const details = error.payload?.error?.details || {};
-      await writeFile(join(outputDir, "mutation-failed.json"), JSON.stringify({
-        provider: "hetzner",
-        status: "mutation_failed_before_baseline",
-        reason: error.payload?.error?.message || error.message,
-        providerStatus: details.providerStatus || null,
-        providerErrorCode: details.providerErrorCode || null,
-        providerErrorMessage: details.providerErrorMessage || null,
-        partialResourceCount: details.partialResourceCount || 0,
-        cleanupResults: details.cleanupResults || [],
-        tokenLogged: false,
-        checkedAt: new Date().toISOString()
-      }, null, 2));
+      await writeFile(
+        join(outputDir, "mutation-failed.json"),
+        JSON.stringify(
+          {
+            provider: "hetzner",
+            status: "mutation_failed_before_baseline",
+            reason: error.payload?.error?.message || error.message,
+            providerStatus: details.providerStatus || null,
+            providerErrorCode: details.providerErrorCode || null,
+            providerErrorMessage: details.providerErrorMessage || null,
+            partialResourceCount: details.partialResourceCount || 0,
+            cleanupResults: details.cleanupResults || [],
+            tokenLogged: false,
+            checkedAt: new Date().toISOString()
+          },
+          null,
+          2
+        )
+      );
       throw error;
     }
     if (rehearsal.rehearsal.status !== "smoke_passed") {

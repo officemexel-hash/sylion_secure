@@ -61,14 +61,20 @@ async function strictSummary(overrides = {}) {
       operationalDataOnTerminal: false
     },
     pathTested: "Pixel GrapheneOS -> VPN -> G1 -> VPN -> G2 -> VPN -> WORKLOAD -> app workloads",
-    expectedBehavior: "Strict evidence is indexed without storing operational data or claiming production readiness.",
+    expectedBehavior:
+      "Strict evidence is indexed without storing operational data or claiming production readiness.",
     preconditions: ["Strict human evidence bundle exists", "Admin session is authenticated"],
-    actions: ["POST strict evidence summary", "Inspect release run inventory", "Inspect evidence artifact index"],
+    actions: [
+      "POST strict evidence summary",
+      "Inspect release run inventory",
+      "Inspect evidence artifact index"
+    ],
     evidenceRefs: ["summary.json", "screenshot:operator-panel", "metadata:networkAfter"],
     result: "BLOCKED",
     blockers: ["physical_puli_ax_router_test_blocked_until_hardware_arrives"],
     residualRisk: ["Router, HSM and FIDO2 remain physical-gated."],
-    nextRequiredAction: "Repeat the exact live Pixel regression after the blocked prerequisite is available.",
+    nextRequiredAction:
+      "Repeat the exact live Pixel regression after the blocked prerequisite is available.",
     ...overrides
   });
 }
@@ -80,7 +86,8 @@ test("Step 3.86 indexes strict human evidence into release runs and artifacts", 
     const summary = await strictSummary();
     const indexed = await client.recordHumanEvidenceRun({
       summary,
-      evidenceArtifactPath: "docs/admin-panel-v2/test-artifacts/step3-40-pixel-live-human-regression/human-evidence.json",
+      evidenceArtifactPath:
+        "docs/admin-panel-v2/test-artifacts/step3-40-pixel-live-human-regression/human-evidence.json",
       linkedModule: "pixel_live_path",
       ksiegaControlRefs: ["thin_client_terminal", "g1_g2_workload_path"],
       phantomBoundaryImpact: "none"
@@ -89,21 +96,38 @@ test("Step 3.86 indexes strict human evidence into release runs and artifacts", 
     assert.equal(indexed.run.results[0].status, "blocked");
     assert.equal(indexed.run.humanEvidence.strictResult, "BLOCKED");
     assert.equal(indexed.run.humanEvidence.productionSatisfyingResult, false);
-    assert.deepEqual(indexed.run.humanEvidence.ksiegaControlRefs, ["thin_client_terminal", "g1_g2_workload_path"]);
+    assert.deepEqual(indexed.run.humanEvidence.ksiegaControlRefs, [
+      "thin_client_terminal",
+      "g1_g2_workload_path"
+    ]);
     assert.equal(indexed.run.humanEvidence.metadataOnly, true);
     assert.equal(indexed.run.humanEvidence.terminalDataStored, false);
     assert.equal(indexed.run.humanEvidence.packetCaptureStored, false);
 
     const artifacts = await client.listEvidenceArtifacts();
-    assert.ok(artifacts.artifacts.some((artifact) => artifact.id === indexed.run.humanEvidence.evidenceArtifactIds[0] && artifact.type === "human_evidence_summary"));
+    assert.ok(
+      artifacts.artifacts.some(
+        (artifact) =>
+          artifact.id === indexed.run.humanEvidence.evidenceArtifactIds[0] &&
+          artifact.type === "human_evidence_summary"
+      )
+    );
 
     const assessment = await client.getReleaseBuildAssessment();
     assert.equal(assessment.assessment.testing.latestRun.id, indexed.run.id);
     assert.equal(assessment.assessment.testing.latestRun.humanEvidence.strictResult, "BLOCKED");
 
     const problems = await client.listReleaseProblems();
-    assert.ok(problems.problems.some((problem) => problem.moduleKey === "pixel_live_path" && problem.status === "open"));
-    assert.ok(app.services.audit.list().some((event) => event.action === "release.human_evidence_run_indexed"));
+    assert.ok(
+      problems.problems.some(
+        (problem) => problem.moduleKey === "pixel_live_path" && problem.status === "open"
+      )
+    );
+    assert.ok(
+      app.services.audit
+        .list()
+        .some((event) => event.action === "release.human_evidence_run_indexed")
+    );
   } finally {
     app.close();
     await close();
@@ -117,10 +141,11 @@ test("Step 3.86 strict evidence indexing rejects forbidden metadata", async () =
     const unsafe = await strictSummary();
     unsafe.environment.apiToken = "REDACTED";
     await assert.rejects(
-      () => client.recordHumanEvidenceRun({
-        summary: unsafe,
-        linkedModule: "pixel_live_path"
-      }),
+      () =>
+        client.recordHumanEvidenceRun({
+          summary: unsafe,
+          linkedModule: "pixel_live_path"
+        }),
       /Strict human evidence validation failed/
     );
     assert.equal(JSON.stringify(app.services.audit.list()).includes("apiToken"), false);
@@ -154,15 +179,24 @@ test("Step 3.86 repair loop creates per-blocker problems and forces exact retest
     assert.equal(repaired.run.repairLoop.exactRetestTestId, "step3-86-pixel-live-strict-index");
     assert.equal(repaired.run.repairLoop.repairCommit, "abc1234");
     assert.equal(repaired.run.repairLoop.productionReadinessRefused, true);
-    assert.equal(repaired.run.repairLoop.allowedNextAction, "repair_smallest_scope_then_rerun_exact_test_id");
+    assert.equal(
+      repaired.run.repairLoop.allowedNextAction,
+      "repair_smallest_scope_then_rerun_exact_test_id"
+    );
     assert.equal(repaired.run.repairLoop.blockerProblemIds.length, 2);
 
     const problems = await client.listReleaseProblems();
-    const blockerProblems = problems.problems.filter((problem) => repaired.run.repairLoop.blockerProblemIds.includes(problem.id));
+    const blockerProblems = problems.problems.filter((problem) =>
+      repaired.run.repairLoop.blockerProblemIds.includes(problem.id)
+    );
     assert.equal(blockerProblems.length, 2);
     assert.ok(blockerProblems.every((problem) => problem.severity === "critical"));
     assert.ok(blockerProblems.every((problem) => problem.category === "security_gap"));
-    assert.ok(app.services.audit.list().some((event) => event.action === "release.human_evidence_repair_loop_recorded"));
+    assert.ok(
+      app.services.audit
+        .list()
+        .some((event) => event.action === "release.human_evidence_repair_loop_recorded")
+    );
   } finally {
     app.close();
     await close();
@@ -176,7 +210,9 @@ test("Step 3.86 repair loop does not demand retest after strict PASS", async () 
     const summary = await strictSummary({
       result: "PASS",
       blockers: [],
-      residualRisk: ["Residual physical-router and HSM/FIDO2 checks remain outside this exact test."]
+      residualRisk: [
+        "Residual physical-router and HSM/FIDO2 checks remain outside this exact test."
+      ]
     });
     const run = await client.recordHumanEvidenceRepairLoop({
       summary,

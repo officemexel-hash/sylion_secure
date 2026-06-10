@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, headers = {}, correlationId = "corr_step3_2" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, headers = {}, correlationId = "corr_step3_2" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -143,13 +147,22 @@ async function createOperatorAndPlan(baseUrl, token) {
     }
   });
   assert.equal(router.status, 201);
-  const plan = await request(baseUrl, `/operators/${operator.payload.operator.id}/provisioning-plan`, {
-    method: "POST",
-    token,
-    body: { requestedApps: ["Signal"] }
-  });
+  const plan = await request(
+    baseUrl,
+    `/operators/${operator.payload.operator.id}/provisioning-plan`,
+    {
+      method: "POST",
+      token,
+      body: { requestedApps: ["Signal"] }
+    }
+  );
   assert.equal(plan.status, 201);
-  return { operator: operator.payload.operator, pixel: pixel.payload.device, router: router.payload.device, plan: plan.payload.plan };
+  return {
+    operator: operator.payload.operator,
+    pixel: pixel.payload.device,
+    router: router.payload.device,
+    plan: plan.payload.plan
+  };
 }
 
 test("Step 3.2 blocks provider creation before side effects and does not leak provider secret", async () => {
@@ -236,11 +249,15 @@ test("Step 3.2 blocks orchestrator execution without fresh step-up and preserves
       }
     });
     assert.equal(approval.status, 201);
-    const approved = await request(baseUrl, `/provisioning/approvals/${approval.payload.approval.id}/status`, {
-      method: "POST",
-      token,
-      body: { status: "approved_for_execution", note: "Step-up execution gate complete" }
-    });
+    const approved = await request(
+      baseUrl,
+      `/provisioning/approvals/${approval.payload.approval.id}/status`,
+      {
+        method: "POST",
+        token,
+        body: { status: "approved_for_execution", note: "Step-up execution gate complete" }
+      }
+    );
     assert.equal(approved.status, 200);
     body.approvalId = approval.payload.approval.id;
 
@@ -284,14 +301,18 @@ test("Step 3.2 blocks provider secret rotation without fresh step-up", async () 
     assert.equal(provider.status, 201);
 
     const legacyToken = await legacyLogin(baseUrl);
-    const blocked = await request(baseUrl, `/providers/${provider.payload.provider.id}/secret-rotation`, {
-      method: "POST",
-      token: legacyToken,
-      body: {
-        apiSecret: rotatedSecret,
-        testConnection: { mode: "mock", status: "passed" }
+    const blocked = await request(
+      baseUrl,
+      `/providers/${provider.payload.provider.id}/secret-rotation`,
+      {
+        method: "POST",
+        token: legacyToken,
+        body: {
+          apiSecret: rotatedSecret,
+          testConnection: { mode: "mock", status: "passed" }
+        }
       }
-    });
+    );
     assert.equal(blocked.status, 403);
     assert.equal(blocked.payload.error.code, "step_up_required");
     assert.equal(JSON.stringify(blocked.payload).includes(rotatedSecret), false);

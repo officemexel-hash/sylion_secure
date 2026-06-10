@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateLibreOfficeFactualState, libreOfficeEvaluatorPolicy } from "../../../scripts/lib/libreoffice-factual-evaluator.mjs";
+import {
+  evaluateLibreOfficeFactualState,
+  libreOfficeEvaluatorPolicy
+} from "../../../scripts/lib/libreoffice-factual-evaluator.mjs";
 
 const matrixItem = {
   appKey: "libreoffice",

@@ -104,7 +104,12 @@ async function seedReadyOperator(client) {
     assignedOperatorId: created.operator.id,
     posture: { state: "browser_lab_ready" }
   });
-  return { tenant: tenant.tenant, operator: created.operator, environment: environment.environment, pixel: pixel.device };
+  return {
+    tenant: tenant.tenant,
+    operator: created.operator,
+    environment: environment.environment,
+    pixel: pixel.device
+  };
 }
 
 test("Step 3.29 exposes Pixel -> G1 -> G2 -> WORKLOAD -> communicator microVM path", async () => {
@@ -117,13 +122,26 @@ test("Step 3.29 exposes Pixel -> G1 -> G2 -> WORKLOAD -> communicator microVM pa
     assert.equal(adminPath.path.operatorId, operator.id);
     assert.equal(adminPath.path.terminalMode, "pixel_grapheneos");
     assert.equal(adminPath.path.state, "local_lab_connected");
-    assert.deepEqual(adminPath.path.nodes.map((node) => node.role), ["TERMINAL", "G1", "G2", "WORKLOAD"]);
-    assert.deepEqual(adminPath.path.segments.map((segment) => segment.id), ["T0", "T1", "T2"]);
+    assert.deepEqual(
+      adminPath.path.nodes.map((node) => node.role),
+      ["TERMINAL", "G1", "G2", "WORKLOAD"]
+    );
+    assert.deepEqual(
+      adminPath.path.segments.map((segment) => segment.id),
+      ["T0", "T1", "T2"]
+    );
     assert.ok(adminPath.path.segments.every((segment) => segment.protocol === "ipsec_ikev2"));
-    assert.ok(adminPath.path.segments.every((segment) => segment.authentication === "mutual_certificate"));
-    assert.ok(adminPath.path.segments.every((segment) => segment.productionExecutionAllowed === false));
+    assert.ok(
+      adminPath.path.segments.every((segment) => segment.authentication === "mutual_certificate")
+    );
+    assert.ok(
+      adminPath.path.segments.every((segment) => segment.productionExecutionAllowed === false)
+    );
     assert.equal(adminPath.path.baseline.microVmIsolation, "firecracker_microvm_per_communicator");
-    assert.deepEqual(adminPath.path.microVmSlots.map((slot) => slot.templateKey), ["whatsapp", "signal", "telegram"]);
+    assert.deepEqual(
+      adminPath.path.microVmSlots.map((slot) => slot.templateKey),
+      ["whatsapp", "signal", "telegram"]
+    );
     assert.ok(adminPath.path.microVmSlots.every((slot) => slot.targetVpsRole === "WORKLOAD"));
     assert.ok(adminPath.path.microVmSlots.every((slot) => slot.cdrRequired === true));
     assert.ok(adminPath.path.microVmSlots.every((slot) => slot.secretsReleaseAllowed === false));
@@ -140,14 +158,19 @@ test("Step 3.29 exposes Pixel -> G1 -> G2 -> WORKLOAD -> communicator microVM pa
         deviceId: pixel.id
       }
     });
-    const operatorPath = await operatorRequest(baseUrl, session.session.token, "/operator-api/connection-path");
+    const operatorPath = await operatorRequest(
+      baseUrl,
+      session.session.token,
+      "/operator-api/connection-path"
+    );
     assert.equal(operatorPath.path.deviceId, pixel.id);
     assert.equal(operatorPath.path.nodes[0].label, "Pixel GrapheneOS terminal");
     assert.equal(operatorPath.path.microVmSlots.length, 3);
-    assert.ok([
-      ...operatorPath.path.blockers,
-      ...(operatorPath.path.deferredBlockers || [])
-    ].includes("puli_ax_physical_package_validation_pending"));
+    assert.ok(
+      [...operatorPath.path.blockers, ...(operatorPath.path.deferredBlockers || [])].includes(
+        "puli_ax_physical_package_validation_pending"
+      )
+    );
 
     const vpn = await operatorRequest(baseUrl, session.session.token, "/operator-api/vpn-status");
     assert.deepEqual(vpn.vpn.path, [
@@ -187,7 +210,12 @@ test("Step 3.29 live evidence clears current path blockers while physical gates 
       vpnInterface: "tun1",
       dnsThroughTunnel: true,
       certificateTrusted: true,
-      reachableHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "10.42.0.12"]
+      reachableHosts: [
+        "admin.sylion.internal",
+        "operator.sylion.internal",
+        "signal.sylion.internal",
+        "10.42.0.12"
+      ]
     });
     await operatorPost(baseUrl, token, "/operator-api/streaming-readiness", {
       protocol: "guacamole",
@@ -230,8 +258,14 @@ test("Step 3.29 live evidence clears current path blockers while physical gates 
     assert.equal(operatorPath.path.liveEvidence.dnsThroughTunnel, true);
     assert.ok(!operatorPath.path.blockers.includes("real_ipsec_profile_not_deployed"));
     assert.ok(!operatorPath.path.blockers.includes("dns_leak_and_kill_switch_tests_required"));
-    assert.ok(!operatorPath.path.blockers.includes("firecracker_host_qualification_required_for_real_launch"));
-    assert.ok(operatorPath.path.deferredBlockers.includes("puli_ax_physical_package_validation_pending"));
+    assert.ok(
+      !operatorPath.path.blockers.includes(
+        "firecracker_host_qualification_required_for_real_launch"
+      )
+    );
+    assert.ok(
+      operatorPath.path.deferredBlockers.includes("puli_ax_physical_package_validation_pending")
+    );
     assert.ok(operatorPath.path.deferredBlockers.includes("fido2_operator_unlock_required"));
     assert.equal(operatorPath.path.productionExecutionAllowed, false);
   } finally {
@@ -251,14 +285,22 @@ test("Step 3.29 keeps laptop terminal path separate and production-blocked", asy
         terminalMode: "laptop_web_terminal"
       }
     });
-    const path = await operatorRequest(baseUrl, session.session.token, "/operator-api/connection-path");
+    const path = await operatorRequest(
+      baseUrl,
+      session.session.token,
+      "/operator-api/connection-path"
+    );
     assert.equal(path.path.terminalMode, "laptop_web_terminal");
     assert.equal(path.path.nodes[0].label, "Laptop web terminal");
     assert.equal(path.path.terminalOperationalDataStored, false);
     assert.equal(path.path.secretsReleaseAllowed, false);
     assert.equal(path.path.sideEffectAllowed, false);
     assert.equal(path.path.productionExecutionAllowed, false);
-    assert.ok(path.path.segments.every((segment) => segment.killSwitch.includes("drop") || segment.killSwitch.includes("block")));
+    assert.ok(
+      path.path.segments.every(
+        (segment) => segment.killSwitch.includes("drop") || segment.killSwitch.includes("block")
+      )
+    );
   } finally {
     await close();
   }

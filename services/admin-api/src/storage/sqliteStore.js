@@ -52,12 +52,17 @@ export class SqliteStore {
   }
 
   listEntries(collection) {
-    return this.db.prepare(`
+    return this.db
+      .prepare(
+        `
       SELECT key, value_json FROM kv_store WHERE collection = ? ORDER BY updated_at ASC
-    `).all(collection).map((row) => ({
-      key: row.key,
-      value: JSON.parse(row.value_json)
-    }));
+    `
+      )
+      .all(collection)
+      .map((row) => ({
+        key: row.key,
+        value: JSON.parse(row.value_json)
+      }));
   }
 
   delete(collection, key) {

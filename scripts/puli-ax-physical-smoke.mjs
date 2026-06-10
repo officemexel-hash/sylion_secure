@@ -27,19 +27,24 @@ function isoNow() {
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve) => {
-    execFile(command, args, {
-      windowsHide: true,
-      timeout: options.timeout || 10_000,
-      maxBuffer: options.maxBuffer || 1024 * 1024
-    }, (error, stdout, stderr) => {
-      resolve({
-        ok: !error,
-        code: error?.code || 0,
-        stdout: String(stdout || ""),
-        stderr: String(stderr || ""),
-        message: error?.message || null
-      });
-    });
+    execFile(
+      command,
+      args,
+      {
+        windowsHide: true,
+        timeout: options.timeout || 10_000,
+        maxBuffer: options.maxBuffer || 1024 * 1024
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          ok: !error,
+          code: error?.code || 0,
+          stdout: String(stdout || ""),
+          stderr: String(stderr || ""),
+          message: error?.message || null
+        });
+      }
+    );
   });
 }
 
@@ -63,30 +68,33 @@ async function tcpOpen(host, port, timeoutMs = 1200) {
 
 async function httpProbe(routerIp) {
   return new Promise((resolve) => {
-    const req = http.request({
-      host: routerIp,
-      port: 80,
-      method: "GET",
-      path: "/",
-      timeout: 5000
-    }, (res) => {
-      let body = "";
-      res.setEncoding("utf8");
-      res.on("data", (chunk) => {
-        body += chunk;
-        if (body.length > 4096) req.destroy();
-      });
-      res.on("end", () => {
-        const title = /<title>(.*?)<\/title>/i.exec(body)?.[1] || null;
-        resolve({
-          reachable: true,
-          statusCode: res.statusCode,
-          server: res.headers.server || null,
-          title,
-          glinetUiDetected: /gl-ui|Admin Panel|GL\.?iNet/i.test(body + " " + String(title || ""))
+    const req = http.request(
+      {
+        host: routerIp,
+        port: 80,
+        method: "GET",
+        path: "/",
+        timeout: 5000
+      },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          body += chunk;
+          if (body.length > 4096) req.destroy();
         });
-      });
-    });
+        res.on("end", () => {
+          const title = /<title>(.*?)<\/title>/i.exec(body)?.[1] || null;
+          resolve({
+            reachable: true,
+            statusCode: res.statusCode,
+            server: res.headers.server || null,
+            title,
+            glinetUiDetected: /gl-ui|Admin Panel|GL\.?iNet/i.test(body + " " + String(title || ""))
+          });
+        });
+      }
+    );
     req.once("timeout", () => {
       req.destroy();
       resolve({ reachable: false, reason: "timeout" });
@@ -104,9 +112,18 @@ async function dnsProbe(routerIp, hostname = "openai.com") {
       dns.resolve4(hostname),
       new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))
     ]);
-    return { reachable: true, query: hostname, answers: result.length, internalTargetObserved: result.includes("10.42.0.12") };
+    return {
+      reachable: true,
+      query: hostname,
+      answers: result.length,
+      internalTargetObserved: result.includes("10.42.0.12")
+    };
   } catch (error) {
-    return { reachable: false, query: hostname, reason: error.code || error.message || "dns_failed" };
+    return {
+      reachable: false,
+      query: hostname,
+      reason: error.code || error.message || "dns_failed"
+    };
   } finally {
     dns.setServers(previous);
   }
@@ -114,21 +131,26 @@ async function dnsProbe(routerIp, hostname = "openai.com") {
 
 async function internetViaLocalAddress(localAddress) {
   return new Promise((resolve) => {
-    const req = https.request({
-      host: "ifconfig.me",
-      path: "/ip",
-      method: "GET",
-      timeout: 8000,
-      localAddress,
-      headers: { "user-agent": "sylion-puli-ax-smoke/1.0" }
-    }, (res) => {
-      res.resume();
-      res.on("end", () => resolve({
-        reachable: res.statusCode >= 200 && res.statusCode < 400,
-        statusCode: res.statusCode,
-        egressIpRedacted: true
-      }));
-    });
+    const req = https.request(
+      {
+        host: "ifconfig.me",
+        path: "/ip",
+        method: "GET",
+        timeout: 8000,
+        localAddress,
+        headers: { "user-agent": "sylion-puli-ax-smoke/1.0" }
+      },
+      (res) => {
+        res.resume();
+        res.on("end", () =>
+          resolve({
+            reachable: res.statusCode >= 200 && res.statusCode < 400,
+            statusCode: res.statusCode,
+            egressIpRedacted: true
+          })
+        );
+      }
+    );
     req.once("timeout", () => {
       req.destroy();
       resolve({ reachable: false, reason: "timeout" });
@@ -146,9 +168,13 @@ async function windowsNetFacts(routerIp) {
     "Bypass",
     "-Command",
     [
-      "$cfg = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway.NextHop -eq '" + routerIp + "' } | Select-Object -First 1;",
+      "$cfg = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway.NextHop -eq '" +
+        routerIp +
+        "' } | Select-Object -First 1;",
       "$profile = if ($cfg) { Get-NetConnectionProfile -InterfaceIndex $cfg.InterfaceIndex -ErrorAction SilentlyContinue } else { $null };",
-      "$neighbor = Get-NetNeighbor -AddressFamily IPv4 -IPAddress '" + routerIp + "' -ErrorAction SilentlyContinue | Select-Object -First 1;",
+      "$neighbor = Get-NetNeighbor -AddressFamily IPv4 -IPAddress '" +
+        routerIp +
+        "' -ErrorAction SilentlyContinue | Select-Object -First 1;",
       "[pscustomobject]@{",
       "InterfaceAlias=$cfg.InterfaceAlias;",
       "InterfaceIndex=$cfg.InterfaceIndex;",
@@ -170,8 +196,12 @@ async function windowsNetFacts(routerIp) {
 
 async function main() {
   const routerIp = argValue("router-ip", DEFAULT_ROUTER_IP);
-  const requestedLocalAddress = argValue("local-address", process.env.SYLION_PULI_AX_LOCAL_ADDRESS || DEFAULT_LOCAL_IP);
-  const expectKillSwitch = hasArg("expect-killswitch") || process.env.SYLION_PULI_AX_EXPECT_KILLSWITCH === "true";
+  const requestedLocalAddress = argValue(
+    "local-address",
+    process.env.SYLION_PULI_AX_LOCAL_ADDRESS || DEFAULT_LOCAL_IP
+  );
+  const expectKillSwitch =
+    hasArg("expect-killswitch") || process.env.SYLION_PULI_AX_EXPECT_KILLSWITCH === "true";
   const outPath = argValue("out", DEFAULT_OUT);
   const ports = [22, 53, 80, 443, 500, 4500];
   const startedAt = isoNow();
@@ -180,7 +210,11 @@ async function main() {
     tcp[String(port)] = await tcpOpen(routerIp, port);
   }
   const windows = await windowsNetFacts(routerIp);
-  const detectedLocalAddress = String(windows?.IPv4Address || "").split(",").map((item) => item.trim()).find(Boolean) || null;
+  const detectedLocalAddress =
+    String(windows?.IPv4Address || "")
+      .split(",")
+      .map((item) => item.trim())
+      .find(Boolean) || null;
   const localAddress = requestedLocalAddress || detectedLocalAddress || undefined;
   const [httpUi, dnsResult, wanResult] = await Promise.all([
     httpProbe(routerIp),
@@ -192,11 +226,19 @@ async function main() {
     ...(tcp["22"] ? [] : ["ssh_lan_not_open"]),
     ...(tcp["80"] || tcp["443"] ? [] : ["admin_panel_not_reachable"]),
     ...(expectKillSwitch
-      ? (dnsResult.reachable && dnsResult.internalTargetObserved ? [] : ["router_internal_dns_not_answering"])
-      : (dnsResult.reachable ? [] : ["router_dns_not_answering"])),
+      ? dnsResult.reachable && dnsResult.internalTargetObserved
+        ? []
+        : ["router_internal_dns_not_answering"]
+      : dnsResult.reachable
+        ? []
+        : ["router_dns_not_answering"]),
     ...(expectKillSwitch
-      ? (wanResult.reachable ? ["lan_to_wan_not_blocked_under_killswitch"] : [])
-      : (wanResult.reachable ? [] : ["wan_or_cellular_uplink_not_ready"])),
+      ? wanResult.reachable
+        ? ["lan_to_wan_not_blocked_under_killswitch"]
+        : []
+      : wanResult.reachable
+        ? []
+        : ["wan_or_cellular_uplink_not_ready"]),
     ...(tcp["500"] || tcp["4500"] ? ["ipsec_ports_open_on_lan_review_required"] : [])
   ];
   const summary = {
@@ -222,16 +264,18 @@ async function main() {
       expectKillSwitch
     },
     blockers,
-    nextActions: blockers.length ? [
-      "Verify Puli AX WAN/cellular uplink in the GL.iNet admin panel.",
-      "Enable DNS service on LAN or confirm it is intentionally blocked before SYLION tunnel.",
-      "Install a dedicated SSH key before any automated router mutation.",
-      "Only after SSH key access: capture firmware/package inventory and run kill-switch/DNS tests."
-    ] : [
-      "Install a dedicated SSH key and run authenticated firmware/package inventory.",
-      "Generate and apply SYLION router package for the disposable operator.",
-      "Run T01-T10 kill-switch, DNS and IPsec tests."
-    ]
+    nextActions: blockers.length
+      ? [
+          "Verify Puli AX WAN/cellular uplink in the GL.iNet admin panel.",
+          "Enable DNS service on LAN or confirm it is intentionally blocked before SYLION tunnel.",
+          "Install a dedicated SSH key before any automated router mutation.",
+          "Only after SSH key access: capture firmware/package inventory and run kill-switch/DNS tests."
+        ]
+      : [
+          "Install a dedicated SSH key and run authenticated firmware/package inventory.",
+          "Generate and apply SYLION router package for the disposable operator.",
+          "Run T01-T10 kill-switch, DNS and IPsec tests."
+        ]
   };
   if (outPath && !hasArg("no-write")) {
     const absolute = resolve(outPath);

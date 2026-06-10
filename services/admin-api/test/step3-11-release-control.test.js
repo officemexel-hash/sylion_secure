@@ -65,14 +65,24 @@ test("Step 3.11 release control exposes production blockers without enabling exe
     assert.ok(summary.summary.gates.blocked >= 1);
 
     const gates = await client.listReleaseGates();
-    assert.ok(gates.gates.some((gate) => gate.moduleKey === "firecracker_orchestration" && gate.status === "blocked_human_gate"));
-    assert.ok(gates.gates.some((gate) => gate.moduleKey === "phantom_v3" && gate.productionExecutionAllowed === false));
+    assert.ok(
+      gates.gates.some(
+        (gate) =>
+          gate.moduleKey === "firecracker_orchestration" && gate.status === "blocked_human_gate"
+      )
+    );
+    assert.ok(
+      gates.gates.some(
+        (gate) => gate.moduleKey === "phantom_v3" && gate.productionExecutionAllowed === false
+      )
+    );
 
     await assertRejectsWithStatus(
-      () => client.updateReleaseGateStatus("gate_phantom_v3", {
-        status: "verified",
-        evidenceArtifactIds: ["artifact-placeholder"]
-      }),
+      () =>
+        client.updateReleaseGateStatus("gate_phantom_v3", {
+          status: "verified",
+          evidenceArtifactIds: ["artifact-placeholder"]
+        }),
       422,
       /PHANTOM live behavior/
     );
@@ -123,10 +133,11 @@ test("Step 3.11 tracks artifacts, human tests and problems with evidence gates",
       owner: "qa"
     });
     await assertRejectsWithStatus(
-      () => client.updateReleaseProblemStatus(problemWithoutEvidence.problem.id, {
-        status: "verified",
-        evidenceArtifactIds: []
-      }),
+      () =>
+        client.updateReleaseProblemStatus(problemWithoutEvidence.problem.id, {
+          status: "verified",
+          evidenceArtifactIds: []
+        }),
       422,
       /Verified problems require evidence/
     );
@@ -137,7 +148,9 @@ test("Step 3.11 tracks artifacts, human tests and problems with evidence gates",
       evidenceArtifactIds: [artifact.artifact.id]
     });
     assert.equal(verified.problem.status, "verified");
-    assert.ok(app.services.audit.list().some((event) => event.action === "release.problem_status_changed"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "release.problem_status_changed")
+    );
   } finally {
     await close();
   }
@@ -148,13 +161,14 @@ test("Step 3.11 release records reject prohibited operational language", async (
   try {
     const client = await loginClient(baseUrl);
     await assertRejectsWithStatus(
-      () => client.createReleaseProblem({
-        title: "Rejected operational evasion wording",
-        severity: "high",
-        category: "security_gap",
-        moduleKey: "phantom_v3",
-        owner: "qa"
-      }),
+      () =>
+        client.createReleaseProblem({
+          title: "Rejected operational evasion wording",
+          severity: "high",
+          category: "security_gap",
+          moduleKey: "phantom_v3",
+          owner: "qa"
+        }),
       422,
       /prohibited details/
     );

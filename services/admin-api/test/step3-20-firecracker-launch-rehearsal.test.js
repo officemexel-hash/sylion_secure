@@ -97,9 +97,20 @@ test("Step 3.20 runs Firecracker launch rehearsal without real kernel execution 
     assert.equal(rehearsal.rehearsal.secretsReleaseAllowed, false);
     assert.equal(rehearsal.rehearsal.productionExecutionAllowed, false);
     assert.equal(rehearsal.rehearsal.terminalDataStored, false);
-    assert.deepEqual(rehearsal.rehearsal.runtimes.map((runtime) => runtime.workloadName), ["signal", "telegram", "matrix"]);
-    assert.ok(rehearsal.rehearsal.phases.some((phase) => phase.name === "stop_cleanup" && phase.status === "passed"));
-    assert.ok(app.services.audit.list().some((event) => event.action === "firecracker.launch_rehearsal_completed"));
+    assert.deepEqual(
+      rehearsal.rehearsal.runtimes.map((runtime) => runtime.workloadName),
+      ["signal", "telegram", "matrix"]
+    );
+    assert.ok(
+      rehearsal.rehearsal.phases.some(
+        (phase) => phase.name === "stop_cleanup" && phase.status === "passed"
+      )
+    );
+    assert.ok(
+      app.services.audit
+        .list()
+        .some((event) => event.action === "firecracker.launch_rehearsal_completed")
+    );
   } finally {
     app.close();
     await close();
@@ -132,7 +143,9 @@ test("Step 3.20 blocks Firecracker launch rehearsal when host or env gate is not
     });
     assert.equal(rehearsal.rehearsal.status, "blocked_human_gate");
     assert.ok(rehearsal.rehearsal.blockers.includes("host_not_ready_for_firecracker_launch"));
-    assert.ok(rehearsal.rehearsal.blockers.includes("firecracker_launch_rehearsal_env_flag_disabled"));
+    assert.ok(
+      rehearsal.rehearsal.blockers.includes("firecracker_launch_rehearsal_env_flag_disabled")
+    );
     assert.equal(rehearsal.rehearsal.realKernelExecuted, false);
     assert.equal(rehearsal.rehearsal.secretsReleaseAllowed, false);
   } finally {
@@ -162,16 +175,20 @@ test("Step 3.20 rejects Firecracker rehearsal metadata containing secrets or com
 
     await stepUp(client, credentialId, 3);
     await assert.rejects(
-      () => client.runFirecrackerLaunchRehearsal({
-        hostQualificationId: qualification.qualification.id,
-        operatorId: operator.id,
-        workloadNames: ["signal"],
-        imageRef: "image://contains-secret-token",
-        rehearsalConfirmed: true
-      }),
+      () =>
+        client.runFirecrackerLaunchRehearsal({
+          hostQualificationId: qualification.qualification.id,
+          operatorId: operator.id,
+          workloadNames: ["signal"],
+          imageRef: "image://contains-secret-token",
+          rehearsalConfirmed: true
+        }),
       /must not contain secrets/
     );
-    assert.equal(JSON.stringify(app.services.audit.list()).includes("contains-secret-token"), false);
+    assert.equal(
+      JSON.stringify(app.services.audit.list()).includes("contains-secret-token"),
+      false
+    );
   } finally {
     app.close();
     await close();

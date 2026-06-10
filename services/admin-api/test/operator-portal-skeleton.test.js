@@ -58,9 +58,18 @@ test("V2 operator portal shell is served from Admin API under /operator", async 
     assert.match(html.body, /\/operator\/stream\.html\?app=libreoffice/);
     assert.match(html.body, /\/operator\/stream\.html\?app=simplex/);
     assert.match(html.body, /\/operator\/stream\.html\?app=protonmail(?:&amp;|&)broker=blind_e2ee/);
-    assert.match(html.body, /id="workload-broker-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/);
-    assert.match(html.body, /id="runtime-gate-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/);
-    assert.match(html.body, /id="stream-session-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/);
+    assert.match(
+      html.body,
+      /id="workload-broker-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/
+    );
+    assert.match(
+      html.body,
+      /id="runtime-gate-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/
+    );
+    assert.match(
+      html.body,
+      /id="stream-session-form"[\s\S]*<option value="simplex">SimpleX Chat<\/option>[\s\S]*<option value="protonmail">Proton Mail<\/option>/
+    );
     assert.match(html.body, /signal,duckduckgo_browser,libreoffice,simplex,protonmail/);
     assert.match(html.body, /protonmail:10\.42\.0\.13:7917,simplex:10\.42\.0\.13:7918/);
     assert.match(html.body, /Backup & Panic/);
@@ -112,7 +121,10 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(js.body, /Workload stream blocked: missing active operator session/);
     assert.match(js.body, /launchHash\.set\("op_token", token\)/);
     assert.match(js.body, /url\.hash = launchHash\.toString\(\)/);
-    assert.match(js.body, /const wrapperApps = new Set\([\s\S]*"simplex"[\s\S]*"protonmail"[\s\S]*\)/);
+    assert.match(
+      js.body,
+      /const wrapperApps = new Set\([\s\S]*"simplex"[\s\S]*"protonmail"[\s\S]*\)/
+    );
     assert.doesNotMatch(js.body, /url\.searchParams\.set\("op_token"/);
 
     assert.match(css.body, /quick-grid/);
@@ -137,19 +149,28 @@ test("Operator portal serves styles.css, app.js and stream.js", async () => {
     assert.match(streamJs.body, /blind-e2ee\/sessions/);
     assert.match(streamJs.body, /capture-once/);
     assert.match(streamJs.body, /defaultBrokerForApp/);
-    assert.match(streamJs.body, /\["protonmail", "signal"[\s\S]*\]\.includes\(appKey\) \? "blind_e2ee" : "guacamole"/);
+    assert.match(
+      streamJs.body,
+      /\[\s*"protonmail",\s*"signal"[\s\S]*\]\.includes\(appKey\)\s*\?\s*"blind_e2ee"\s*:\s*"guacamole"/
+    );
     assert.match(streamJs.body, /bootstrapOperatorToken/);
     assert.match(streamJs.body, /params\.get\("op_token"\)/);
     assert.match(streamJs.body, /hashParams\.get\("op_token"\)/);
     assert.match(streamJs.body, /hashParams\.delete\("op_token"\)/);
     assert.match(streamJs.body, /history\.replaceState/);
     assert.match(streamJs.body, /sessionStorage\.getItem\("sylion\.operator\.token"\)/);
-    assert.match(streamJs.body, /sessionStorage\.setItem\("sylion\.operator\.streamToken", token\)/);
+    assert.match(
+      streamJs.body,
+      /sessionStorage\.setItem\("sylion\.operator\.streamToken", token\)/
+    );
     assert.match(streamJs.body, /sessionStorage\.getItem\("sylion\.operator\.streamToken"\)/);
     assert.match(streamJs.body, /authorization: `Bearer \$\{operatorToken\}`/);
     assert.match(streamJs.body, /splitGuacamoleLaunchUrls/);
     assert.match(streamJs.body, /waitForFrameLoad/);
-    assert.match(streamJs.body, /Authenticating \$\{handoff\.broker\.connectionName\} through Guacamole/);
+    assert.match(
+      streamJs.body,
+      /Authenticating \$\{handoff\.broker\.connectionName\} through Guacamole/
+    );
     assert.match(streamJs.body, /duckduckgo\.sylion\.internal/);
     assert.match(streamJs.body, /simplex\.sylion\.internal/);
     assert.match(streamJs.body, /protonmail\.sylion\.internal/);
@@ -196,7 +217,10 @@ test("/operator-api/workload-input requires an operator portal session", async (
   try {
     const response = await fetch(`${baseUrl}/operator-api/workload-input`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-correlation-id": `corr_input_${crypto.randomUUID()}` },
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_input_${crypto.randomUUID()}`
+      },
       body: JSON.stringify({ templateKey: "duckduckgo_browser", text: "test" })
     });
     assert.equal(response.status, 401);
@@ -210,7 +234,10 @@ test("/operator-api/guacamole-handoff requires an operator portal session", asyn
   try {
     const response = await fetch(`${baseUrl}/operator-api/guacamole-handoff`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-correlation-id": `corr_guac_${crypto.randomUUID()}` },
+      headers: {
+        "content-type": "application/json",
+        "x-correlation-id": `corr_guac_${crypto.randomUUID()}`
+      },
       body: JSON.stringify({ templateKey: "signal" })
     });
     assert.equal(response.status, 401);
@@ -282,7 +309,10 @@ test("/operator-api/laptop-access-package requires an operator portal session", 
 test("/operator-api/streaming-profile requires an operator portal session", async () => {
   const { baseUrl, close } = await startTestServer();
   try {
-    const res = await getJson(baseUrl, "/operator-api/streaming-profile?width=390&height=844&dpr=3");
+    const res = await getJson(
+      baseUrl,
+      "/operator-api/streaming-profile?width=390&height=844&dpr=3"
+    );
     assert.equal(res.status, 401);
   } finally {
     await close();

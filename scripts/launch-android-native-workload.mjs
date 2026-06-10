@@ -7,10 +7,14 @@ function arg(name, fallback = null) {
   return found ? found.slice(prefix.length) : fallback;
 }
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
-const sshKey = arg("key", process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey);
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
+const sshKey = arg(
+  "key",
+  process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey
+);
 const host = arg("host", process.env.SYLION_WORKLOAD_SSH_HOST);
 const user = arg("user", process.env.SYLION_WORKLOAD_SSH_USER || "root");
 const target = arg("target", process.env.SYLION_WORKLOAD_SSH || (host ? `${user}@${host}` : null));
@@ -31,13 +35,20 @@ if (!/^[a-z0-9_-]+$/i.test(app)) {
 if (!/^[a-zA-Z0-9_.]+$/.test(packageName)) {
   throw new Error("--package must be an Android package identifier");
 }
-if (!Number.isInteger(width) || width < 320 || width > 3840) throw new Error("--width is outside allowed range");
-if (!Number.isInteger(height) || height < 320 || height > 3840) throw new Error("--height is outside allowed range");
-if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("--port is outside allowed range");
-if (!Number.isInteger(webPort) || webPort < 1024 || webPort > 65535) throw new Error("--web-port is outside allowed range");
-if (!Number.isInteger(localVncProxyPort) || localVncProxyPort < 1024 || localVncProxyPort > 65535) throw new Error("--local-vnc-proxy-port is outside allowed range");
-if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(workloadBind)) throw new Error("--workload-bind must be an IPv4 address");
-if (workloadBind.split(".").some((part) => Number(part) > 255)) throw new Error("--workload-bind octets must be 0-255");
+if (!Number.isInteger(width) || width < 320 || width > 3840)
+  throw new Error("--width is outside allowed range");
+if (!Number.isInteger(height) || height < 320 || height > 3840)
+  throw new Error("--height is outside allowed range");
+if (!Number.isInteger(port) || port < 1024 || port > 65535)
+  throw new Error("--port is outside allowed range");
+if (!Number.isInteger(webPort) || webPort < 1024 || webPort > 65535)
+  throw new Error("--web-port is outside allowed range");
+if (!Number.isInteger(localVncProxyPort) || localVncProxyPort < 1024 || localVncProxyPort > 65535)
+  throw new Error("--local-vnc-proxy-port is outside allowed range");
+if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(workloadBind))
+  throw new Error("--workload-bind must be an IPv4 address");
+if (workloadBind.split(".").some((part) => Number(part) > 255))
+  throw new Error("--workload-bind octets must be 0-255");
 
 async function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -80,22 +91,26 @@ async function run(command, args, options = {}) {
 
 async function ssh(script, timeout = 120_000) {
   if (!target) throw new Error("Missing target. Provide --target=user@host or --host=host");
-  return run("ssh", [
-    "-i",
-    sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "ConnectTimeout=10",
-    "-o",
-    "ServerAliveInterval=10",
-    "-o",
-    "ServerAliveCountMax=2",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    target,
-    "bash -s"
-  ], { input: script, timeout });
+  return run(
+    "ssh",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "ConnectTimeout=10",
+      "-o",
+      "ServerAliveInterval=10",
+      "-o",
+      "ServerAliveCountMax=2",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      target,
+      "bash -s"
+    ],
+    { input: script, timeout }
+  );
 }
 
 function parseFacts(stdout) {
@@ -122,14 +137,19 @@ function parseFacts(stdout) {
     "websockify_service",
     "waydroid_session_service"
   ]);
-  return Object.fromEntries(stdout.split(/\r?\n/).filter(Boolean).flatMap((line) => {
-    const [key, ...rest] = line.split("=");
-    if (!allowed.has(key)) return [];
-    const value = rest.join("=");
-    if (value === "true") return [[key, true]];
-    if (value === "false") return [[key, false]];
-    return [[key, value]];
-  }));
+  return Object.fromEntries(
+    stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .flatMap((line) => {
+        const [key, ...rest] = line.split("=");
+        if (!allowed.has(key)) return [];
+        const value = rest.join("=");
+        if (value === "true") return [[key, true]];
+        if (value === "false") return [[key, false]];
+        return [[key, value]];
+      })
+  );
 }
 
 async function plan() {
@@ -200,7 +220,8 @@ async function applyLaunch(planResult) {
       ]
     };
   }
-  const { stdout } = await ssh(`
+  const { stdout } = await ssh(
+    `
 set -euo pipefail
 nft list chain inet filter input >/dev/null 2>&1 || nft add table inet filter || true
 nft list chain inet filter input >/dev/null 2>&1 || nft 'add chain inet filter input { type filter hook input priority filter; policy accept; }'
@@ -590,27 +611,50 @@ PY
 )"
 printf 'web_listener=%s\\n' "$(ss -ltn 2>/dev/null | grep -q '${workloadBind}:${webPort}' && echo true || echo false)"
 printf 'public_drop_rule=%s\\n' "$(nft list chain inet filter input 2>/dev/null | grep -q 'tcp dport ${port} drop' && echo true || echo false)"
-`, 180_000);
+`,
+    180_000
+  );
   const facts = parseFacts(stdout);
   return {
     ...planResult,
     mode: "applied",
     applied: true,
     applyFacts: facts,
-    streamReady: facts.session === "RUNNING" && facts.container === "RUNNING" && facts.weston_service === "active" && facts.vnc_proxy_service === "active" && facts.websockify_service === "active" && facts.waydroid_session_service === "active" && facts.pam_auth_configured === true && facts.vnc_listener === true && facts.vnc_proxy_listener === true && facts.vnc_proxy_handshake === true && facts.web_listener === true,
-    appLaunchMode: facts.package_installed === true ? "package_launch" : "android_full_ui_no_app_installed",
+    streamReady:
+      facts.session === "RUNNING" &&
+      facts.container === "RUNNING" &&
+      facts.weston_service === "active" &&
+      facts.vnc_proxy_service === "active" &&
+      facts.websockify_service === "active" &&
+      facts.waydroid_session_service === "active" &&
+      facts.pam_auth_configured === true &&
+      facts.vnc_listener === true &&
+      facts.vnc_proxy_listener === true &&
+      facts.vnc_proxy_handshake === true &&
+      facts.web_listener === true,
+    appLaunchMode:
+      facts.package_installed === true ? "package_launch" : "android_full_ui_no_app_installed",
     productionExecutionAllowed: false
   };
 }
 
 const planResult = await plan();
 const result = await applyLaunch(planResult);
-console.log(JSON.stringify({
-  component: "android_native_workload_launcher",
-  ...result,
-  checkedAt: new Date().toISOString()
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      component: "android_native_workload_launcher",
+      ...result,
+      checkedAt: new Date().toISOString()
+    },
+    null,
+    2
+  )
+);
 
-if ((apply && result.applied !== true) || (!result.readyForApply && process.argv.includes("--require-ready"))) {
+if (
+  (apply && result.applied !== true) ||
+  (!result.readyForApply && process.argv.includes("--require-ready"))
+) {
   process.exitCode = 1;
 }

@@ -54,7 +54,9 @@
     const hashState = parseHashState();
     const token = params.get("op_token") || hashState.params.get("op_token");
     const localhost = ["127.0.0.1", "localhost", "::1"].includes(window.location.hostname);
-    const internalHost = window.location.protocol === "https:" && window.location.hostname.endsWith(".sylion.internal");
+    const internalHost =
+      window.location.protocol === "https:" &&
+      window.location.hostname.endsWith(".sylion.internal");
     if (token && (localhost || internalHost) && isOperatorSessionToken(token)) {
       state.operatorToken = token;
       rememberStreamLaunchToken(token);
@@ -62,11 +64,20 @@
       hashState.params.delete("op_token");
       const cleanSearch = params.toString();
       const cleanHash = hashFromState(hashState.viewId, hashState.params);
-      window.history.replaceState(null, "", `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${cleanHash}`);
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ""}${cleanHash}`
+      );
       const attached = await attachOperatorSessionCookie();
       if (!attached) {
         sessionStorage.setItem("sylion.operator.token", token);
-        setText("#session-status", internalHost ? "Operator session received through internal VPN link." : "Operator session received through local lab link.");
+        setText(
+          "#session-status",
+          internalHost
+            ? "Operator session received through internal VPN link."
+            : "Operator session received through local lab link."
+        );
       }
       return;
     }
@@ -124,7 +135,10 @@
     state.cookieBound = true;
     sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
     sessionStorage.removeItem("sylion.operator.token");
-    setText("#session-status", `Session bound to this operator browser context (${payload.session.terminalMode}).`);
+    setText(
+      "#session-status",
+      `Session bound to this operator browser context (${payload.session.terminalMode}).`
+    );
     return true;
   }
 
@@ -137,13 +151,18 @@
     rememberStreamLaunchToken(payload.session.token || state.streamToken);
     sessionStorage.setItem("sylion.operator.session", JSON.stringify(payload.session));
     sessionStorage.removeItem("sylion.operator.token");
-    setText("#session-status", `Session restored for ${payload.session.operatorId} (${payload.session.terminalMode}).`);
+    setText(
+      "#session-status",
+      `Session restored for ${payload.session.operatorId} (${payload.session.terminalMode}).`
+    );
     return true;
   }
 
   function setActiveView(viewId) {
     $$(".view").forEach((view) => view.classList.toggle("active", view.id === viewId));
-    $$(".sidebar a").forEach((link) => link.classList.toggle("active", link.dataset.view === viewId));
+    $$(".sidebar a").forEach((link) =>
+      link.classList.toggle("active", link.dataset.view === viewId)
+    );
   }
 
   function handleNav(event) {
@@ -185,7 +204,10 @@
     const launchUrl = workloadStreamWrapperUrl(appKey || "duckduckgo_browser", "", broker);
     if (!currentOperatorLaunchToken() && !state.session) {
       event.preventDefault();
-      setText("#session-status", "Workload stream blocked: missing active operator session. Reopen the operator package link.");
+      setText(
+        "#session-status",
+        "Workload stream blocked: missing active operator session. Reopen the operator package link."
+      );
       return;
     }
     link.setAttribute("href", launchUrl);
@@ -227,7 +249,10 @@
     const attached = await attachOperatorSessionCookie();
     if (!attached) {
       sessionStorage.setItem("sylion.operator.token", payload.session.token);
-      setText("#session-status", `Session active for ${payload.session.operatorId} (${payload.session.terminalMode})`);
+      setText(
+        "#session-status",
+        `Session active for ${payload.session.operatorId} (${payload.session.terminalMode})`
+      );
     }
     await loadOverview();
   }
@@ -259,15 +284,20 @@
       tbody.innerHTML = `<tr><td colspan="4" class="placeholder">${escapeHtml(data.error)}</td></tr>`;
       return;
     }
-    const rows = (data.devices || []).map((d) => `
+    const rows = (data.devices || [])
+      .map(
+        (d) => `
       <tr>
         <td>${escapeHtml(d.type)}</td>
         <td>${escapeHtml(d.model || "-")}</td>
         <td>${escapeHtml(d.status || "-")}</td>
         <td>${escapeHtml(d.posture?.state || "unknown")}</td>
       </tr>
-    `).join("");
-    tbody.innerHTML = rows || `<tr><td colspan="4" class="placeholder">No scoped devices yet.</td></tr>`;
+    `
+      )
+      .join("");
+    tbody.innerHTML =
+      rows || `<tr><td colspan="4" class="placeholder">No scoped devices yet.</td></tr>`;
   }
 
   async function loadFido2() {
@@ -339,12 +369,18 @@
       form.elements.sessionHours.max = p.maxSessionHoursByTier;
       form.elements.fido2RequiredAtSessionEnd.checked = p.fido2?.requiredAtSessionEnd !== false;
     }
-    list.innerHTML = Object.values(p.layers || {}).map((layer) => `
+    list.innerHTML =
+      Object.values(p.layers || {})
+        .map(
+          (layer) => `
       <li>
         <strong>${escapeHtml(layer.layer.toUpperCase())}</strong>
         <span>password set: ${escapeHtml(layer.passwordSet)} | rotated: ${escapeHtml(layer.rotatedAt || "never")} | material stored: ${escapeHtml(layer.passwordMaterialStored)}</span>
       </li>
-    `).join("") + `
+    `
+        )
+        .join("") +
+      `
       <li><strong>Session</strong><span>${escapeHtml(p.sessionHours)}h active window, max ${escapeHtml(p.maxSessionHoursByTier)}h for tier, FIDO2 deferred: ${escapeHtml(p.fido2?.deferred)}</span></li>
     `;
   }
@@ -368,7 +404,12 @@
     list.innerHTML = `
       <li><strong>Backup</strong><span>${escapeHtml(p.backup.enabled)} | ${escapeHtml(p.backup.scope)} every ${escapeHtml(p.backup.cadenceHours)}h | workload data included: ${escapeHtml(p.backup.workloadDataIncluded)}</span></li>
       <li><strong>Inactivity wipe</strong><span>${escapeHtml(p.inactivityWipe.enabled)} after ${escapeHtml(p.inactivityWipe.afterDays)} days | state ${escapeHtml(p.inactivityWipe.state)}</span></li>
-      ${Object.values(p.panicCodes || {}).map((entry) => `<li><strong>${escapeHtml(entry.level)}</strong><span>code set: ${escapeHtml(entry.codeSet)} | rotated: ${escapeHtml(entry.rotatedAt || "never")} | material stored: ${escapeHtml(entry.codeMaterialStored)}</span></li>`).join("")}
+      ${Object.values(p.panicCodes || {})
+        .map(
+          (entry) =>
+            `<li><strong>${escapeHtml(entry.level)}</strong><span>code set: ${escapeHtml(entry.codeSet)} | rotated: ${escapeHtml(entry.rotatedAt || "never")} | material stored: ${escapeHtml(entry.codeMaterialStored)}</span></li>`
+        )
+        .join("")}
     `;
   }
 
@@ -426,7 +467,8 @@
     }
     if (!options?.providerCatalogConfigured) {
       box.classList.remove("placeholder");
-      box.textContent = "No provider catalog is configured yet. Admin must add VPS providers before operator can choose real rotation locations.";
+      box.textContent =
+        "No provider catalog is configured yet. Admin must add VPS providers before operator can choose real rotation locations.";
       return;
     }
     const providers = options.providers || [];
@@ -516,9 +558,12 @@
     setText("#vpn-workload", data.vpn.endpoints.workload || "-");
     setText("#vpn-handshake", data.vpn.lastHandshake || "-");
     if (data.vpn.liveEvidence) {
-      setText("#vpn-evidence-status", data.vpn.liveEvidence.ready
-        ? `Live evidence active: ${data.vpn.liveEvidence.observedAt}`
-        : `Evidence incomplete: ${(data.vpn.liveEvidence.blockers || []).join(", ")}`);
+      setText(
+        "#vpn-evidence-status",
+        data.vpn.liveEvidence.ready
+          ? `Live evidence active: ${data.vpn.liveEvidence.observedAt}`
+          : `Evidence incomplete: ${(data.vpn.liveEvidence.blockers || []).join(", ")}`
+      );
     }
     const install = await fetchJson("/operator-api/vpn-install-package");
     if (!install.error) {
@@ -528,35 +573,54 @@
     }
     const ca = await fetchJson("/operator-api/pixel-ca-provisioning");
     if (!ca.error) {
-      const recommended = (ca.package.installMethods || []).find((item) => item.status === "recommended") || ca.package.installMethods?.[0];
+      const recommended =
+        (ca.package.installMethods || []).find((item) => item.status === "recommended") ||
+        ca.package.installMethods?.[0];
       setText("#ca-package-type", ca.package.packageType);
       setText("#ca-trust-scope", (ca.package.trustScope || []).join(", "));
       setText("#ca-install-method", recommended?.method || "-");
       setText("#ca-fingerprint", ca.package.caFingerprintSha256 || "pending profile fingerprint");
       const steps = $("#ca-install-steps");
       if (steps) {
-        steps.innerHTML = (recommended?.steps || []).map((step) => `<li><strong>${escapeHtml(step)}</strong><span>GrapheneOS user-present install step.</span></li>`).join("") || `<li class="placeholder">No CA provisioning steps available.</li>`;
+        steps.innerHTML =
+          (recommended?.steps || [])
+            .map(
+              (step) =>
+                `<li><strong>${escapeHtml(step)}</strong><span>GrapheneOS user-present install step.</span></li>`
+            )
+            .join("") || `<li class="placeholder">No CA provisioning steps available.</li>`;
       }
     }
     const laptop = await fetchJson("/operator-api/laptop-access-package");
     if (!laptop.error) {
       setText("#laptop-package-type", laptop.package.packageType);
       setText("#laptop-package-transport", laptop.package.transport);
-      setText("#laptop-package-entrypoints", (laptop.package.browserThinClient?.entrypoints || []).join(", "));
-      setText("#laptop-package-validation", (laptop.package.validation?.requiredChecks || []).join(", "));
+      setText(
+        "#laptop-package-entrypoints",
+        (laptop.package.browserThinClient?.entrypoints || []).join(", ")
+      );
+      setText(
+        "#laptop-package-validation",
+        (laptop.package.validation?.requiredChecks || []).join(", ")
+      );
     }
   }
 
   async function prepareWorkloadBroker(event) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
-    const result = await fetchJson(`/operator-api/workload-session-broker/${encodeURIComponent(data.templateKey)}`);
+    const result = await fetchJson(
+      `/operator-api/workload-session-broker/${encodeURIComponent(data.templateKey)}`
+    );
     if (result.error) {
       setText("#workload-broker-status", result.error);
       return;
     }
     const broker = result.broker;
-    setText("#workload-broker-status", `${broker.appName}: ${broker.state} | ${broker.authMode} | blockers: ${(broker.blockers || []).join(", ") || "none"} | ${broker.url}`);
+    setText(
+      "#workload-broker-status",
+      `${broker.appName}: ${broker.state} | ${broker.authMode} | blockers: ${(broker.blockers || []).join(", ") || "none"} | ${broker.url}`
+    );
   }
 
   function workloadControlKey(templateKey) {
@@ -572,7 +636,10 @@
     const rotateApp = workloadControlKey(templateKey);
     const confirmation = String(data.confirmation || "").trim();
     if (confirmation !== "RUN_LIVE_WORKLOAD_RECREATE") {
-      setText("#workload-recreate-status", "Type RUN_LIVE_WORKLOAD_RECREATE to delete and recreate the selected environment.");
+      setText(
+        "#workload-recreate-status",
+        "Type RUN_LIVE_WORKLOAD_RECREATE to delete and recreate the selected environment."
+      );
       return;
     }
     setText("#workload-recreate-status", `Queueing ${rotateApp} recreate request...`);
@@ -581,7 +648,8 @@
       setText("#workload-recreate-status", control.error);
       return;
     }
-    const currentCounts = control.control?.latestDesiredCounts || control.control?.currentCounts || {};
+    const currentCounts =
+      control.control?.latestDesiredCounts || control.control?.currentCounts || {};
     const appKeys = [
       "whatsapp",
       "signal",
@@ -596,8 +664,13 @@
       "libreoffice",
       "exodus"
     ];
-    const desiredCounts = Object.fromEntries(appKeys.map((key) => [key, Number(currentCounts[key] || 0)]));
-    if (desiredCounts[rotateApp] === 0 && Object.prototype.hasOwnProperty.call(desiredCounts, rotateApp)) {
+    const desiredCounts = Object.fromEntries(
+      appKeys.map((key) => [key, Number(currentCounts[key] || 0)])
+    );
+    if (
+      desiredCounts[rotateApp] === 0 &&
+      Object.prototype.hasOwnProperty.call(desiredCounts, rotateApp)
+    ) {
       desiredCounts[rotateApp] = 1;
     }
     const queued = await fetchJson("/operator-api/workload-control/requests", {
@@ -612,24 +685,33 @@
       setText("#workload-recreate-status", queued.error);
       return;
     }
-    setText("#workload-recreate-status", `Recreating ${rotateApp}; this can take a few minutes on AX102...`);
-    const executed = await fetchJson(`/operator-api/workload-control/requests/${encodeURIComponent(queued.request.id)}/execute`, {
-      method: "POST",
-      body: {
-        confirmation,
-        wipeVolume: false,
-        fourEyesApprovalRef: null
+    setText(
+      "#workload-recreate-status",
+      `Recreating ${rotateApp}; this can take a few minutes on AX102...`
+    );
+    const executed = await fetchJson(
+      `/operator-api/workload-control/requests/${encodeURIComponent(queued.request.id)}/execute`,
+      {
+        method: "POST",
+        body: {
+          confirmation,
+          wipeVolume: false,
+          fourEyesApprovalRef: null
+        }
       }
-    });
+    );
     if (executed.error) {
       setText("#workload-recreate-status", executed.error);
       return;
     }
     renderLiveRunnerJob(executed.job);
     const ok = executed.job?.state === "completed_live_workload_recreate";
-    setText("#workload-recreate-status", ok
-      ? `${rotateApp} recreated on AX102 and G2 stream forwards refreshed. Open it from Apps.`
-      : `${rotateApp} recreate finished with state: ${executed.job?.state || "unknown"}`);
+    setText(
+      "#workload-recreate-status",
+      ok
+        ? `${rotateApp} recreated on AX102 and G2 stream forwards refreshed. Open it from Apps.`
+        : `${rotateApp} recreate finished with state: ${executed.job?.state || "unknown"}`
+    );
     form.elements.confirmation.value = "";
     await loadWorkloadControl();
     await loadLiveWorkloadStatus();
@@ -655,14 +737,20 @@
     if (summary) {
       summary.textContent = `Live AX102/G2 evidence ${status.cached ? "cached" : "fresh"}: transport ${s.transportReady ?? 0}/${s.totalApps ?? 0}, workload UI ${s.workloadUiReady ?? 0}/${s.totalApps ?? 0}, functional ${s.functionalReady ?? 0}/${s.totalApps ?? 0}.`;
     }
-    launcher.innerHTML = (status.apps || []).map((app) => {
-      const tone = app.functionalState === "ui_ready"
-        ? "status-ok"
-        : app.workload?.state === "ready" && app.transport?.state !== "blocked"
-          ? "status-warn"
-          : "status-error";
-      const launchUrl = workloadStreamWrapperUrl(app.key, app.launchUrl || `https://${app.host}/`);
-      return `
+    launcher.innerHTML =
+      (status.apps || [])
+        .map((app) => {
+          const tone =
+            app.functionalState === "ui_ready"
+              ? "status-ok"
+              : app.workload?.state === "ready" && app.transport?.state !== "blocked"
+                ? "status-warn"
+                : "status-error";
+          const launchUrl = workloadStreamWrapperUrl(
+            app.key,
+            app.launchUrl || `https://${app.host}/`
+          );
+          return `
         <a class="quick-tile workload-tile ${tone}" href="${escapeHtml(launchUrl)}" rel="noopener">
           <strong>${escapeHtml(app.name)}</strong>
           <span>${escapeHtml(statusLabel(app))}</span>
@@ -670,14 +758,18 @@
           <span class="tile-meta">action: ${escapeHtml(app.operatorAction || "review")}</span>
         </a>
       `;
-    }).join("") || `<div class="placeholder">No live workload evidence available.</div>`;
+        })
+        .join("") || `<div class="placeholder">No live workload evidence available.</div>`;
   }
 
   function statusLabel(app) {
     if (app.functionalState === "ui_ready") return "ready from real AX102/G2 evidence";
-    if (app.functionalState === "ui_ready_account_test_required") return "UI ready, account/send-receive test required";
-    if (app.functionalState === "ui_ready_pixel_fit_review_required") return "UI ready, Pixel fit/risk review required";
-    if (app.functionalState === "blocked_android_native_provenance") return "blocked: Android-native image/APK provenance";
+    if (app.functionalState === "ui_ready_account_test_required")
+      return "UI ready, account/send-receive test required";
+    if (app.functionalState === "ui_ready_pixel_fit_review_required")
+      return "UI ready, Pixel fit/risk review required";
+    if (app.functionalState === "blocked_android_native_provenance")
+      return "blocked: Android-native image/APK provenance";
     return `blocked: ${(app.blockers || []).slice(0, 2).join(", ") || "evidence missing"}`;
   }
 
@@ -699,7 +791,9 @@
       const url = new URL("/operator/stream.html", window.location.origin);
       url.searchParams.set("app", normalized);
       const blindDefaultApps = new Set(["protonmail"]);
-      const broker = String(preferredBroker || (blindDefaultApps.has(normalized) ? "blind_e2ee" : "")).toLowerCase();
+      const broker = String(
+        preferredBroker || (blindDefaultApps.has(normalized) ? "blind_e2ee" : "")
+      ).toLowerCase();
       if (broker) url.searchParams.set("broker", broker);
       const token = currentOperatorLaunchToken();
       if (token) {
@@ -724,7 +818,9 @@
   }
 
   function normalizeWorkloadAppKey(appKey) {
-    const clean = String(appKey || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    const clean = String(appKey || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "");
     if (clean === "duckduckgo" || clean === "browser") return "duckduckgo_browser";
     return clean;
   }
@@ -743,9 +839,13 @@
         reachableHosts: splitCsv(data.reachableHosts)
       }
     });
-    setText("#vpn-evidence-status", result.error || (result.evidence.ready
-      ? `Live VPN evidence accepted: ${result.evidence.observedAt}`
-      : `Evidence incomplete: ${(result.evidence.blockers || []).join(", ")}`));
+    setText(
+      "#vpn-evidence-status",
+      result.error ||
+        (result.evidence.ready
+          ? `Live VPN evidence accepted: ${result.evidence.observedAt}`
+          : `Evidence incomplete: ${(result.evidence.blockers || []).join(", ")}`)
+    );
     await loadVpn();
     await loadAudit();
   }
@@ -758,29 +858,48 @@
     }
     const path = data.path;
     setText("#path-state", path.state);
-    setText("#path-terminal", path.nodes?.find((node) => node.role === "TERMINAL")?.label || path.terminalMode);
-    setText("#path-router", `${path.router?.model || "Puli AX"} - ${path.router?.packageStatus || "pending"}`);
+    setText(
+      "#path-terminal",
+      path.nodes?.find((node) => node.role === "TERMINAL")?.label || path.terminalMode
+    );
+    setText(
+      "#path-router",
+      `${path.router?.model || "Puli AX"} - ${path.router?.packageStatus || "pending"}`
+    );
     setText("#path-router-posture", path.router?.postureStatus || "not_validated");
-    setText("#path-router-smoke", path.router?.readyForPhysicalSmoke ? "ready_for_physical_smoke" : "blocked");
+    setText(
+      "#path-router-smoke",
+      path.router?.readyForPhysicalSmoke ? "ready_for_physical_smoke" : "blocked"
+    );
     setText("#path-transport", path.baseline?.transport || "ipsec_ikev2");
     setText("#path-blockers", (path.blockers || []).join(", ") || "-");
     const segments = $("#path-segments");
     if (segments) {
-      segments.innerHTML = (path.segments || []).map((segment) => `
+      segments.innerHTML =
+        (path.segments || [])
+          .map(
+            (segment) => `
         <li>
           <strong>${escapeHtml(segment.id)}: ${escapeHtml(segment.from)} -> ${escapeHtml(segment.to)}</strong>
           <span>${escapeHtml(segment.protocol)} | ${escapeHtml(segment.state)} | ${escapeHtml(segment.killSwitch)}</span>
         </li>
-      `).join("") || `<li class="placeholder">No VPN segments yet.</li>`;
+      `
+          )
+          .join("") || `<li class="placeholder">No VPN segments yet.</li>`;
     }
     const microvms = $("#path-microvms");
     if (microvms) {
-      microvms.innerHTML = (path.microVmSlots || []).map((slot) => `
+      microvms.innerHTML =
+        (path.microVmSlots || [])
+          .map(
+            (slot) => `
         <li>
           <strong>${escapeHtml(slot.appName)}</strong>
           <span>${escapeHtml(slot.isolation)} | ${escapeHtml(slot.status)} | CDR ${escapeHtml(slot.cdrRequired)}</span>
         </li>
-      `).join("") || `<li class="placeholder">No communicator microVM slots yet.</li>`;
+      `
+          )
+          .join("") || `<li class="placeholder">No communicator microVM slots yet.</li>`;
     }
   }
 
@@ -799,28 +918,43 @@
     setText("#traffic-alert-count", String(summary.alerts ?? "-"));
     const segments = $("#traffic-segments");
     if (segments) {
-      segments.innerHTML = (monitoring.segments || []).map((segment) => `
+      segments.innerHTML =
+        (monitoring.segments || [])
+          .map(
+            (segment) => `
         <li>
           <strong>${escapeHtml(segment.from)} -> ${escapeHtml(segment.to)}: ${escapeHtml(segment.status)}</strong>
           <span>${escapeHtml(segment.observedTransport || segment.expectedTransport)} | encrypted ${escapeHtml(segment.encrypted)} | latency ${escapeHtml(segment.latencyMs ?? "-")} ms</span>
           <span>blockers: ${escapeHtml((segment.blockers || []).join(", ") || "-")}</span>
         </li>
-      `).join("") || `<li class="placeholder">No traffic segments available.</li>`;
+      `
+          )
+          .join("") || `<li class="placeholder">No traffic segments available.</li>`;
     }
     const alerts = $("#traffic-alerts");
     if (alerts) {
-      alerts.innerHTML = (monitoring.alerts || []).map((alert) => `
+      alerts.innerHTML =
+        (monitoring.alerts || [])
+          .map(
+            (alert) => `
         <li>
           <strong>${escapeHtml(alert.severity)}: ${escapeHtml(alert.code)}</strong>
           <span>${escapeHtml(alert.message)}</span>
         </li>
-      `).join("") || `<li class="placeholder">No active traffic alerts.</li>`;
+      `
+          )
+          .join("") || `<li class="placeholder">No active traffic alerts.</li>`;
     }
     const guardrails = $("#traffic-guardrails");
     if (guardrails) {
-      guardrails.innerHTML = Object.entries(monitoring.guardrails || {}).map(([key, value]) => `
+      guardrails.innerHTML =
+        Object.entries(monitoring.guardrails || {})
+          .map(
+            ([key, value]) => `
         <li><strong>${escapeHtml(key)}</strong><span>${escapeHtml(value)}</span></li>
-      `).join("") || `<li class="placeholder">No guardrails reported.</li>`;
+      `
+          )
+          .join("") || `<li class="placeholder">No guardrails reported.</li>`;
     }
   }
 
@@ -841,7 +975,11 @@
         evidenceRefs: splitCsv(data.evidenceRefs)
       }
     });
-    setText("#traffic-evidence-status", result.error || `Traffic metadata recorded: ${result.evidence.segmentId} ${result.evidence.status}`);
+    setText(
+      "#traffic-evidence-status",
+      result.error ||
+        `Traffic metadata recorded: ${result.evidence.segmentId} ${result.evidence.status}`
+    );
     await loadTrafficMonitoring();
     await loadAudit();
   }
@@ -855,30 +993,50 @@
     const foundation = data.foundation;
     setText("#live-access-state", foundation.state);
     setText("#live-access-phase", foundation.phase);
-    setText("#live-access-vpn", `${foundation.vpn.state} | evidence ${foundation.vpn.evidenceReady}`);
-    setText("#live-access-ca", foundation.ca.trustedOnPixel ? "trusted_on_pixel" : "not_trusted_on_pixel");
+    setText(
+      "#live-access-vpn",
+      `${foundation.vpn.state} | evidence ${foundation.vpn.evidenceReady}`
+    );
+    setText(
+      "#live-access-ca",
+      foundation.ca.trustedOnPixel ? "trusted_on_pixel" : "not_trusted_on_pixel"
+    );
     setText("#live-access-blockers", (foundation.blockers || []).join(", ") || "-");
     const checks = $("#live-access-checks");
     if (checks) {
-      checks.innerHTML = (foundation.checks || []).map((check) => `
+      checks.innerHTML =
+        (foundation.checks || [])
+          .map(
+            (check) => `
         <li>
           <strong>${escapeHtml(check.key)}: ${escapeHtml(check.status)}</strong>
           <span>${escapeHtml(check.detail)}</span>
         </li>
-      `).join("") || `<li class="placeholder">No live access checks.</li>`;
+      `
+          )
+          .join("") || `<li class="placeholder">No live access checks.</li>`;
     }
     const apps = $("#live-access-apps");
     if (apps) {
-      apps.innerHTML = (foundation.appGateways || []).map((app) => `
+      apps.innerHTML =
+        (foundation.appGateways || [])
+          .map(
+            (app) => `
         <li>
           <strong>${escapeHtml(app.templateKey)}: ${escapeHtml(app.brokerState)}</strong>
           <span>${escapeHtml(app.host)} | ${escapeHtml(app.runtimeClass)} | CDR ${escapeHtml(app.cdrRequired)}</span>
         </li>
-      `).join("") || `<li class="placeholder">No app gateways.</li>`;
+      `
+          )
+          .join("") || `<li class="placeholder">No app gateways.</li>`;
     }
     const next = $("#live-access-next");
     if (next) {
-      next.innerHTML = (foundation.nextActions || []).map((action) => `<li><strong>${escapeHtml(action)}</strong></li>`).join("") || `<li><strong>Live access foundation is ready for the workload broker.</strong></li>`;
+      next.innerHTML =
+        (foundation.nextActions || [])
+          .map((action) => `<li><strong>${escapeHtml(action)}</strong></li>`)
+          .join("") ||
+        `<li><strong>Live access foundation is ready for the workload broker.</strong></li>`;
     }
   }
 
@@ -886,7 +1044,9 @@
     const width = Math.round(window.visualViewport?.width || window.innerWidth || 390);
     const height = Math.round(window.visualViewport?.height || window.innerHeight || 844);
     const dpr = Number(window.devicePixelRatio || 1).toFixed(2);
-    const data = await fetchJson(`/operator-api/streaming-profile?width=${width}&height=${height}&dpr=${dpr}`);
+    const data = await fetchJson(
+      `/operator-api/streaming-profile?width=${width}&height=${height}&dpr=${dpr}`
+    );
     if (data.error) {
       setText("#stream-status", data.error);
       return;
@@ -939,20 +1099,32 @@
         : broker.labOnly
           ? "lab only"
           : "not approved";
-    setText("#stream-session-broker", `${broker.protocol || session.gateway.protocol} | ${brokerLabel} | ${broker.brokerVisibility || "visibility unknown"}`);
-    setText("#stream-session-phantom", broker.phantomReadiness
-      ? `${broker.phantomReadiness.state} | ${(broker.phantomReadiness.blockers || []).join(", ") || "ready"}`
-      : "-");
+    setText(
+      "#stream-session-broker",
+      `${broker.protocol || session.gateway.protocol} | ${brokerLabel} | ${broker.brokerVisibility || "visibility unknown"}`
+    );
+    setText(
+      "#stream-session-phantom",
+      broker.phantomReadiness
+        ? `${broker.phantomReadiness.state} | ${(broker.phantomReadiness.blockers || []).join(", ") || "ready"}`
+        : "-"
+    );
     setText("#stream-session-url", session.launchUrl || "blocked_until_gate_passes");
     setText("#stream-session-blockers", (session.blockers || []).join(", ") || "-");
     setText("#stream-session-app", session.appName || data.templateKey);
-    setText("#stream-session-message", session.state === "stream_session_ready"
-      ? "Live workload stream is ready through G2. Open it in the secured stream wrapper."
-      : `Stream blocked: ${(session.blockers || []).join(", ") || "gate not satisfied"}`);
+    setText(
+      "#stream-session-message",
+      session.state === "stream_session_ready"
+        ? "Live workload stream is ready through G2. Open it in the secured stream wrapper."
+        : `Stream blocked: ${(session.blockers || []).join(", ") || "gate not satisfied"}`
+    );
     const openLink = $("#stream-open-link");
     if (openLink) {
       if (session.state === "stream_session_ready") {
-        openLink.href = workloadStreamWrapperUrl(session.templateKey || data.templateKey, session.launchUrl || "");
+        openLink.href = workloadStreamWrapperUrl(
+          session.templateKey || data.templateKey,
+          session.launchUrl || ""
+        );
         openLink.dataset.ready = "true";
         openLink.hidden = false;
       } else {
@@ -984,9 +1156,13 @@
         sources
       }
     });
-    setText("#stream-readiness-status", result.error || (result.evidence.ready
-      ? `Stream readiness accepted: ${result.evidence.observedAt}`
-      : `Readiness incomplete: ${(result.evidence.blockers || []).join(", ")}`));
+    setText(
+      "#stream-readiness-status",
+      result.error ||
+        (result.evidence.ready
+          ? `Stream readiness accepted: ${result.evidence.observedAt}`
+          : `Readiness incomplete: ${(result.evidence.blockers || []).join(", ")}`)
+    );
     await loadAudit();
   }
 
@@ -1030,16 +1206,22 @@
         sources: parseRuntimeSources(data.sources)
       }
     });
-    setText("#stream-runtime-status", result.error || (result.manifest.ready
-      ? `Runtime manifest accepted: ${result.manifest.id}`
-      : `Runtime manifest blocked: ${(result.manifest.blockers || []).join(", ")}`));
+    setText(
+      "#stream-runtime-status",
+      result.error ||
+        (result.manifest.ready
+          ? `Runtime manifest accepted: ${result.manifest.id}`
+          : `Runtime manifest blocked: ${(result.manifest.blockers || []).join(", ")}`)
+    );
     await loadAudit();
   }
 
   async function loadSignalPreview() {
     const [pathData, streamData, executionData] = await Promise.all([
       fetchJson("/operator-api/connection-path"),
-      fetchJson(`/operator-api/streaming-profile?width=${Math.round(window.visualViewport?.width || window.innerWidth || 390)}&height=${Math.round(window.visualViewport?.height || window.innerHeight || 844)}&dpr=${Number(window.devicePixelRatio || 1).toFixed(2)}`),
+      fetchJson(
+        `/operator-api/streaming-profile?width=${Math.round(window.visualViewport?.width || window.innerWidth || 390)}&height=${Math.round(window.visualViewport?.height || window.innerHeight || 844)}&dpr=${Number(window.devicePixelRatio || 1).toFixed(2)}`
+      ),
       fetchJson("/operator-api/workload-execution/signal")
     ]);
     if (pathData.error) {
@@ -1047,8 +1229,9 @@
       return;
     }
     const path = pathData.path;
-    const signalSlot = (path.microVmSlots || []).find((slot) => slot.templateKey === "signal")
-      || (path.microVmSlots || []).find((slot) => /signal/i.test(slot.appName || ""));
+    const signalSlot =
+      (path.microVmSlots || []).find((slot) => slot.templateKey === "signal") ||
+      (path.microVmSlots || []).find((slot) => /signal/i.test(slot.appName || ""));
     const routeLabels = [
       path.nodes?.find((node) => node.role === "TERMINAL")?.label || "Pixel",
       "G1",
@@ -1061,45 +1244,88 @@
       route.innerHTML = routeLabels.map((label) => `<span>${escapeHtml(label)}</span>`).join("");
     }
     const execution = executionData.execution || {};
-    setText("#signal-slot-state", signalSlot ? `${signalSlot.status} | ${execution.readinessState || signalSlot.targetVpsRole}` : "signal slot not found");
-    setText("#signal-preview-state", signalSlot
-      ? "Production Signal workload contract loaded. Launch stays blocked until every gate is green."
-      : "Signal slot missing from workload plan.");
-    setText("#signal-route-state", `${path.state} | ${path.segments?.map((segment) => segment.id).join(" -> ") || "-"}`);
+    setText(
+      "#signal-slot-state",
+      signalSlot
+        ? `${signalSlot.status} | ${execution.readinessState || signalSlot.targetVpsRole}`
+        : "signal slot not found"
+    );
+    setText(
+      "#signal-preview-state",
+      signalSlot
+        ? "Production Signal workload contract loaded. Launch stays blocked until every gate is green."
+        : "Signal slot missing from workload plan."
+    );
+    setText(
+      "#signal-route-state",
+      `${path.state} | ${path.segments?.map((segment) => segment.id).join(" -> ") || "-"}`
+    );
     setText("#signal-isolation", execution.runtime?.isolation || signalSlot?.isolation || "-");
     setText("#signal-egress", execution.runtime?.egressPolicy || signalSlot?.egressPolicy || "-");
     setText("#signal-production", String(Boolean(execution.productionExecutionAllowed)));
-    setText("#signal-vpn-substrate", execution.runtime?.substrate?.vpn?.ready ? "established" : "not established");
-    setText("#signal-kvm-substrate", execution.runtime?.substrate?.firecrackerKvm?.ready ? "ready" : "blocked");
-    setText("#signal-cdr-substrate", execution.runtime?.substrate?.cdr?.ready ? "real control-plane" : "blocked");
-    setText("#signal-hsm-fido-substrate", execution.runtime?.substrate?.hsmFido2?.deferred ? "deferred/configurable" : "required");
+    setText(
+      "#signal-vpn-substrate",
+      execution.runtime?.substrate?.vpn?.ready ? "established" : "not established"
+    );
+    setText(
+      "#signal-kvm-substrate",
+      execution.runtime?.substrate?.firecrackerKvm?.ready ? "ready" : "blocked"
+    );
+    setText(
+      "#signal-cdr-substrate",
+      execution.runtime?.substrate?.cdr?.ready ? "real control-plane" : "blocked"
+    );
+    setText(
+      "#signal-hsm-fido-substrate",
+      execution.runtime?.substrate?.hsmFido2?.deferred ? "deferred/configurable" : "required"
+    );
     if (!streamData.error) {
-      setText("#signal-stream-resolution", `${streamData.profile.stream.targetWidth} x ${streamData.profile.stream.targetHeight}`);
+      setText(
+        "#signal-stream-resolution",
+        `${streamData.profile.stream.targetWidth} x ${streamData.profile.stream.targetHeight}`
+      );
     }
     const gateList = $("#signal-gate-list");
     if (gateList) {
       const blockers = execution.blockers || [];
       const warnings = execution.warnings || [];
-      gateList.innerHTML = [
-        ...blockers.map((blocker) => `<li><strong>${escapeHtml(blocker)}</strong><span>Required before real Signal Firecracker launch.</span></li>`),
-        ...warnings.map((warning) => `<li><strong>${escapeHtml(warning)}</strong><span>Tracked warning for this sprint.</span></li>`)
-      ].join("") || `<li><strong>ready_for_firecracker_runner</strong><span>All gates passed.</span></li>`;
+      gateList.innerHTML =
+        [
+          ...blockers.map(
+            (blocker) =>
+              `<li><strong>${escapeHtml(blocker)}</strong><span>Required before real Signal Firecracker launch.</span></li>`
+          ),
+          ...warnings.map(
+            (warning) =>
+              `<li><strong>${escapeHtml(warning)}</strong><span>Tracked warning for this sprint.</span></li>`
+          )
+        ].join("") ||
+        `<li><strong>ready_for_firecracker_runner</strong><span>All gates passed.</span></li>`;
     }
     const startButton = $("#signal-start-button");
     if (startButton) {
       startButton.disabled = !execution.launchAllowed;
       startButton.textContent = execution.launchAllowed ? "Start Signal" : "Start blocked";
       startButton.onclick = async () => {
-        const response = await fetchJson("/operator-api/workload-execution/signal/start", { method: "POST" });
-        setText("#signal-preview-state", response.request?.state === "queued_for_firecracker_runner"
-          ? "Signal workload queued for Firecracker runner."
-          : `Launch blocked: ${(response.request?.blockers || []).slice(0, 2).join(", ")}`);
+        const response = await fetchJson("/operator-api/workload-execution/signal/start", {
+          method: "POST"
+        });
+        setText(
+          "#signal-preview-state",
+          response.request?.state === "queued_for_firecracker_runner"
+            ? "Signal workload queued for Firecracker runner."
+            : `Launch blocked: ${(response.request?.blockers || []).slice(0, 2).join(", ")}`
+        );
       };
     }
   }
 
-  async function loadRuntimeGate(templateKey = $("#runtime-gate-form")?.elements.templateKey?.value || "zangi") {
-    const data = await fetchJson(`/operator-api/workload-execution/${encodeURIComponent(templateKey)}`);
+  async function loadRuntimeGate(
+    templateKey = $("#runtime-gate-form")?.elements.templateKey?.value || "zangi"
+  ) {
+    const data = await fetchJson(
+      `/operator-api/workload-execution/${encodeURIComponent(templateKey)}`
+    );
     if (data.error) {
       setText("#runtime-gate-state", data.error);
       return;
@@ -1110,15 +1336,25 @@
     setText("#runtime-gate-kind", execution.runtime?.kind || "-");
     setText("#runtime-gate-runner", execution.runtime?.runner || "-");
     setText("#runtime-gate-state", execution.readinessState || "-");
-    setText("#runtime-gate-android-fit", androidRuntime.required ? androidRuntime.currentProviderFit : "not required");
+    setText(
+      "#runtime-gate-android-fit",
+      androidRuntime.required ? androidRuntime.currentProviderFit : "not required"
+    );
     const list = $("#runtime-gate-list");
     if (list) {
       const blockers = execution.blockers || [];
       const checks = androidRuntime.checks || [];
-      list.innerHTML = [
-        ...checks.map((check) => `<li><strong>${escapeHtml(check.key)}: ${escapeHtml(check.status)}</strong><span>${escapeHtml(check.detail)}</span></li>`),
-        ...blockers.map((blocker) => `<li><strong>${escapeHtml(blocker)}</strong><span>Blocks production launch for this workload.</span></li>`)
-      ].join("") || `<li><strong>ready</strong><span>No runtime blockers detected.</span></li>`;
+      list.innerHTML =
+        [
+          ...checks.map(
+            (check) =>
+              `<li><strong>${escapeHtml(check.key)}: ${escapeHtml(check.status)}</strong><span>${escapeHtml(check.detail)}</span></li>`
+          ),
+          ...blockers.map(
+            (blocker) =>
+              `<li><strong>${escapeHtml(blocker)}</strong><span>Blocks production launch for this workload.</span></li>`
+          )
+        ].join("") || `<li><strong>ready</strong><span>No runtime blockers detected.</span></li>`;
     }
   }
 
@@ -1137,7 +1373,10 @@
     const bootstrap = data.bootstrap || {};
     const catalog = $("#account-bootstrap-catalog");
     if (catalog) {
-      catalog.innerHTML = (bootstrap.catalog || []).map((app) => `
+      catalog.innerHTML =
+        (bootstrap.catalog || [])
+          .map(
+            (app) => `
         <article class="app-tile">
           <div>
             <strong>${escapeHtml(app.name)}</strong>
@@ -1149,19 +1388,26 @@
             <span class="badge badge-warn">QA review</span>
           </div>
         </article>
-      `).join("") || `<div class="placeholder">No bootstrap-capable apps.</div>`;
+      `
+          )
+          .join("") || `<div class="placeholder">No bootstrap-capable apps.</div>`;
     }
     const list = $("#account-bootstrap-list");
     const latest = (bootstrap.latestSessions || [])[0] || null;
     renderAccountBootstrapHandoff(latest?.humanHandoff || null, latest);
     if (list) {
-      list.innerHTML = (bootstrap.latestSessions || []).map((session) => `
+      list.innerHTML =
+        (bootstrap.latestSessions || [])
+          .map(
+            (session) => `
         <li>
           <strong>${escapeHtml(session.appName)} - ${escapeHtml(session.state)}</strong>
           <span>${escapeHtml(session.id)} | ${escapeHtml(session.mode)} | ${escapeHtml(session.runtimeMode)} | factual candidate ${escapeHtml(session.factualCandidate)}</span>
           <span>blockers: ${escapeHtml((session.blockers || []).join(", ") || "-")}</span>
         </li>
-      `).join("") || `<li class="placeholder">No bootstrap sessions yet.</li>`;
+      `
+          )
+          .join("") || `<li class="placeholder">No bootstrap sessions yet.</li>`;
     }
   }
 
@@ -1172,10 +1418,19 @@
       panel.innerHTML = `<p class="placeholder">Create or select a bootstrap session to see the safe handoff steps.</p>`;
       return;
     }
-    const steps = (handoff.orderedSteps || []).map((step, index) => `<li><strong>${index + 1}.</strong> ${escapeHtml(step)}</li>`).join("");
-    const never = (handoff.neverCollect || []).map((item) => `<span class="badge badge-danger">${escapeHtml(item)}</span>`).join("");
-    const allowed = (handoff.allowedRecord || []).map((item) => `<span class="badge">${escapeHtml(item)}</span>`).join("");
-    const launchUrl = workloadStreamWrapperUrl(handoff.appKey || session?.appKey || session?.templateKey, handoff.currentLaunchUrl || session?.launchUrl || "");
+    const steps = (handoff.orderedSteps || [])
+      .map((step, index) => `<li><strong>${index + 1}.</strong> ${escapeHtml(step)}</li>`)
+      .join("");
+    const never = (handoff.neverCollect || [])
+      .map((item) => `<span class="badge badge-danger">${escapeHtml(item)}</span>`)
+      .join("");
+    const allowed = (handoff.allowedRecord || [])
+      .map((item) => `<span class="badge">${escapeHtml(item)}</span>`)
+      .join("");
+    const launchUrl = workloadStreamWrapperUrl(
+      handoff.appKey || session?.appKey || session?.templateKey,
+      handoff.currentLaunchUrl || session?.launchUrl || ""
+    );
     panel.innerHTML = `
       <div class="handoff-summary">
         <strong>${escapeHtml(session?.appName || handoff.appKey)} - ${escapeHtml(handoff.state)}</strong>
@@ -1224,23 +1479,29 @@
       return;
     }
     const pass = (checked) => ({ status: checked === "on" ? "passed" : "not_run" });
-    const result = await fetchJson(`/operator-api/account-bootstrap/sessions/${encodeURIComponent(sessionId)}/evidence`, {
-      method: "POST",
-      body: {
-        result: data.result,
-        checks: {
-          uiVisible: pass(data.uiVisible),
-          accountBootstrap: pass(data.accountBootstrap),
-          sendReceive: pass(data.sendReceive),
-          walletWorkflow: pass(data.walletWorkflow),
-          riskAcceptance: pass(data.riskAcceptance)
-        },
-        evidenceArtifactIds: splitCsv(data.evidenceArtifactIds),
-        latencyMs: data.latencyMs ? Number(data.latencyMs) : null,
-        note: data.note || null
+    const result = await fetchJson(
+      `/operator-api/account-bootstrap/sessions/${encodeURIComponent(sessionId)}/evidence`,
+      {
+        method: "POST",
+        body: {
+          result: data.result,
+          checks: {
+            uiVisible: pass(data.uiVisible),
+            accountBootstrap: pass(data.accountBootstrap),
+            sendReceive: pass(data.sendReceive),
+            walletWorkflow: pass(data.walletWorkflow),
+            riskAcceptance: pass(data.riskAcceptance)
+          },
+          evidenceArtifactIds: splitCsv(data.evidenceArtifactIds),
+          latencyMs: data.latencyMs ? Number(data.latencyMs) : null,
+          note: data.note || null
+        }
       }
-    });
-    setText("#account-bootstrap-status", result.error || `Evidence recorded: ${result.session.state}`);
+    );
+    setText(
+      "#account-bootstrap-status",
+      result.error || `Evidence recorded: ${result.session.state}`
+    );
     if (!result.error) await loadAccountBootstrap();
     await loadAudit();
   }
@@ -1253,16 +1514,23 @@
       list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
       return;
     }
-    list.innerHTML = (data.events || [])
-      .map((e) => `<li>${escapeHtml(e.timestamp)} - ${escapeHtml(e.action)} - ${escapeHtml(e.result)}</li>`)
-      .join("") || `<li class="placeholder">No scoped audit events yet.</li>`;
+    list.innerHTML =
+      (data.events || [])
+        .map(
+          (e) =>
+            `<li>${escapeHtml(e.timestamp)} - ${escapeHtml(e.action)} - ${escapeHtml(e.result)}</li>`
+        )
+        .join("") || `<li class="placeholder">No scoped audit events yet.</li>`;
   }
 
   async function loadSubscription() {
     const data = await fetchJson("/operator-api/subscription");
     if (data.error) return;
     setText("#subscription-plan", data.subscription.plan || "-");
-    setText("#subscription-quota", `max environments: ${data.subscription.quota?.maxWorkloadEnvironments ?? "-"}`);
+    setText(
+      "#subscription-quota",
+      `max environments: ${data.subscription.quota?.maxWorkloadEnvironments ?? "-"}`
+    );
   }
 
   async function requestSubscriptionChange(event) {
@@ -1275,7 +1543,11 @@
         targetTier: data.targetTier
       }
     });
-    setText("#subscription-request-status", result.error || `${result.request.action} -> ${result.request.state} (${result.request.currentTier} to ${result.request.targetTier})`);
+    setText(
+      "#subscription-request-status",
+      result.error ||
+        `${result.request.action} -> ${result.request.state} (${result.request.currentTier} to ${result.request.targetTier})`
+    );
     setText("#session-status", result.error || "Subscription request queued");
   }
 
@@ -1287,9 +1559,12 @@
       list.innerHTML = `<li class="placeholder">${escapeHtml(data.error)}</li>`;
       return;
     }
-    list.innerHTML = (data.workloads || [])
-      .map((w) => `<li>${escapeHtml(w.name)} - ${escapeHtml(w.state)} x${escapeHtml(w.count)}</li>`)
-      .join("") || `<li class="placeholder">No workload allocations yet.</li>`;
+    list.innerHTML =
+      (data.workloads || [])
+        .map(
+          (w) => `<li>${escapeHtml(w.name)} - ${escapeHtml(w.state)} x${escapeHtml(w.count)}</li>`
+        )
+        .join("") || `<li class="placeholder">No workload allocations yet.</li>`;
   }
 
   async function loadWorkloadControl() {
@@ -1299,9 +1574,17 @@
       return;
     }
     const c = data.control;
-    setText("#workload-control-quota", `${c.quota.tier}: ${c.quota.maxWorkloadEnvironments} environments, ${c.quota.maxAppsPerOperator} app families`);
+    setText(
+      "#workload-control-quota",
+      `${c.quota.tier}: ${c.quota.maxWorkloadEnvironments} environments, ${c.quota.maxAppsPerOperator} app families`
+    );
     setText("#workload-control-current", countsToText(c.currentCounts));
-    setText("#workload-control-last", c.latestRequest ? `${c.latestRequest.action} -> ${c.latestRequest.state} (${c.latestRequest.totalRequested}/${c.quota.maxWorkloadEnvironments})` : "none");
+    setText(
+      "#workload-control-last",
+      c.latestRequest
+        ? `${c.latestRequest.action} -> ${c.latestRequest.state} (${c.latestRequest.totalRequested}/${c.quota.maxWorkloadEnvironments})`
+        : "none"
+    );
     const runnerForm = $("#workload-live-runner-form");
     if (runnerForm && c.latestRequest?.executionPlan?.liveRunner) {
       runnerForm.elements.requestId.value = c.latestRequest.id;
@@ -1364,17 +1647,23 @@
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
     const requestId = String(data.requestId || "").trim();
     if (!requestId) {
-      setText("#workload-live-runner-result", "Select or enter a destructive workload request ID first.");
+      setText(
+        "#workload-live-runner-result",
+        "Select or enter a destructive workload request ID first."
+      );
       return;
     }
-    const result = await fetchJson(`/operator-api/workload-control/requests/${encodeURIComponent(requestId)}/execute`, {
-      method: "POST",
-      body: {
-        confirmation: data.confirmation,
-        wipeVolume: data.wipeVolume === "on",
-        fourEyesApprovalRef: data.fourEyesApprovalRef || null
+    const result = await fetchJson(
+      `/operator-api/workload-control/requests/${encodeURIComponent(requestId)}/execute`,
+      {
+        method: "POST",
+        body: {
+          confirmation: data.confirmation,
+          wipeVolume: data.wipeVolume === "on",
+          fourEyesApprovalRef: data.fourEyesApprovalRef || null
+        }
       }
-    });
+    );
     if (result.error) {
       setText("#workload-live-runner-result", result.error);
       return;
@@ -1389,14 +1678,20 @@
     const catalog = $("#workload-app-catalog");
     if (!catalog) return;
     const counts = control.latestDesiredCounts || control.currentCounts || {};
-    catalog.innerHTML = (control.catalog || []).map((app) => {
-      const count = Number(counts[app.key] || 0);
-      const risk = app.requiresOperatorRiskAcceptance ? `<span class="badge badge-warn">operator risk</span>` : "";
-      const native = app.nativeRuntimeRequired ? `<span class="badge badge-warn">native ${escapeHtml(app.nativeRuntimeClass)}</span>` : "";
-      const runtime = app.runtimeGate?.required
-        ? `<span class="badge ${app.runtimeGate.ready ? "" : "badge-warn"}">${escapeHtml(app.runtimeGate.currentProviderFit)}</span>`
-        : "";
-      return `
+    catalog.innerHTML =
+      (control.catalog || [])
+        .map((app) => {
+          const count = Number(counts[app.key] || 0);
+          const risk = app.requiresOperatorRiskAcceptance
+            ? `<span class="badge badge-warn">operator risk</span>`
+            : "";
+          const native = app.nativeRuntimeRequired
+            ? `<span class="badge badge-warn">native ${escapeHtml(app.nativeRuntimeClass)}</span>`
+            : "";
+          const runtime = app.runtimeGate?.required
+            ? `<span class="badge ${app.runtimeGate.ready ? "" : "badge-warn"}">${escapeHtml(app.runtimeGate.currentProviderFit)}</span>`
+            : "";
+          return `
         <article class="app-tile">
           <div>
             <strong>${escapeHtml(app.name)}</strong>
@@ -1411,7 +1706,8 @@
           </div>
         </article>
       `;
-    }).join("") || `<div class="placeholder">No authorized workload apps.</div>`;
+        })
+        .join("") || `<div class="placeholder">No authorized workload apps.</div>`;
   }
 
   function renderWorkloadPreview(counts, latestRequest) {
@@ -1439,7 +1735,11 @@
       return;
     }
     preview.classList.remove("placeholder");
-    const smoke = job.result?.smoke ? Object.entries(job.result.smoke).map(([key, value]) => `${key}:${value}`).join(", ") : "-";
+    const smoke = job.result?.smoke
+      ? Object.entries(job.result.smoke)
+          .map(([key, value]) => `${key}:${value}`)
+          .join(", ")
+      : "-";
     const blockers = (job.blockers || []).join(", ") || "-";
     preview.innerHTML = `
       <strong>${escapeHtml(job.state)}</strong>
@@ -1455,7 +1755,10 @@
   }
 
   function splitCsv(value) {
-    return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+    return String(value || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
   }
 
   function countsToText(counts = {}) {
@@ -1476,7 +1779,10 @@
     }
     const hours = Math.floor(ms / 3600000);
     const minutes = Math.floor((ms % 3600000) / 60000);
-    setText("#session-countdown", `Session expires in ${hours}h ${minutes}m. After that, layer passwords and FIDO2 re-auth are required.`);
+    setText(
+      "#session-countdown",
+      `Session expires in ${hours}h ${minutes}m. After that, layer passwords and FIDO2 re-auth are required.`
+    );
   }
 
   function escapeHtml(value) {
@@ -1526,7 +1832,10 @@
     $("#workload-live-runner-form").addEventListener("submit", executeLiveWorkloadRunner);
     $("#runtime-gate-form").addEventListener("submit", handleRuntimeGate);
     $("#account-bootstrap-form").addEventListener("submit", requestAccountBootstrap);
-    $("#account-bootstrap-evidence-form").addEventListener("submit", recordAccountBootstrapEvidence);
+    $("#account-bootstrap-evidence-form").addEventListener(
+      "submit",
+      recordAccountBootstrapEvidence
+    );
     $("#vpn-evidence-form").addEventListener("submit", recordVpnEvidence);
     $("#traffic-evidence-form").addEventListener("submit", recordTrafficEvidence);
     $("#stream-session-form").addEventListener("submit", requestStreamSession);
@@ -1544,7 +1853,10 @@
     await bootstrapOperatorToken();
     if (state.session) {
       const source = state.cookieBound ? "cookie-bound" : "active";
-      setText("#session-status", `Session ${source} for ${state.session.operatorId} (${state.session.terminalMode})`);
+      setText(
+        "#session-status",
+        `Session ${source} for ${state.session.operatorId} (${state.session.terminalMode})`
+      );
     }
     const initialView = parseHashState().viewId;
     setActiveView(initialView);

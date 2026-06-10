@@ -8,8 +8,19 @@ const TIER_VALUES = new Set(Object.values(TIERS));
 const BILLING_STATES = new Set(["trial", "active", "past_due", "suspended", "cancelled"]);
 const ALLOCATION_STATUSES = new Set(["planned", "active", "suspended"]);
 const ADDONS = new Set(["matrix_custom_server", "phantom_admin_lifecycle"]);
-const PAYMENT_PROVIDER_MODES = new Set(["sandbox", "manual_paid_reference", "card_gateway_live", "crypto_gateway_live"]);
-const PAYMENT_STATUSES = new Set(["paid_sandbox", "paid_external_reference", "paid_live", "failed", "refunded"]);
+const PAYMENT_PROVIDER_MODES = new Set([
+  "sandbox",
+  "manual_paid_reference",
+  "card_gateway_live",
+  "crypto_gateway_live"
+]);
+const PAYMENT_STATUSES = new Set([
+  "paid_sandbox",
+  "paid_external_reference",
+  "paid_live",
+  "failed",
+  "refunded"
+]);
 
 const DEFAULT_PLANS = Object.freeze([
   {
@@ -216,7 +227,9 @@ function cleanAddons(addons = []) {
 }
 
 function tokenHash(token) {
-  return createHash("sha256").update(String(token || ""), "utf8").digest("hex");
+  return createHash("sha256")
+    .update(String(token || ""), "utf8")
+    .digest("hex");
 }
 
 function tokenPreview(token) {
@@ -282,19 +295,44 @@ export class SubscriptionService {
     this.quotaDecisions = new PersistentMap({ store, collection: "workload_quota_decisions" });
     this.placementPlans = new PersistentMap({ store, collection: "microvm_placement_plans" });
     this.paymentTokens = new PersistentMap({ store, collection: "subscription_payment_tokens" });
-    this.paymentTokenRedemptions = new PersistentMap({ store, collection: "subscription_payment_token_redemptions" });
+    this.paymentTokenRedemptions = new PersistentMap({
+      store,
+      collection: "subscription_payment_token_redemptions"
+    });
     this.#seedPlans();
   }
 
   listPlans({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "subscription.read", { correlationId: corr, resourceType: RESOURCE_TYPES.SUBSCRIPTION_PLAN });
+    this.rbac.assert(actor, "subscription.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.SUBSCRIPTION_PLAN
+    });
     return [...this.plans.values()].map(publicPlan);
   }
 
-  createPlan({ actor, tier, name, maxWorkloadEnvironments, maxAppsPerOperator, regionCount, jurisdictionRotationMode, jurisdictionPolicy = {}, providerPolicy = {}, sessionPolicy = {}, matrixAddonAvailable = true, phantomAdminLifecycleAvailable = false, cdrMandatory = true, supportLevel = "custom", correlationId }) {
+  createPlan({
+    actor,
+    tier,
+    name,
+    maxWorkloadEnvironments,
+    maxAppsPerOperator,
+    regionCount,
+    jurisdictionRotationMode,
+    jurisdictionPolicy = {},
+    providerPolicy = {},
+    sessionPolicy = {},
+    matrixAddonAvailable = true,
+    phantomAdminLifecycleAvailable = false,
+    cdrMandatory = true,
+    supportLevel = "custom",
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "subscription.manage", { correlationId: corr, resourceType: RESOURCE_TYPES.SUBSCRIPTION_PLAN });
+    this.rbac.assert(actor, "subscription.manage", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.SUBSCRIPTION_PLAN
+    });
     if (!TIER_VALUES.has(tier)) {
       throw validationError("Unknown subscription tier", { tier });
     }
@@ -306,28 +344,63 @@ export class SubscriptionService {
       tier,
       name: requireText(name, "name"),
       custom: true,
-      maxWorkloadEnvironments: requirePositiveInteger(maxWorkloadEnvironments, "maxWorkloadEnvironments"),
+      maxWorkloadEnvironments: requirePositiveInteger(
+        maxWorkloadEnvironments,
+        "maxWorkloadEnvironments"
+      ),
       maxAppsPerOperator: requirePositiveInteger(maxAppsPerOperator, "maxAppsPerOperator"),
-      regionCount: regionCount === "custom" ? "custom" : requirePositiveInteger(regionCount, "regionCount"),
+      regionCount:
+        regionCount === "custom" ? "custom" : requirePositiveInteger(regionCount, "regionCount"),
       jurisdictionRotationMode: requireText(jurisdictionRotationMode, "jurisdictionRotationMode"),
       jurisdictionPolicy: {
-        allowedModes: Array.isArray(jurisdictionPolicy.allowedModes) && jurisdictionPolicy.allowedModes.length ? jurisdictionPolicy.allowedModes : ["disabled", "manual"],
-        minFrequencyHours: requirePositiveInteger(jurisdictionPolicy.minFrequencyHours || 24, "jurisdictionPolicy.minFrequencyHours"),
-        maxCountries: jurisdictionPolicy.maxCountries === "custom" ? "custom" : requirePositiveInteger(jurisdictionPolicy.maxCountries || regionCount || 1, "jurisdictionPolicy.maxCountries"),
+        allowedModes:
+          Array.isArray(jurisdictionPolicy.allowedModes) && jurisdictionPolicy.allowedModes.length
+            ? jurisdictionPolicy.allowedModes
+            : ["disabled", "manual"],
+        minFrequencyHours: requirePositiveInteger(
+          jurisdictionPolicy.minFrequencyHours || 24,
+          "jurisdictionPolicy.minFrequencyHours"
+        ),
+        maxCountries:
+          jurisdictionPolicy.maxCountries === "custom"
+            ? "custom"
+            : requirePositiveInteger(
+                jurisdictionPolicy.maxCountries || regionCount || 1,
+                "jurisdictionPolicy.maxCountries"
+              ),
         providerRotationAllowed: jurisdictionPolicy.providerRotationAllowed === true,
         allVpsRotationAllowed: jurisdictionPolicy.allVpsRotationAllowed === true
       },
       providerPolicy: {
-        allowedRuntimeClasses: Array.isArray(providerPolicy.allowedRuntimeClasses) && providerPolicy.allowedRuntimeClasses.length ? providerPolicy.allowedRuntimeClasses : ["containers"],
+        allowedRuntimeClasses:
+          Array.isArray(providerPolicy.allowedRuntimeClasses) &&
+          providerPolicy.allowedRuntimeClasses.length
+            ? providerPolicy.allowedRuntimeClasses
+            : ["containers"],
         confidentialComputeRequired: providerPolicy.confidentialComputeRequired === true,
         firecrackerRequired: providerPolicy.firecrackerRequired === true,
-        allowedProviderCount: providerPolicy.allowedProviderCount === "custom" ? "custom" : requirePositiveInteger(providerPolicy.allowedProviderCount || 1, "providerPolicy.allowedProviderCount"),
-        workloadTenancy: providerPolicy.workloadTenancy || ([TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier) ? "dedicated_operator_only" : "shared_dedicated_pool_allowed"),
-        dedicatedWorkloadPerOperatorRequired: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier) || providerPolicy.dedicatedWorkloadPerOperatorRequired === true,
+        allowedProviderCount:
+          providerPolicy.allowedProviderCount === "custom"
+            ? "custom"
+            : requirePositiveInteger(
+                providerPolicy.allowedProviderCount || 1,
+                "providerPolicy.allowedProviderCount"
+              ),
+        workloadTenancy:
+          providerPolicy.workloadTenancy ||
+          ([TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier)
+            ? "dedicated_operator_only"
+            : "shared_dedicated_pool_allowed"),
+        dedicatedWorkloadPerOperatorRequired:
+          [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier) ||
+          providerPolicy.dedicatedWorkloadPerOperatorRequired === true,
         phantomWorkloadDedicatedRequired: providerPolicy.phantomWorkloadDedicatedRequired !== false
       },
       sessionPolicy: {
-        defaultHours: requirePositiveInteger(sessionPolicy.defaultHours || 12, "sessionPolicy.defaultHours"),
+        defaultHours: requirePositiveInteger(
+          sessionPolicy.defaultHours || 12,
+          "sessionPolicy.defaultHours"
+        ),
         maxHours: requirePositiveInteger(sessionPolicy.maxHours || 12, "sessionPolicy.maxHours"),
         fido2RequiredAtSessionEnd: sessionPolicy.fido2RequiredAtSessionEnd !== false
       },
@@ -385,17 +458,34 @@ export class SubscriptionService {
 
   getTenantSubscription({ actor, tenantId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "subscription.read", { tenantId, correlationId: corr, resourceType: RESOURCE_TYPES.TENANT_SUBSCRIPTION });
+    this.rbac.assert(actor, "subscription.read", {
+      tenantId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.TENANT_SUBSCRIPTION
+    });
     const tenant = this.#requireTenant(tenantId);
     return this.ensureForTenant({ actor, tenant, correlationId: corr });
   }
 
-  updateTenantSubscription({ actor, tenantId, planId = null, tier = null, addons = null, correlationId }) {
+  updateTenantSubscription({
+    actor,
+    tenantId,
+    planId = null,
+    tier = null,
+    addons = null,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "subscription.manage", { tenantId, correlationId: corr, resourceType: RESOURCE_TYPES.TENANT_SUBSCRIPTION });
+    this.rbac.assert(actor, "subscription.manage", {
+      tenantId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.TENANT_SUBSCRIPTION
+    });
     const tenant = this.#requireTenant(tenantId);
     const previous = this.ensureForTenant({ actor, tenant, correlationId: corr });
-    const plan = planId ? this.#requirePlan(planId) : this.#defaultPlanForTier(tier || previous.tier);
+    const plan = planId
+      ? this.#requirePlan(planId)
+      : this.#defaultPlanForTier(tier || previous.tier);
     const next = {
       ...previous,
       tier: tier || plan.tier,
@@ -435,7 +525,11 @@ export class SubscriptionService {
 
   updateBillingState({ actor, tenantId, billingStatus, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "subscription.manage", { tenantId, correlationId: corr, resourceType: RESOURCE_TYPES.TENANT_SUBSCRIPTION });
+    this.rbac.assert(actor, "subscription.manage", {
+      tenantId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.TENANT_SUBSCRIPTION
+    });
     if (!BILLING_STATES.has(billingStatus)) {
       throw validationError("Unknown billing state", { billingStatus });
     }
@@ -444,7 +538,12 @@ export class SubscriptionService {
     const next = {
       ...previous,
       billingStatus,
-      suspensionState: billingStatus === "suspended" ? "allocation_blocked" : billingStatus === "cancelled" ? "human_gate_required" : "none",
+      suspensionState:
+        billingStatus === "suspended"
+          ? "allocation_blocked"
+          : billingStatus === "cancelled"
+            ? "human_gate_required"
+            : "none",
       destructiveCleanupAllowed: false,
       changedAt: isoNow(),
       changedBy: actor.id
@@ -465,8 +564,18 @@ export class SubscriptionService {
 
   quoteAllocation({ actor, operatorId, appId, requestedCount, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "workload.allocation.manage", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.WORKLOAD_QUOTA_DECISION });
-    const decision = this.#evaluateAllocation({ actor, operatorId, appId, requestedCount, correlationId: corr });
+    this.rbac.assert(actor, "workload.allocation.manage", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_QUOTA_DECISION
+    });
+    const decision = this.#evaluateAllocation({
+      actor,
+      operatorId,
+      appId,
+      requestedCount,
+      correlationId: corr
+    });
     this.quotaDecisions.set(decision.id, decision);
     this.audit.record({
       actorId: actor.id,
@@ -483,13 +592,30 @@ export class SubscriptionService {
     return this.#publicQuotaDecision(decision);
   }
 
-  createAllocation({ actor, operatorId, appId, requestedCount, status = "planned", correlationId }) {
+  createAllocation({
+    actor,
+    operatorId,
+    appId,
+    requestedCount,
+    status = "planned",
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "workload.allocation.manage", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION });
+    this.rbac.assert(actor, "workload.allocation.manage", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION
+    });
     if (!ALLOCATION_STATUSES.has(status)) {
       throw validationError("Unknown workload allocation status", { status });
     }
-    const decision = this.#evaluateAllocation({ actor, operatorId, appId, requestedCount, correlationId: corr });
+    const decision = this.#evaluateAllocation({
+      actor,
+      operatorId,
+      appId,
+      requestedCount,
+      correlationId: corr
+    });
     if (decision.decision !== "allow") {
       this.quotaDecisions.set(decision.id, decision);
       this.audit.record({
@@ -504,7 +630,10 @@ export class SubscriptionService {
         result: "denied",
         newValue: this.#publicQuotaDecision(decision)
       });
-      throw validationError("Workload allocation denied by quota policy", this.#publicQuotaDecision(decision));
+      throw validationError(
+        "Workload allocation denied by quota policy",
+        this.#publicQuotaDecision(decision)
+      );
     }
     const app = this.#requireApprovedApp(appId);
     const allocation = {
@@ -539,7 +668,11 @@ export class SubscriptionService {
 
   listAllocations({ actor, operatorId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "workload.allocation.read", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION });
+    this.rbac.assert(actor, "workload.allocation.read", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_ALLOCATION
+    });
     return [...this.allocations.values()]
       .filter((allocation) => allocation.operatorId === operatorId)
       .map((allocation) => this.#publicAllocation(allocation));
@@ -553,10 +686,16 @@ export class SubscriptionService {
 
   planPlacement({ actor, operatorId, allocationId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "workload.placement.plan", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.MICROVM_PLACEMENT_PLAN });
+    this.rbac.assert(actor, "workload.placement.plan", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.MICROVM_PLACEMENT_PLAN
+    });
     const operator = this.#requireOperator(operatorId);
     if (operator.baseline?.vpsPerOperator !== 3 || operator.baseline?.cdrMandatory !== true) {
-      throw validationError("Operator baseline is not eligible for workload placement", { operatorId });
+      throw validationError("Operator baseline is not eligible for workload placement", {
+        operatorId
+      });
     }
     const allocation = this.allocations.get(allocationId);
     if (!allocation || allocation.operatorId !== operatorId) {
@@ -604,7 +743,10 @@ export class SubscriptionService {
 
   listQuotaDecisions({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "subscription.read", { correlationId: corr, resourceType: RESOURCE_TYPES.WORKLOAD_QUOTA_DECISION });
+    this.rbac.assert(actor, "subscription.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_QUOTA_DECISION
+    });
     return [...this.quotaDecisions.values()].map((decision) => this.#publicQuotaDecision(decision));
   }
 
@@ -642,10 +784,16 @@ export class SubscriptionService {
     const mode = requireEnum(providerMode, PAYMENT_PROVIDER_MODES, "providerMode");
     const status = requireEnum(paymentStatus, PAYMENT_STATUSES, "paymentStatus");
     if (mode === "sandbox" && status !== "paid_sandbox") {
-      throw validationError("Sandbox payment tokens must use paid_sandbox status", { providerMode: mode, paymentStatus: status });
+      throw validationError("Sandbox payment tokens must use paid_sandbox status", {
+        providerMode: mode,
+        paymentStatus: status
+      });
     }
     if (["card_gateway_live", "crypto_gateway_live"].includes(mode) && status !== "paid_live") {
-      throw validationError("Live payment gateway tokens require paid_live status", { providerMode: mode, paymentStatus: status });
+      throw validationError("Live payment gateway tokens require paid_live status", {
+        providerMode: mode,
+        paymentStatus: status
+      });
     }
     const rawToken = `sylion_sub_${randomBytes(24).toString("base64url")}`;
     const now = isoNow();
@@ -711,12 +859,21 @@ export class SubscriptionService {
     });
     const hash = tokenHash(redemptionToken);
     const token = [...this.paymentTokens.values()].find((item) => item.tokenHash === hash);
-    if (!token) throw validationError("Subscription payment token was not found", { tokenMaterialLogged: false });
+    if (!token)
+      throw validationError("Subscription payment token was not found", {
+        tokenMaterialLogged: false
+      });
     if (token.state !== "issued") {
-      throw validationError("Subscription payment token is not redeemable", { tokenId: token.id, state: token.state });
+      throw validationError("Subscription payment token is not redeemable", {
+        tokenId: token.id,
+        state: token.state
+      });
     }
     if (token.expiresAt && Date.parse(token.expiresAt) <= Date.now()) {
-      throw validationError("Subscription payment token expired", { tokenId: token.id, expiresAt: token.expiresAt });
+      throw validationError("Subscription payment token expired", {
+        tokenId: token.id,
+        expiresAt: token.expiresAt
+      });
     }
     const redemption = {
       id: newId("sub_redemption"),
@@ -782,29 +939,34 @@ export class SubscriptionService {
   paymentTokenEvidenceSummary({ operatorIds = [] } = {}) {
     const operatorSet = new Set(operatorIds.filter(Boolean));
     const tokens = [...this.paymentTokens.values()];
-    const redemptions = [...this.paymentTokenRedemptions.values()]
-      .filter((record) => operatorSet.size === 0 || operatorSet.has(record.operatorId));
-    const liveIssuedTokenObserved = tokens.some((record) => (
-      ["card_gateway_live", "crypto_gateway_live"].includes(record.providerMode)
-      && record.paymentStatus === "paid_live"
-      && record.minimumMonths >= 6
-    ));
-    const sandboxIssuedTokenObserved = tokens.some((record) => (
-      record.providerMode === "sandbox"
-      && record.paymentStatus === "paid_sandbox"
-      && record.minimumMonths >= 6
-    ));
+    const redemptions = [...this.paymentTokenRedemptions.values()].filter(
+      (record) => operatorSet.size === 0 || operatorSet.has(record.operatorId)
+    );
+    const liveIssuedTokenObserved = tokens.some(
+      (record) =>
+        ["card_gateway_live", "crypto_gateway_live"].includes(record.providerMode) &&
+        record.paymentStatus === "paid_live" &&
+        record.minimumMonths >= 6
+    );
+    const sandboxIssuedTokenObserved = tokens.some(
+      (record) =>
+        record.providerMode === "sandbox" &&
+        record.paymentStatus === "paid_sandbox" &&
+        record.minimumMonths >= 6
+    );
     const redeemedTokenObserved = redemptions.some((record) => record.state === "redeemed");
-    const operatorPackageGeneratedObserved = redemptions.some((record) => (
-      record.operatorPackageGenerated === true
-      && record.graphenePackageGenerated === true
-      && record.workloadProvisioningRequested === true
-    ));
+    const operatorPackageGeneratedObserved = redemptions.some(
+      (record) =>
+        record.operatorPackageGenerated === true &&
+        record.graphenePackageGenerated === true &&
+        record.workloadProvisioningRequested === true
+    );
     const minimumTermObserved = tokens.some((record) => record.minimumMonths >= 6);
-    const ready = liveIssuedTokenObserved
-      && redeemedTokenObserved
-      && operatorPackageGeneratedObserved
-      && minimumTermObserved;
+    const ready =
+      liveIssuedTokenObserved &&
+      redeemedTokenObserved &&
+      operatorPackageGeneratedObserved &&
+      minimumTermObserved;
     return {
       tokens: tokens.length,
       redemptions: redemptions.length,
@@ -814,25 +976,33 @@ export class SubscriptionService {
       operatorPackageGeneratedObserved,
       minimumTermObserved,
       ready,
-      blockers: ready ? [] : [
-        ...(liveIssuedTokenObserved ? [] : ["live_payment_gateway_token_missing"]),
-        ...(redeemedTokenObserved ? [] : ["token_redemption_missing"]),
-        ...(operatorPackageGeneratedObserved ? [] : ["operator_package_handoff_missing"]),
-        ...(minimumTermObserved ? [] : ["minimum_6_month_term_missing"])
-      ],
+      blockers: ready
+        ? []
+        : [
+            ...(liveIssuedTokenObserved ? [] : ["live_payment_gateway_token_missing"]),
+            ...(redeemedTokenObserved ? [] : ["token_redemption_missing"]),
+            ...(operatorPackageGeneratedObserved ? [] : ["operator_package_handoff_missing"]),
+            ...(minimumTermObserved ? [] : ["minimum_6_month_term_missing"])
+          ],
       productionExecutionAllowed: false
     };
   }
 
   canUseAddon({ tenantId, addon }) {
     const tenant = this.#requireTenant(tenantId);
-    const subscription = this.ensureForTenant({ tenant, correlationId: `corr_subscription_addon_${tenantId}` });
+    const subscription = this.ensureForTenant({
+      tenant,
+      correlationId: `corr_subscription_addon_${tenantId}`
+    });
     return subscription.addons.includes(addon);
   }
 
   assertProvisioningAllowed({ tenantId }) {
     const tenant = this.#requireTenant(tenantId);
-    const subscription = this.ensureForTenant({ tenant, correlationId: `corr_subscription_provision_${tenantId}` });
+    const subscription = this.ensureForTenant({
+      tenant,
+      correlationId: `corr_subscription_provision_${tenantId}`
+    });
     if (subscription.billingStatus === "suspended" || subscription.billingStatus === "cancelled") {
       throw validationError("Tenant billing state blocks new provisioning", {
         tenantId,
@@ -844,7 +1014,11 @@ export class SubscriptionService {
 
   #evaluateAllocation({ actor, operatorId, appId, requestedCount, correlationId }) {
     const operator = this.#requireOperator(operatorId);
-    const subscription = this.getTenantSubscription({ actor, tenantId: operator.tenantId, correlationId });
+    const subscription = this.getTenantSubscription({
+      actor,
+      tenantId: operator.tenantId,
+      correlationId
+    });
     const app = this.appCatalog.get(appId);
     const count = requirePositiveInteger(requestedCount, "requestedCount");
     const blockers = [];
@@ -857,7 +1031,9 @@ export class SubscriptionService {
     if (subscription.billingStatus === "suspended" || subscription.billingStatus === "cancelled") {
       blockers.push("billing_state_blocks_new_allocation");
     }
-    const currentAllocations = [...this.allocations.values()].filter((allocation) => allocation.operatorId === operatorId);
+    const currentAllocations = [...this.allocations.values()].filter(
+      (allocation) => allocation.operatorId === operatorId
+    );
     const currentTotal = currentAllocations.reduce((sum, allocation) => sum + allocation.count, 0);
     const currentForApp = currentAllocations
       .filter((allocation) => allocation.appId === appId)
@@ -895,7 +1071,13 @@ export class SubscriptionService {
   #seedPlans() {
     for (const plan of DEFAULT_PLANS) {
       if (!this.plans.get(plan.id)) {
-        this.plans.set(plan.id, { ...plan, custom: false, status: "active", createdAt: null, createdBy: "system" });
+        this.plans.set(plan.id, {
+          ...plan,
+          custom: false,
+          status: "active",
+          createdAt: null,
+          createdBy: "system"
+        });
       }
     }
   }

@@ -4,9 +4,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 const DEFAULT_ROUTER_IP = "192.168.8.1";
-const DEFAULT_SSH_KEY = process.platform === "win32"
-  ? ".deploy\\sylion_puli_ax_ed25519"
-  : ".deploy/sylion_puli_ax_ed25519";
+const DEFAULT_SSH_KEY =
+  process.platform === "win32"
+    ? ".deploy\\sylion_puli_ax_ed25519"
+    : ".deploy/sylion_puli_ax_ed25519";
 const DEFAULT_OUT = "docs/admin-panel-v2/test-artifacts/puli-ax-hardening-deps/latest.json";
 
 function argValue(name, fallback = null) {
@@ -25,35 +26,44 @@ function isoNow() {
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve) => {
-    execFile(command, args, {
-      windowsHide: true,
-      timeout: options.timeout || 120_000,
-      maxBuffer: options.maxBuffer || 2 * 1024 * 1024
-    }, (error, stdout, stderr) => {
-      resolve({
-        ok: !error,
-        code: error?.code || 0,
-        stdout: String(stdout || "").trim(),
-        stderr: String(stderr || "").trim(),
-        message: error?.message || null
-      });
-    });
+    execFile(
+      command,
+      args,
+      {
+        windowsHide: true,
+        timeout: options.timeout || 120_000,
+        maxBuffer: options.maxBuffer || 2 * 1024 * 1024
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          ok: !error,
+          code: error?.code || 0,
+          stdout: String(stdout || "").trim(),
+          stderr: String(stderr || "").trim(),
+          message: error?.message || null
+        });
+      }
+    );
   });
 }
 
 async function ssh({ routerIp, user, keyPath, script, timeout = 120_000 }) {
-  return execFileAsync("ssh", [
-    "-i",
-    keyPath,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "PasswordAuthentication=no",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    `${user}@${routerIp}`,
-    script
-  ], { timeout });
+  return execFileAsync(
+    "ssh",
+    [
+      "-i",
+      keyPath,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "PasswordAuthentication=no",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      `${user}@${routerIp}`,
+      script
+    ],
+    { timeout }
+  );
 }
 
 function parseKeyValueLines(output) {
@@ -124,8 +134,12 @@ echo secrets_printed=false
     ...(result.ok ? [] : ["ssh_key_auth_failed"]),
     ...(bool(kv.opkg_present) ? [] : ["opkg_required"]),
     ...(bool(kv.nft_after) || bool(kv.package_nftables) ? [] : ["nftables_not_installed"]),
-    ...(bool(kv.ipsec_after) || bool(kv.swanctl_after) || bool(kv.package_strongswan) ? [] : ["strongswan_not_installed"]),
-    ...(kv.password_auth === "off" && kv.root_password_auth === "off" ? [] : ["ssh_password_auth_still_enabled"])
+    ...(bool(kv.ipsec_after) || bool(kv.swanctl_after) || bool(kv.package_strongswan)
+      ? []
+      : ["strongswan_not_installed"]),
+    ...(kv.password_auth === "off" && kv.root_password_auth === "off"
+      ? []
+      : ["ssh_password_auth_still_enabled"])
   ];
   const summary = {
     component: "puli_ax_hardening_deps",
@@ -133,9 +147,7 @@ echo secrets_printed=false
     startedAt,
     completedAt: isoNow(),
     mode: apply ? "apply" : "dry_run",
-    status: result.ok
-      ? blockers.length ? "deps_checked_with_blockers" : "deps_ready"
-      : "blocked",
+    status: result.ok ? (blockers.length ? "deps_checked_with_blockers" : "deps_ready") : "blocked",
     facts: {
       sshKeyAuth: result.ok,
       opkgPresent: bool(kv.opkg_present),
@@ -165,15 +177,17 @@ echo secrets_printed=false
       ipsecStarted: false
     },
     blockers,
-    nextActions: blockers.length ? [
-      "Inspect /tmp/sylion-hardening/opkg-update.log and opkg-install.log on the router through key-only SSH.",
-      "Install missing package set or accept GL OS stock limitations as a lab-only gate.",
-      "Do not load kill switch until IPsec profile and recovery path are validated."
-    ] : [
-      "Stage SYLION IPsec and kill-switch files without loading them.",
-      "Run dry-run T01-T10 readiness checks.",
-      "Only then load kill switch with an active router-to-G1 IPsec profile."
-    ]
+    nextActions: blockers.length
+      ? [
+          "Inspect /tmp/sylion-hardening/opkg-update.log and opkg-install.log on the router through key-only SSH.",
+          "Install missing package set or accept GL OS stock limitations as a lab-only gate.",
+          "Do not load kill switch until IPsec profile and recovery path are validated."
+        ]
+      : [
+          "Stage SYLION IPsec and kill-switch files without loading them.",
+          "Run dry-run T01-T10 readiness checks.",
+          "Only then load kill switch with an active router-to-G1 IPsec profile."
+        ]
   };
   if (outPath && !hasArg("no-write")) {
     const absolute = resolve(outPath);

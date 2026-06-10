@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_phantom_step3_6" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_phantom_step3_6" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -56,16 +60,20 @@ test("Step 3.6 PHANTOM lifecycle builds package, evidence, approval pack, and re
     });
     assert.equal(capability.status, 201);
 
-    const capabilityReady = await request(baseUrl, `/phantom/capabilities/${capability.payload.capability.id}/status`, {
-      method: "POST",
-      token,
-      body: {
-        implementationStatus: "approved_placeholder",
-        legalReviewStatus: "approved_placeholder",
-        cisoReviewStatus: "approved_placeholder",
-        architectReviewStatus: "approved_placeholder"
+    const capabilityReady = await request(
+      baseUrl,
+      `/phantom/capabilities/${capability.payload.capability.id}/status`,
+      {
+        method: "POST",
+        token,
+        body: {
+          implementationStatus: "approved_placeholder",
+          legalReviewStatus: "approved_placeholder",
+          cisoReviewStatus: "approved_placeholder",
+          architectReviewStatus: "approved_placeholder"
+        }
       }
-    });
+    );
     assert.equal(capabilityReady.status, 200);
     assert.equal(capabilityReady.payload.capability.executionEnabled, false);
 
@@ -90,7 +98,11 @@ test("Step 3.6 PHANTOM lifecycle builds package, evidence, approval pack, and re
         packageId: packageResult.payload.package.id,
         summary: "Evidence references for administrative readiness review",
         evidenceRefs: ["legal-memo-ref", "ciso-risk-note-ref", "architect-boundary-note-ref"],
-        controlsSatisfied: ["Separate track claim review", "Human gate ownership", "No baseline execution"]
+        controlsSatisfied: [
+          "Separate track claim review",
+          "Human gate ownership",
+          "No baseline execution"
+        ]
       }
     });
     assert.equal(evidence.status, 201);
@@ -122,7 +134,12 @@ test("Step 3.6 PHANTOM lifecycle builds package, evidence, approval pack, and re
       }
     });
     assert.equal(pack.status, 201);
-    assert.deepEqual(pack.payload.pack.requiredOwners, ["Architect", "CISO", "Legal", "Compliance"]);
+    assert.deepEqual(pack.payload.pack.requiredOwners, [
+      "Architect",
+      "CISO",
+      "Legal",
+      "Compliance"
+    ]);
 
     const tenant = await request(baseUrl, "/tenants", {
       method: "POST",
@@ -193,7 +210,11 @@ test("Step 3.6 PHANTOM simulation and assignment planning are simulation-only an
     const operator = await request(baseUrl, "/operators", {
       method: "POST",
       token,
-      body: { tenantId: tenant.payload.tenant.id, displayName: "Tier Gate Operator", tier: "STANDARD" }
+      body: {
+        tenantId: tenant.payload.tenant.id,
+        displayName: "Tier Gate Operator",
+        tier: "STANDARD"
+      }
     });
 
     const simulation = await request(baseUrl, "/phantom/simulations", {
@@ -233,7 +254,9 @@ test("Step 3.6 PHANTOM simulation and assignment planning are simulation-only an
       }
     });
     assert.equal(evaluation.status, 201);
-    assert.ok(evaluation.payload.evaluation.blockers.includes("operator_tier_below_package_minimum"));
+    assert.ok(
+      evaluation.payload.evaluation.blockers.includes("operator_tier_below_package_minimum")
+    );
     assert.equal(evaluation.payload.evaluation.executionAllowed, false);
   } finally {
     await close();
@@ -261,7 +284,10 @@ test("Step 3.6 PHANTOM lifecycle rejects prohibited details and denies readonly 
       }
     });
     assert.equal(rejected.status, 422);
-    assert.equal(JSON.stringify(app.services.audit.list()).toLowerCase().includes(prohibited), false);
+    assert.equal(
+      JSON.stringify(app.services.audit.list()).toLowerCase().includes(prohibited),
+      false
+    );
 
     const correlation = await request(baseUrl, "/phantom/audit-correlation", { token: adminToken });
     assert.equal(correlation.status, 200);

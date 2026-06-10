@@ -12,7 +12,10 @@
         <div class="hero-copy">
           <p class="eyebrow">B2B annual access</p>
           <h1>SYLION Secure</h1>
-          <p class="lede">Buy a paid token, generate the one-time operator activation material, then create a scoped operator profile with Pixel, Puli AX and workload bootstrap packages.</p>
+          <p class="lede">
+            Buy a paid token, generate the one-time operator activation material, then create a
+            scoped operator profile with Pixel, Puli AX and workload bootstrap packages.
+          </p>
           <div class="actions">
             <a href="#pricing" class="primary">Buy token</a>
             <a href="#activate" class="secondary">Activate operator</a>
@@ -50,28 +53,45 @@
         <div class="section-head">
           <p class="eyebrow">Księga 4.0 operating model</p>
           <h2>Public sale, private activation, isolated runtime</h2>
-          <p class="section-copy">The portal sells scoped access tokens. It does not become the operator workspace and it does not store terminal data. After a paid token is claimed, the activation flow creates an operator profile, download packages and a provisioning request for G1, G2 and workload capacity.</p>
+          <p class="section-copy">
+            The portal sells scoped access tokens. It does not become the operator workspace and it
+            does not store terminal data. After a paid token is claimed, the activation flow creates
+            an operator profile, download packages and a provisioning request for G1, G2 and
+            workload capacity.
+          </p>
         </div>
         <div class="model-grid">
           <article class="info-card">
             <span class="step-mark">01</span>
             <h3>Public portal</h3>
-            <p>Shows tiers, payment rails, legal notices and token types. The public edge exposes only portal assets and allowlisted portal APIs.</p>
+            <p>
+              Shows tiers, payment rails, legal notices and token types. The public edge exposes
+              only portal assets and allowlisted portal APIs.
+            </p>
           </article>
           <article class="info-card">
             <span class="step-mark">02</span>
             <h3>Paid token</h3>
-            <p>Stripe, CoinGate or Mollie confirms payment. The raw token is returned once and only a hash is retained.</p>
+            <p>
+              Stripe, CoinGate or Mollie confirms payment. The raw token is returned once and only a
+              hash is retained.
+            </p>
           </article>
           <article class="info-card">
             <span class="step-mark">03</span>
             <h3>Operator bootstrap</h3>
-            <p>The token creates a scoped operator profile plus Pixel, Puli AX and laptop packages. FIDO2/HSM pairing remains a later operator-controlled step.</p>
+            <p>
+              The token creates a scoped operator profile plus Pixel, Puli AX and laptop packages.
+              FIDO2/HSM pairing remains a later operator-controlled step.
+            </p>
           </article>
           <article class="info-card">
             <span class="step-mark">04</span>
             <h3>Runtime path</h3>
-            <p>Operator sessions are designed for Pixel or laptop terminal access through Puli AX, G1, G2 and workload isolation, with CDR metadata monitoring.</p>
+            <p>
+              Operator sessions are designed for Pixel or laptop terminal access through Puli AX,
+              G1, G2 and workload isolation, with CDR metadata monitoring.
+            </p>
           </article>
         </div>
       </section>
@@ -80,20 +100,35 @@
         <div class="section-head">
           <p class="eyebrow">Purchase routes</p>
           <h2>Crypto, company invoice and reseller delivery</h2>
-          <p class="section-copy">SYLION does not create a classic customer account. The durable customer-side recovery object is the vault identity and token material controlled by the buyer. Payment providers and local law can still require compliance checks.</p>
+          <p class="section-copy">
+            SYLION does not create a classic customer account. The durable customer-side recovery
+            object is the vault identity and token material controlled by the buyer. Payment
+            providers and local law can still require compliance checks.
+          </p>
         </div>
         <div class="route-grid">
           <article class="route-card">
             <h3>Crypto vault token</h3>
-            <p>CoinGate is the primary crypto rail. The buyer uses a vault public id and receives token material after paid reconciliation. The portal must not store wallet seed phrases, private keys or operator secrets.</p>
+            <p>
+              CoinGate is the primary crypto rail. The buyer uses a vault public id and receives
+              token material after paid reconciliation. The portal must not store wallet seed
+              phrases, private keys or operator secrets.
+            </p>
           </article>
           <article class="route-card">
             <h3>Company invoice</h3>
-            <p>Stripe is the primary fiat rail for cards, SEPA and business payments. Company data is used for checkout and billing context; provisioning remains token-scoped.</p>
+            <p>
+              Stripe is the primary fiat rail for cards, SEPA and business payments. Company data is
+              used for checkout and billing context; provisioning remains token-scoped.
+            </p>
           </article>
           <article class="route-card">
             <h3>Reseller route</h3>
-            <p>Approved resellers operate with a 20% commercial discount and can deliver preconfigured Pixel and Puli AX hardware. They may hand off packages, but must not retain FIDO2, HSM, wallet or operator secrets.</p>
+            <p>
+              Approved resellers operate with a 20% commercial discount and can deliver
+              preconfigured Pixel and Puli AX hardware. They may hand off packages, but must not
+              retain FIDO2, HSM, wallet or operator secrets.
+            </p>
           </article>
         </div>
       </section>
@@ -104,12 +139,40 @@
           <h2>How fake or reused tokens are blocked</h2>
         </div>
         <div class="security-grid">
-          <div class="security-item"><strong>One-time material</strong><span>Raw token value is returned once after payment or approved review.</span></div>
-          <div class="security-item"><strong>Server hash only</strong><span>The backend stores token hash, short preview, checkout id, tier and status.</span></div>
-          <div class="security-item"><strong>Vault binding</strong><span>Claim and redemption require the same vault public id used at checkout.</span></div>
-          <div class="security-item"><strong>Status machine</strong><span>created → paid → claimable/manual review → claimed → provisioned. Reuse is rejected.</span></div>
-          <div class="security-item"><strong>Manual review</strong><span>Phantom and Sovereign tokens remain blocked until the approval path releases them.</span></div>
-          <div class="security-item"><strong>Audit without secrets</strong><span>Payment, claim and activation are logged without raw tokens or package secrets.</span></div>
+          <div class="security-item">
+            <strong>One-time material</strong
+            ><span>Raw token value is returned once after payment or approved review.</span>
+          </div>
+          <div class="security-item">
+            <strong>Server hash only</strong
+            ><span
+              >The backend stores token hash, short preview, checkout id, tier and status.</span
+            >
+          </div>
+          <div class="security-item">
+            <strong>Vault binding</strong
+            ><span>Claim and redemption require the same vault public id used at checkout.</span>
+          </div>
+          <div class="security-item">
+            <strong>Status machine</strong
+            ><span
+              >created → paid → claimable/manual review → claimed → provisioned. Reuse is
+              rejected.</span
+            >
+          </div>
+          <div class="security-item">
+            <strong>Manual review</strong
+            ><span
+              >Phantom and Sovereign tokens remain blocked until the approval path releases
+              them.</span
+            >
+          </div>
+          <div class="security-item">
+            <strong>Audit without secrets</strong
+            ><span
+              >Payment, claim and activation are logged without raw tokens or package secrets.</span
+            >
+          </div>
         </div>
       </section>
 
@@ -117,7 +180,11 @@
         <div class="section-head">
           <p class="eyebrow">Annual tokens</p>
           <h2>Choose tier</h2>
-          <p class="section-copy">Select a tier card to update checkout. Each tier creates a paid token that can bootstrap an operator or, for review tiers, start the manual approval path before activation material is released.</p>
+          <p class="section-copy">
+            Select a tier card to update checkout. Each tier creates a paid token that can bootstrap
+            an operator or, for review tiers, start the manual approval path before activation
+            material is released.
+          </p>
         </div>
         <div class="pricing-layout">
           <div id="tiers" class="tiers" aria-live="polite"></div>
@@ -126,10 +193,22 @@
             <h2 id="selected-tier-name">Loading</h2>
             <p id="selected-tier-summary" class="hint">Pricing catalog is loading.</p>
             <dl class="tier-facts">
-              <div><dt>Annual total</dt><dd id="selected-tier-annual">-</dd></div>
-              <div><dt>App environments</dt><dd id="selected-tier-envs">-</dd></div>
-              <div><dt>Workload tenancy</dt><dd id="selected-tier-tenancy">-</dd></div>
-              <div><dt>Review</dt><dd id="selected-tier-review">-</dd></div>
+              <div>
+                <dt>Annual total</dt>
+                <dd id="selected-tier-annual">-</dd>
+              </div>
+              <div>
+                <dt>App environments</dt>
+                <dd id="selected-tier-envs">-</dd>
+              </div>
+              <div>
+                <dt>Workload tenancy</dt>
+                <dd id="selected-tier-tenancy">-</dd>
+              </div>
+              <div>
+                <dt>Review</dt>
+                <dd id="selected-tier-review">-</dd>
+              </div>
             </dl>
             <h3>Included</h3>
             <ul id="selected-tier-included" class="feature-list"></ul>
@@ -143,7 +222,11 @@
         <div class="section-head">
           <p class="eyebrow">Tier comparison</p>
           <h2>Capacity, tenancy and rotation policy</h2>
-          <p class="section-copy">Every operator receives its own G1 and G2. Workload bare-metal capacity is tiered: lower plans can share approved dedicated pools, while higher plans require stronger isolation or dedicated operator-only placement.</p>
+          <p class="section-copy">
+            Every operator receives its own G1 and G2. Workload bare-metal capacity is tiered: lower
+            plans can share approved dedicated pools, while higher plans require stronger isolation
+            or dedicated operator-only placement.
+          </p>
         </div>
         <div class="table-wrap">
           <table class="comparison-table">
@@ -207,7 +290,11 @@
         <div class="section-head">
           <p class="eyebrow">Token types</p>
           <h2>What can be bought or redeemed</h2>
-          <p class="section-copy">The first production path is the operator bootstrap token. Extension, upgrade, Matrix, jurisdiction and capacity tokens are exposed in the catalog so the portal can grow without changing the operator activation model.</p>
+          <p class="section-copy">
+            The first production path is the operator bootstrap token. Extension, upgrade, Matrix,
+            jurisdiction and capacity tokens are exposed in the catalog so the portal can grow
+            without changing the operator activation model.
+          </p>
         </div>
         <div id="token-catalog" class="token-grid" aria-live="polite"></div>
       </section>
@@ -230,7 +317,9 @@
             Tier
             <select name="tierId" id="tier-select"></select>
           </label>
-          <div id="checkout-tier-summary" class="checkout-summary">Select a tier to see the annual commitment.</div>
+          <div id="checkout-tier-summary" class="checkout-summary">
+            Select a tier to see the annual commitment.
+          </div>
           <label>
             Provider
             <select name="provider" id="provider-select">
@@ -249,17 +338,30 @@
           </label>
           <label>
             Billing email
-            <input name="billingEmail" value="billing@example.com" type="email" autocomplete="email" />
+            <input
+              name="billingEmail"
+              value="billing@example.com"
+              type="email"
+              autocomplete="email"
+            />
           </label>
           <label>
             Country
             <input name="country" value="PL" autocomplete="country" />
           </label>
           <div class="checks">
-            <label><input name="businessOnlyAccepted" type="checkbox" checked /> B2B purchase</label>
-            <label><input name="noRefundAfterProvisioningAccepted" type="checkbox" checked /> Dedicated provisioning cost acknowledged</label>
+            <label
+              ><input name="businessOnlyAccepted" type="checkbox" checked /> B2B purchase</label
+            >
+            <label
+              ><input name="noRefundAfterProvisioningAccepted" type="checkbox" checked /> Dedicated
+              provisioning cost acknowledged</label
+            >
           </div>
-          <p id="legal-copy" class="hint legal-copy">Business customers only. Dedicated provisioning costs are non-refundable after provisioning except where mandatory law requires otherwise.</p>
+          <p id="legal-copy" class="hint legal-copy">
+            Business customers only. Dedicated provisioning costs are non-refundable after
+            provisioning except where mandatory law requires otherwise.
+          </p>
           <button type="submit">Create provider checkout</button>
         </form>
 
@@ -277,7 +379,9 @@
             <input name="vaultPublicId" value="vault_demo_public_id_0001" autocomplete="off" />
           </label>
           <button type="submit">Generate service token</button>
-          <p class="hint">The token is returned once. Store it in the customer vault, not on the terminal.</p>
+          <p class="hint">
+            The token is returned once. Store it in the customer vault, not on the terminal.
+          </p>
         </form>
       </section>
 
@@ -290,7 +394,13 @@
           <div class="activation-grid">
             <label>
               Service token
-              <textarea name="redemptionToken" id="activation-token" rows="3" autocomplete="off" spellcheck="false"></textarea>
+              <textarea
+                name="redemptionToken"
+                id="activation-token"
+                rows="3"
+                autocomplete="off"
+                spellcheck="false"
+              ></textarea>
             </label>
             <label>
               Vault public id
@@ -308,7 +418,9 @@
               Fulfillment mode
               <select name="fulfillmentMode">
                 <option value="self_service_download">Self-service package download</option>
-                <option value="reseller_preconfigured_hardware">Reseller preconfigured Pixel and Puli AX</option>
+                <option value="reseller_preconfigured_hardware">
+                  Reseller preconfigured Pixel and Puli AX
+                </option>
               </select>
             </label>
             <label>
@@ -336,7 +448,9 @@
             <h2>Packages</h2>
           </div>
           <div id="download-actions" class="download-actions">
-            <p class="hint">After activation, package download buttons and the operator panel link appear here.</p>
+            <p class="hint">
+              After activation, package download buttons and the operator panel link appear here.
+            </p>
           </div>
         </aside>
       </section>

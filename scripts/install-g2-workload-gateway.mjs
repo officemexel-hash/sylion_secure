@@ -134,11 +134,11 @@ function commonProxyHeaders() {
     "    proxy_set_header X-Real-IP $remote_addr;",
     "    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
     "    proxy_set_header X-Forwarded-Proto https;",
-    "    add_header Cache-Control \"no-store\" always;",
-    "    add_header X-Sylion-Terminal-Data-Stored \"false\" always;",
-    "    add_header X-Sylion-G1-G2-Bypass \"false\" always;",
-    "    add_header X-Sylion-CDR-Required \"true\" always;",
-    "    add_header X-Sylion-Workload-Gateway \"g2\" always;"
+    '    add_header Cache-Control "no-store" always;',
+    '    add_header X-Sylion-Terminal-Data-Stored "false" always;',
+    '    add_header X-Sylion-G1-G2-Bypass "false" always;',
+    '    add_header X-Sylion-CDR-Required "true" always;',
+    '    add_header X-Sylion-Workload-Gateway "g2" always;'
   ].join("\n");
 }
 
@@ -239,17 +239,30 @@ async function deploy(plan) {
   await writeFile(configPath, renderGatewayConfig(plan), "utf8");
 
   const remoteTemp = "/tmp/sylion-g2-broker.next";
-  await run("scp", ["-i", sshKey, "-o", "StrictHostKeyChecking=accept-new", configPath, `${plan.gateway.host}:${remoteTemp}`], { timeout: 60_000 });
-  const authIncludes = plan.apps
-    .filter((app) => app.authInclude)
-    .map((app) => app.authInclude);
-  const ensureAuthSnippets = authIncludes.map((path) => `
+  await run(
+    "scp",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      configPath,
+      `${plan.gateway.host}:${remoteTemp}`
+    ],
+    { timeout: 60_000 }
+  );
+  const authIncludes = plan.apps.filter((app) => app.authInclude).map((app) => app.authInclude);
+  const ensureAuthSnippets = authIncludes
+    .map(
+      (path) => `
 if [ ! -f ${path} ]; then
   sudo install -o root -g root -m 0600 /dev/null ${path}
   echo '# Populated by SYLION KasmVNC auth handoff. Do not store workload passwords in generated config.' | sudo tee ${path} >/dev/null
 fi
 sudo chmod 0600 ${path}
-`).join("\n");
+`
+    )
+    .join("\n");
   const remoteScript = `
 set -euo pipefail
 sudo install -o root -g root -m 0600 /dev/null /etc/nginx/snippets/sylion-signal-auth.conf
@@ -262,15 +275,25 @@ sudo nginx -t
 sudo systemctl reload nginx
 sudo ss -ltnp | grep '${plan.gateway.bindAddress}:443'
 `;
-  const result = await run("ssh", ["-i", sshKey, "-o", "StrictHostKeyChecking=accept-new", plan.gateway.host, remoteScript], { timeout: 60_000 });
-  console.log(JSON.stringify({
-    deployed: true,
-    gatewayHost: plan.gateway.host,
-    configPath: plan.gateway.configPath,
-    privateBind: plan.gateway.bindAddress,
-    nginx: result.stdout,
-    invariants: plan.invariants
-  }, null, 2));
+  const result = await run(
+    "ssh",
+    ["-i", sshKey, "-o", "StrictHostKeyChecking=accept-new", plan.gateway.host, remoteScript],
+    { timeout: 60_000 }
+  );
+  console.log(
+    JSON.stringify(
+      {
+        deployed: true,
+        gatewayHost: plan.gateway.host,
+        configPath: plan.gateway.configPath,
+        privateBind: plan.gateway.bindAddress,
+        nginx: result.stdout,
+        invariants: plan.invariants
+      },
+      null,
+      2
+    )
+  );
 }
 
 async function main() {
@@ -287,7 +310,9 @@ async function main() {
     await deploy(defaultPlan);
     return;
   }
-  console.error("Usage: node scripts/install-g2-workload-gateway.mjs --print-plan|--render-nginx|--deploy");
+  console.error(
+    "Usage: node scripts/install-g2-workload-gateway.mjs --print-plan|--render-nginx|--deploy"
+  );
   process.exitCode = 2;
 }
 

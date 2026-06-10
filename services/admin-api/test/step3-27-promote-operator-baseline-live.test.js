@@ -81,7 +81,8 @@ test("Step 3.27 promotes automatic local baseline only through the live human ga
   const { app, baseUrl, close } = await startTestServer();
   try {
     const client = await loginClient(baseUrl);
-    const { operator, provider, approval, provisioningDraft, baselineProvisioning } = await createApprovedOperatorBaseline(client, "blocked");
+    const { operator, provider, approval, provisioningDraft, baselineProvisioning } =
+      await createApprovedOperatorBaseline(client, "blocked");
     assert.equal(provisioningDraft.status, "local_lab_ready");
     assert.equal(baselineProvisioning.liveCloudMutationAllowed, false);
 
@@ -104,7 +105,9 @@ test("Step 3.27 promotes automatic local baseline only through the live human ga
     assert.ok(blocked.request.rollbackPlanId);
     assert.ok(blocked.request.gate.blockers.includes("provider_mode_not_live"));
     assert.equal(JSON.stringify(blocked).includes("test-secret-never-leak-step3-27"), false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "live_cloud.vps_set_blocked"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "live_cloud.vps_set_blocked")
+    );
   } finally {
     await close();
   }
@@ -135,7 +138,10 @@ test("Step 3.27 executes provider mutation only after automatic baseline, approv
   });
   try {
     const client = await loginClient(baseUrl);
-    const { operator, provider, approval } = await createApprovedOperatorBaseline(client, "executed");
+    const { operator, provider, approval } = await createApprovedOperatorBaseline(
+      client,
+      "executed"
+    );
 
     const executed = await client.promoteOperatorBaselineToLive(operator.id, "hetzner", {
       providerId: provider.id,
@@ -149,7 +155,10 @@ test("Step 3.27 executes provider mutation only after automatic baseline, approv
 
     assert.equal(executed.request.status, "executed_provider_mutation");
     assert.equal(executed.request.resources.length, 3);
-    assert.deepEqual(executed.request.resources.map((resource) => resource.role), ["G1", "G2", "WORKLOAD"]);
+    assert.deepEqual(
+      executed.request.resources.map((resource) => resource.role),
+      ["G1", "G2", "WORKLOAD"]
+    );
     assert.equal(executed.request.rollbackReady, true);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].operatorId, operator.id);
@@ -180,7 +189,19 @@ test("Step 3.27 rejects live promotion when subscription blocks automatic local 
       tenantId: tenant.tenant.id,
       displayName: "Step 3.27 Limit Operator",
       tier: "STANDARD",
-      requestedTemplates: ["whatsapp", "signal", "telegram", "threema", "zangi", "duckduckgo_browser", "libreoffice", "exodus", "matrix_client", "matrix_server", "signal"]
+      requestedTemplates: [
+        "whatsapp",
+        "signal",
+        "telegram",
+        "threema",
+        "zangi",
+        "duckduckgo_browser",
+        "libreoffice",
+        "exodus",
+        "matrix_client",
+        "matrix_server",
+        "signal"
+      ]
     });
     assert.equal(operator.baselineProvisioning, null);
     const provider = await client.createProvider({
@@ -202,13 +223,14 @@ test("Step 3.27 rejects live promotion when subscription blocks automatic local 
     });
 
     await assert.rejects(
-      () => client.promoteOperatorBaselineToLive(operator.operator.id, "hetzner", {
-        providerId: provider.provider.id,
-        approvalId: approved.approval.id,
-        region: "fsn1",
-        idempotencyKey: "step3-27-no-local-baseline",
-        liveConfirmed: true
-      }),
+      () =>
+        client.promoteOperatorBaselineToLive(operator.operator.id, "hetzner", {
+          providerId: provider.provider.id,
+          approvalId: approved.approval.id,
+          region: "fsn1",
+          idempotencyKey: "step3-27-no-local-baseline",
+          liveConfirmed: true
+        }),
       (error) => {
         assert.equal(error.status, 422);
         assert.match(error.message, /automatic local G1\/G2\/WORKLOAD baseline/);

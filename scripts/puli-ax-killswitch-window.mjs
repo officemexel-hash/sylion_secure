@@ -5,9 +5,10 @@ import { dirname, resolve } from "node:path";
 
 const DEFAULT_ROUTER_IP = "192.168.8.1";
 const DEFAULT_G1_IP = "178.105.200.112";
-const DEFAULT_SSH_KEY = process.platform === "win32"
-  ? ".deploy\\sylion_puli_ax_ed25519"
-  : ".deploy/sylion_puli_ax_ed25519";
+const DEFAULT_SSH_KEY =
+  process.platform === "win32"
+    ? ".deploy\\sylion_puli_ax_ed25519"
+    : ".deploy/sylion_puli_ax_ed25519";
 const DEFAULT_OUT = "docs/admin-panel-v2/test-artifacts/puli-ax-killswitch-window/latest.json";
 
 function argValue(name, fallback = null) {
@@ -26,35 +27,44 @@ function isoNow() {
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve) => {
-    execFile(command, args, {
-      windowsHide: true,
-      timeout: options.timeout || 30_000,
-      maxBuffer: options.maxBuffer || 1024 * 1024
-    }, (error, stdout, stderr) => {
-      resolve({
-        ok: !error,
-        code: error?.code || 0,
-        stdout: String(stdout || "").trim(),
-        stderr: String(stderr || "").trim(),
-        message: error?.message || null
-      });
-    });
+    execFile(
+      command,
+      args,
+      {
+        windowsHide: true,
+        timeout: options.timeout || 30_000,
+        maxBuffer: options.maxBuffer || 1024 * 1024
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          ok: !error,
+          code: error?.code || 0,
+          stdout: String(stdout || "").trim(),
+          stderr: String(stderr || "").trim(),
+          message: error?.message || null
+        });
+      }
+    );
   });
 }
 
 async function ssh({ routerIp, user, keyPath, script, timeout = 30_000 }) {
-  return execFileAsync("ssh", [
-    "-i",
-    keyPath,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "PasswordAuthentication=no",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    `${user}@${routerIp}`,
-    script
-  ], { timeout });
+  return execFileAsync(
+    "ssh",
+    [
+      "-i",
+      keyPath,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "PasswordAuthentication=no",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      `${user}@${routerIp}`,
+      script
+    ],
+    { timeout }
+  );
 }
 
 function parseKeyValueLines(output) {
@@ -83,12 +93,14 @@ async function main() {
   const startedAt = isoNow();
   const action = rollback ? "rollback" : apply ? "apply" : "dry_run";
 
-  const script = rollback ? `
+  const script = rollback
+    ? `
 set -eu
 nft delete table inet sylion_killswitch >/dev/null 2>&1 || true
 echo killswitch_loaded="$(nft list table inet sylion_killswitch >/dev/null 2>&1 && echo true || echo false)"
 echo rollback_done=true
-` : `
+`
+    : `
 set -eu
 mkdir -p /etc/sylion
 cat > /etc/sylion/killswitch-pre-vpn.nft <<'EOF'
@@ -176,10 +188,14 @@ echo router_ipsec_child="$(ipsec status sylion-g1-router 2>/dev/null | grep -q '
   const kv = parseKeyValueLines(result.stdout);
   const blockers = [
     ...(result.ok ? [] : ["router_ssh_failed"]),
-    ...(rollback ? [] : [bool(kv.killswitch_staged) ? null : "killswitch_not_staged"].filter(Boolean)),
+    ...(rollback
+      ? []
+      : [bool(kv.killswitch_staged) ? null : "killswitch_not_staged"].filter(Boolean)),
     ...(apply && !bool(kv.killswitch_loaded) ? ["killswitch_not_loaded"] : []),
     ...(apply && !bool(kv.boot_order_installed) ? ["killswitch_boot_order_not_installed"] : []),
-    ...(apply && !bool(kv.rollback_watchdog_disarmed) ? ["killswitch_rollback_watchdog_not_disarmed"] : []),
+    ...(apply && !bool(kv.rollback_watchdog_disarmed)
+      ? ["killswitch_rollback_watchdog_not_disarmed"]
+      : []),
     ...(apply && !bool(kv.router_ipsec_sa) ? ["router_ipsec_sa_not_established"] : []),
     ...(apply && !bool(kv.router_ipsec_child) ? ["router_ipsec_child_not_installed"] : [])
   ];
@@ -189,7 +205,13 @@ echo router_ipsec_child="$(ipsec status sylion-g1-router 2>/dev/null | grep -q '
     startedAt,
     completedAt: isoNow(),
     action,
-    status: blockers.length ? "blocked" : rollback ? "rolled_back" : apply ? "killswitch_loaded" : "dry_run_ready",
+    status: blockers.length
+      ? "blocked"
+      : rollback
+        ? "rolled_back"
+        : apply
+          ? "killswitch_loaded"
+          : "dry_run_ready",
     facts: {
       killswitchStaged: bool(kv.killswitch_staged),
       killswitchLoaded: bool(kv.killswitch_loaded),
@@ -209,16 +231,18 @@ echo router_ipsec_child="$(ipsec status sylion-g1-router 2>/dev/null | grep -q '
       rollbackAvailable: true
     },
     blockers,
-    nextActions: blockers.length ? [
-      "Rollback with node scripts/puli-ax-killswitch-window.mjs --rollback if terminal path is impacted.",
-      "Inspect router IPsec state and nft syntax."
-    ] : apply ? [
-      "Run Pixel Puli AX network smoke.",
-      "Verify plain LAN-to-WAN is blocked while IPsec traffic survives.",
-      "Record router posture with kill-switch evidence."
-    ] : [
-      "Rerun with --apply during a controlled test window."
-    ]
+    nextActions: blockers.length
+      ? [
+          "Rollback with node scripts/puli-ax-killswitch-window.mjs --rollback if terminal path is impacted.",
+          "Inspect router IPsec state and nft syntax."
+        ]
+      : apply
+        ? [
+            "Run Pixel Puli AX network smoke.",
+            "Verify plain LAN-to-WAN is blocked while IPsec traffic survives.",
+            "Record router posture with kill-switch evidence."
+          ]
+        : ["Rerun with --apply during a controlled test window."]
   };
   if (outPath && !hasArg("no-write")) {
     const absolute = resolve(outPath);

@@ -3,9 +3,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const config = {
   nativeSsh: process.env.SYLION_WORKLOAD_NATIVE_SSH || "root@65.109.123.72",
@@ -33,16 +34,20 @@ async function run(command, args, options = {}) {
 }
 
 async function ssh(script, options = {}) {
-  return run("ssh", [
-    "-i",
-    config.sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    config.nativeSsh,
-    script
-  ], options);
+  return run(
+    "ssh",
+    [
+      "-i",
+      config.sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      config.nativeSsh,
+      script
+    ],
+    options
+  );
 }
 
 function remotePlanScript({ apply, force }) {
@@ -119,7 +124,9 @@ async function main() {
     return;
   }
   const result = await ssh(remotePlanScript(options), { timeout: 900_000 });
-  const evidence = JSON.parse(result.stdout.slice(result.stdout.indexOf("{"), result.stdout.lastIndexOf("}") + 1));
+  const evidence = JSON.parse(
+    result.stdout.slice(result.stdout.indexOf("{"), result.stdout.lastIndexOf("}") + 1)
+  );
   console.log(JSON.stringify(evidence, null, 2));
 }
 

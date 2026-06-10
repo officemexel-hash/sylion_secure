@@ -80,7 +80,9 @@ test("Step 3.19 configures Vault/KMS/HSM secret backends as reference-only and k
     assert.equal(status.status.envRuntimeConfigured.hetzner, true);
     assert.ok(status.status.activeBackends.some((item) => item.id === backend.backend.id));
     assert.equal(JSON.stringify(status).includes("configured-runtime-token-never-leak"), false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "secret.backend_configured"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "secret.backend_configured")
+    );
   } finally {
     app.close();
     await close();
@@ -109,11 +111,17 @@ test("Step 3.19 lets provider secrets use external references without plaintext 
     });
     assert.equal(provider.provider.apiSecretReference.backendType, "hsm");
     assert.equal(provider.provider.apiSecretReference.custody, "external_reference_only");
-    assert.match(provider.provider.apiSecretReference.secretReference, /^secret:\/\/admin-api\/secret_/);
+    assert.match(
+      provider.provider.apiSecretReference.secretReference,
+      /^secret:\/\/admin-api\/secret_/
+    );
 
     const providers = await client.request("/providers");
     assert.equal(JSON.stringify(providers).includes("hcloud-live-token-should-not-appear"), false);
-    assert.equal(JSON.stringify(app.services.audit.list()).includes("hcloud-live-token-should-not-appear"), false);
+    assert.equal(
+      JSON.stringify(app.services.audit.list()).includes("hcloud-live-token-should-not-appear"),
+      false
+    );
   } finally {
     app.close();
     await close();
@@ -132,16 +140,20 @@ test("Step 3.19 rejects external references that contain secret material", async
       mode: "reference_only"
     });
     await assert.rejects(
-      () => client.createProvider({
-        providerType: "hetzner",
-        externalSecretReference: "vault://path?token=plaintext-secret-never-leak",
-        secretBackendId: backend.backend.id,
-        regions: ["fsn1"],
-        billingHealth: { status: "healthy" }
-      }),
+      () =>
+        client.createProvider({
+          providerType: "hetzner",
+          externalSecretReference: "vault://path?token=plaintext-secret-never-leak",
+          secretBackendId: backend.backend.id,
+          regions: ["fsn1"],
+          billingHealth: { status: "healthy" }
+        }),
       /External secret reference must not contain secret material/
     );
-    assert.equal(JSON.stringify(app.services.audit.list()).includes("plaintext-secret-never-leak"), false);
+    assert.equal(
+      JSON.stringify(app.services.audit.list()).includes("plaintext-secret-never-leak"),
+      false
+    );
   } finally {
     app.close();
     await close();

@@ -85,7 +85,13 @@ async function seedOperator(client, tier = "PRO") {
       deviceId: pixel.device.id
     }
   });
-  return { tenant, operator: created.operator, pixel: pixel.device, serial, session: session.session };
+  return {
+    tenant,
+    operator: created.operator,
+    pixel: pixel.device,
+    serial,
+    session: session.session
+  };
 }
 
 async function recordLiveVpnEvidence(baseUrl, token) {
@@ -112,12 +118,20 @@ test("Step 3.102 terminal attribution assessment is honest and metadata-only by 
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const response = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/terminal-attribution-risk");
+    const response = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/terminal-attribution-risk"
+    );
     const assessment = response.assessment;
     assert.equal(assessment.mode, "metadata_only_terminal_attribution_risk_assessment");
     assert.equal(assessment.decision, "not_proven_until_required_evidence_passes");
     assert.equal(assessment.observerStartingPoint, "firecracker_or_workload_ip_only");
-    assert.ok(assessment.matrixServerObservation.shouldSee.includes("workload_egress_ip_or_tor_exit_if_operator_policy_enabled"));
+    assert.ok(
+      assessment.matrixServerObservation.shouldSee.includes(
+        "workload_egress_ip_or_tor_exit_if_operator_policy_enabled"
+      )
+    );
     assert.ok(assessment.matrixServerObservation.mustNotSee.includes("pixel_public_ip"));
     assert.ok(assessment.matrixServerObservation.mustNotSee.includes("pixel_location"));
     assert.ok(assessment.blockers.includes("matrix_canary_source_ip_probe_required"));
@@ -154,9 +168,16 @@ test("Step 3.102 complete canary evidence blocks direct Pixel attribution but ke
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
     await recordLiveVpnEvidence(baseUrl, seeded.session.token);
-    const response = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/terminal-attribution-risk");
+    const response = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/terminal-attribution-risk"
+    );
     const assessment = response.assessment;
-    assert.equal(assessment.decision, "direct_terminal_attribution_blocked_residual_correlation_risk_remains");
+    assert.equal(
+      assessment.decision,
+      "direct_terminal_attribution_blocked_residual_correlation_risk_remains"
+    );
     assert.deepEqual(assessment.blockers, []);
     assert.ok(assessment.controls.every((control) => control.status === "passed"));
     assert.ok(assessment.shortAnswer.includes("workload egress"));

@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_full_human_flow" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_full_human_flow" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -104,7 +108,10 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
       }
     });
     assert.equal(provider.status, 201);
-    assert.equal(JSON.stringify(provider.payload).includes("full-flow-provider-secret-never-leak"), false);
+    assert.equal(
+      JSON.stringify(provider.payload).includes("full-flow-provider-secret-never-leak"),
+      false
+    );
 
     const app = await request(baseUrl, "/apps", {
       method: "POST",
@@ -160,14 +167,18 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
     assert.equal(transfer.status, 201);
     assert.equal(transfer.payload.transfer.allowed, true);
 
-    const plan = await request(baseUrl, `/operators/${operator.payload.operator.id}/provisioning-plan`, {
-      method: "POST",
-      token,
-      body: {
-        requestedApps: ["Signal", "Telegram", "WhatsApp", "Threema"],
-        jurisdictionPolicy: { mode: "full_policy", regions: ["fsn1"] }
+    const plan = await request(
+      baseUrl,
+      `/operators/${operator.payload.operator.id}/provisioning-plan`,
+      {
+        method: "POST",
+        token,
+        body: {
+          requestedApps: ["Signal", "Telegram", "WhatsApp", "Threema"],
+          jurisdictionPolicy: { mode: "full_policy", regions: ["fsn1"] }
+        }
       }
-    });
+    );
     assert.equal(plan.status, 201);
     assert.equal(plan.payload.plan.baseline.vps.length, 3);
     assert.ok(plan.payload.plan.baseline.vps.every((vps) => vps.shared === false));
@@ -208,11 +219,15 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
       }
     });
     assert.equal(approval.status, 201);
-    const approved = await request(baseUrl, `/provisioning/approvals/${approval.payload.approval.id}/status`, {
-      method: "POST",
-      token,
-      body: { status: "approved_for_execution", note: "Full flow human gate complete" }
-    });
+    const approved = await request(
+      baseUrl,
+      `/provisioning/approvals/${approval.payload.approval.id}/status`,
+      {
+        method: "POST",
+        token,
+        body: { status: "approved_for_execution", note: "Full flow human gate complete" }
+      }
+    );
     assert.equal(approved.status, 200);
 
     const job = await request(baseUrl, "/orchestrator/jobs", {
@@ -291,11 +306,15 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
     });
     assert.equal(jurisdiction.status, 201);
 
-    const rotation = await request(baseUrl, `/jurisdiction/policies/${jurisdiction.payload.policy.id}/rotation-plan`, {
-      method: "POST",
-      token,
-      body: { requestedScopes: ["all_3_vps", "certificates"] }
-    });
+    const rotation = await request(
+      baseUrl,
+      `/jurisdiction/policies/${jurisdiction.payload.policy.id}/rotation-plan`,
+      {
+        method: "POST",
+        token,
+        body: { requestedScopes: ["all_3_vps", "certificates"] }
+      }
+    );
     assert.equal(rotation.status, 201);
     assert.equal(rotation.payload.rotationPlan.approvalRequired, true);
 
@@ -364,7 +383,10 @@ test("full human admin flow covers provider, app, CDR, inventory, PKI, jurisdict
       "monitoring.alert",
       "incident.created_from_alert"
     ]) {
-      assert.ok(audit.payload.events.some((event) => event.action === action), `missing audit action ${action}`);
+      assert.ok(
+        audit.payload.events.some((event) => event.action === action),
+        `missing audit action ${action}`
+      );
     }
   } finally {
     await close();

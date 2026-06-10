@@ -27,7 +27,9 @@ function assertNoPrivateKeyMaterial(value, path = "payload") {
   for (const [key, nested] of Object.entries(value)) {
     const currentPath = `${path}.${key}`;
     if (/private.*key|key.*private|pem|secret/i.test(key)) {
-      throw validationError("Inventory records must not contain private key material", { field: currentPath });
+      throw validationError("Inventory records must not contain private key material", {
+        field: currentPath
+      });
     }
     assertNoPrivateKeyMaterial(nested, currentPath);
   }
@@ -81,7 +83,10 @@ export class InventoryService {
       throw notFound("operator", operatorId);
     }
     if (!LIFECYCLE_STATES.includes(lifecycleState)) {
-      throw validationError("Invalid infrastructure lifecycle state", { lifecycleState, allowed: LIFECYCLE_STATES });
+      throw validationError("Invalid infrastructure lifecycle state", {
+        lifecycleState,
+        allowed: LIFECYCLE_STATES
+      });
     }
 
     const setOwner = this.setIdToOperator.get(infrastructureSetId);
@@ -161,7 +166,10 @@ export class InventoryService {
       correlationId: corr
     });
     if (!LIFECYCLE_STATES.includes(lifecycleState)) {
-      throw validationError("Invalid infrastructure lifecycle state", { lifecycleState, allowed: LIFECYCLE_STATES });
+      throw validationError("Invalid infrastructure lifecycle state", {
+        lifecycleState,
+        allowed: LIFECYCLE_STATES
+      });
     }
 
     const next = {
@@ -202,7 +210,9 @@ export class InventoryService {
     const next = {
       ...current,
       certRefs: { ...current.certRefs, [role]: nextCertRef },
-      vps: current.vps.map((item) => (item.role === role ? { ...item, certRef: nextCertRef } : item)),
+      vps: current.vps.map((item) =>
+        item.role === role ? { ...item, certRef: nextCertRef } : item
+      ),
       updatedAt: new Date().toISOString()
     };
     this.vpsSets.set(infrastructureSetId, next);
@@ -224,7 +234,17 @@ export class InventoryService {
     return this.vpsSets.get(infrastructureSetId);
   }
 
-  #normalizeVpsSet({ operator, infrastructureSetId, provider, region, imageRef, certRefs, vps, lifecycleState, drift }) {
+  #normalizeVpsSet({
+    operator,
+    infrastructureSetId,
+    provider,
+    region,
+    imageRef,
+    certRefs,
+    vps,
+    lifecycleState,
+    drift
+  }) {
     const normalizedProvider = requireNonEmpty(provider, "provider");
     const normalizedRegion = requireNonEmpty(region, "region");
     const normalizedImageRef = requireNonEmpty(imageRef, "imageRef");
@@ -234,16 +254,22 @@ export class InventoryService {
     const unknownRoles = [...roles].filter((role) => !VPS_ROLES.includes(role));
 
     if (vps.length !== VPS_ROLES.length || missingRoles.length > 0 || unknownRoles.length > 0) {
-      throw validationError("Infrastructure set must contain exactly G1, G2, and WORKLOAD VPS records", {
-        requiredRoles: VPS_ROLES,
-        missingRoles,
-        unknownRoles
-      });
+      throw validationError(
+        "Infrastructure set must contain exactly G1, G2, and WORKLOAD VPS records",
+        {
+          requiredRoles: VPS_ROLES,
+          missingRoles,
+          unknownRoles
+        }
+      );
     }
 
     const normalizedVps = VPS_ROLES.map((role) => {
       const item = byRole.get(role);
-      const providerResourceId = requireNonEmpty(item.providerResourceId, `vps.${role}.providerResourceId`);
+      const providerResourceId = requireNonEmpty(
+        item.providerResourceId,
+        `vps.${role}.providerResourceId`
+      );
       return {
         id: item.id || newId("vps"),
         role,

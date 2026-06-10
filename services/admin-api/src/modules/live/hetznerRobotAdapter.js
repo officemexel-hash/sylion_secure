@@ -43,7 +43,10 @@ async function sanitizedRobotError(response) {
   return {
     status: response.status,
     providerErrorCode: payload?.error?.code || payload?.code || null,
-    providerErrorMessage: payload?.error?.message || payload?.message || (typeof payload === "string" ? payload.slice(0, 220) : null),
+    providerErrorMessage:
+      payload?.error?.message ||
+      payload?.message ||
+      (typeof payload === "string" ? payload.slice(0, 220) : null),
     robotCredentialsLogged: false
   };
 }
@@ -51,26 +54,48 @@ async function sanitizedRobotError(response) {
 function firstPrice(prices = [], location = null) {
   if (!Array.isArray(prices) || prices.length === 0) return null;
   const wanted = location ? String(location).toUpperCase() : null;
-  return prices.find((price) => String(price?.location || "").toUpperCase() === wanted) || prices[0] || null;
+  return (
+    prices.find((price) => String(price?.location || "").toUpperCase() === wanted) ||
+    prices[0] ||
+    null
+  );
 }
 
 function normalizeProduct(product = {}) {
   const source = product.product && typeof product.product === "object" ? product.product : product;
   const locations = Array.isArray(source.locations)
     ? source.locations
-    : (Array.isArray(source.location) ? source.location : (source.location ? [source.location] : []));
+    : Array.isArray(source.location)
+      ? source.location
+      : source.location
+        ? [source.location]
+        : [];
   const location = locations[0] || source.datacenter || null;
   const price = firstPrice(source.price || source.prices, location);
-  const monthly = price?.price?.net || price?.price?.gross || source.price_monthly || source.price || null;
-  const setup = price?.price_setup?.net || price?.price_setup?.gross || source.setup_fee || source.price_setup || null;
+  const monthly =
+    price?.price?.net || price?.price?.gross || source.price_monthly || source.price || null;
+  const setup =
+    price?.price_setup?.net ||
+    price?.price_setup?.gross ||
+    source.setup_fee ||
+    source.price_setup ||
+    null;
   return {
     productId: String(source.product_id || source.id || source.name || "unknown"),
     name: source.name || source.description?.[0] || null,
     locations,
     location,
-    cpu: source.cpu || source.cpu_type || source.description?.find?.((item) => /CPU|Ryzen|EPYC|Xeon|Intel|AMD/i.test(item)) || null,
+    cpu:
+      source.cpu ||
+      source.cpu_type ||
+      source.description?.find?.((item) => /CPU|Ryzen|EPYC|Xeon|Intel|AMD/i.test(item)) ||
+      null,
     memoryGb: Number(source.memory || source.ram || 0) || null,
-    hdd: source.hdd || source.storage || source.description?.find?.((item) => /NVMe|SSD|HDD|TB|GB/i.test(item)) || null,
+    hdd:
+      source.hdd ||
+      source.storage ||
+      source.description?.find?.((item) => /NVMe|SSD|HDD|TB|GB/i.test(item)) ||
+      null,
     priceMonthly: monthly,
     setupFee: setup,
     rawShapeLogged: false
@@ -82,7 +107,13 @@ function normalizeOrder(payload = {}, fallback = {}) {
   const product = order.product && typeof order.product === "object" ? order.product : {};
   const price = firstPrice(product.price || product.prices, order.location || fallback.location);
   return {
-    providerResourceId: String(order.id || order.transaction_id || order.server_number || fallback.productId || "robot-order-pending"),
+    providerResourceId: String(
+      order.id ||
+        order.transaction_id ||
+        order.server_number ||
+        fallback.productId ||
+        "robot-order-pending"
+    ),
     productId: String(order.product_id || product.id || fallback.productId || "unknown"),
     location: order.location || product.location || fallback.location || null,
     status: order.status || "order_requested",
@@ -114,7 +145,10 @@ export class HetznerRobotAdapter {
       headers: { authorization: basicAuth(user, password) }
     });
     if (!response.ok) {
-      throw validationError("Hetzner Robot product list failed", await sanitizedRobotError(response));
+      throw validationError(
+        "Hetzner Robot product list failed",
+        await sanitizedRobotError(response)
+      );
     }
     const payload = await response.json();
     const products = Array.isArray(payload) ? payload : payload.products || payload.product || [];
@@ -142,13 +176,20 @@ export class HetznerRobotAdapter {
         product_id: productId,
         location: location ? String(location).toUpperCase() : location,
         dist,
-        "authorized_key[]": Array.isArray(authorizedKey) ? authorizedKey : (authorizedKey ? [authorizedKey] : []),
+        "authorized_key[]": Array.isArray(authorizedKey)
+          ? authorizedKey
+          : authorizedKey
+            ? [authorizedKey]
+            : [],
         "addon[]": addons,
         test: test ? "true" : undefined
       })
     });
     if (!response.ok) {
-      throw validationError("Hetzner Robot dedicated server order failed", await sanitizedRobotError(response));
+      throw validationError(
+        "Hetzner Robot dedicated server order failed",
+        await sanitizedRobotError(response)
+      );
     }
     const payload = await response.json();
     return normalizeOrder(payload, { productId, location, maxMonthlyPrice });

@@ -8,7 +8,10 @@ const execFileAsync = promisify(execFile);
 
 const defaults = {
   sshKey: process.env.SYLION_ADMIN_SSH_KEY || ".deploy\\sylion_hetzner_admin_ed25519",
-  workloadHost: process.env.SYLION_WORKLOAD_NATIVE_SSH || process.env.SYLION_WORKLOAD_SSH || "root@65.109.123.72",
+  workloadHost:
+    process.env.SYLION_WORKLOAD_NATIVE_SSH ||
+    process.env.SYLION_WORKLOAD_SSH ||
+    "root@65.109.123.72",
   g2Host: process.env.SYLION_G2_SSH || "sylion@178.105.203.31",
   g2Snippet: "/etc/nginx/snippets/sylion-signal-auth.conf",
   workloadSecretFile: "/etc/sylion/workload-secrets/signal.env"
@@ -46,16 +49,20 @@ async function run(command, args, options = {}) {
 }
 
 async function ssh(host, script, options = {}) {
-  return run("ssh", [
-    "-i",
-    defaults.sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    script
-  ], options);
+  return run(
+    "ssh",
+    [
+      "-i",
+      defaults.sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      host,
+      script
+    ],
+    options
+  );
 }
 
 async function readSignalPassword() {
@@ -75,16 +82,20 @@ fi
 }
 
 async function scp(localPath, remoteTarget) {
-  return run("scp", [
-    "-i",
-    defaults.sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    localPath,
-    remoteTarget
-  ], { timeout: 60_000 });
+  return run(
+    "scp",
+    [
+      "-i",
+      defaults.sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      localPath,
+      remoteTarget
+    ],
+    { timeout: 60_000 }
+  );
 }
 
 async function writeG2Snippet(password) {
@@ -133,11 +144,17 @@ async function main() {
   const password = await readSignalPassword();
   await writeG2Snippet(password);
   const result = await smoke();
-  console.log(JSON.stringify({
-    applied: true,
-    secretPrinted: false,
-    ...result
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        applied: true,
+        secretPrinted: false,
+        ...result
+      },
+      null,
+      2
+    )
+  );
 }
 
 await main();

@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_step3_8" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_step3_8" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -72,7 +76,11 @@ async function fixture(baseUrl, token) {
   const operator = await request(baseUrl, "/operators", {
     method: "POST",
     token,
-    body: { tenantId: tenant.payload.tenant.id, displayName: `Step 3.8 Operator ${suffix}`, tier: "PRO" }
+    body: {
+      tenantId: tenant.payload.tenant.id,
+      displayName: `Step 3.8 Operator ${suffix}`,
+      tier: "PRO"
+    }
   });
   assert.equal(operator.status, 201);
   const provider = await request(baseUrl, "/providers", {
@@ -121,19 +129,30 @@ async function fixture(baseUrl, token) {
     }
   });
   assert.equal(app.status, 201);
-  const approved = await request(baseUrl, `/apps/${app.payload.app.id}/approve`, { method: "POST", token });
+  const approved = await request(baseUrl, `/apps/${app.payload.app.id}/approve`, {
+    method: "POST",
+    token
+  });
   assert.equal(approved.status, 200);
-  const allocation = await request(baseUrl, `/operators/${operator.payload.operator.id}/workload-allocations`, {
-    method: "POST",
-    token,
-    body: { appId: approved.payload.app.id, requestedCount: 1 }
-  });
+  const allocation = await request(
+    baseUrl,
+    `/operators/${operator.payload.operator.id}/workload-allocations`,
+    {
+      method: "POST",
+      token,
+      body: { appId: approved.payload.app.id, requestedCount: 1 }
+    }
+  );
   assert.equal(allocation.status, 201);
-  const plan = await request(baseUrl, `/operators/${operator.payload.operator.id}/provisioning-plan`, {
-    method: "POST",
-    token,
-    body: { requestedApps: ["Signal"] }
-  });
+  const plan = await request(
+    baseUrl,
+    `/operators/${operator.payload.operator.id}/provisioning-plan`,
+    {
+      method: "POST",
+      token,
+      body: { requestedApps: ["Signal"] }
+    }
+  );
   assert.equal(plan.status, 201);
   return {
     tenant: tenant.payload.tenant,
@@ -156,9 +175,17 @@ test("Step 3.8 evaluates Księga 3.4 operator readiness and records blockers wit
     const emptyOperator = await request(baseUrl, "/operators", {
       method: "POST",
       token,
-      body: { tenantId: emptyTenant.payload.tenant.id, displayName: "Blocked Operator", tier: "PRO" }
+      body: {
+        tenantId: emptyTenant.payload.tenant.id,
+        displayName: "Blocked Operator",
+        tier: "PRO"
+      }
     });
-    const blocked = await request(baseUrl, `/operators/${emptyOperator.payload.operator.id}/readiness`, { token });
+    const blocked = await request(
+      baseUrl,
+      `/operators/${emptyOperator.payload.operator.id}/readiness`,
+      { token }
+    );
     assert.equal(blocked.status, 200);
     assert.equal(blocked.payload.readiness.readyForApproval, false);
     assert.ok(blocked.payload.readiness.blockers.includes("pixel_grapheneos_device_required"));
@@ -222,15 +249,23 @@ test("Step 3.8 approval gate protects orchestrator strict execution path", async
     });
     assert.equal(stillBlocked.status, 422);
 
-    const approved = await request(baseUrl, `/provisioning/approvals/${approval.payload.approval.id}/status`, {
-      method: "POST",
-      token,
-      body: { status: "approved_for_execution", note: "Human gate complete" }
-    });
+    const approved = await request(
+      baseUrl,
+      `/provisioning/approvals/${approval.payload.approval.id}/status`,
+      {
+        method: "POST",
+        token,
+        body: { status: "approved_for_execution", note: "Human gate complete" }
+      }
+    );
     assert.equal(approved.status, 200);
     assert.equal(approved.payload.approval.executionAllowed, true);
 
-    assert.ok(app.services.audit.list().some((event) => event.action === "provisioning.approval_status_changed"));
+    assert.ok(
+      app.services.audit
+        .list()
+        .some((event) => event.action === "provisioning.approval_status_changed")
+    );
   } finally {
     await close();
   }
@@ -249,11 +284,15 @@ test("Step 3.8 workload lifecycle enforces valid transitions and remains metadat
     });
     assert.equal(invalid.status, 422);
 
-    const approvalRequired = await request(baseUrl, `/workload/allocations/${allocation.id}/lifecycle`, {
-      method: "POST",
-      token,
-      body: { status: "approval_required", reasonCode: "review_start" }
-    });
+    const approvalRequired = await request(
+      baseUrl,
+      `/workload/allocations/${allocation.id}/lifecycle`,
+      {
+        method: "POST",
+        token,
+        body: { status: "approval_required", reasonCode: "review_start" }
+      }
+    );
     assert.equal(approvalRequired.status, 200);
     assert.equal(approvalRequired.payload.lifecycle.sideEffectAllowed, false);
     assert.equal(approvalRequired.payload.lifecycle.executionAllowed, false);
@@ -268,22 +307,30 @@ test("Step 3.8 workload lifecycle enforces valid transitions and remains metadat
       }
     });
     assert.equal(approval.status, 201);
-    const approved = await request(baseUrl, `/provisioning/approvals/${approval.payload.approval.id}/status`, {
-      method: "POST",
-      token,
-      body: { status: "approved_for_execution", note: "Activation human gate complete" }
-    });
+    const approved = await request(
+      baseUrl,
+      `/provisioning/approvals/${approval.payload.approval.id}/status`,
+      {
+        method: "POST",
+        token,
+        body: { status: "approved_for_execution", note: "Activation human gate complete" }
+      }
+    );
     assert.equal(approved.status, 200);
 
-    const activationApproved = await request(baseUrl, `/workload/allocations/${allocation.id}/lifecycle`, {
-      method: "POST",
-      token,
-      body: {
-        status: "approved_for_activation",
-        approvalId: approval.payload.approval.id,
-        reasonCode: "human_gate_complete"
+    const activationApproved = await request(
+      baseUrl,
+      `/workload/allocations/${allocation.id}/lifecycle`,
+      {
+        method: "POST",
+        token,
+        body: {
+          status: "approved_for_activation",
+          approvalId: approval.payload.approval.id,
+          reasonCode: "human_gate_complete"
+        }
       }
-    });
+    );
     assert.equal(activationApproved.status, 200);
     assert.equal(activationApproved.payload.lifecycle.humanGateRequired, true);
     assert.equal(activationApproved.payload.lifecycle.approvalId, approval.payload.approval.id);

@@ -7,10 +7,14 @@ function arg(name, fallback = null) {
   return found ? found.slice(prefix.length) : fallback;
 }
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
-const sshKey = arg("key", process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey);
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
+const sshKey = arg(
+  "key",
+  process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey
+);
 const host = arg("host", process.env.SYLION_WORKLOAD_SSH_HOST);
 const user = arg("user", process.env.SYLION_WORKLOAD_SSH_USER || "root");
 const target = arg("target", process.env.SYLION_WORKLOAD_SSH || (host ? `${user}@${host}` : null));
@@ -57,22 +61,26 @@ async function ssh(script, options = {}) {
   if (!target) {
     throw new Error("Missing --host/--target or SYLION_WORKLOAD_SSH_HOST/SYLION_WORKLOAD_SSH");
   }
-  return run("ssh", [
-    "-i",
-    sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "ConnectTimeout=10",
-    "-o",
-    "ServerAliveInterval=10",
-    "-o",
-    "ServerAliveCountMax=2",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    target,
-    "bash -s"
-  ], { ...options, input: script });
+  return run(
+    "ssh",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "ConnectTimeout=10",
+      "-o",
+      "ServerAliveInterval=10",
+      "-o",
+      "ServerAliveCountMax=2",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      target,
+      "bash -s"
+    ],
+    { ...options, input: script }
+  );
 }
 
 const installScript = String.raw`
@@ -117,59 +125,83 @@ printf 'systemd_mount_enabled=%s\n' "$(systemctl is-enabled dev-binderfs.mount 2
 `;
 
 function parseFacts(stdout) {
-  return Object.fromEntries(stdout.split(/\r?\n/).filter(Boolean).map((line) => {
-    const [key, ...rest] = line.split("=");
-    const value = rest.join("=");
-    if (value === "true") return [key, true];
-    if (value === "false") return [key, false];
-    return [key, value];
-  }));
+  return Object.fromEntries(
+    stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => {
+        const [key, ...rest] = line.split("=");
+        const value = rest.join("=");
+        if (value === "true") return [key, true];
+        if (value === "false") return [key, false];
+        return [key, value];
+      })
+  );
 }
 
 async function main() {
   if (!target) {
-    console.log(JSON.stringify({
-      component: "android_binderfs_host_gate_installer",
-      status: "blocked",
-      blockers: ["missing_ssh_target"],
-      productionExecutionAllowed: false
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          component: "android_binderfs_host_gate_installer",
+          status: "blocked",
+          blockers: ["missing_ssh_target"],
+          productionExecutionAllowed: false
+        },
+        null,
+        2
+      )
+    );
     process.exitCode = 2;
     return;
   }
   if (!apply) {
-    console.log(JSON.stringify({
-      component: "android_binderfs_host_gate_installer",
-      status: "plan_only",
-      targetHost: target,
-      changes: [
-        "load binder_linux with binder,hwbinder,vndbinder devices",
-        "mount /dev/binderfs",
-        "persist module and binderfs mount through systemd"
-      ],
-      requires: ["--apply"],
-      terminalDataStored: false,
-      productionExecutionAllowed: false
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          component: "android_binderfs_host_gate_installer",
+          status: "plan_only",
+          targetHost: target,
+          changes: [
+            "load binder_linux with binder,hwbinder,vndbinder devices",
+            "mount /dev/binderfs",
+            "persist module and binderfs mount through systemd"
+          ],
+          requires: ["--apply"],
+          terminalDataStored: false,
+          productionExecutionAllowed: false
+        },
+        null,
+        2
+      )
+    );
     return;
   }
   const { stdout } = await ssh(installScript, { timeout: 120_000 });
   const facts = parseFacts(stdout);
-  const ready = facts.kvm_device === true
-    && facts.binderfs_supported === true
-    && Number(facts.binderfs_mounts || 0) > 0
-    && String(facts.binder_nodes || "").includes("binder")
-    && facts.systemd_mount_enabled === "enabled";
-  console.log(JSON.stringify({
-    component: "android_binderfs_host_gate_installer",
-    status: ready ? "installed" : "blocked",
-    targetHost: target,
-    facts,
-    blockers: ready ? [] : ["android_binderfs_gate_not_ready"],
-    terminalDataStored: false,
-    productionExecutionAllowed: false,
-    checkedAt: new Date().toISOString()
-  }, null, 2));
+  const ready =
+    facts.kvm_device === true &&
+    facts.binderfs_supported === true &&
+    Number(facts.binderfs_mounts || 0) > 0 &&
+    String(facts.binder_nodes || "").includes("binder") &&
+    facts.systemd_mount_enabled === "enabled";
+  console.log(
+    JSON.stringify(
+      {
+        component: "android_binderfs_host_gate_installer",
+        status: ready ? "installed" : "blocked",
+        targetHost: target,
+        facts,
+        blockers: ready ? [] : ["android_binderfs_gate_not_ready"],
+        terminalDataStored: false,
+        productionExecutionAllowed: false,
+        checkedAt: new Date().toISOString()
+      },
+      null,
+      2
+    )
+  );
   if (!ready) process.exitCode = 1;
 }
 

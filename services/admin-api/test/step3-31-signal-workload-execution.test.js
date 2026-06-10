@@ -106,7 +106,11 @@ test("Step 3.31 exposes production-gated Signal workload substrate with real CDR
       }
     });
 
-    const result = await operatorRequest(baseUrl, session.session.token, "/operator-api/workload-execution/signal");
+    const result = await operatorRequest(
+      baseUrl,
+      session.session.token,
+      "/operator-api/workload-execution/signal"
+    );
     assert.equal(result.execution.templateKey, "signal");
     assert.equal(result.execution.runtime.substrate.vpn.ready, true);
     assert.equal(result.execution.runtime.substrate.firecrackerKvm.ready, true);
@@ -119,13 +123,24 @@ test("Step 3.31 exposes production-gated Signal workload substrate with real CDR
     assert.ok(result.execution.blockers.includes("human_production_execution_approval_required"));
     assert.equal(result.execution.blockers.includes("real_ipsec_profile_required"), false);
     assert.equal(result.execution.blockers.includes("kvm_device_not_verified"), false);
-    assert.equal(result.execution.blockers.includes("hsm_backed_operator_certificate_required"), false);
+    assert.equal(
+      result.execution.blockers.includes("hsm_backed_operator_certificate_required"),
+      false
+    );
     assert.equal(result.execution.blockers.includes("fresh_fido2_operator_unlock_required"), false);
 
-    const start = await operatorRequest(baseUrl, session.session.token, "/operator-api/workload-execution/signal/start", "POST");
+    const start = await operatorRequest(
+      baseUrl,
+      session.session.token,
+      "/operator-api/workload-execution/signal/start",
+      "POST"
+    );
     assert.equal(start.request.state, "blocked");
     assert.equal(start.request.launchAllowed, false);
-    assert.equal(start.request.execution.runtime.substrate.cdr.rule, "No file ingress/egress without CDR decision.");
+    assert.equal(
+      start.request.execution.runtime.substrate.cdr.rule,
+      "No file ingress/egress without CDR decision."
+    );
   } finally {
     await close();
   }
@@ -145,7 +160,11 @@ test("Step 3.31 reports exact Signal blockers when VPN or KVM substrate is missi
       }
     });
 
-    const result = await operatorRequest(baseUrl, session.session.token, "/operator-api/workload-execution/signal");
+    const result = await operatorRequest(
+      baseUrl,
+      session.session.token,
+      "/operator-api/workload-execution/signal"
+    );
     assert.equal(result.execution.runtime.substrate.vpn.ready, false);
     assert.equal(result.execution.runtime.substrate.firecrackerKvm.ready, false);
     assert.equal(result.execution.runtime.substrate.cdr.ready, true);

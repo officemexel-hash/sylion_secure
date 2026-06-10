@@ -3,7 +3,14 @@ import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const CERTIFICATE_STATUSES = Object.freeze(["issued", "rotated", "revoked"]);
-const CERTIFICATE_SUBJECT_TYPES = Object.freeze(["router", "G1", "G2", "WORKLOAD", "IPSEC", "SERVICE_IDENTITY"]);
+const CERTIFICATE_SUBJECT_TYPES = Object.freeze([
+  "router",
+  "G1",
+  "G2",
+  "WORKLOAD",
+  "IPSEC",
+  "SERVICE_IDENTITY"
+]);
 
 function requireNonEmpty(value, field) {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -19,9 +26,12 @@ function assertNoPrivateKeyMaterial(value, path = "payload") {
   for (const [key, nested] of Object.entries(value)) {
     const currentPath = `${path}.${key}`;
     if (/private.*key|key.*private|pem|secret|keyMaterial/i.test(key)) {
-      throw validationError("PKI module stores certificate references only; private keys are out of scope", {
-        field: currentPath
-      });
+      throw validationError(
+        "PKI module stores certificate references only; private keys are out of scope",
+        {
+          field: currentPath
+        }
+      );
     }
     assertNoPrivateKeyMaterial(nested, currentPath);
   }
@@ -128,7 +138,10 @@ export class PkiService {
     const corr = requireCorrelationId(correlationId);
     assertNoPrivateKeyMaterial(rest);
     const current = this.#requireCertificate(certificateId);
-    this.rbac.assert(actor, "pki.certificate.rotate", { operatorId: current.operatorId, correlationId: corr });
+    this.rbac.assert(actor, "pki.certificate.rotate", {
+      operatorId: current.operatorId,
+      correlationId: corr
+    });
     if (current.status === "revoked") {
       throw validationError("Revoked certificates cannot be rotated", { certificateId });
     }
@@ -183,7 +196,10 @@ export class PkiService {
   revoke({ actor, certificateId, reason, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const current = this.#requireCertificate(certificateId);
-    this.rbac.assert(actor, "pki.certificate.revoke", { operatorId: current.operatorId, correlationId: corr });
+    this.rbac.assert(actor, "pki.certificate.revoke", {
+      operatorId: current.operatorId,
+      correlationId: corr
+    });
     if (current.status === "revoked") {
       throw validationError("Certificate is already revoked", { certificateId });
     }

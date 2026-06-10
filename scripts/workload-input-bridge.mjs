@@ -17,16 +17,21 @@ const GUEST_RFB = Object.freeze({
 });
 const RFB_PORT = Number(process.env.SYLION_WORKLOAD_INPUT_RFB_PORT || 5900);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
-const args = new Map(process.argv.slice(2).map((arg) => {
-  const [key, ...rest] = arg.replace(/^--/, "").split("=");
-  return [key, rest.join("=") || "true"];
-}));
+const args = new Map(
+  process.argv.slice(2).map((arg) => {
+    const [key, ...rest] = arg.replace(/^--/, "").split("=");
+    return [key, rest.join("=") || "true"];
+  })
+);
 
-const app = normalizeApp(args.get("app") || process.env.SYLION_WORKLOAD_INPUT_APP || "duckduckgo_browser");
+const app = normalizeApp(
+  args.get("app") || process.env.SYLION_WORKLOAD_INPUT_APP || "duckduckgo_browser"
+);
 const guestIp = GUEST_RFB[app];
 if (!guestIp) fail("unsupported_app", { app, supported: Object.keys(GUEST_RFB) });
 
@@ -42,7 +47,8 @@ const submit = input.submit === true;
 const preKeys = sanitizeSpecialKeys(input.preKeys);
 const postKeys = sanitizeSpecialKeys(input.postKeys ?? input.keys);
 const pointer = sanitizePointer(input.pointer);
-if (!text && !submit && preKeys.length + postKeys.length === 0 && !pointer) fail("empty_input", { app });
+if (!text && !submit && preKeys.length + postKeys.length === 0 && !pointer)
+  fail("empty_input", { app });
 
 const remotePayload = JSON.stringify({
   app,
@@ -201,14 +207,23 @@ with socket.create_connection((host, port), timeout) as sock:
 `;
 const remoteCommand = `python3 -c 'import base64; exec(base64.b64decode("${Buffer.from(remotePython, "utf8").toString("base64")}"))'`;
 
-const result = await spawnWithStdin("ssh", [
-  "-i", cfg.sshKey,
-  "-o", "BatchMode=yes",
-  "-o", "StrictHostKeyChecking=accept-new",
-  "-o", `ConnectTimeout=${cfg.connectTimeoutSeconds}`,
-  cfg.workloadHost,
-  remoteCommand
-], remotePayload, Number(process.env.SYLION_WORKLOAD_INPUT_TIMEOUT_MS || 30_000));
+const result = await spawnWithStdin(
+  "ssh",
+  [
+    "-i",
+    cfg.sshKey,
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "-o",
+    `ConnectTimeout=${cfg.connectTimeoutSeconds}`,
+    cfg.workloadHost,
+    remoteCommand
+  ],
+  remotePayload,
+  Number(process.env.SYLION_WORKLOAD_INPUT_TIMEOUT_MS || 30_000)
+);
 
 const start = result.stdout.indexOf("{");
 const end = result.stdout.lastIndexOf("}");
@@ -216,7 +231,9 @@ if (start < 0 || end < start) fail("remote_json_not_found", { app });
 process.stdout.write(`${result.stdout.slice(start, end + 1)}\n`);
 
 function normalizeApp(value) {
-  const key = String(value || "").trim().toLowerCase();
+  const key = String(value || "")
+    .trim()
+    .toLowerCase();
   if (key === "duckduckgo" || key === "browser") return "duckduckgo_browser";
   return key.replace(/[^a-z0-9_-]/g, "");
 }
@@ -237,7 +254,8 @@ function sanitizePointer(value) {
   if (typeof value !== "object") fail("invalid_pointer", { reason: "not_object" });
   const x = Number(value.x);
   const y = Number(value.y);
-  if (!Number.isFinite(x) || !Number.isFinite(y)) fail("invalid_pointer", { reason: "non_numeric" });
+  if (!Number.isFinite(x) || !Number.isFinite(y))
+    fail("invalid_pointer", { reason: "non_numeric" });
   if (x < 0 || y < 0 || x > 8192 || y > 8192) fail("invalid_pointer", { reason: "out_of_range" });
   return { x: Math.round(x), y: Math.round(y) };
 }
@@ -261,7 +279,10 @@ function sanitizeSpecialKeys(value) {
   const keys = Array.isArray(value) ? value : [value];
   if (keys.length > 64) fail("too_many_special_keys", { maxKeys: 64 });
   return keys.map((key) => {
-    const normalized = String(key || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const normalized = String(key || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
     if (!allowed.has(normalized)) fail("unsupported_special_key", { key: normalized || "empty" });
     return normalized;
   });
@@ -331,13 +352,15 @@ function spawnWithStdin(command, commandArgs, input, timeoutMs) {
 }
 
 function fail(code, extra = {}) {
-  process.stdout.write(JSON.stringify({
-    component: "g2_vnc_input_bridge",
-    state: "failed",
-    errorCode: code,
-    ...extra,
-    inputContentPrinted: false,
-    terminalDataStored: false
-  }));
+  process.stdout.write(
+    JSON.stringify({
+      component: "g2_vnc_input_bridge",
+      state: "failed",
+      errorCode: code,
+      ...extra,
+      inputContentPrinted: false,
+      terminalDataStored: false
+    })
+  );
   process.exit(1);
 }

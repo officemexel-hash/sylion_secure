@@ -115,7 +115,15 @@ export class MonitoringService {
     this.events = new PersistentMap({ store, collection: "monitoring_events" });
   }
 
-  recordHealthStatus({ actor, tenantId, operatorId, resource, status, details = {}, correlationId }) {
+  recordHealthStatus({
+    actor,
+    tenantId,
+    operatorId,
+    resource,
+    status,
+    details = {},
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "audit.read", { tenantId, operatorId, correlationId: corr });
     assertNoCommunicationContent(details);
@@ -123,7 +131,9 @@ export class MonitoringService {
       throw validationError("Health status resource id and kind are required");
     }
     if (!["healthy", "degraded", "down", "unknown"].includes(status)) {
-      throw validationError("Unsupported health status", { allowed: ["healthy", "degraded", "down", "unknown"] });
+      throw validationError("Unsupported health status", {
+        allowed: ["healthy", "degraded", "down", "unknown"]
+      });
     }
 
     return this.storeEvent({
@@ -140,13 +150,25 @@ export class MonitoringService {
     });
   }
 
-  recordSignal({ actor, signal, tenantId, operatorId, resource = {}, details = {}, severity, correlationId }) {
+  recordSignal({
+    actor,
+    signal,
+    tenantId,
+    operatorId,
+    resource = {},
+    details = {},
+    severity,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "audit.read", { tenantId, operatorId, correlationId: corr });
     assertNoCommunicationContent({ resource, details });
     const definition = SIGNAL_DEFINITIONS[signal];
     if (!definition) {
-      throw validationError("Unsupported monitoring signal", { signal, allowed: Object.keys(SIGNAL_DEFINITIONS) });
+      throw validationError("Unsupported monitoring signal", {
+        signal,
+        allowed: Object.keys(SIGNAL_DEFINITIONS)
+      });
     }
     if (!resource.id) {
       throw validationError("Monitoring signal resource id is required");
@@ -175,13 +197,22 @@ export class MonitoringService {
 
   list(filter = {}) {
     return [...this.events.values()].filter((event) => {
-      return (!filter.eventType || event.eventType === filter.eventType)
-        && (!filter.operatorId || event.operatorId === filter.operatorId)
-        && (!filter.tenantId || event.tenantId === filter.tenantId);
+      return (
+        (!filter.eventType || event.eventType === filter.eventType) &&
+        (!filter.operatorId || event.operatorId === filter.operatorId) &&
+        (!filter.tenantId || event.tenantId === filter.tenantId)
+      );
     });
   }
 
-  blueTeamDashboard({ actor, auditEvents = [], cdrDecisions = [], cdrEvents = [], operators = [], correlationId }) {
+  blueTeamDashboard({
+    actor,
+    auditEvents = [],
+    cdrDecisions = [],
+    cdrEvents = [],
+    operators = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "audit.read", { correlationId: corr });
     assertNoCommunicationContent({ cdrDecisions, cdrEvents });
@@ -237,16 +268,18 @@ export class MonitoringService {
         createdAt: event.timestamp,
         contentStored: false
       })),
-      ...cdrCoverage.filter((row) => row.cdrMandatory !== true).map((row) => ({
-        id: `derived-cdr-gap-${row.operatorId}`,
-        signal: "cdr_policy_gap",
-        severity: "critical",
-        summary: "Operator does not have mandatory CDR enabled",
-        tenantId: row.tenantId,
-        operatorId: row.operatorId,
-        resource: { id: row.operatorId, kind: "operator" },
-        contentStored: false
-      }))
+      ...cdrCoverage
+        .filter((row) => row.cdrMandatory !== true)
+        .map((row) => ({
+          id: `derived-cdr-gap-${row.operatorId}`,
+          signal: "cdr_policy_gap",
+          severity: "critical",
+          summary: "Operator does not have mandatory CDR enabled",
+          tenantId: row.tenantId,
+          operatorId: row.operatorId,
+          resource: { id: row.operatorId, kind: "operator" },
+          contentStored: false
+        }))
     ];
     const storedAlerts = this.list()
       .filter((event) => ["alert", "anomaly_event"].includes(event.eventType))
@@ -257,11 +290,21 @@ export class MonitoringService {
       { key: "key_material_change_events", value: keyEvents.length },
       { key: "cdr_decisions", value: cdrDecisions.length },
       { key: "cdr_monitoring_events", value: cdrEvents.length },
-      { key: "operators_with_cdr_active", value: cdrCoverage.filter((row) => row.status === "active").length },
-      { key: "operators_cdr_armed", value: cdrCoverage.filter((row) => row.status === "armed_no_transfers_observed").length }
+      {
+        key: "operators_with_cdr_active",
+        value: cdrCoverage.filter((row) => row.status === "active").length
+      },
+      {
+        key: "operators_cdr_armed",
+        value: cdrCoverage.filter((row) => row.status === "armed_no_transfers_observed").length
+      }
     ];
     return {
-      status: derivedAlerts.some((alert) => alert.severity === "critical") ? "critical" : derivedAlerts.length || storedAlerts.length ? "watch" : "nominal",
+      status: derivedAlerts.some((alert) => alert.severity === "critical")
+        ? "critical"
+        : derivedAlerts.length || storedAlerts.length
+          ? "watch"
+          : "nominal",
       metadataOnly: true,
       communicationContentStored: false,
       cdrMandatoryForAllOperators: cdrCoverage.every((row) => row.cdrMandatory === true),
@@ -312,31 +355,36 @@ export class MonitoringService {
 
   #isAuthAttackEvent(event) {
     const action = String(event.action || "");
-    return event.result === "denied"
-      || action.includes("challenge_replayed")
-      || action.includes("challenge_failed")
-      || action.includes("login_failure")
-      || action.includes("lockout")
-      || action.includes("account_locked")
-      || action.includes("recovery")
-      || action.includes("break_glass")
-      || action.includes("login_failed");
+    return (
+      event.result === "denied" ||
+      action.includes("challenge_replayed") ||
+      action.includes("challenge_failed") ||
+      action.includes("login_failure") ||
+      action.includes("lockout") ||
+      action.includes("account_locked") ||
+      action.includes("recovery") ||
+      action.includes("break_glass") ||
+      action.includes("login_failed")
+    );
   }
 
   #isKeyMaterialChangeEvent(event) {
     const action = String(event.action || "");
-    return action.includes("credential")
-      || action.includes("cert")
-      || action.includes("secret")
-      || action.includes("hsm")
-      || action.includes("fido2")
-      || action.includes("provider.api_secret")
-      || action.includes("external_secret_reference");
+    return (
+      action.includes("credential") ||
+      action.includes("cert") ||
+      action.includes("secret") ||
+      action.includes("hsm") ||
+      action.includes("fido2") ||
+      action.includes("provider.api_secret") ||
+      action.includes("external_secret_reference")
+    );
   }
 
   #severityForKeyEvent(event) {
     const action = String(event.action || "");
-    if (action.includes("revoke") || action.includes("secret") || action.includes("cert.rotate")) return "high";
+    if (action.includes("revoke") || action.includes("secret") || action.includes("cert.rotate"))
+      return "high";
     return "medium";
   }
 

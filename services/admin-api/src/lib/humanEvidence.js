@@ -29,7 +29,8 @@ const RESULT_PRIORITY = Object.freeze({
   PASS: 0
 });
 
-const FORBIDDEN_KEY_PATTERN = /(^|[_-])(password|passphrase|secret|token|api[_-]?key|otp|sms|phone[_-]?number|seed|mnemonic|private[_-]?key|payload|message[_-]?content|chat[_-]?content|packet[_-]?capture|pcap|capture[_-]?file|file[_-]?content|wallet[_-]?seed|wallet[_-]?secret|cookie|raw[_-]?body)([_-]|$)/i;
+const FORBIDDEN_KEY_PATTERN =
+  /(^|[_-])(password|passphrase|secret|token|api[_-]?key|otp|sms|phone[_-]?number|seed|mnemonic|private[_-]?key|payload|message[_-]?content|chat[_-]?content|packet[_-]?capture|pcap|capture[_-]?file|file[_-]?content|wallet[_-]?seed|wallet[_-]?secret|cookie|raw[_-]?body)([_-]|$)/i;
 
 const FORBIDDEN_VALUE_PATTERNS = [
   /op_[A-Za-z0-9_-]{24,}/,
@@ -93,7 +94,10 @@ function redactString(value) {
     .replace(/op_[A-Za-z0-9_-]{24,}/g, "REDACTED_OPERATOR_TOKEN")
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]{16,}/gi, "Bearer REDACTED")
     .replace(/(op_token=)[A-Za-z0-9._~+/=-]+/gi, "$1REDACTED_OPERATOR_TOKEN")
-    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "REDACTED_PRIVATE_KEY");
+    .replace(
+      /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+      "REDACTED_PRIVATE_KEY"
+    );
 }
 
 export function sanitizeMetadata(value) {
@@ -101,7 +105,9 @@ export function sanitizeMetadata(value) {
     return value.map((item) => sanitizeMetadata(item));
   }
   if (isPlainObject(value)) {
-    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, sanitizeMetadata(child)]));
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [key, sanitizeMetadata(child)])
+    );
   }
   if (typeof value === "string") {
     return redactString(value);
@@ -110,7 +116,9 @@ export function sanitizeMetadata(value) {
 }
 
 export function normalizeResultStatus(status) {
-  const normalized = String(status || HUMAN_RESULT_STATUS.UNKNOWN).trim().toUpperCase();
+  const normalized = String(status || HUMAN_RESULT_STATUS.UNKNOWN)
+    .trim()
+    .toUpperCase();
   if (!Object.hasOwn(RESULT_PRIORITY, normalized)) {
     throw new Error(`Unsupported human evidence result status: ${status}`);
   }
@@ -118,7 +126,9 @@ export function normalizeResultStatus(status) {
 }
 
 export function deriveOverallResult(results) {
-  const statuses = (results || []).map((item) => normalizeResultStatus(item?.result || item?.status || item));
+  const statuses = (results || []).map((item) =>
+    normalizeResultStatus(item?.result || item?.status || item)
+  );
   if (!statuses.length) return HUMAN_RESULT_STATUS.UNKNOWN;
   return statuses.sort((left, right) => RESULT_PRIORITY[right] - RESULT_PRIORITY[left])[0];
 }
@@ -168,9 +178,21 @@ export function validateHumanEvidenceSummary(summary) {
     throw new Error("Human evidence summary must be an object.");
   }
   if (summary.schemaVersion !== HUMAN_EVIDENCE_SCHEMA_VERSION) {
-    throw new Error(`Human evidence summary schemaVersion must be ${HUMAN_EVIDENCE_SCHEMA_VERSION}.`);
+    throw new Error(
+      `Human evidence summary schemaVersion must be ${HUMAN_EVIDENCE_SCHEMA_VERSION}.`
+    );
   }
-  for (const key of ["testId", "testVersion", "gitCommit", "tester", "startedAt", "endedAt", "pathTested", "expectedBehavior", "result"]) {
+  for (const key of [
+    "testId",
+    "testVersion",
+    "gitCommit",
+    "tester",
+    "startedAt",
+    "endedAt",
+    "pathTested",
+    "expectedBehavior",
+    "result"
+  ]) {
     requireNonEmptyString(summary, key);
   }
   for (const key of ["preconditions", "actions", "blockers", "residualRisk"]) {
@@ -221,7 +243,7 @@ export async function buildHumanEvidenceSummary(input, options = {}) {
     schemaVersion: HUMAN_EVIDENCE_SCHEMA_VERSION,
     testId: input.testId,
     testVersion: input.testVersion || "step3.86",
-    gitCommit: input.gitCommit || await currentGitCommit(cwd),
+    gitCommit: input.gitCommit || (await currentGitCommit(cwd)),
     tester: input.tester || "Codex",
     startedAt: input.startedAt || now,
     endedAt: input.endedAt || now,

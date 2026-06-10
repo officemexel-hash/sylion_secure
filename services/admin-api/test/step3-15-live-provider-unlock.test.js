@@ -44,7 +44,10 @@ async function loginClient(baseUrl) {
 }
 
 async function createApprovedBaseline(client, providerType = "hetzner") {
-  const tenant = await client.createTenant({ name: `Step 3.15 Tenant ${providerType}`, tier: "PRO" });
+  const tenant = await client.createTenant({
+    name: `Step 3.15 Tenant ${providerType}`,
+    tier: "PRO"
+  });
   const operator = await client.createOperator({
     tenantId: tenant.tenant.id,
     displayName: `Step 3.15 Operator ${providerType}`,
@@ -93,7 +96,9 @@ test("Step 3.15 creates rollback plans for blocked live requests without leaking
 
     const plans = await client.listLiveRollbackPlans();
     assert.ok(plans.plans.some((plan) => plan.id === blocked.request.rollbackPlanId));
-    assert.ok(app.services.audit.list().some((event) => event.action === "live_cloud.rollback_plan_created"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "live_cloud.rollback_plan_created")
+    );
   } finally {
     await close();
   }
@@ -115,9 +120,36 @@ test("Step 3.15 Hetzner V2 sanitizes resources, preserves 3 VPS baseline, and re
       async createVpsSet(input) {
         calls.push(input);
         return [
-          { role: "G1", providerResourceId: "hcloud-g1", rawProviderResponse: { token: "leak" }, rollback: { action: "delete_server", providerResourceId: "hcloud-g1", idempotencyKey: input.idempotencyKey } },
-          { role: "G2", providerResourceId: "hcloud-g2", secret: "bad", rollback: { action: "delete_server", providerResourceId: "hcloud-g2", idempotencyKey: input.idempotencyKey } },
-          { role: "WORKLOAD", providerResourceId: "hcloud-workload", name: "workload", rollback: { action: "delete_server", providerResourceId: "hcloud-workload", idempotencyKey: input.idempotencyKey } }
+          {
+            role: "G1",
+            providerResourceId: "hcloud-g1",
+            rawProviderResponse: { token: "leak" },
+            rollback: {
+              action: "delete_server",
+              providerResourceId: "hcloud-g1",
+              idempotencyKey: input.idempotencyKey
+            }
+          },
+          {
+            role: "G2",
+            providerResourceId: "hcloud-g2",
+            secret: "bad",
+            rollback: {
+              action: "delete_server",
+              providerResourceId: "hcloud-g2",
+              idempotencyKey: input.idempotencyKey
+            }
+          },
+          {
+            role: "WORKLOAD",
+            providerResourceId: "hcloud-workload",
+            name: "workload",
+            rollback: {
+              action: "delete_server",
+              providerResourceId: "hcloud-workload",
+              idempotencyKey: input.idempotencyKey
+            }
+          }
         ];
       }
     })
@@ -137,11 +169,14 @@ test("Step 3.15 Hetzner V2 sanitizes resources, preserves 3 VPS baseline, and re
 
     assert.equal(executed.request.status, "executed_provider_mutation");
     assert.equal(executed.request.resources.length, 3);
-    assert.deepEqual(executed.request.resources.map((resource) => resource.role), ["G1", "G2", "WORKLOAD"]);
+    assert.deepEqual(
+      executed.request.resources.map((resource) => resource.role),
+      ["G1", "G2", "WORKLOAD"]
+    );
     assert.equal(executed.request.rollbackReady, true);
     assert.equal(JSON.stringify(executed).includes("test-token-only-in-env-step3-15"), false);
     assert.equal(JSON.stringify(executed).includes("rawProviderResponse"), false);
-    assert.equal(JSON.stringify(executed).includes("\"secret\":\"bad\""), false);
+    assert.equal(JSON.stringify(executed).includes('"secret":"bad"'), false);
     assert.equal(calls.length, 1);
 
     const idempotent = await client.requestProviderLiveVpsSet("hetzner", {

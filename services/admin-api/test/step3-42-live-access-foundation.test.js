@@ -91,7 +91,8 @@ test("Step 3.42 live access foundation blocks Pixel path until VPN, CA, DNS and 
   const { baseUrl, close } = await startTestServer({
     liveExecutionOptions: {
       env: {
-        SYLION_INTERNAL_CA_CERT_PEM: "-----BEGIN CERTIFICATE-----\\nstep342\\n-----END CERTIFICATE-----",
+        SYLION_INTERNAL_CA_CERT_PEM:
+          "-----BEGIN CERTIFICATE-----\\nstep342\\n-----END CERTIFICATE-----",
         SYLION_INTERNAL_CA_SHA256: "SHA256:step3-42",
         SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
       }
@@ -100,7 +101,11 @@ test("Step 3.42 live access foundation blocks Pixel path until VPN, CA, DNS and 
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const foundation = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/live-access-foundation");
+    const foundation = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/live-access-foundation"
+    );
     assert.equal(foundation.foundation.state, "blocked_before_live_access");
     assert.ok(foundation.foundation.blockers.includes("t0_pixel_to_g1_ipsec"));
     assert.ok(foundation.foundation.blockers.includes("pixel_internal_ca_trust"));
@@ -109,7 +114,11 @@ test("Step 3.42 live access foundation blocks Pixel path until VPN, CA, DNS and 
     assert.equal(foundation.foundation.guardrails.baselineTransport, "ipsec_ikev2");
     assert.equal(foundation.foundation.guardrails.cdrRequired, true);
     assert.equal(foundation.foundation.productionExecutionAllowed, false);
-    assert.ok(foundation.foundation.appGateways.some((app) => app.templateKey === "zangi" && app.runtimeClass === "android_workload_required"));
+    assert.ok(
+      foundation.foundation.appGateways.some(
+        (app) => app.templateKey === "zangi" && app.runtimeClass === "android_workload_required"
+      )
+    );
   } finally {
     await close();
   }
@@ -146,14 +155,30 @@ test("Step 3.42 live VPN evidence promotes foundation to workload broker readine
         ]
       }
     });
-    const foundation = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/live-access-foundation");
+    const foundation = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/live-access-foundation"
+    );
     assert.equal(foundation.foundation.state, "live_access_ready_for_workload_broker");
     assert.deepEqual(foundation.foundation.blockers, []);
     assert.equal(foundation.foundation.vpn.evidenceReady, true);
     assert.equal(foundation.foundation.ca.trustedOnPixel, true);
-    assert.ok(foundation.foundation.checks.some((check) => check.key === "puli_ax_physical_router" && check.status === "deferred"));
-    assert.ok(foundation.foundation.checks.some((check) => check.key === "hsm_fido2_physical_enforcement" && check.status === "deferred"));
-    assert.ok(foundation.foundation.appGateways.every((app) => app.brokerState === "ready_for_session_broker"));
+    assert.ok(
+      foundation.foundation.checks.some(
+        (check) => check.key === "puli_ax_physical_router" && check.status === "deferred"
+      )
+    );
+    assert.ok(
+      foundation.foundation.checks.some(
+        (check) => check.key === "hsm_fido2_physical_enforcement" && check.status === "deferred"
+      )
+    );
+    assert.ok(
+      foundation.foundation.appGateways.every(
+        (app) => app.brokerState === "ready_for_session_broker"
+      )
+    );
     assert.equal(foundation.foundation.productionExecutionAllowed, false);
     assert.equal(JSON.stringify(foundation).includes("private"), false);
   } finally {
@@ -193,12 +218,24 @@ test("Step 3.42 Puli AX router IPsec evidence satisfies T0 transport without Pix
         ]
       }
     });
-    const foundation = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/live-access-foundation");
+    const foundation = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/live-access-foundation"
+    );
     assert.equal(foundation.foundation.state, "live_access_ready_for_workload_broker");
     assert.deepEqual(foundation.foundation.blockers, []);
     assert.equal(foundation.foundation.vpn.evidenceReady, true);
-    assert.ok(foundation.foundation.checks.some((check) => check.key === "t0_pixel_to_g1_ipsec" && check.status === "passed"));
-    assert.ok(foundation.foundation.checks.some((check) => check.key === "puli_ax_physical_router" && check.status === "passed"));
+    assert.ok(
+      foundation.foundation.checks.some(
+        (check) => check.key === "t0_pixel_to_g1_ipsec" && check.status === "passed"
+      )
+    );
+    assert.ok(
+      foundation.foundation.checks.some(
+        (check) => check.key === "puli_ax_physical_router" && check.status === "passed"
+      )
+    );
   } finally {
     await close();
   }

@@ -3,11 +3,13 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 const sshKey = process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey;
-const workloadHost = process.env.SYLION_WORKLOAD_NATIVE_SSH || process.env.SYLION_WORKLOAD_SSH || "root@65.109.123.72";
+const workloadHost =
+  process.env.SYLION_WORKLOAD_NATIVE_SSH || process.env.SYLION_WORKLOAD_SSH || "root@65.109.123.72";
 const g2Host = process.env.SYLION_G2_SSH || "sylion@178.105.203.31";
 
 const apps = {
@@ -16,7 +18,13 @@ const apps = {
     volume: "sylion_duckduckgo_config",
     port: "3001:3000",
     image: "lscr.io/linuxserver/firefox:latest",
-    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION DuckDuckGo", "FIREFOX_CLI=https://duckduckgo.com/"],
+    env: [
+      "PUID=1000",
+      "PGID=1000",
+      "TZ=UTC",
+      "TITLE=SYLION DuckDuckGo",
+      "FIREFOX_CLI=https://duckduckgo.com/"
+    ],
     extra: []
   },
   libreoffice: {
@@ -32,7 +40,13 @@ const apps = {
     volume: "sylion_whatsapp_config",
     port: "3010:3000",
     image: "lscr.io/linuxserver/chromium:latest",
-    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION WhatsApp Web", "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://web.whatsapp.com/"],
+    env: [
+      "PUID=1000",
+      "PGID=1000",
+      "TZ=UTC",
+      "TITLE=SYLION WhatsApp Web",
+      "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://web.whatsapp.com/"
+    ],
     extra: []
   },
   telegram: {
@@ -40,7 +54,13 @@ const apps = {
     volume: "sylion_telegram_config",
     port: "3011:3000",
     image: "lscr.io/linuxserver/chromium:latest",
-    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION Telegram Web", "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://web.telegram.org/k/"],
+    env: [
+      "PUID=1000",
+      "PGID=1000",
+      "TZ=UTC",
+      "TITLE=SYLION Telegram Web",
+      "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://web.telegram.org/k/"
+    ],
     extra: []
   },
   threema: {
@@ -48,7 +68,13 @@ const apps = {
     volume: "sylion_threema_config",
     port: "3012:3000",
     image: "lscr.io/linuxserver/chromium:latest",
-    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION Threema Web", "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://web.threema.ch/"],
+    env: [
+      "PUID=1000",
+      "PGID=1000",
+      "TZ=UTC",
+      "TITLE=SYLION Threema Web",
+      "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://web.threema.ch/"
+    ],
     extra: []
   },
   signal: {
@@ -64,7 +90,13 @@ const apps = {
     volume: "sylion_zangi_config",
     port: "3014:3000",
     image: "lscr.io/linuxserver/chromium:latest",
-    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION Zangi Gate", "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://zangi.com/en-us/download"],
+    env: [
+      "PUID=1000",
+      "PGID=1000",
+      "TZ=UTC",
+      "TITLE=SYLION Zangi Gate",
+      "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://zangi.com/en-us/download"
+    ],
     extra: [],
     productionGate: "android_native_runner_required"
   },
@@ -73,7 +105,13 @@ const apps = {
     volume: "sylion_protonmail_config",
     port: "3016:3000",
     image: "lscr.io/linuxserver/chromium:latest",
-    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION Proton Mail", "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://mail.proton.me/"],
+    env: [
+      "PUID=1000",
+      "PGID=1000",
+      "TZ=UTC",
+      "TITLE=SYLION Proton Mail",
+      "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://mail.proton.me/"
+    ],
     extra: [],
     productionGate: "mail_account_human_test_required"
   },
@@ -82,7 +120,13 @@ const apps = {
     volume: "sylion_simplex_config",
     port: "3017:3000",
     image: "lscr.io/linuxserver/chromium:latest",
-    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION SimpleX Gate", "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://simplex.chat/downloads/"],
+    env: [
+      "PUID=1000",
+      "PGID=1000",
+      "TZ=UTC",
+      "TITLE=SYLION SimpleX Gate",
+      "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://simplex.chat/downloads/"
+    ],
     extra: [],
     productionGate: "simplex_desktop_or_android_image_required"
   },
@@ -91,7 +135,13 @@ const apps = {
     volume: "sylion_exodus_config",
     port: "3015:3000",
     image: "lscr.io/linuxserver/chromium:latest",
-    env: ["PUID=1000", "PGID=1000", "TZ=UTC", "TITLE=SYLION Exodus Gate", "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://www.exodus.com/download/"],
+    env: [
+      "PUID=1000",
+      "PGID=1000",
+      "TZ=UTC",
+      "TITLE=SYLION Exodus Gate",
+      "CHROME_CLI=--disable-session-crashed-bubble --no-first-run https://www.exodus.com/download/"
+    ],
     extra: [],
     productionGate: "isolated_wallet_runtime_required"
   }
@@ -114,7 +164,8 @@ function parseArgs() {
 
 function selectedApps(app) {
   if (app === "all") return Object.keys(apps);
-  if (!apps[app]) throw new Error(`Unsupported app ${app}; supported=${Object.keys(apps).join(",")},all`);
+  if (!apps[app])
+    throw new Error(`Unsupported app ${app}; supported=${Object.keys(apps).join(",")},all`);
   return [app];
 }
 
@@ -131,7 +182,11 @@ function plan({ app, wipeVolume }) {
       noTerminalOperationalData: true,
       privateBindOnly: true,
       signalAuthHandoffAfterSignalRecreate: app === "signal" || app === "all",
-      productionGates: Object.fromEntries(Object.entries(apps).filter(([, cfg]) => cfg.productionGate).map(([key, cfg]) => [key, cfg.productionGate]))
+      productionGates: Object.fromEntries(
+        Object.entries(apps)
+          .filter(([, cfg]) => cfg.productionGate)
+          .map(([key, cfg]) => [key, cfg.productionGate])
+      )
     }
   };
 }
@@ -146,16 +201,11 @@ async function run(command, args, options = {}) {
 }
 
 async function ssh(host, script, options = {}) {
-  return run("ssh", [
-    "-i",
-    sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    script
-  ], options);
+  return run(
+    "ssh",
+    ["-i", sshKey, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", host, script],
+    options
+  );
 }
 
 function shellSingle(value) {
@@ -164,14 +214,17 @@ function shellSingle(value) {
 
 function remoteRecreateScript({ app, wipeVolume }) {
   const keys = selectedApps(app);
-  const blocks = keys.map((key) => {
-    const cfg = apps[key];
-    const volumeMount = key === "signal" ? `${cfg.volume}:/home/kasm-user/.config/Signal` : `${cfg.volume}:/config`;
-    const env = (cfg.env || []).map((item) => `-e ${shellSingle(item)}`).join(" ");
-    const envFile = cfg.envFile ? `--env-file ${shellSingle(cfg.envFile)}` : "";
-    const extra = (cfg.extra || []).map(shellSingle).join(" ");
-    const signalSecret = key === "signal"
-      ? `
+  const blocks = keys
+    .map((key) => {
+      const cfg = apps[key];
+      const volumeMount =
+        key === "signal" ? `${cfg.volume}:/home/kasm-user/.config/Signal` : `${cfg.volume}:/config`;
+      const env = (cfg.env || []).map((item) => `-e ${shellSingle(item)}`).join(" ");
+      const envFile = cfg.envFile ? `--env-file ${shellSingle(cfg.envFile)}` : "";
+      const extra = (cfg.extra || []).map(shellSingle).join(" ");
+      const signalSecret =
+        key === "signal"
+          ? `
 sudo install -d -m 0700 /etc/sylion/workload-secrets
 if [ ! -f /etc/sylion/workload-secrets/signal.env ] || [ "$WIPE_VOLUME" = "true" ]; then
   signal_vnc_pw="$(openssl rand -base64 24 | tr -d '\\n')"
@@ -205,8 +258,8 @@ RUN apt-get update \\
 USER kasm-user
 DOCKERFILE
 sudo docker build -t sylion/signal-workload:prod-candidate -f /opt/sylion-workloads/signal-workload.Dockerfile /opt/sylion-workloads >/dev/null`
-      : "";
-    return `
+          : "";
+      return `
 ${signalSecret}
 sudo docker rm -f ${shellSingle(cfg.container)} >/dev/null 2>&1 || true
 if [ "$WIPE_VOLUME" = "true" ]; then sudo docker volume rm -f ${shellSingle(cfg.volume)} >/dev/null 2>&1 || true; fi
@@ -216,7 +269,8 @@ if [ ${shellSingle(key)} = 'signal' ]; then
 fi
 sudo docker run -d --name ${shellSingle(cfg.container)} --restart unless-stopped --shm-size 1g ${env} ${envFile} ${extra} -p "$private_ip:${cfg.port}" -v ${shellSingle(volumeMount)} ${shellSingle(cfg.image)} >/dev/null
 `;
-  }).join("\n");
+    })
+    .join("\n");
   return `
 set -euo pipefail
 WIPE_VOLUME="${wipeVolume ? "true" : "false"}"
@@ -232,7 +286,9 @@ cat /opt/sylion-workloads/recreate-evidence.json
 
 async function runSignalHandoffIfNeeded(app) {
   if (!(app === "signal" || app === "all")) return null;
-  const result = await run("node", ["scripts/sync-signal-auth-handoff.mjs", "--apply"], { timeout: 120_000 });
+  const result = await run("node", ["scripts/sync-signal-auth-handoff.mjs", "--apply"], {
+    timeout: 120_000
+  });
   return JSON.parse(result.stdout);
 }
 
@@ -254,7 +310,12 @@ for h in ${keys.map(shellSingle).join(" ")}; do
 done
 `;
   const { stdout } = await ssh(g2Host, script, { timeout: 120_000 });
-  return Object.fromEntries(stdout.split(/\r?\n/).filter(Boolean).map((line) => line.split("=")));
+  return Object.fromEntries(
+    stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => line.split("="))
+  );
 }
 
 function assertSmokePassed(smokeResult) {
@@ -271,7 +332,9 @@ async function main() {
     return;
   }
   if (!args.apply) {
-    console.error(`Usage: node scripts/live-workload-recreate.mjs --print-plan --app=${Object.keys(apps).join("|")}|all OR --apply --app=<app>|all [--wipe-volume]`);
+    console.error(
+      `Usage: node scripts/live-workload-recreate.mjs --print-plan --app=${Object.keys(apps).join("|")}|all OR --apply --app=<app>|all [--wipe-volume]`
+    );
     process.exitCode = 2;
     return;
   }
@@ -279,15 +342,24 @@ async function main() {
   const handoff = await runSignalHandoffIfNeeded(args.app);
   const smokeResult = await smoke(args.app);
   assertSmokePassed(smokeResult);
-  const evidenceJson = evidence.stdout.slice(evidence.stdout.indexOf("{"), evidence.stdout.lastIndexOf("}") + 1);
-  console.log(JSON.stringify({
-    applied: true,
-    secretPrinted: false,
-    workloadEvidence: JSON.parse(evidenceJson),
-    signalHandoff: handoff,
-    smoke: smokeResult,
-    productionExecutionAllowed: false
-  }, null, 2));
+  const evidenceJson = evidence.stdout.slice(
+    evidence.stdout.indexOf("{"),
+    evidence.stdout.lastIndexOf("}") + 1
+  );
+  console.log(
+    JSON.stringify(
+      {
+        applied: true,
+        secretPrinted: false,
+        workloadEvidence: JSON.parse(evidenceJson),
+        signalHandoff: handoff,
+        smoke: smokeResult,
+        productionExecutionAllowed: false
+      },
+      null,
+      2
+    )
+  );
 }
 
 await main();

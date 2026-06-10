@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateDuckDuckGoFactualState, duckDuckGoEvaluatorPolicy } from "../../../scripts/lib/duckduckgo-factual-evaluator.mjs";
+import {
+  evaluateDuckDuckGoFactualState,
+  duckDuckGoEvaluatorPolicy
+} from "../../../scripts/lib/duckduckgo-factual-evaluator.mjs";
 
 const matrixItem = {
   appKey: "duckduckgo_browser",
@@ -126,6 +129,10 @@ test("Step 3.86 DuckDuckGo evaluator fails wrong-browser and public-route eviden
 test("Step 3.86 DuckDuckGo evaluator policy documents strict pass conditions", () => {
   assert.equal(duckDuckGoEvaluatorPolicy.appKey, "duckduckgo_browser");
   assert.deepEqual(duckDuckGoEvaluatorPolicy.requiredChecks, ["uiVisible", "browsing"]);
-  assert.ok(duckDuckGoEvaluatorPolicy.passRequires.includes("browsing metadata probe through workload route"));
+  assert.ok(
+    duckDuckGoEvaluatorPolicy.passRequires.includes(
+      "browsing metadata probe through workload route"
+    )
+  );
   assert.ok(duckDuckGoEvaluatorPolicy.failFast.includes("localhost or public launch URL"));
 });

@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SYLION Admin</title>
-    <link rel="stylesheet" href="/admin/styles.css">
+    <link rel="stylesheet" href="/admin/styles.css" />
   </head>
   <body>
     <aside class="sidebar">
@@ -59,11 +59,17 @@
           </label>
           <label>
             Email
-            <input name="email" value="admin@sylion.local" autocomplete="username" required>
+            <input name="email" value="admin@sylion.local" autocomplete="username" required />
           </label>
           <label>
             Password
-            <input name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+            <input
+              name="password"
+              type="password"
+              placeholder="Password"
+              autocomplete="current-password"
+              required
+            />
           </label>
           <div class="button-row">
             <button type="button" id="enroll-button" class="secondary">Enroll FIDO2</button>
@@ -141,7 +147,15 @@
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Operator Provisioning <span class="help-tip" tabindex="0" data-tip="Tracks the safe provisioning path from tenant to orchestrator job.">?</span></h2>
+              <h2>
+                Operator Provisioning
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Tracks the safe provisioning path from tenant to orchestrator job."
+                  >?</span
+                >
+              </h2>
               <span class="pill" id="flow-state">Ready</span>
             </div>
             <ol class="flow">
@@ -155,7 +169,15 @@
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Security Invariants <span class="help-tip" tabindex="0" data-tip="Baseline controls from Księga 4.0 that must stay true during implementation.">?</span></h2>
+              <h2>
+                Security Invariants
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Baseline controls from Księga 4.0 that must stay true during implementation."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Active</span>
             </div>
             <ul class="checks">
@@ -168,21 +190,45 @@
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Księga 4.0 Status <span class="help-tip" tabindex="0" data-tip="Shows implementation state for baseline controls. Blocked means HUMAN GATE before production execution.">?</span></h2>
+              <h2>
+                Księga 4.0 Status
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Shows implementation state for baseline controls. Blocked means HUMAN GATE before production execution."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Step 3.9</span>
             </div>
             <div class="cards compact" id="ksiega-status-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>PHANTOM v3.0 Status <span class="help-tip" tabindex="0" data-tip="PHANTOM remains a separate governance track and cannot unlock baseline execution.">?</span></h2>
+              <h2>
+                PHANTOM v3.0 Status
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="PHANTOM remains a separate governance track and cannot unlock baseline execution."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Non-executable</span>
             </div>
             <div class="cards compact" id="phantom-status-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Recent Audit <span class="help-tip" tabindex="0" data-tip="Hash-chained evidence stream for sensitive policy and admin decisions.">?</span></h2>
+              <h2>
+                Recent Audit
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Hash-chained evidence stream for sensitive policy and admin decisions."
+                  >?</span
+                >
+              </h2>
               <span class="pill" id="audit-health">Live</span>
             </div>
             <div class="table-wrap">
@@ -207,8 +253,9 @@
               <h2>Create Tenant</h2>
             </div>
             <form id="tenant-form">
-              <label>Name <input name="name" value="Acme Secure Ops"></label>
-              <label>Tier
+              <label>Name <input name="name" value="Acme Secure Ops" /></label>
+              <label
+                >Tier
                 <select name="tier">
                   <option>STANDARD</option>
                   <option selected>PRO</option>
@@ -223,38 +270,68 @@
               <h2>Create Operator</h2>
             </div>
             <form id="operator-form">
-              <label>Tenant
+              <label
+                >Tenant
                 <select name="tenantId" id="operator-tenant-select"></select>
               </label>
-              <label>Display Name <input name="displayName" value="Operator One"></label>
-              <label>Tier
+              <label>Display Name <input name="displayName" value="Operator One" /></label>
+              <label
+                >Tier
                 <select name="tier">
                   <option>STANDARD</option>
                   <option selected>PRO</option>
                   <option>SOVEREIGN</option>
                 </select>
               </label>
-              <label class="check-row"><input name="disposable" type="checkbox"> Disposable destructive lab operator</label>
-              <label>Destructive scope <input name="destructiveTestScope" value="operator_teardown_lab"></label>
-              <label>Labels <input name="labels" placeholder="DISPOSABLE, lab"></label>
-              <label class="check-row"><input name="liveBaselineEnabled" type="checkbox"> Create live Hetzner G1/G2/WORKLOAD</label>
-              <label>Live Provider <select name="liveProviderId" id="operator-live-provider-select"></select></label>
-              <label>Region <input name="liveRegion" value="fsn1"></label>
-              <label>Server Type <input name="liveServerType" value="cx22"></label>
-              <label>Image <input name="liveImage" value="ubuntu-24.04"></label>
-              <label>Idempotency Key <input name="liveIdempotencyKey" placeholder="auto if empty"></label>
-              <label class="check-row"><input name="liveConfirmed" type="checkbox"> I confirm live cost and rollback</label>
+              <label class="check-row"
+                ><input name="disposable" type="checkbox" /> Disposable destructive lab
+                operator</label
+              >
+              <label
+                >Destructive scope <input name="destructiveTestScope" value="operator_teardown_lab"
+              /></label>
+              <label>Labels <input name="labels" placeholder="DISPOSABLE, lab" /></label>
+              <label class="check-row"
+                ><input name="liveBaselineEnabled" type="checkbox" /> Create live Hetzner
+                G1/G2/WORKLOAD</label
+              >
+              <label
+                >Live Provider
+                <select name="liveProviderId" id="operator-live-provider-select"></select
+              ></label>
+              <label>Region <input name="liveRegion" value="fsn1" /></label>
+              <label>Server Type <input name="liveServerType" value="cx22" /></label>
+              <label>Image <input name="liveImage" value="ubuntu-24.04" /></label>
+              <label
+                >Idempotency Key <input name="liveIdempotencyKey" placeholder="auto if empty"
+              /></label>
+              <label class="check-row"
+                ><input name="liveConfirmed" type="checkbox" /> I confirm live cost and
+                rollback</label
+              >
               <button type="submit">Create Operator</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Disposable Teardown Plan <span class="help-tip" tabindex="0" data-tip="Creates a plan-only destructive test for one explicitly disposable operator. It records the expected diff and keeps provider deletion disabled.">?</span></h2>
+              <h2>
+                Disposable Teardown Plan
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates a plan-only destructive test for one explicitly disposable operator. It records the expected diff and keeps provider deletion disabled."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Human gate</span>
             </div>
             <form id="disposable-teardown-plan-form">
-              <label>Operator <select name="operatorId" id="disposable-teardown-operator-select"></select></label>
-              <label>Action
+              <label
+                >Operator
+                <select name="operatorId" id="disposable-teardown-operator-select"></select
+              ></label>
+              <label
+                >Action
                 <select name="requestedAction">
                   <option value="data_wipe">Data wipe</option>
                   <option value="environment_destroy">Environment destroy</option>
@@ -262,83 +339,178 @@
                   <option value="operator_teardown">Full disposable teardown</option>
                 </select>
               </label>
-              <label>Reason <input name="reason" value="dashboard_disposable_operator_lab"></label>
+              <label
+                >Reason <input name="reason" value="dashboard_disposable_operator_lab"
+              /></label>
               <button type="submit">Create Teardown Plan</button>
             </form>
-            <div id="disposable-teardown-confirmation" class="evidence-box">No disposable teardown plan created in this browser session.</div>
+            <div id="disposable-teardown-confirmation" class="evidence-box">
+              No disposable teardown plan created in this browser session.
+            </div>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Execute Disposable Teardown <span class="help-tip" tabindex="0" data-tip="Runs only the control-plane teardown for a disposable operator after the exact confirmation phrase. Normal operators are denied before any side effect.">?</span></h2>
+              <h2>
+                Execute Disposable Teardown
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Runs only the control-plane teardown for a disposable operator after the exact confirmation phrase. Normal operators are denied before any side effect."
+                  >?</span
+                >
+              </h2>
               <span class="pill danger">Disposable only</span>
             </div>
             <form id="disposable-teardown-execute-form">
-              <label>Operator <select name="operatorId" id="disposable-teardown-execute-operator-select"></select></label>
-              <label>Plan <select name="planId" id="disposable-teardown-plan-select"></select></label>
-              <label>Confirmation <input name="confirmation" autocomplete="off" placeholder="DESTROY_DISPOSABLE_OPERATOR:op_..."></label>
-              <label>Reason <input name="reason" value="approved_dashboard_disposable_teardown"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="disposable-teardown-execute-operator-select"></select
+              ></label>
+              <label
+                >Plan
+                <select name="planId" id="disposable-teardown-plan-select"></select
+              ></label>
+              <label
+                >Confirmation
+                <input
+                  name="confirmation"
+                  autocomplete="off"
+                  placeholder="DESTROY_DISPOSABLE_OPERATOR:op_..."
+              /></label>
+              <label
+                >Reason <input name="reason" value="approved_dashboard_disposable_teardown"
+              /></label>
               <button type="submit">Execute Control-plane Teardown</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Provisioning Pipeline <span class="help-tip" tabindex="0" data-tip="Creates a local lab provisioning draft with communicator microVM plans. Local lab VPS records are not real cloud resources and do not release secrets.">?</span></h2>
+              <h2>
+                Provisioning Pipeline
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates a local lab provisioning draft with communicator microVM plans. Local lab VPS records are not real cloud resources and do not release secrets."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Local lab</span>
             </div>
             <form id="pipeline-draft-form">
-              <label>Operator <select name="operatorId" id="pipeline-operator-select"></select></label>
-              <label>Communicators <input name="requestedTemplates" value="whatsapp,signal,telegram"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="pipeline-operator-select"></select
+              ></label>
+              <label
+                >Communicators <input name="requestedTemplates" value="whatsapp,signal,telegram"
+              /></label>
               <button type="submit">Create Pipeline Draft</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Local Virtual VPS <span class="help-tip" tabindex="0" data-tip="Creates a local lab G1/G2/WORKLOAD VPS set as audited metadata for end-to-end testing. It does not call Hetzner or launch Firecracker.">?</span></h2>
+              <h2>
+                Local Virtual VPS
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates a local lab G1/G2/WORKLOAD VPS set as audited metadata for end-to-end testing. It does not call Hetzner or launch Firecracker."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">No cloud</span>
             </div>
             <form id="local-lab-vps-form">
-              <label>Pipeline <select name="pipelineId" id="local-lab-pipeline-select"></select></label>
+              <label
+                >Pipeline
+                <select name="pipelineId" id="local-lab-pipeline-select"></select
+              ></label>
               <button type="submit">Create Local VPS Set</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Secrets Gate <span class="help-tip" tabindex="0" data-tip="Checks whether workload secrets could be released. Local lab keeps this denied by design.">?</span></h2>
+              <h2>
+                Secrets Gate
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Checks whether workload secrets could be released. Local lab keeps this denied by design."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Default deny</span>
             </div>
             <form id="secrets-release-check-form">
-              <label>Pipeline <select name="pipelineId" id="secrets-check-pipeline-select"></select></label>
+              <label
+                >Pipeline
+                <select name="pipelineId" id="secrets-check-pipeline-select"></select
+              ></label>
               <button type="submit">Check Secrets Release</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Environment Harness <span class="help-tip" tabindex="0" data-tip="Creates a local execution harness from a local-lab pipeline. It simulates provider and Firecracker lifecycle without cloud mutations.">?</span></h2>
+              <h2>
+                Environment Harness
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates a local execution harness from a local-lab pipeline. It simulates provider and Firecracker lifecycle without cloud mutations."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Step 3.14</span>
             </div>
             <form id="local-environment-form">
-              <label>Pipeline <select name="pipelineId" id="local-environment-pipeline-select"></select></label>
+              <label
+                >Pipeline
+                <select name="pipelineId" id="local-environment-pipeline-select"></select
+              ></label>
               <button type="submit">Create Local Environment</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Start Harness <span class="help-tip" tabindex="0" data-tip="Starts mock local provider resources and mock Firecracker workload runtimes. It never launches a real kernel or releases secrets.">?</span></h2>
+              <h2>
+                Start Harness
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Starts mock local provider resources and mock Firecracker workload runtimes. It never launches a real kernel or releases secrets."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Mock runtime</span>
             </div>
             <form id="environment-start-form">
-              <label>Environment <select name="environmentId" id="environment-start-select"></select></label>
+              <label
+                >Environment
+                <select name="environmentId" id="environment-start-select"></select
+              ></label>
               <button type="submit">Start Local Harness</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Failure Injection <span class="help-tip" tabindex="0" data-tip="Forces a controlled local failure so rollback, monitoring and audit can be tested before live cloud unlock.">?</span></h2>
+              <h2>
+                Failure Injection
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Forces a controlled local failure so rollback, monitoring and audit can be tested before live cloud unlock."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Test only</span>
             </div>
             <form id="environment-failure-form">
-              <label>Environment <select name="environmentId" id="environment-failure-select"></select></label>
-              <label>Failure
+              <label
+                >Environment
+                <select name="environmentId" id="environment-failure-select"></select
+              ></label>
+              <label
+                >Failure
                 <select name="failureType">
                   <option value="firecracker_start_failed">firecracker_start_failed</option>
                   <option value="microvm_crash_loop">microvm_crash_loop</option>
@@ -346,39 +518,73 @@
                   <option value="secrets_denied">secrets_denied</option>
                 </select>
               </label>
-              <label>Reason <input name="reason" value="dashboard_local_lab_test"></label>
+              <label>Reason <input name="reason" value="dashboard_local_lab_test" /></label>
               <button type="submit">Inject Failure</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Rollback Harness <span class="help-tip" tabindex="0" data-tip="Stops mock runtimes and releases local-lab resources. This is the rollback drill before production provider cleanup exists.">?</span></h2>
+              <h2>
+                Rollback Harness
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Stops mock runtimes and releases local-lab resources. This is the rollback drill before production provider cleanup exists."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Cleanup</span>
             </div>
             <form id="environment-rollback-form">
-              <label>Environment <select name="environmentId" id="environment-rollback-select"></select></label>
-              <label>Reason <input name="reason" value="dashboard_local_lab_cleanup"></label>
+              <label
+                >Environment
+                <select name="environmentId" id="environment-rollback-select"></select
+              ></label>
+              <label>Reason <input name="reason" value="dashboard_local_lab_cleanup" /></label>
               <button type="submit">Rollback Environment</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Environment Secrets <span class="help-tip" tabindex="0" data-tip="Confirms the environment remains default-deny for workload secrets until production gates, TDX or SEV-SNP evidence and human approval are satisfied.">?</span></h2>
+              <h2>
+                Environment Secrets
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Confirms the environment remains default-deny for workload secrets until production gates, TDX or SEV-SNP evidence and human approval are satisfied."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Locked</span>
             </div>
             <form id="environment-secrets-form">
-              <label>Environment <select name="environmentId" id="environment-secrets-select"></select></label>
+              <label
+                >Environment
+                <select name="environmentId" id="environment-secrets-select"></select
+              ></label>
               <button type="submit">Check Environment Secrets</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Connection Path <span class="help-tip" tabindex="0" data-tip="Shows the operator terminal path: Pixel or laptop terminal to G1, G2, WORKLOAD and isolated communicator microVM slots. This is status/evidence only and does not deploy VPN.">?</span></h2>
+              <h2>
+                Connection Path
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Shows the operator terminal path: Pixel or laptop terminal to G1, G2, WORKLOAD and isolated communicator microVM slots. This is status/evidence only and does not deploy VPN."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Step 3.29</span>
             </div>
             <form id="operator-connection-path-form">
-              <label>Operator <select name="operatorId" id="operator-connection-path-select"></select></label>
-              <label>Terminal
+              <label
+                >Operator
+                <select name="operatorId" id="operator-connection-path-select"></select
+              ></label>
+              <label
+                >Terminal
                 <select name="terminalMode">
                   <option value="pixel_grapheneos">Pixel GrapheneOS</option>
                   <option value="laptop_web_terminal">Laptop web terminal</option>
@@ -389,48 +595,115 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Puli AX Package <span class="help-tip" tabindex="0" data-tip="Generates a reference-only router package manifest for Puli AX: OpenWrt baseline, strongSwan IKEv2, nftables kill switch and DNS tunnel policy. It never stores private keys or API secrets.">?</span></h2>
+              <h2>
+                Puli AX Package
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Generates a reference-only router package manifest for Puli AX: OpenWrt baseline, strongSwan IKEv2, nftables kill switch and DNS tunnel policy. It never stores private keys or API secrets."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Step 3.30</span>
             </div>
             <form id="router-package-form">
-              <label>Operator <select name="operatorId" id="router-package-operator-select"></select></label>
-              <label>Router <select name="routerDeviceId" id="router-package-device-select"></select></label>
-              <label>Firmware Target <input name="firmwareTarget" value="openwrt-23.05+"></label>
-              <label>Evidence <input name="evidenceRefs" value="evidence://router/package-draft"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="router-package-operator-select"></select
+              ></label>
+              <label
+                >Router
+                <select name="routerDeviceId" id="router-package-device-select"></select
+              ></label>
+              <label>Firmware Target <input name="firmwareTarget" value="openwrt-23.05+" /></label>
+              <label
+                >Evidence <input name="evidenceRefs" value="evidence://router/package-draft"
+              /></label>
               <button type="submit">Generate Router Package</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Router Posture <span class="help-tip" tabindex="0" data-tip="Records router validation evidence for physical smoke readiness: strongSwan, nftables kill switch, DNS tunnel-only, WAN admin disabled, SSH key auth and signed firmware. Production remains blocked.">?</span></h2>
+              <h2>
+                Router Posture
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Records router validation evidence for physical smoke readiness: strongSwan, nftables kill switch, DNS tunnel-only, WAN admin disabled, SSH key auth and signed firmware. Production remains blocked."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">No prod VPN</span>
             </div>
             <form id="router-posture-form">
-              <label>Operator <select name="operatorId" id="router-posture-operator-select"></select></label>
-              <label>Package <select name="packageId" id="router-posture-package-select"></select></label>
-              <label>Router <select name="routerDeviceId" id="router-posture-device-select"></select></label>
-              <label>Model <input name="model" value="GL.iNet GL-XE3000 Puli AX"></label>
-              <label>Firmware <input name="firmwareVersion" value="OpenWrt 23.05.5"></label>
-              <label class="check-row"><input type="checkbox" name="strongSwanInstalled" checked> strongSwan installed</label>
-              <label class="check-row"><input type="checkbox" name="nftablesKillSwitch"> nftables kill switch verified</label>
-              <label class="check-row"><input type="checkbox" name="dnsTunnelOnly"> DNS tunnel-only verified</label>
-              <label class="check-row"><input type="checkbox" name="wanAdminDisabled" checked> WAN admin disabled</label>
-              <label class="check-row"><input type="checkbox" name="sshKeyAuthOnly" checked> SSH key auth only</label>
-              <label class="check-row"><input type="checkbox" name="lanWanBypassBlocked"> LAN-to-WAN bypass blocked</label>
-              <label class="check-row"><input type="checkbox" name="signedFirmwareVerified"> Signed firmware verified</label>
-              <label class="check-row"><input type="checkbox" name="packageInstalled"> Package installed</label>
-              <label>Evidence <input name="evidenceRefs" value="evidence://router/posture-benchtop"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="router-posture-operator-select"></select
+              ></label>
+              <label
+                >Package
+                <select name="packageId" id="router-posture-package-select"></select
+              ></label>
+              <label
+                >Router
+                <select name="routerDeviceId" id="router-posture-device-select"></select
+              ></label>
+              <label>Model <input name="model" value="GL.iNet GL-XE3000 Puli AX" /></label>
+              <label>Firmware <input name="firmwareVersion" value="OpenWrt 23.05.5" /></label>
+              <label class="check-row"
+                ><input type="checkbox" name="strongSwanInstalled" checked /> strongSwan
+                installed</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="nftablesKillSwitch" /> nftables kill switch
+                verified</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="dnsTunnelOnly" /> DNS tunnel-only verified</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="wanAdminDisabled" checked /> WAN admin disabled</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="sshKeyAuthOnly" checked /> SSH key auth only</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="lanWanBypassBlocked" /> LAN-to-WAN bypass
+                blocked</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="signedFirmwareVerified" /> Signed firmware
+                verified</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="packageInstalled" /> Package installed</label
+              >
+              <label
+                >Evidence <input name="evidenceRefs" value="evidence://router/posture-benchtop"
+              /></label>
               <button type="submit">Validate Router Posture</button>
             </form>
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Operator Segmentation <span class="help-tip" tabindex="0" data-tip="Segments operators by activation date, subscription days remaining, purchase route, account class, tier and cost. Revenue is shown only when a paid token or checkout exists.">?</span></h2>
+              <h2>
+                Operator Segmentation
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Segments operators by activation date, subscription days remaining, purchase route, account class, tier and cost. Revenue is shown only when a paid token or checkout exists."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Commercial view</span>
             </div>
             <div class="operator-segmentation-controls">
-              <label>Search <input id="operator-segmentation-search" placeholder="operator, tenant, reseller"></label>
-              <label>Tier
+              <label
+                >Search
+                <input id="operator-segmentation-search" placeholder="operator, tenant, reseller"
+              /></label>
+              <label
+                >Tier
                 <select id="operator-segmentation-tier">
                   <option value="">All tiers</option>
                   <option>PILOT</option>
@@ -440,7 +713,8 @@
                   <option>SOVEREIGN</option>
                 </select>
               </label>
-              <label>Purchase
+              <label
+                >Purchase
                 <select id="operator-segmentation-purchase">
                   <option value="">All methods</option>
                   <option value="self_service_fiat">Self-service fiat</option>
@@ -450,7 +724,8 @@
                   <option value="sandbox_token">Sandbox token</option>
                 </select>
               </label>
-              <label>Account
+              <label
+                >Account
                 <select id="operator-segmentation-account">
                   <option value="">All account classes</option>
                   <option value="business">Business</option>
@@ -459,7 +734,8 @@
                   <option value="unknown">Unknown</option>
                 </select>
               </label>
-              <label>Sort
+              <label
+                >Sort
                 <select id="operator-segmentation-sort">
                   <option value="daysRemainingAsc">Subscription ends first</option>
                   <option value="activationDesc">Newest activation</option>
@@ -496,13 +772,27 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Manage Operator <span class="help-tip" tabindex="0" data-tip="Rename, retier, suspend/revoke, or remove one operator from the control plane. Deleting preserves audit evidence and does not run provider-side cleanup.">?</span></h2>
+              <h2>
+                Manage Operator
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Rename, retier, suspend/revoke, or remove one operator from the control plane. Deleting preserves audit evidence and does not run provider-side cleanup."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Audit retained</span>
             </div>
             <form id="operator-update-form">
-              <label>Operator <select name="operatorId" id="operator-manage-select"></select></label>
-              <label>Display Name <input name="displayName" placeholder="New operator name"></label>
-              <label>Tier
+              <label
+                >Operator
+                <select name="operatorId" id="operator-manage-select"></select
+              ></label>
+              <label
+                >Display Name <input name="displayName" placeholder="New operator name"
+              /></label>
+              <label
+                >Tier
                 <select name="tier">
                   <option value="">Keep current</option>
                   <option>PILOT</option>
@@ -512,7 +802,8 @@
                   <option>SOVEREIGN</option>
                 </select>
               </label>
-              <label>Status
+              <label
+                >Status
                 <select name="status">
                   <option value="">Keep current</option>
                   <option value="draft">draft</option>
@@ -525,42 +816,70 @@
                   <option value="revoked">revoked</option>
                 </select>
               </label>
-              <label>Labels <input name="labels" placeholder="comma-separated; blank keeps current"></label>
+              <label
+                >Labels <input name="labels" placeholder="comma-separated; blank keeps current"
+              /></label>
               <button type="submit">Save Operator</button>
             </form>
             <form id="operator-delete-form">
-              <label>Operator <select name="operatorId" id="operator-delete-select"></select></label>
-              <label>Confirmation <input name="confirmation" placeholder="DELETE_OPERATOR:op_..."></label>
-              <label>Reason <input name="reason" value="admin_operator_cleanup"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="operator-delete-select"></select
+              ></label>
+              <label
+                >Confirmation <input name="confirmation" placeholder="DELETE_OPERATOR:op_..."
+              /></label>
+              <label>Reason <input name="reason" value="admin_operator_cleanup" /></label>
               <button type="submit" class="danger">Delete Operator Control-plane</button>
             </form>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Disposable Teardown Plans</h2><span class="pill warn">Audit retained</span></div>
+            <div class="panel-head">
+              <h2>Disposable Teardown Plans</h2>
+              <span class="pill warn">Audit retained</span>
+            </div>
             <div class="cards" id="disposable-teardown-plan-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Operator Connection Path</h2><span class="pill warn">No prod VPN</span></div>
+            <div class="panel-head">
+              <h2>Operator Connection Path</h2>
+              <span class="pill warn">No prod VPN</span>
+            </div>
             <div class="cards" id="operator-connection-path-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Puli AX Router Packages</h2><span class="pill">IPsec refs</span></div>
+            <div class="panel-head">
+              <h2>Puli AX Router Packages</h2>
+              <span class="pill">IPsec refs</span>
+            </div>
             <div class="cards" id="router-package-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Router Posture Evidence</h2><span class="pill warn">Physical gate</span></div>
+            <div class="panel-head">
+              <h2>Router Posture Evidence</h2>
+              <span class="pill warn">Physical gate</span>
+            </div>
             <div class="cards" id="router-posture-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Communicator Templates</h2><span class="pill">Firecracker plan</span></div>
+            <div class="panel-head">
+              <h2>Communicator Templates</h2>
+              <span class="pill">Firecracker plan</span>
+            </div>
             <div class="cards" id="pipeline-template-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Operator Provisioning Pipelines</h2><span class="pill warn">Secrets locked</span></div>
+            <div class="panel-head">
+              <h2>Operator Provisioning Pipelines</h2>
+              <span class="pill warn">Secrets locked</span>
+            </div>
             <div class="cards" id="operator-pipeline-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Operator Environments</h2><span class="pill">Local harness</span></div>
+            <div class="panel-head">
+              <h2>Operator Environments</h2>
+              <span class="pill">Local harness</span>
+            </div>
             <div class="cards" id="operator-environment-cards"></div>
           </article>
         </section>
@@ -569,7 +888,8 @@
           <article class="panel form-panel">
             <div class="panel-head"><h2>Add Provider</h2></div>
             <form id="provider-form">
-              <label>Provider
+              <label
+                >Provider
                 <select name="providerType">
                   <option value="hetzner">Hetzner</option>
                   <option value="hetzner_robot">Hetzner Robot Dedicated</option>
@@ -581,18 +901,31 @@
                   <option value="scaleway">Scaleway Elastic Metal</option>
                 </select>
               </label>
-              <label>API Secret <input name="apiSecret" type="password" placeholder="Provider API secret" required></label>
-              <label>Regions <input name="regions" value="fsn1,nbg1"></label>
-              <label>Countries <input name="countries" value="DE,FI" placeholder="DE,FI,PL"></label>
-              <label>Region catalog <input name="regionCatalog" value="fsn1:DE:Falkenstein,nbg1:DE:Nuremberg" placeholder="region:country:city,region:country:city"></label>
-              <label>Runtime class
+              <label
+                >API Secret
+                <input name="apiSecret" type="password" placeholder="Provider API secret" required
+              /></label>
+              <label>Regions <input name="regions" value="fsn1,nbg1" /></label>
+              <label
+                >Countries <input name="countries" value="DE,FI" placeholder="DE,FI,PL"
+              /></label>
+              <label
+                >Region catalog
+                <input
+                  name="regionCatalog"
+                  value="fsn1:DE:Falkenstein,nbg1:DE:Nuremberg"
+                  placeholder="region:country:city,region:country:city"
+              /></label>
+              <label
+                >Runtime class
                 <select name="runtimeClass">
                   <option value="containers">Containers - Standard/Pro</option>
                   <option value="firecracker">Firecracker/KVM - Pro+</option>
                   <option value="confidential">TDX/SEV-SNP - Sovereign</option>
                 </select>
               </label>
-              <label>Provider role
+              <label
+                >Provider role
                 <select name="providerRole">
                   <option value="standard">Standard containers</option>
                   <option value="firecracker">Firecracker/KVM capable</option>
@@ -604,11 +937,20 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Secret Backend <span class="help-tip" tabindex="0" data-tip="Registers Vault, KMS, HSM or BYO-HSM references as a contract only. The admin panel stores references and evidence, never plaintext keys.">?</span></h2>
+              <h2>
+                Secret Backend
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Registers Vault, KMS, HSM or BYO-HSM references as a contract only. The admin panel stores references and evidence, never plaintext keys."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Reference-only</span>
             </div>
             <form id="secret-backend-form">
-              <label>Type
+              <label
+                >Type
                 <select name="backendType">
                   <option value="vault">Vault</option>
                   <option value="cloud_kms">Cloud KMS</option>
@@ -616,131 +958,271 @@
                   <option value="byo_hsm">BYO-HSM</option>
                 </select>
               </label>
-              <label>Name <input name="displayName" value="Vault Transit - staging"></label>
-              <label>Endpoint Ref <input name="endpointReference" value="vault://sylion/transit"></label>
-              <label>KMS Keyring Ref <input name="keyRingReference" placeholder="kms://project/keyring"></label>
-              <label>HSM Partition Ref <input name="hsmPartitionReference" placeholder="hsm://tenant/partition"></label>
-              <label>Mode
+              <label>Name <input name="displayName" value="Vault Transit - staging" /></label>
+              <label
+                >Endpoint Ref <input name="endpointReference" value="vault://sylion/transit"
+              /></label>
+              <label
+                >KMS Keyring Ref <input name="keyRingReference" placeholder="kms://project/keyring"
+              /></label>
+              <label
+                >HSM Partition Ref
+                <input name="hsmPartitionReference" placeholder="hsm://tenant/partition"
+              /></label>
+              <label
+                >Mode
                 <select name="mode">
                   <option value="reference_only" selected>Reference only</option>
                   <option value="runtime_resolver_planned">Runtime resolver planned</option>
                   <option value="runtime_resolver_attested">Runtime resolver attested</option>
                 </select>
               </label>
-              <label>Evidence <input name="evidenceRefs" value="adr://step3-19-secret-backend-contract"></label>
+              <label
+                >Evidence <input name="evidenceRefs" value="adr://step3-19-secret-backend-contract"
+              /></label>
               <button type="submit">Register Backend</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Provider Dry-Run <span class="help-tip" tabindex="0" data-tip="Plans G1/G2/WORKLOAD VPS actions without calling cloud APIs or mutating provider resources.">?</span></h2>
+              <h2>
+                Provider Dry-Run
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Plans G1/G2/WORKLOAD VPS actions without calling cloud APIs or mutating provider resources."
+                  >?</span
+                >
+              </h2>
               <span class="pill">No mutation</span>
             </div>
             <form id="provider-dry-run-form">
-              <label>Provider <select name="providerId" id="provider-dry-run-provider-select"></select></label>
-              <label>Operator <select name="operatorId" id="provider-dry-run-operator-select"></select></label>
-              <label>Region <input name="region" value="fsn1"></label>
+              <label
+                >Provider
+                <select name="providerId" id="provider-dry-run-provider-select"></select
+              ></label>
+              <label
+                >Operator
+                <select name="operatorId" id="provider-dry-run-operator-select"></select
+              ></label>
+              <label>Region <input name="region" value="fsn1" /></label>
               <button type="submit">Plan Dry-Run VPS</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Live Cloud Gate <span class="help-tip" tabindex="0" data-tip="Requests one baseline 3-VPS Hetzner set only after FIDO2 step-up, approval binding, env allowlist and explicit live confirmation. Secrets are never displayed.">?</span></h2>
+              <h2>
+                Live Cloud Gate
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Requests one baseline 3-VPS Hetzner set only after FIDO2 step-up, approval binding, env allowlist and explicit live confirmation. Secrets are never displayed."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Human gate</span>
             </div>
             <form id="live-cloud-form">
-              <label>Provider <select name="providerId" id="live-cloud-provider-select"></select></label>
-              <label>Operator <select name="operatorId" id="live-cloud-operator-select"></select></label>
-              <label>Approval <select name="approvalId" id="live-cloud-approval-select"></select></label>
-              <label>Region <input name="region" value="fsn1"></label>
-              <label>Idempotency <input name="idempotencyKey" value="live-smoke-001"></label>
-              <label class="check-row"><input type="checkbox" name="liveConfirmed"> I confirm this may create live cloud resources</label>
+              <label
+                >Provider
+                <select name="providerId" id="live-cloud-provider-select"></select
+              ></label>
+              <label
+                >Operator
+                <select name="operatorId" id="live-cloud-operator-select"></select
+              ></label>
+              <label
+                >Approval
+                <select name="approvalId" id="live-cloud-approval-select"></select
+              ></label>
+              <label>Region <input name="region" value="fsn1" /></label>
+              <label>Idempotency <input name="idempotencyKey" value="live-smoke-001" /></label>
+              <label class="check-row"
+                ><input type="checkbox" name="liveConfirmed" /> I confirm this may create live cloud
+                resources</label
+              >
               <button type="submit">Request Live VPS Set</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Promote Baseline <span class="help-tip" tabindex="0" data-tip="Promotes the operator's automatic local G1/G2/WORKLOAD baseline into a gated live provider request. It requires an approved approval record, fresh FIDO2 step-up, explicit confirmation and a rollback plan before cloud mutation.">?</span></h2>
+              <h2>
+                Promote Baseline
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Promotes the operator's automatic local G1/G2/WORKLOAD baseline into a gated live provider request. It requires an approved approval record, fresh FIDO2 step-up, explicit confirmation and a rollback plan before cloud mutation."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Step 3.27</span>
             </div>
             <form id="baseline-promotion-form">
-              <label>Provider <select name="providerId" id="baseline-promotion-provider-select"></select></label>
-              <label>Operator <select name="operatorId" id="baseline-promotion-operator-select"></select></label>
-              <label>Approval <select name="approvalId" id="baseline-promotion-approval-select"></select></label>
-              <label>Region <input name="region" value="fsn1"></label>
-              <label>Server Type <input name="serverType" value="cx22"></label>
-              <label>Image <input name="image" value="ubuntu-24.04"></label>
-              <label>Idempotency <input name="idempotencyKey" value="step3-27-promote-001"></label>
-              <label class="check-row"><input type="checkbox" name="liveConfirmed"> I confirm this may create live cloud resources</label>
+              <label
+                >Provider
+                <select name="providerId" id="baseline-promotion-provider-select"></select
+              ></label>
+              <label
+                >Operator
+                <select name="operatorId" id="baseline-promotion-operator-select"></select
+              ></label>
+              <label
+                >Approval
+                <select name="approvalId" id="baseline-promotion-approval-select"></select
+              ></label>
+              <label>Region <input name="region" value="fsn1" /></label>
+              <label>Server Type <input name="serverType" value="cx22" /></label>
+              <label>Image <input name="image" value="ubuntu-24.04" /></label>
+              <label
+                >Idempotency <input name="idempotencyKey" value="step3-27-promote-001"
+              /></label>
+              <label class="check-row"
+                ><input type="checkbox" name="liveConfirmed" /> I confirm this may create live cloud
+                resources</label
+              >
               <button type="submit">Promote Operator Baseline</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Provider Rehearsal <span class="help-tip" tabindex="0" data-tip="Runs the Step 3.18 provider smoke contract. Adapter sandbox has no cloud side effects; live provider mode requires explicit env gate and cleanup confirmation.">?</span></h2>
+              <h2>
+                Provider Rehearsal
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Runs the Step 3.18 provider smoke contract. Adapter sandbox has no cloud side effects; live provider mode requires explicit env gate and cleanup confirmation."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Step 3.18</span>
             </div>
             <form id="provider-rehearsal-form">
-              <label>Provider <select name="providerId" id="provider-rehearsal-provider-select"></select></label>
-              <label>Operator <select name="operatorId" id="provider-rehearsal-operator-select"></select></label>
-              <label>Approval <select name="approvalId" id="provider-rehearsal-approval-select"></select></label>
-              <label>Region <input name="region" value="fsn1"></label>
-              <label>Idempotency <input name="idempotencyKey" value="step3-18-rehearsal-001"></label>
-              <label>Mode
+              <label
+                >Provider
+                <select name="providerId" id="provider-rehearsal-provider-select"></select
+              ></label>
+              <label
+                >Operator
+                <select name="operatorId" id="provider-rehearsal-operator-select"></select
+              ></label>
+              <label
+                >Approval
+                <select name="approvalId" id="provider-rehearsal-approval-select"></select
+              ></label>
+              <label>Region <input name="region" value="fsn1" /></label>
+              <label
+                >Idempotency <input name="idempotencyKey" value="step3-18-rehearsal-001"
+              /></label>
+              <label
+                >Mode
                 <select name="rehearsalMode">
                   <option value="adapter_sandbox" selected>Adapter sandbox</option>
                   <option value="gate_only">Gate only</option>
                   <option value="live_provider">Live provider</option>
                 </select>
               </label>
-              <label class="check-row"><input type="checkbox" name="liveConfirmed" checked> I confirm rehearsal intent</label>
-              <label class="check-row"><input type="checkbox" name="cleanupConfirmed" checked> Cleanup/rollback must run</label>
+              <label class="check-row"
+                ><input type="checkbox" name="liveConfirmed" checked /> I confirm rehearsal
+                intent</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="cleanupConfirmed" checked /> Cleanup/rollback must
+                run</label
+              >
               <button type="submit">Run Rehearsal</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Dedicated Workload <span class="help-tip" tabindex="0" data-tip="Plans or orders one Hetzner Robot dedicated WORKLOAD_NATIVE host for a single operator. Paid ordering requires env gates, approved approval, step-up and explicit cost/hardware confirmations.">?</span></h2>
+              <h2>
+                Dedicated Workload
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Plans or orders one Hetzner Robot dedicated WORKLOAD_NATIVE host for a single operator. Paid ordering requires env gates, approved approval, step-up and explicit cost/hardware confirmations."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Paid gate</span>
             </div>
             <form id="dedicated-order-form">
-              <label>Provider <select name="providerId" id="dedicated-order-provider-select"></select></label>
-              <label>Operator <select name="operatorId" id="dedicated-order-operator-select"></select></label>
-              <label>Approval <select name="approvalId" id="dedicated-order-approval-select"></select></label>
-              <label>Product ID <input name="productId" value="AX102-U"></label>
-              <label>Region <input name="region" value="hel1"></label>
-              <label>Install image <input name="dist" value="Ubuntu 24.04 LTS base"></label>
-              <label>SSH key fingerprint <input name="authorizedKeyRef" value="admin-default-ssh-key"></label>
-              <label>Addons <input name="addons" value="primary_ipv4"></label>
-              <label>Max monthly EUR <input name="maxMonthlyPrice" type="number" min="0" step="1" value="120"></label>
-              <label>Tenancy
+              <label
+                >Provider
+                <select name="providerId" id="dedicated-order-provider-select"></select
+              ></label>
+              <label
+                >Operator
+                <select name="operatorId" id="dedicated-order-operator-select"></select
+              ></label>
+              <label
+                >Approval
+                <select name="approvalId" id="dedicated-order-approval-select"></select
+              ></label>
+              <label>Product ID <input name="productId" value="AX102-U" /></label>
+              <label>Region <input name="region" value="hel1" /></label>
+              <label>Install image <input name="dist" value="Ubuntu 24.04 LTS base" /></label>
+              <label
+                >SSH key fingerprint <input name="authorizedKeyRef" value="admin-default-ssh-key"
+              /></label>
+              <label>Addons <input name="addons" value="primary_ipv4" /></label>
+              <label
+                >Max monthly EUR
+                <input name="maxMonthlyPrice" type="number" min="0" step="1" value="120"
+              /></label>
+              <label
+                >Tenancy
                 <select name="workloadTenancyMode">
                   <option value="dedicated_operator" selected>Dedicated operator</option>
                   <option value="shared_pool">Shared pool - STANDARD/PRO only</option>
                 </select>
               </label>
-              <label>Mode
+              <label
+                >Mode
                 <select name="orderMode">
                   <option value="plan_only" selected>Plan only</option>
                   <option value="robot_test">Robot test transaction</option>
                   <option value="live_order">Live paid order</option>
                 </select>
               </label>
-              <label class="check-row"><input type="checkbox" name="liveConfirmed"> I confirm dedicated host ordering intent</label>
-              <label class="check-row"><input type="checkbox" name="costConfirmed"> I confirm monthly/setup cost gate</label>
-              <label class="check-row"><input type="checkbox" name="hardwareGateConfirmed"> I confirm KVM/binderfs hardware gate will be verified before secrets release</label>
-              <label class="check-row"><input type="checkbox" name="phantomSensitive"> PHANTOM-sensitive workload, requires fully dedicated host</label>
+              <label class="check-row"
+                ><input type="checkbox" name="liveConfirmed" /> I confirm dedicated host ordering
+                intent</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="costConfirmed" /> I confirm monthly/setup cost
+                gate</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="hardwareGateConfirmed" /> I confirm KVM/binderfs
+                hardware gate will be verified before secrets release</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="phantomSensitive" /> PHANTOM-sensitive workload,
+                requires fully dedicated host</label
+              >
               <button type="submit">Create Dedicated Order Gate</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Workload Image <span class="help-tip" tabindex="0" data-tip="Registers a workload application manifest for the dedicated host: image, kernel/rootfs, CDR policy and private G2 stream. It does not expose public ports or release secrets.">?</span></h2>
+              <h2>
+                Workload Image
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Registers a workload application manifest for the dedicated host: image, kernel/rootfs, CDR policy and private G2 stream. It does not expose public ports or release secrets."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">CDR required</span>
             </div>
             <form id="workload-image-manifest-form">
-              <label>Host <select name="hostId" id="workload-image-host-select"></select></label>
-              <label>App
+              <label
+                >Host
+                <select name="hostId" id="workload-image-host-select"></select
+              ></label>
+              <label
+                >App
                 <select name="appKey">
                   <option value="signal">Signal</option>
                   <option value="telegram">Telegram</option>
@@ -752,94 +1234,192 @@
                   <option value="exodus">Exodus</option>
                 </select>
               </label>
-              <label>Display name <input name="appName" value="Signal"></label>
-              <label>Runtime
+              <label>Display name <input name="appName" value="Signal" /></label>
+              <label
+                >Runtime
                 <select name="runtimeKind">
                   <option value="firecracker_microvm" selected>Firecracker microVM</option>
                   <option value="android_native_workload">Android native workload</option>
                   <option value="container_lab_helper">Container lab helper</option>
                 </select>
               </label>
-              <label>Image ref <input name="imageRef" value="image://sylion/signal-firecracker-lab-v0"></label>
-              <label>Kernel ref <input name="kernelRef" value="artifact://workload-native-lab-01/firecracker/vmlinux.bin"></label>
-              <label>Rootfs ref <input name="rootfsRef" value="artifact://workload-native-lab-01/apps/signal/rootfs.ext4"></label>
-              <label>Package ref <input name="packageRef" value="package://signal-desktop/pending-approved-download"></label>
-              <label>CDR policy <input name="cdrPolicyRef" value="cdr://mandatory-workload-file-transfer"></label>
-              <label>Stream bind <input name="bindAddress" value="127.0.0.1"></label>
-              <label>Stream port <input name="sourcePort" type="number" min="1" max="65535" value="7901"></label>
-              <label>Network mode <input name="networkMode" value="tap_isolated_g2_private_only"></label>
-              <label>Storage mode <input name="storageMode" value="ephemeral_cdr_only"></label>
-              <label>Production blockers <input name="productionBlockers" value="g1_g2_private_path_not_bound,g2_stream_broker_not_bound,pixel_human_regression_pending,hsm_pki_not_integrated,app_image_build_not_reproducible_yet"></label>
-              <label class="check-row"><input type="checkbox" name="throughG2" checked> G2 stream broker only</label>
-              <label class="check-row"><input type="checkbox" name="pixelOptimized" checked> Pixel viewport declared</label>
-              <label class="check-row"><input type="checkbox" name="reproducibleBuild"> Reproducible build evidence collected</label>
-              <label class="check-row"><input type="checkbox" name="cdrHookDeclared" checked> CDR hook declared</label>
-              <label class="check-row"><input type="checkbox" name="binderfs"> binderfs evidence for Android native</label>
-              <label class="check-row"><input type="checkbox" name="androidRuntime"> Android runtime evidence</label>
+              <label
+                >Image ref <input name="imageRef" value="image://sylion/signal-firecracker-lab-v0"
+              /></label>
+              <label
+                >Kernel ref
+                <input
+                  name="kernelRef"
+                  value="artifact://workload-native-lab-01/firecracker/vmlinux.bin"
+              /></label>
+              <label
+                >Rootfs ref
+                <input
+                  name="rootfsRef"
+                  value="artifact://workload-native-lab-01/apps/signal/rootfs.ext4"
+              /></label>
+              <label
+                >Package ref
+                <input name="packageRef" value="package://signal-desktop/pending-approved-download"
+              /></label>
+              <label
+                >CDR policy
+                <input name="cdrPolicyRef" value="cdr://mandatory-workload-file-transfer"
+              /></label>
+              <label>Stream bind <input name="bindAddress" value="127.0.0.1" /></label>
+              <label
+                >Stream port
+                <input name="sourcePort" type="number" min="1" max="65535" value="7901"
+              /></label>
+              <label
+                >Network mode <input name="networkMode" value="tap_isolated_g2_private_only"
+              /></label>
+              <label>Storage mode <input name="storageMode" value="ephemeral_cdr_only" /></label>
+              <label
+                >Production blockers
+                <input
+                  name="productionBlockers"
+                  value="g1_g2_private_path_not_bound,g2_stream_broker_not_bound,pixel_human_regression_pending,hsm_pki_not_integrated,app_image_build_not_reproducible_yet"
+              /></label>
+              <label class="check-row"
+                ><input type="checkbox" name="throughG2" checked /> G2 stream broker only</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="pixelOptimized" checked /> Pixel viewport
+                declared</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="reproducibleBuild" /> Reproducible build evidence
+                collected</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="cdrHookDeclared" checked /> CDR hook declared</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="binderfs" /> binderfs evidence for Android
+                native</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="androidRuntime" /> Android runtime evidence</label
+              >
               <button type="submit">Create Image Manifest</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Firecracker Host <span class="help-tip" tabindex="0" data-tip="Qualifies a host for future Firecracker execution. It does not launch microVMs from the dashboard.">?</span></h2>
+              <h2>
+                Firecracker Host
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Qualifies a host for future Firecracker execution. It does not launch microVMs from the dashboard."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">No launch</span>
             </div>
             <form id="firecracker-qualification-form">
-              <label>Host ID <input name="hostId" value="local-host"></label>
-              <label>Approval ID <input name="approvalId" value=""></label>
+              <label>Host ID <input name="hostId" value="local-host" /></label>
+              <label>Approval ID <input name="approvalId" value="" /></label>
               <button type="submit">Qualify Host</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Launch Rehearsal <span class="help-tip" tabindex="0" data-tip="Exercises the Firecracker launch contract as an audited rehearsal. It does not execute a real kernel, expose terminal data or release workload secrets.">?</span></h2>
+              <h2>
+                Launch Rehearsal
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Exercises the Firecracker launch contract as an audited rehearsal. It does not execute a real kernel, expose terminal data or release workload secrets."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">No real kernel</span>
             </div>
             <form id="firecracker-rehearsal-form">
-              <label>Host <select name="hostQualificationId" id="firecracker-rehearsal-host-select"></select></label>
-              <label>Operator <select name="operatorId" id="firecracker-rehearsal-operator-select"></select></label>
-              <label>Workloads <input name="workloadNames" value="signal,telegram,matrix"></label>
-              <label>Image Ref <input name="imageRef" value="image://sylion/microvm/rehearsal"></label>
-              <label>Kernel Ref <input name="kernelRef" value="artifact://firecracker/kernel-pinned"></label>
-              <label>Rootfs Ref <input name="rootfsRef" value="artifact://firecracker/rootfs-rehearsal"></label>
-              <label>Network Mode <input name="networkMode" value="tap_isolated_metadata_only"></label>
-              <label class="check-row"><input type="checkbox" name="rehearsalConfirmed" checked> I confirm this is rehearsal-only</label>
+              <label
+                >Host
+                <select name="hostQualificationId" id="firecracker-rehearsal-host-select"></select
+              ></label>
+              <label
+                >Operator
+                <select name="operatorId" id="firecracker-rehearsal-operator-select"></select
+              ></label>
+              <label>Workloads <input name="workloadNames" value="signal,telegram,matrix" /></label>
+              <label
+                >Image Ref <input name="imageRef" value="image://sylion/microvm/rehearsal"
+              /></label>
+              <label
+                >Kernel Ref <input name="kernelRef" value="artifact://firecracker/kernel-pinned"
+              /></label>
+              <label
+                >Rootfs Ref <input name="rootfsRef" value="artifact://firecracker/rootfs-rehearsal"
+              /></label>
+              <label
+                >Network Mode <input name="networkMode" value="tap_isolated_metadata_only"
+              /></label>
+              <label class="check-row"
+                ><input type="checkbox" name="rehearsalConfirmed" checked /> I confirm this is
+                rehearsal-only</label
+              >
               <button type="submit">Run Launch Rehearsal</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>CPU Confidential Gate <span class="help-tip" tabindex="0" data-tip="Qualifies Intel TDX or AMD SEV-SNP posture. Workload secrets stay blocked unless attestation and evidence pass.">?</span></h2>
+              <h2>
+                CPU Confidential Gate
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Qualifies Intel TDX or AMD SEV-SNP posture. Workload secrets stay blocked unless attestation and evidence pass."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Attestation</span>
             </div>
             <form id="cpu-confidential-qualification-form">
-              <label>Host ID <input name="hostId" value="bare-metal-fc-01"></label>
-              <label>CPU Vendor
+              <label>Host ID <input name="hostId" value="bare-metal-fc-01" /></label>
+              <label
+                >CPU Vendor
                 <select name="cpuVendor">
                   <option value="intel">Intel</option>
                   <option value="amd">AMD</option>
                   <option value="unknown">Unknown</option>
                 </select>
               </label>
-              <label>CPU Model <input name="cpuModel" value="Xeon TDX-capable"></label>
-              <label>Mode
+              <label>CPU Model <input name="cpuModel" value="Xeon TDX-capable" /></label>
+              <label
+                >Mode
                 <select name="confidentialMode">
                   <option value="intel_tdx">Intel TDX</option>
                   <option value="amd_sev_snp">AMD SEV-SNP</option>
                   <option value="none">None</option>
                 </select>
               </label>
-              <label>Tier <input name="tierTarget" value="SOVEREIGN"></label>
-              <label class="check-row"><input type="checkbox" name="virtualization" checked> VMX/SVM</label>
-              <label class="check-row"><input type="checkbox" name="iommu" checked> IOMMU</label>
-              <label class="check-row"><input type="checkbox" name="tpm2" checked> TPM 2.0</label>
-              <label class="check-row"><input type="checkbox" name="secureBoot" checked> Secure Boot</label>
-              <label class="check-row"><input type="checkbox" name="kernelLockdown" checked> Kernel lockdown</label>
-              <label class="check-row"><input type="checkbox" name="microcodeCurrent" checked> Current microcode</label>
-              <label class="check-row"><input type="checkbox" name="attestationVerified"> Remote attestation verified</label>
-              <label>Measurement ref <input name="measurementRef" value=""></label>
-              <label>Verifier <input name="verifier" value="sylion-attestation-service"></label>
-              <label>Evidence refs <input name="evidenceRefs" value=""></label>
+              <label>Tier <input name="tierTarget" value="SOVEREIGN" /></label>
+              <label class="check-row"
+                ><input type="checkbox" name="virtualization" checked /> VMX/SVM</label
+              >
+              <label class="check-row"><input type="checkbox" name="iommu" checked /> IOMMU</label>
+              <label class="check-row"><input type="checkbox" name="tpm2" checked /> TPM 2.0</label>
+              <label class="check-row"
+                ><input type="checkbox" name="secureBoot" checked /> Secure Boot</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="kernelLockdown" checked /> Kernel lockdown</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="microcodeCurrent" checked /> Current microcode</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="attestationVerified" /> Remote attestation
+                verified</label
+              >
+              <label>Measurement ref <input name="measurementRef" value="" /></label>
+              <label>Verifier <input name="verifier" value="sylion-attestation-service" /></label>
+              <label>Evidence refs <input name="evidenceRefs" value="" /></label>
               <button type="submit">Qualify CPU Gate</button>
             </form>
           </article>
@@ -848,59 +1428,115 @@
             <div class="cards" id="provider-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Dry-Run Plans</h2><span class="pill">No cloud mutation</span></div>
+            <div class="panel-head">
+              <h2>Dry-Run Plans</h2>
+              <span class="pill">No cloud mutation</span>
+            </div>
             <div class="cards" id="provider-dry-run-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Live Execution Status</h2><span class="pill warn">Default deny</span></div>
+            <div class="panel-head">
+              <h2>Live Execution Status</h2>
+              <span class="pill warn">Default deny</span>
+            </div>
             <div class="cards" id="live-cloud-status-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Secret Backend Status</h2><span class="pill warn">HSM pending</span></div>
+            <div class="panel-head">
+              <h2>Secret Backend Status</h2>
+              <span class="pill warn">HSM pending</span>
+            </div>
             <div class="cards" id="secret-backend-status-cards"></div>
             <div class="cards" id="secret-backend-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Live Cloud Requests</h2><span class="pill warn">Audited</span></div>
+            <div class="panel-head">
+              <h2>Live Cloud Requests</h2>
+              <span class="pill warn">Audited</span>
+            </div>
             <div class="cards" id="live-cloud-request-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Provider Rehearsals</h2><span class="pill">Smoke evidence</span></div>
+            <div class="panel-head">
+              <h2>Provider Rehearsals</h2>
+              <span class="pill">Smoke evidence</span>
+            </div>
             <div class="cards" id="provider-rehearsal-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Dedicated Workload Orders</h2><span class="pill warn">Hetzner Robot</span></div>
+            <div class="panel-head">
+              <h2>Dedicated Workload Orders</h2>
+              <span class="pill warn">Hetzner Robot</span>
+            </div>
             <div class="cards" id="dedicated-order-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>WORKLOAD_NATIVE Hosts <span class="help-tip" tabindex="0" data-tip="Delivered dedicated hosts are registered here after SSH bootstrap and no-secret evidence collection. Lab-ready is not a production approval.">?</span></h2>
+              <h2>
+                WORKLOAD_NATIVE Hosts
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Delivered dedicated hosts are registered here after SSH bootstrap and no-secret evidence collection. Lab-ready is not a production approval."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Dedicated lab</span>
             </div>
             <div class="cards" id="workload-native-host-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Workload Image Manifests <span class="help-tip" tabindex="0" data-tip="Shows application image manifests for Signal, Telegram, WhatsApp, Threema, Zangi, DuckDuckGo, LibreOffice and Exodus before G2 stream launch.">?</span></h2>
+              <h2>
+                Workload Image Manifests
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Shows application image manifests for Signal, Telegram, WhatsApp, Threema, Zangi, DuckDuckGo, LibreOffice and Exodus before G2 stream launch."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Lab launch gate</span>
             </div>
             <div class="cards" id="workload-image-manifest-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Live Rollback Plans <span class="help-tip" tabindex="0" data-tip="Every live provider request must have rollback metadata before mutation. Blocked requests keep no-op cleanup actions; executed requests store sanitized delete actions.">?</span></h2><span class="pill warn">Required</span></div>
+            <div class="panel-head">
+              <h2>
+                Live Rollback Plans
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Every live provider request must have rollback metadata before mutation. Blocked requests keep no-op cleanup actions; executed requests store sanitized delete actions."
+                  >?</span
+                >
+              </h2>
+              <span class="pill warn">Required</span>
+            </div>
             <div class="cards" id="live-rollback-plan-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Firecracker Qualifications</h2><span class="pill warn">Host gate</span></div>
+            <div class="panel-head">
+              <h2>Firecracker Qualifications</h2>
+              <span class="pill warn">Host gate</span>
+            </div>
             <div class="cards" id="firecracker-qualification-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Firecracker Launch Rehearsals</h2><span class="pill warn">Rehearsal only</span></div>
-            <p class="muted">Real kernel remains false until an explicit human gate approves production execution.</p>
+            <div class="panel-head">
+              <h2>Firecracker Launch Rehearsals</h2>
+              <span class="pill warn">Rehearsal only</span>
+            </div>
+            <p class="muted">
+              Real kernel remains false until an explicit human gate approves production execution.
+            </p>
             <div class="cards" id="firecracker-rehearsal-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>CPU Confidential Qualifications</h2><span class="pill warn">Secrets gate</span></div>
+            <div class="panel-head">
+              <h2>CPU Confidential Qualifications</h2>
+              <span class="pill warn">Secrets gate</span>
+            </div>
             <div class="cards" id="cpu-confidential-qualification-cards"></div>
           </article>
         </section>
@@ -909,16 +1545,20 @@
           <article class="panel form-panel">
             <div class="panel-head"><h2>Register Device</h2></div>
             <form id="device-form">
-              <label>Operator <select name="assignedOperatorId" id="device-operator-select"></select></label>
-              <label>Type
+              <label
+                >Operator
+                <select name="assignedOperatorId" id="device-operator-select"></select
+              ></label>
+              <label
+                >Type
                 <select name="type">
                   <option value="pixel_grapheneos">Pixel / GrapheneOS</option>
                   <option value="puli_ax_router">Puli AX Router</option>
                   <option value="fido2_key">FIDO2 Key</option>
                 </select>
               </label>
-              <label>Serial <input name="serial" value="device-001"></label>
-              <label>Model <input name="model" value="Google Pixel"></label>
+              <label>Serial <input name="serial" value="device-001" /></label>
+              <label>Model <input name="model" value="Google Pixel" /></label>
               <button type="submit">Register Device</button>
             </form>
           </article>
@@ -932,20 +1572,35 @@
           <article class="panel form-panel">
             <div class="panel-head"><h2>Generate Plan</h2></div>
             <form id="plan-form">
-              <label>Operator <select name="operatorId" id="plan-operator-select"></select></label>
-              <label>Apps <input name="requestedApps" value="Signal,Telegram"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="plan-operator-select"></select
+              ></label>
+              <label>Apps <input name="requestedApps" value="Signal,Telegram" /></label>
               <button type="submit">Generate Plan</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head"><h2>Execute Job</h2></div>
             <form id="job-form">
-              <label>Operator <select name="operatorId" id="job-operator-select"></select></label>
-              <label>Plan ID <input name="planId" id="job-plan-id"></label>
-              <label>Approval ID <input name="approvalId" id="job-approval-id" placeholder="Required for gated execution"></label>
-              <label class="check-row"><input type="checkbox" name="approvalRequired" checked> Require approval gate</label>
-              <label>Provider <input name="provider" value="hetzner"></label>
-              <label>Region <input name="region" value="fsn1"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="job-operator-select"></select
+              ></label>
+              <label>Plan ID <input name="planId" id="job-plan-id" /></label>
+              <label
+                >Approval ID
+                <input
+                  name="approvalId"
+                  id="job-approval-id"
+                  placeholder="Required for gated execution"
+              /></label>
+              <label class="check-row"
+                ><input type="checkbox" name="approvalRequired" checked /> Require approval
+                gate</label
+              >
+              <label>Provider <input name="provider" value="hetzner" /></label>
+              <label>Region <input name="region" value="fsn1" /></label>
               <button type="submit">Execute Plan</button>
             </form>
           </article>
@@ -959,7 +1614,15 @@
           <article class="panel wide command-panel">
             <div>
               <span class="eyebrow">Step 3.8</span>
-              <h2>Approval, readiness and workload lifecycle <span class="help-tip" tabindex="0" data-tip="Human approval and readiness checks before activation. PHANTOM resources stay outside execution approvals.">?</span></h2>
+              <h2>
+                Approval, readiness and workload lifecycle
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Human approval and readiness checks before activation. PHANTOM resources stay outside execution approvals."
+                  >?</span
+                >
+              </h2>
             </div>
             <div class="command-grid">
               <span>Operator readiness</span>
@@ -969,35 +1632,73 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Readiness <span class="help-tip" tabindex="0" data-tip="Checks Puli AX, Pixel, FIDO2, provider reference, subscription billing and 3 VPS/CDR baseline.">?</span></h2>
+              <h2>
+                Readiness
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Checks Puli AX, Pixel, FIDO2, provider reference, subscription billing and 3 VPS/CDR baseline."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">HUMAN GATE</span>
             </div>
             <form id="readiness-form">
-              <label>Operator <select name="operatorId" id="readiness-operator-select"></select></label>
+              <label
+                >Operator
+                <select name="operatorId" id="readiness-operator-select"></select
+              ></label>
               <button type="submit">Evaluate Readiness</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Provisioning Approval <span class="help-tip" tabindex="0" data-tip="Creates an auditable approval record. Only approved_for_execution can unlock approval-gated orchestrator execution.">?</span></h2>
+              <h2>
+                Provisioning Approval
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates an auditable approval record. Only approved_for_execution can unlock approval-gated orchestrator execution."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Execution gate</span>
             </div>
             <form id="approval-form">
-              <label>Operator <select name="operatorId" id="approval-operator-select"></select></label>
-              <label>Plan ID <input name="planId" id="approval-plan-id"></label>
-              <label>Reason <input name="reasonCode" value="provisioning_execution_review"></label>
-              <label>Evidence refs <input name="evidenceRefs" value="readiness-check,security-review"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="approval-operator-select"></select
+              ></label>
+              <label>Plan ID <input name="planId" id="approval-plan-id" /></label>
+              <label
+                >Reason <input name="reasonCode" value="provisioning_execution_review"
+              /></label>
+              <label
+                >Evidence refs <input name="evidenceRefs" value="readiness-check,security-review"
+              /></label>
               <button type="submit">Create Approval</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Approval Status <span class="help-tip" tabindex="0" data-tip="Human gate decision. Rejection or blocking is preserved in audit; approval only unlocks gated execution for baseline provisioning records.">?</span></h2>
+              <h2>
+                Approval Status
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Human gate decision. Rejection or blocking is preserved in audit; approval only unlocks gated execution for baseline provisioning records."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Audited</span>
             </div>
             <form id="approval-status-form">
-              <label>Approval <select name="approvalId" id="approval-status-select"></select></label>
-              <label>Status
+              <label
+                >Approval
+                <select name="approvalId" id="approval-status-select"></select
+              ></label>
+              <label
+                >Status
                 <select name="status">
                   <option>pending_security_review</option>
                   <option>pending_provisioning_review</option>
@@ -1007,19 +1708,36 @@
                   <option>closed</option>
                 </select>
               </label>
-              <label>Note <input name="note" value="Human approval recorded for gated execution"></label>
+              <label
+                >Note <input name="note" value="Human approval recorded for gated execution"
+              /></label>
               <button type="submit">Update Status</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Workload Lifecycle <span class="help-tip" tabindex="0" data-tip="Moves workload metadata through lifecycle states. It does not start or delete real microVMs.">?</span></h2>
+              <h2>
+                Workload Lifecycle
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Moves workload metadata through lifecycle states. It does not start or delete real microVMs."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Metadata only</span>
             </div>
             <form id="workload-lifecycle-form">
-              <label>Allocation <select name="allocationId" id="workload-lifecycle-allocation-select"></select></label>
-              <label>Approval <select name="approvalId" id="workload-lifecycle-approval-select"></select></label>
-              <label>Status
+              <label
+                >Allocation
+                <select name="allocationId" id="workload-lifecycle-allocation-select"></select
+              ></label>
+              <label
+                >Approval
+                <select name="approvalId" id="workload-lifecycle-approval-select"></select
+              ></label>
+              <label
+                >Status
                 <select name="status">
                   <option selected>approval_required</option>
                   <option>approved_for_activation</option>
@@ -1032,20 +1750,29 @@
                   <option>closed</option>
                 </select>
               </label>
-              <label>Reason <input name="reasonCode" value="operator_lifecycle_review"></label>
+              <label>Reason <input name="reasonCode" value="operator_lifecycle_review" /></label>
               <button type="submit">Transition Lifecycle</button>
             </form>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Readiness Results</h2><span class="pill">Księga 4.0</span></div>
+            <div class="panel-head">
+              <h2>Readiness Results</h2>
+              <span class="pill">Księga 4.0</span>
+            </div>
             <div class="cards" id="readiness-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Provisioning Approvals</h2><span class="pill">Gate records</span></div>
+            <div class="panel-head">
+              <h2>Provisioning Approvals</h2>
+              <span class="pill">Gate records</span>
+            </div>
             <div class="cards" id="approval-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Workload Lifecycle</h2><span class="pill">No side effects</span></div>
+            <div class="panel-head">
+              <h2>Workload Lifecycle</h2>
+              <span class="pill">No side effects</span>
+            </div>
             <div class="cards" id="workload-lifecycle-cards"></div>
           </article>
         </section>
@@ -1054,7 +1781,15 @@
           <article class="panel wide command-panel">
             <div>
               <span class="eyebrow">Step 3.7</span>
-              <h2>Subscription and workload controls <span class="help-tip" tabindex="0" data-tip="Controls workload counts before provisioning. Quotes deny over-limit requests without side effects.">?</span></h2>
+              <h2>
+                Subscription and workload controls
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Controls workload counts before provisioning. Quotes deny over-limit requests without side effects."
+                  >?</span
+                >
+              </h2>
             </div>
             <div class="command-grid">
               <span>Quota before allocation</span>
@@ -1065,30 +1800,42 @@
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Approved App <span class="help-tip" tabindex="0" data-tip="Creates an authorized app catalog entry and approves it for workload allocation. CDR remains mandatory.">?</span></h2>
+              <h2>
+                Approved App
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates an authorized app catalog entry and approves it for workload allocation. CDR remains mandatory."
+                  >?</span
+                >
+              </h2>
               <span class="pill">CDR required</span>
             </div>
             <form id="approved-app-form">
-              <label>Name <input name="name" value="Signal Workload"></label>
-              <label>Type
+              <label>Name <input name="name" value="Signal Workload" /></label>
+              <label
+                >Type
                 <select name="type">
                   <option selected>messaging</option>
                   <option>productivity</option>
                   <option>custom</option>
                 </select>
               </label>
-              <label>Risk
+              <label
+                >Risk
                 <select name="riskClass">
                   <option>low</option>
                   <option selected>medium</option>
                   <option>high</option>
                 </select>
               </label>
-              <label>Allowed tiers <input name="allowedTiers" value="STANDARD,PRO,SOVEREIGN"></label>
+              <label
+                >Allowed tiers <input name="allowedTiers" value="STANDARD,PRO,SOVEREIGN"
+              /></label>
               <div class="triple">
-                <label>vCPU <input name="vcpu" value="2"></label>
-                <label>Memory MiB <input name="memoryMiB" value="2048"></label>
-                <label>Disk MiB <input name="diskMiB" value="8192"></label>
+                <label>vCPU <input name="vcpu" value="2" /></label>
+                <label>Memory MiB <input name="memoryMiB" value="2048" /></label>
+                <label>Disk MiB <input name="diskMiB" value="8192" /></label>
               </div>
               <button type="submit">Create Approved App</button>
             </form>
@@ -1096,26 +1843,56 @@
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Subscription <span class="help-tip" tabindex="0" data-tip="Assigns plan and add-ons to a tenant. PHANTOM add-on exposes admin lifecycle visibility only, never execution.">?</span></h2>
+              <h2>
+                Subscription
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Assigns plan and add-ons to a tenant. PHANTOM add-on exposes admin lifecycle visibility only, never execution."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Tenant ledger</span>
             </div>
             <form id="subscription-form">
-              <label>Tenant <select name="tenantId" id="subscription-tenant-select"></select></label>
-              <label>Plan <select name="planId" id="subscription-plan-select"></select></label>
-              <label class="check-row"><input type="checkbox" name="matrixAddon"> Matrix custom server add-on</label>
-              <label class="check-row"><input type="checkbox" name="phantomAddon"> PHANTOM admin lifecycle add-on</label>
+              <label
+                >Tenant
+                <select name="tenantId" id="subscription-tenant-select"></select
+              ></label>
+              <label
+                >Plan
+                <select name="planId" id="subscription-plan-select"></select
+              ></label>
+              <label class="check-row"
+                ><input type="checkbox" name="matrixAddon" /> Matrix custom server add-on</label
+              >
+              <label class="check-row"
+                ><input type="checkbox" name="phantomAddon" /> PHANTOM admin lifecycle add-on</label
+              >
               <button type="submit">Update Subscription</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Billing State <span class="help-tip" tabindex="0" data-tip="Suspended billing blocks new allocations and provisioning but does not delete audit or evidence.">?</span></h2>
+              <h2>
+                Billing State
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Suspended billing blocks new allocations and provisioning but does not delete audit or evidence."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">No deletion</span>
             </div>
             <form id="billing-form">
-              <label>Tenant <select name="tenantId" id="billing-tenant-select"></select></label>
-              <label>Billing
+              <label
+                >Tenant
+                <select name="tenantId" id="billing-tenant-select"></select
+              ></label>
+              <label
+                >Billing
                 <select name="billingStatus">
                   <option>trial</option>
                   <option selected>active</option>
@@ -1130,60 +1907,117 @@
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Quota Quote <span class="help-tip" tabindex="0" data-tip="Dry-run check. It counts app instances and records allow/deny without creating workload allocation.">?</span></h2>
+              <h2>
+                Quota Quote
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Dry-run check. It counts app instances and records allow/deny without creating workload allocation."
+                  >?</span
+                >
+              </h2>
               <span class="pill">No side effects</span>
             </div>
             <form id="workload-quote-form">
-              <label>Operator <select name="operatorId" id="workload-quote-operator-select"></select></label>
-              <label>App <select name="appId" id="workload-quote-app-select"></select></label>
-              <label>Instances <input name="requestedCount" value="2"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="workload-quote-operator-select"></select
+              ></label>
+              <label
+                >App
+                <select name="appId" id="workload-quote-app-select"></select
+              ></label>
+              <label>Instances <input name="requestedCount" value="2" /></label>
               <button type="submit">Quote Allocation</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Allocation <span class="help-tip" tabindex="0" data-tip="Creates workload allocation metadata only after quota allows it. Actual Firecracker execution is not performed here.">?</span></h2>
+              <h2>
+                Allocation
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates workload allocation metadata only after quota allows it. Actual Firecracker execution is not performed here."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Metadata only</span>
             </div>
             <form id="workload-allocation-form">
-              <label>Operator <select name="operatorId" id="workload-allocation-operator-select"></select></label>
-              <label>App <select name="appId" id="workload-allocation-app-select"></select></label>
-              <label>Instances <input name="requestedCount" value="1"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="workload-allocation-operator-select"></select
+              ></label>
+              <label
+                >App
+                <select name="appId" id="workload-allocation-app-select"></select
+              ></label>
+              <label>Instances <input name="requestedCount" value="1" /></label>
               <button type="submit">Create Allocation</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>MicroVM Placement <span class="help-tip" tabindex="0" data-tip="Plans placement on the operator's WORKLOAD layer. It never starts Firecracker or mutates cloud resources.">?</span></h2>
+              <h2>
+                MicroVM Placement
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Plans placement on the operator's WORKLOAD layer. It never starts Firecracker or mutates cloud resources."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Plan only</span>
             </div>
             <form id="placement-form">
-              <label>Operator <select name="operatorId" id="placement-operator-select"></select></label>
-              <label>Allocation <select name="allocationId" id="placement-allocation-select"></select></label>
+              <label
+                >Operator
+                <select name="operatorId" id="placement-operator-select"></select
+              ></label>
+              <label
+                >Allocation
+                <select name="allocationId" id="placement-allocation-select"></select
+              ></label>
               <button type="submit">Create Placement Plan</button>
             </form>
           </article>
 
           <article class="panel wide">
-            <div class="panel-head"><h2>Plans</h2><span class="pill">Limits</span></div>
+            <div class="panel-head">
+              <h2>Plans</h2>
+              <span class="pill">Limits</span>
+            </div>
             <div class="cards" id="subscription-plan-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Tenant Subscriptions</h2><span class="pill">Effective limits</span></div>
+            <div class="panel-head">
+              <h2>Tenant Subscriptions</h2>
+              <span class="pill">Effective limits</span>
+            </div>
             <div class="cards" id="tenant-subscription-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Approved Apps</h2><span class="pill">Catalog</span></div>
+            <div class="panel-head">
+              <h2>Approved Apps</h2>
+              <span class="pill">Catalog</span>
+            </div>
             <div class="cards" id="app-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Workload Allocations</h2><span class="pill">App instances</span></div>
+            <div class="panel-head">
+              <h2>Workload Allocations</h2>
+              <span class="pill">App instances</span>
+            </div>
             <div class="cards" id="workload-allocation-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Quota Decisions</h2><span class="pill">Audit-ready</span></div>
+            <div class="panel-head">
+              <h2>Quota Decisions</h2>
+              <span class="pill">Audit-ready</span>
+            </div>
             <div class="cards" id="quota-decision-cards"></div>
           </article>
         </section>
@@ -1192,7 +2026,15 @@
           <article class="panel wide command-panel">
             <div>
               <span class="eyebrow">Defensive monitoring</span>
-              <h2>Blue team cockpit <span class="help-tip" tabindex="0" data-tip="Metadata-only detection layer. It correlates audit, CDR, monitoring signals and incidents without storing communication content.">?</span></h2>
+              <h2>
+                Blue team cockpit
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Metadata-only detection layer. It correlates audit, CDR, monitoring signals and incidents without storing communication content."
+                  >?</span
+                >
+              </h2>
             </div>
             <div class="command-grid">
               <span id="blue-team-status">Status loading</span>
@@ -1202,11 +2044,20 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Record Signal <span class="help-tip" tabindex="0" data-tip="Records a metadata-only alert/anomaly. Do not paste messages, files, packet captures or communication content.">?</span></h2>
+              <h2>
+                Record Signal
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Records a metadata-only alert/anomaly. Do not paste messages, files, packet captures or communication content."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Metadata only</span>
             </div>
             <form id="blue-team-signal-form">
-              <label>Signal
+              <label
+                >Signal
                 <select name="signal">
                   <option value="auth_attack">Auth attack</option>
                   <option value="key_material_change">Key material change</option>
@@ -1217,26 +2068,43 @@
                   <option value="provider_drift">Provider drift</option>
                 </select>
               </label>
-              <label>Operator <select name="operatorId" id="blue-team-signal-operator-select"></select></label>
-              <label>Resource ID <input name="resourceId" value="metadata-signal-1"></label>
-              <label>Evidence ref <input name="evidenceRef" value="evidence://blue-team/manual-signal"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="blue-team-signal-operator-select"></select
+              ></label>
+              <label>Resource ID <input name="resourceId" value="metadata-signal-1" /></label>
+              <label
+                >Evidence ref <input name="evidenceRef" value="evidence://blue-team/manual-signal"
+              /></label>
               <button type="submit">Record Metadata Signal</button>
             </form>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Metadata Signals</h2><span class="pill">No content</span></div>
+            <div class="panel-head">
+              <h2>Metadata Signals</h2>
+              <span class="pill">No content</span>
+            </div>
             <div class="cards" id="blue-team-metadata-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Alerts & Anomalies</h2><span class="pill warn">Triage</span></div>
+            <div class="panel-head">
+              <h2>Alerts & Anomalies</h2>
+              <span class="pill warn">Triage</span>
+            </div>
             <div class="cards" id="blue-team-alert-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>CDR Per Operator</h2><span class="pill">Mandatory</span></div>
+            <div class="panel-head">
+              <h2>CDR Per Operator</h2>
+              <span class="pill">Mandatory</span>
+            </div>
             <div class="cards" id="blue-team-cdr-cards"></div>
           </article>
           <article class="panel wide">
-            <div class="panel-head"><h2>Incidents</h2><span class="pill warn">Runbooks</span></div>
+            <div class="panel-head">
+              <h2>Incidents</h2>
+              <span class="pill warn">Runbooks</span>
+            </div>
             <div class="cards" id="blue-team-incident-cards"></div>
           </article>
         </section>
@@ -1265,61 +2133,127 @@
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Credentials <span class="help-tip" tabindex="0" data-tip="Safe metadata only. Revoke and suspend require fresh FIDO2 step-up.">?</span></h2>
+              <h2>
+                Credentials
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Safe metadata only. Revoke and suspend require fresh FIDO2 step-up."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Step-up protected</span>
             </div>
             <div class="cards" id="credential-cards"></div>
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Auth Policy <span class="help-tip" tabindex="0" data-tip="Readable matrix of auth states and sensitive action requirements.">?</span></h2>
+              <h2>
+                Auth Policy
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Readable matrix of auth states and sensitive action requirements."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Baseline matrix</span>
             </div>
             <div class="cards" id="auth-policy-cards"></div>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Admin FIDO2 Policy <span class="help-tip" tabindex="0" data-tip="Configures administrator-layer FIDO2 policy. Physical key enrollment remains gated until the final hardware phase.">?</span></h2>
+              <h2>
+                Admin FIDO2 Policy
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Configures administrator-layer FIDO2 policy. Physical key enrollment remains gated until the final hardware phase."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Physical deferred</span>
             </div>
             <form id="admin-fido2-policy-form">
-              <label>Session hours <input name="defaultSessionHours" type="number" min="1" max="24" value="12"></label>
-              <label>Transports <input name="allowedTransports" value="usb,nfc"></label>
+              <label
+                >Session hours
+                <input name="defaultSessionHours" type="number" min="1" max="24" value="12"
+              /></label>
+              <label>Transports <input name="allowedTransports" value="usb,nfc" /></label>
               <button type="submit">Save Admin FIDO2</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Admin HSM Profile <span class="help-tip" tabindex="0" data-tip="Stores admin-layer HSM references and attestation references only. Never paste keys, tokens, PEM blocks or secrets.">?</span></h2>
+              <h2>
+                Admin HSM Profile
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Stores admin-layer HSM references and attestation references only. Never paste keys, tokens, PEM blocks or secrets."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Reference only</span>
             </div>
             <form id="admin-hsm-profile-form">
-              <label>References <input name="references" value="hsm-ref://admin/root-ca"></label>
-              <label>Attestation refs <input name="attestationRefs" value="evidence://admin/hsm"></label>
+              <label>References <input name="references" value="hsm-ref://admin/root-ca" /></label>
+              <label
+                >Attestation refs <input name="attestationRefs" value="evidence://admin/hsm"
+              /></label>
               <button type="submit">Save Admin HSM</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Operator FIDO2 Policy <span class="help-tip" tabindex="0" data-tip="Configures the operator-layer FIDO2 policy per operator. This prepares the panel before physical FIDO2 enrollment is enabled.">?</span></h2>
+              <h2>
+                Operator FIDO2 Policy
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Configures the operator-layer FIDO2 policy per operator. This prepares the panel before physical FIDO2 enrollment is enabled."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Operator layer</span>
             </div>
             <form id="operator-fido2-policy-form">
-              <label>Operator <select name="operatorId" id="operator-security-fido2-select"></select></label>
-              <label>Session hours <input name="defaultSessionHours" type="number" min="1" max="24" value="12"></label>
-              <label>Transports <input name="allowedTransports" value="usb,nfc"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="operator-security-fido2-select"></select
+              ></label>
+              <label
+                >Session hours
+                <input name="defaultSessionHours" type="number" min="1" max="24" value="12"
+              /></label>
+              <label>Transports <input name="allowedTransports" value="usb,nfc" /></label>
               <button type="submit">Save Operator FIDO2</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Operator HSM Profile <span class="help-tip" tabindex="0" data-tip="Configures per-operator HSM references for future Vault/HSM integration. Stores references only, never key material.">?</span></h2>
+              <h2>
+                Operator HSM Profile
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Configures per-operator HSM references for future Vault/HSM integration. Stores references only, never key material."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Operator layer</span>
             </div>
             <form id="operator-hsm-profile-form">
-              <label>Operator <select name="operatorId" id="operator-security-hsm-select"></select></label>
-              <label>References <input name="references" value="hsm-ref://operator/deferred-key"></label>
-              <label>Attestation refs <input name="attestationRefs" value="evidence://operator/hsm"></label>
+              <label
+                >Operator
+                <select name="operatorId" id="operator-security-hsm-select"></select
+              ></label>
+              <label
+                >References <input name="references" value="hsm-ref://operator/deferred-key"
+              /></label>
+              <label
+                >Attestation refs <input name="attestationRefs" value="evidence://operator/hsm"
+              /></label>
               <button type="submit">Save Operator HSM</button>
             </form>
           </article>
@@ -1332,24 +2266,44 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Recovery <span class="help-tip" tabindex="0" data-tip="Creates an auditable request only. It never unlocks an account automatically.">?</span></h2>
+              <h2>
+                Recovery
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates an auditable request only. It never unlocks an account automatically."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">No auto unlock</span>
             </div>
             <form id="recovery-form">
-              <label>Affected email <input name="email" value="admin@sylion.local" autocomplete="off"></label>
-              <label>Reason <input name="reasonCode" value="admin_access_recovery"></label>
-              <label>Note <input name="note" value="Manual review required"></label>
+              <label
+                >Affected email <input name="email" value="admin@sylion.local" autocomplete="off"
+              /></label>
+              <label>Reason <input name="reasonCode" value="admin_access_recovery" /></label>
+              <label>Note <input name="note" value="Manual review required" /></label>
               <button type="submit">Create Recovery Request</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Break-glass <span class="help-tip" tabindex="0" data-tip="Placeholder only. Production behavior requires explicit human approval.">?</span></h2>
+              <h2>
+                Break-glass
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Placeholder only. Production behavior requires explicit human approval."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">HUMAN GATE</span>
             </div>
             <form id="break-glass-form">
-              <label>Action scope <input name="actionScope" value="emergency_access_review"></label>
-              <label>Reason <input name="reasonCode" value="security_incident_review"></label>
+              <label
+                >Action scope <input name="actionScope" value="emergency_access_review"
+              /></label>
+              <label>Reason <input name="reasonCode" value="security_incident_review" /></label>
               <button type="submit">Create Placeholder</button>
             </form>
           </article>
@@ -1373,7 +2327,15 @@
           <article class="panel wide command-panel phantom-command">
             <div>
               <span class="eyebrow">Separate Track</span>
-              <h2>PHANTOM Governance <span class="help-tip" tabindex="0" data-tip="Governance-only control surface. It does not execute PHANTOM behavior.">?</span></h2>
+              <h2>
+                PHANTOM Governance
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Governance-only control surface. It does not execute PHANTOM behavior."
+                  >?</span
+                >
+              </h2>
             </div>
             <div class="command-grid">
               <span>HUMAN GATE required</span>
@@ -1384,7 +2346,15 @@
 
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Boundary <span class="help-tip" tabindex="0" data-tip="Shows PHANTOM as a separate [A] track outside certifiable SYLION baseline.">?</span></h2>
+              <h2>
+                Boundary
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Shows PHANTOM as a separate [A] track outside certifiable SYLION baseline."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn" id="phantom-boundary-state">Checking</span>
             </div>
             <div class="cards" id="phantom-boundary-cards"></div>
@@ -1392,65 +2362,131 @@
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Capability <span class="help-tip" tabindex="0" data-tip="Redacted metadata only. Do not enter operational instructions or radio identity details.">?</span></h2>
+              <h2>
+                Capability
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Redacted metadata only. Do not enter operational instructions or radio identity details."
+                  >?</span
+                >
+              </h2>
             </div>
             <form id="phantom-capability-form">
-              <label>Name <input name="displayName" value="Governance Placeholder"></label>
-              <label>Risk
+              <label>Name <input name="displayName" value="Governance Placeholder" /></label>
+              <label
+                >Risk
                 <select name="riskLevel">
                   <option>medium</option>
                   <option selected>restricted</option>
                   <option>high</option>
                 </select>
               </label>
-              <label>Controls <input name="controlsRequired" value="Legal review,CISO review,Architect review"></label>
+              <label
+                >Controls
+                <input name="controlsRequired" value="Legal review,CISO review,Architect review"
+              /></label>
               <button type="submit">Add Capability</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Approval <span class="help-tip" tabindex="0" data-tip="Creates review evidence. approved_placeholder still does not enable execution.">?</span></h2>
+              <h2>
+                Approval
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates review evidence. approved_placeholder still does not enable execution."
+                  >?</span
+                >
+              </h2>
             </div>
             <form id="phantom-approval-form">
-              <label>Reason <input name="reasonCode" value="governance_review"></label>
-              <label>Legal Owner <input name="legalOwner" value="legal@sylion.local"></label>
-              <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local"></label>
-              <label>Architect Owner <input name="architectOwner" value="architect@sylion.local"></label>
+              <label>Reason <input name="reasonCode" value="governance_review" /></label>
+              <label>Legal Owner <input name="legalOwner" value="legal@sylion.local" /></label>
+              <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local" /></label>
+              <label
+                >Architect Owner <input name="architectOwner" value="architect@sylion.local"
+              /></label>
               <button type="submit">Create Approval</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Risk Register <span class="help-tip" tabindex="0" data-tip="Documents residual risk and mitigation. No operational PHANTOM details belong here.">?</span></h2>
+              <h2>
+                Risk Register
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Documents residual risk and mitigation. No operational PHANTOM details belong here."
+                  >?</span
+                >
+              </h2>
             </div>
             <form id="phantom-risk-form">
-              <label>Description <input name="description" value="Separate-track legal and compliance review required"></label>
-              <label>Severity
+              <label
+                >Description
+                <input
+                  name="description"
+                  value="Separate-track legal and compliance review required"
+              /></label>
+              <label
+                >Severity
                 <select name="severity">
                   <option>medium</option>
                   <option selected>high</option>
                   <option>critical</option>
                 </select>
               </label>
-              <label>Residual Risk <input name="residualRisk" value="Operational behavior is not approved for baseline"></label>
-              <label>Mitigation <input name="mitigationPlan" value="Keep governance-only boundary and require HUMAN GATE"></label>
+              <label
+                >Residual Risk
+                <input
+                  name="residualRisk"
+                  value="Operational behavior is not approved for baseline"
+              /></label>
+              <label
+                >Mitigation
+                <input
+                  name="mitigationPlan"
+                  value="Keep governance-only boundary and require HUMAN GATE"
+              /></label>
               <button type="submit">Add Risk</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Capability Package <span class="help-tip" tabindex="0" data-tip="Builds an administrative package from safe metadata, policy templates and capability records. It cannot enable execution.">?</span></h2>
+              <h2>
+                Capability Package
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Builds an administrative package from safe metadata, policy templates and capability records. It cannot enable execution."
+                  >?</span
+                >
+              </h2>
               <span class="pill phantom">Lifecycle</span>
             </div>
             <form id="phantom-package-form">
-              <label>Name <input name="name" value="PHANTOM Admin Lifecycle Package"></label>
-              <label>Description <input name="description" value="Administrative readiness and evidence lifecycle only"></label>
-              <label>Policy Template <select name="policyTemplateId" id="phantom-package-template-select"></select></label>
-              <label>Capability <select name="capabilityId" id="phantom-package-capability-select"></select></label>
-              <label>Tier
+              <label>Name <input name="name" value="PHANTOM Admin Lifecycle Package" /></label>
+              <label
+                >Description
+                <input
+                  name="description"
+                  value="Administrative readiness and evidence lifecycle only"
+              /></label>
+              <label
+                >Policy Template
+                <select name="policyTemplateId" id="phantom-package-template-select"></select
+              ></label>
+              <label
+                >Capability
+                <select name="capabilityId" id="phantom-package-capability-select"></select
+              ></label>
+              <label
+                >Tier
                 <select name="tierMinimum">
                   <option>STANDARD</option>
                   <option selected>PRO</option>
@@ -1463,15 +2499,37 @@
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Evidence Bundle <span class="help-tip" tabindex="0" data-tip="Stores sealed references to review evidence. Do not paste secrets, content, or operational parameters.">?</span></h2>
+              <h2>
+                Evidence Bundle
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Stores sealed references to review evidence. Do not paste secrets, content, or operational parameters."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Sealed refs</span>
             </div>
             <form id="phantom-evidence-form">
-              <label>Package <select name="packageId" id="phantom-evidence-package-select"></select></label>
-              <label>Summary <input name="summary" value="Review evidence references for HUMAN GATE"></label>
-              <label>Evidence refs <input name="evidenceRefs" value="legal-memo-ref,ciso-risk-note-ref,architect-boundary-note-ref"></label>
-              <label>Controls satisfied <input name="controlsSatisfied" value="Human gate ownership,No baseline execution"></label>
-              <label>Retention
+              <label
+                >Package
+                <select name="packageId" id="phantom-evidence-package-select"></select
+              ></label>
+              <label
+                >Summary <input name="summary" value="Review evidence references for HUMAN GATE"
+              /></label>
+              <label
+                >Evidence refs
+                <input
+                  name="evidenceRefs"
+                  value="legal-memo-ref,ciso-risk-note-ref,architect-boundary-note-ref"
+              /></label>
+              <label
+                >Controls satisfied
+                <input name="controlsSatisfied" value="Human gate ownership,No baseline execution"
+              /></label>
+              <label
+                >Retention
                 <select name="retentionClass">
                   <option selected>worm_audit</option>
                   <option>legal_hold</option>
@@ -1484,38 +2542,84 @@
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Approval Pack <span class="help-tip" tabindex="0" data-tip="Bundles owners, approval records and evidence for HUMAN GATE review. Approval still does not execute PHANTOM.">?</span></h2>
+              <h2>
+                Approval Pack
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Bundles owners, approval records and evidence for HUMAN GATE review. Approval still does not execute PHANTOM."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">HUMAN GATE</span>
             </div>
             <form id="phantom-approval-pack-form">
-              <label>Package <select name="packageId" id="phantom-approval-pack-package-select"></select></label>
-              <label>Summary <input name="summary" value="Owners and evidence ready for HUMAN GATE review"></label>
+              <label
+                >Package
+                <select name="packageId" id="phantom-approval-pack-package-select"></select
+              ></label>
+              <label
+                >Summary
+                <input name="summary" value="Owners and evidence ready for HUMAN GATE review"
+              /></label>
               <button type="submit">Build Approval Pack</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Readiness Gate <span class="help-tip" tabindex="0" data-tip="Evaluates administrative completeness and subscription fit. The gate reports readiness but baseline execution stays disabled.">?</span></h2>
+              <h2>
+                Readiness Gate
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Evaluates administrative completeness and subscription fit. The gate reports readiness but baseline execution stays disabled."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">No execution</span>
             </div>
             <form id="phantom-readiness-form">
-              <label>Package <select name="packageId" id="phantom-readiness-package-select"></select></label>
-              <label>Approval Pack <select name="approvalPackId" id="phantom-readiness-approval-pack-select"></select></label>
-              <label>Evidence <select name="evidenceBundleId" id="phantom-readiness-evidence-select"></select></label>
-              <label>Operator <select name="operatorId" id="phantom-readiness-operator-select"></select></label>
+              <label
+                >Package
+                <select name="packageId" id="phantom-readiness-package-select"></select
+              ></label>
+              <label
+                >Approval Pack
+                <select name="approvalPackId" id="phantom-readiness-approval-pack-select"></select
+              ></label>
+              <label
+                >Evidence
+                <select name="evidenceBundleId" id="phantom-readiness-evidence-select"></select
+              ></label>
+              <label
+                >Operator
+                <select name="operatorId" id="phantom-readiness-operator-select"></select
+              ></label>
               <button type="submit">Evaluate Gate</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Simulation <span class="help-tip" tabindex="0" data-tip="Runs a simulation-only review scenario. It has no live connector and no side effects.">?</span></h2>
+              <h2>
+                Simulation
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Runs a simulation-only review scenario. It has no live connector and no side effects."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Simulation only</span>
             </div>
             <form id="phantom-simulation-form">
-              <label>Package <select name="packageId" id="phantom-simulation-package-select"></select></label>
-              <label>Scenario
+              <label
+                >Package
+                <select name="packageId" id="phantom-simulation-package-select"></select
+              ></label>
+              <label
+                >Scenario
                 <select name="scenario">
                   <option selected>readiness_review</option>
                   <option>tier_fit</option>
@@ -1523,48 +2627,93 @@
                   <option>audit_correlation</option>
                 </select>
               </label>
-              <label>Assumptions <input name="assumptions" value="No live connector,Panel review only"></label>
+              <label
+                >Assumptions <input name="assumptions" value="No live connector,Panel review only"
+              /></label>
               <button type="submit">Run Simulation</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Assignment Plan <span class="help-tip" tabindex="0" data-tip="Checks operator eligibility against tier and baseline constraints such as 3 VPS and mandatory CDR.">?</span></h2>
+              <h2>
+                Assignment Plan
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Checks operator eligibility against tier and baseline constraints such as 3 VPS and mandatory CDR."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Tier-aware</span>
             </div>
             <form id="phantom-assignment-form">
-              <label>Package <select name="packageId" id="phantom-assignment-package-select"></select></label>
-              <label>Operator <select name="operatorId" id="phantom-assignment-operator-select"></select></label>
+              <label
+                >Package
+                <select name="packageId" id="phantom-assignment-package-select"></select
+              ></label>
+              <label
+                >Operator
+                <select name="operatorId" id="phantom-assignment-operator-select"></select
+              ></label>
               <button type="submit">Plan Assignment</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Review Board <span class="help-tip" tabindex="0" data-tip="Formal PHANTOM review board item. Legal, CISO, architect and compliance owners are mandatory.">?</span></h2>
+              <h2>
+                Review Board
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Formal PHANTOM review board item. Legal, CISO, architect and compliance owners are mandatory."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Owners</span>
             </div>
             <form id="phantom-review-board-form">
-              <label>Title <input name="title" value="PHANTOM governance board review"></label>
-              <label>Summary <input name="summary" value="Control-plane readiness review only"></label>
-              <label>Package <select name="packageId" id="phantom-review-board-package-select"></select></label>
-              <label>Legal Owner <input name="legalOwner" value="legal@sylion.local"></label>
-              <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local"></label>
-              <label>Architect Owner <input name="architectOwner" value="architect@sylion.local"></label>
-              <label>Compliance Owner <input name="complianceOwner" value="compliance@sylion.local"></label>
+              <label>Title <input name="title" value="PHANTOM governance board review" /></label>
+              <label
+                >Summary <input name="summary" value="Control-plane readiness review only"
+              /></label>
+              <label
+                >Package
+                <select name="packageId" id="phantom-review-board-package-select"></select
+              ></label>
+              <label>Legal Owner <input name="legalOwner" value="legal@sylion.local" /></label>
+              <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local" /></label>
+              <label
+                >Architect Owner <input name="architectOwner" value="architect@sylion.local"
+              /></label>
+              <label
+                >Compliance Owner <input name="complianceOwner" value="compliance@sylion.local"
+              /></label>
               <button type="submit">Create Review Item</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Policy Simulation <span class="help-tip" tabindex="0" data-tip="Runs control-policy checks only. No live connector, no autonomous action, no baseline execution.">?</span></h2>
+              <h2>
+                Policy Simulation
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Runs control-policy checks only. No live connector, no autonomous action, no baseline execution."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Simulation only</span>
             </div>
             <form id="phantom-policy-simulation-form">
-              <label>Package <select name="packageId" id="phantom-policy-simulation-package-select"></select></label>
-              <label>Scenario
+              <label
+                >Package
+                <select name="packageId" id="phantom-policy-simulation-package-select"></select
+              ></label>
+              <label
+                >Scenario
                 <select name="scenario">
                   <option selected>control_gap</option>
                   <option>tier_fit</option>
@@ -1572,52 +2721,104 @@
                   <option>review_path</option>
                 </select>
               </label>
-              <label>Expected controls <input name="expectedControls" value="Human gate,No baseline execution,Legal sign-off"></label>
+              <label
+                >Expected controls
+                <input
+                  name="expectedControls"
+                  value="Human gate,No baseline execution,Legal sign-off"
+              /></label>
               <button type="submit">Run Policy Simulation</button>
             </form>
           </article>
 
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Exception <span class="help-tip" tabindex="0" data-tip="Records a PHANTOM exception request for review. It cannot request execution.">?</span></h2>
+              <h2>
+                Exception
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Records a PHANTOM exception request for review. It cannot request execution."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">No execution</span>
             </div>
             <form id="phantom-exception-form">
-              <label>Package <select name="packageId" id="phantom-exception-package-select"></select></label>
-              <label>Review item <select name="reviewBoardItemId" id="phantom-exception-review-select"></select></label>
-              <label>Evidence <select name="evidenceBundleId" id="phantom-exception-evidence-select"></select></label>
-              <label>Scope <input name="scope" value="Review timing exception"></label>
-              <label>Justification <input name="justification" value="Administrative review sequencing exception only"></label>
-              <label>Expires <input name="expiresAt" value="2026-12-31T23:00:00.000Z"></label>
-              <label>Legal Owner <input name="legalOwner" value="legal@sylion.local"></label>
-              <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local"></label>
-              <label>Compliance Owner <input name="complianceOwner" value="compliance@sylion.local"></label>
+              <label
+                >Package
+                <select name="packageId" id="phantom-exception-package-select"></select
+              ></label>
+              <label
+                >Review item
+                <select name="reviewBoardItemId" id="phantom-exception-review-select"></select
+              ></label>
+              <label
+                >Evidence
+                <select name="evidenceBundleId" id="phantom-exception-evidence-select"></select
+              ></label>
+              <label>Scope <input name="scope" value="Review timing exception" /></label>
+              <label
+                >Justification
+                <input name="justification" value="Administrative review sequencing exception only"
+              /></label>
+              <label>Expires <input name="expiresAt" value="2026-12-31T23:00:00.000Z" /></label>
+              <label>Legal Owner <input name="legalOwner" value="legal@sylion.local" /></label>
+              <label>CISO Owner <input name="cisoOwner" value="ciso@sylion.local" /></label>
+              <label
+                >Compliance Owner <input name="complianceOwner" value="compliance@sylion.local"
+              /></label>
               <button type="submit">Create Exception</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Execution Request <span class="help-tip" tabindex="0" data-tip="Creates a PHANTOM lab execution request with legal, CISO, architect and compliance gates. It never unlocks baseline production execution.">?</span></h2>
+              <h2>
+                Execution Request
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Creates a PHANTOM lab execution request with legal, CISO, architect and compliance gates. It never unlocks baseline production execution."
+                  >?</span
+                >
+              </h2>
               <span class="pill phantom">Lab gate</span>
             </div>
             <form id="phantom-execution-request-form">
-              <label>Package <select name="packageId" id="phantom-execution-package-select"></select></label>
-              <label>Purpose <input name="purpose" value="legal_lab_review"></label>
-              <label>Owners <input name="owners" value="legal,ciso,architect,compliance"></label>
-              <label>Evidence refs <input name="evidenceRefs" value=""></label>
-              <label>Expires at <input name="expiresAt" value="2026-06-30T00:00:00.000Z"></label>
-              <label class="check-row"><input type="checkbox" name="labConfirmed"> Lab-only confirmation</label>
+              <label
+                >Package
+                <select name="packageId" id="phantom-execution-package-select"></select
+              ></label>
+              <label>Purpose <input name="purpose" value="legal_lab_review" /></label>
+              <label>Owners <input name="owners" value="legal,ciso,architect,compliance" /></label>
+              <label>Evidence refs <input name="evidenceRefs" value="" /></label>
+              <label>Expires at <input name="expiresAt" value="2026-06-30T00:00:00.000Z" /></label>
+              <label class="check-row"
+                ><input type="checkbox" name="labConfirmed" /> Lab-only confirmation</label
+              >
               <button type="submit">Create Execution Request</button>
             </form>
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Review Owner Ack <span class="help-tip" tabindex="0" data-tip="Records owner acknowledgement. All owners are required before approved_placeholder.">?</span></h2>
+              <h2>
+                Review Owner Ack
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Records owner acknowledgement. All owners are required before approved_placeholder."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">HUMAN GATE</span>
             </div>
             <form id="phantom-review-ack-form">
-              <label>Review item <select name="itemId" id="phantom-review-ack-select"></select></label>
-              <label>Owner
+              <label
+                >Review item
+                <select name="itemId" id="phantom-review-ack-select"></select
+              ></label>
+              <label
+                >Owner
                 <select name="owner">
                   <option>legal</option>
                   <option>ciso</option>
@@ -1630,11 +2831,22 @@
           </article>
           <article class="panel form-panel">
             <div class="panel-head">
-              <h2>Evidence Coverage <span class="help-tip" tabindex="0" data-tip="Calculates PHANTOM evidence coverage as a review metric, not a certification claim.">?</span></h2>
+              <h2>
+                Evidence Coverage
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Calculates PHANTOM evidence coverage as a review metric, not a certification claim."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Review metric</span>
             </div>
             <form id="phantom-coverage-form">
-              <label>Package <select name="packageId" id="phantom-coverage-package-select"></select></label>
+              <label
+                >Package
+                <select name="packageId" id="phantom-coverage-package-select"></select
+              ></label>
               <button type="submit">Evaluate Coverage</button>
             </form>
           </article>
@@ -1676,7 +2888,15 @@
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Package Review Matrix <span class="help-tip" tabindex="0" data-tip="Summarizes PHANTOM owner acknowledgements, evidence coverage and exception expiry without enabling execution.">?</span></h2>
+              <h2>
+                Package Review Matrix
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Summarizes PHANTOM owner acknowledgements, evidence coverage and exception expiry without enabling execution."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Governance only</span>
             </div>
             <div class="cards" id="phantom-review-matrix-cards"></div>
@@ -1764,7 +2984,15 @@
           <article class="panel wide command-panel">
             <div>
               <span class="eyebrow">Production Readiness</span>
-              <h2>Release Gate Control <span class="help-tip" tabindex="0" data-tip="Shows whether the current system is ready for metadata release review. It never approves real provider mutation, Firecracker launch or PHANTOM live behavior.">?</span></h2>
+              <h2>
+                Release Gate Control
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Shows whether the current system is ready for metadata release review. It never approves real provider mutation, Firecracker launch or PHANTOM live behavior."
+                  >?</span
+                >
+              </h2>
             </div>
             <div class="command-grid">
               <span id="release-decision">Loading</span>
@@ -1774,19 +3002,39 @@
           </article>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Release Gates <span class="help-tip" tabindex="0" data-tip="Rolls up module readiness, blockers, tests and human gates. Production execution remains blocked until explicitly approved outside this dashboard.">?</span></h2>
+              <h2>
+                Release Gates
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Rolls up module readiness, blockers, tests and human gates. Production execution remains blocked until explicitly approved outside this dashboard."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">HUMAN GATE aware</span>
             </div>
             <div class="cards" id="release-gate-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Human Test Center <span class="help-tip" tabindex="0" data-tip="Tracks human-style dashboard scenarios and links them to Playwright screenshots or manual evidence.">?</span></h2>
+              <h2>
+                Human Test Center
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Tracks human-style dashboard scenarios and links them to Playwright screenshots or manual evidence."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Scenario runner</span>
             </div>
             <form id="human-test-status-form">
-              <label>Scenario <select name="scenarioId" id="human-test-select"></select></label>
-              <label>Status
+              <label
+                >Scenario
+                <select name="scenarioId" id="human-test-select"></select
+              ></label>
+              <label
+                >Status
                 <select name="status">
                   <option>passed</option>
                   <option>failed</option>
@@ -1794,20 +3042,32 @@
                   <option>needs_human_review</option>
                 </select>
               </label>
-              <label>Evidence IDs <input name="evidenceArtifactIds" value=""></label>
-              <label>Note <input name="note" value="Dashboard human review completed"></label>
+              <label>Evidence IDs <input name="evidenceArtifactIds" value="" /></label>
+              <label>Note <input name="note" value="Dashboard human review completed" /></label>
               <button type="submit">Update Test Status</button>
             </form>
             <div class="cards" id="human-test-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Factual App Test <span class="help-tip" tabindex="0" data-tip="Records whether a workload application actually works through Pixel or laptop. Communicators need account bootstrap plus send/receive before PASS; HTTP 200 alone is not enough.">?</span></h2>
+              <h2>
+                Factual App Test
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Records whether a workload application actually works through Pixel or laptop. Communicators need account bootstrap plus send/receive before PASS; HTTP 200 alone is not enough."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">No hallucination</span>
             </div>
             <form id="workload-factual-test-form">
-              <label>Operator <select name="operatorId" id="factual-test-operator-select"></select></label>
-              <label>App
+              <label
+                >Operator
+                <select name="operatorId" id="factual-test-operator-select"></select
+              ></label>
+              <label
+                >App
                 <select name="appKey">
                   <option value="signal">Signal</option>
                   <option value="whatsapp">WhatsApp</option>
@@ -1819,13 +3079,15 @@
                   <option value="exodus">Exodus</option>
                 </select>
               </label>
-              <label>Terminal
+              <label
+                >Terminal
                 <select name="terminalMode">
                   <option value="pixel_grapheneos">Pixel GrapheneOS</option>
                   <option value="laptop_web_terminal">Laptop web terminal</option>
                 </select>
               </label>
-              <label>Runtime
+              <label
+                >Runtime
                 <select name="runtimeMode">
                   <option value="desktop">Desktop</option>
                   <option value="web">Web</option>
@@ -1835,7 +3097,8 @@
                   <option value="unknown">Unknown</option>
                 </select>
               </label>
-              <label>Result
+              <label
+                >Result
                 <select name="result">
                   <option value="blocked">blocked</option>
                   <option value="failed">failed</option>
@@ -1843,34 +3106,68 @@
                   <option value="unknown">unknown</option>
                 </select>
               </label>
-              <label class="check-row"><input name="uiVisible" type="checkbox" checked> UI visible</label>
-              <label class="check-row"><input name="accountBootstrap" type="checkbox"> Account bootstrap/linking passed</label>
-              <label class="check-row"><input name="sendReceive" type="checkbox"> Send/receive passed</label>
-              <label class="check-row"><input name="browsing" type="checkbox"> Browsing passed</label>
-              <label class="check-row"><input name="documentWorkflow" type="checkbox"> Document workflow passed</label>
-              <label class="check-row"><input name="walletWorkflow" type="checkbox"> Wallet workflow passed</label>
-              <label class="check-row"><input name="riskAcceptance" type="checkbox"> Risk acceptance recorded</label>
-              <label>Evidence IDs <input name="evidenceArtifactIds" value=""></label>
-              <label>Note <input name="note" value="Real app state checked through terminal path"></label>
+              <label class="check-row"
+                ><input name="uiVisible" type="checkbox" checked /> UI visible</label
+              >
+              <label class="check-row"
+                ><input name="accountBootstrap" type="checkbox" /> Account bootstrap/linking
+                passed</label
+              >
+              <label class="check-row"
+                ><input name="sendReceive" type="checkbox" /> Send/receive passed</label
+              >
+              <label class="check-row"
+                ><input name="browsing" type="checkbox" /> Browsing passed</label
+              >
+              <label class="check-row"
+                ><input name="documentWorkflow" type="checkbox" /> Document workflow passed</label
+              >
+              <label class="check-row"
+                ><input name="walletWorkflow" type="checkbox" /> Wallet workflow passed</label
+              >
+              <label class="check-row"
+                ><input name="riskAcceptance" type="checkbox" /> Risk acceptance recorded</label
+              >
+              <label>Evidence IDs <input name="evidenceArtifactIds" value="" /></label>
+              <label
+                >Note <input name="note" value="Real app state checked through terminal path"
+              /></label>
               <button type="submit">Record Factual Test</button>
             </form>
             <div class="cards" id="workload-factual-test-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Account Bootstrap Queue <span class="help-tip" tabindex="0" data-tip="Operator-submitted bootstrap evidence is metadata-only. Admin/QA promotes complete evidence into a factual workload test after review.">?</span></h2>
+              <h2>
+                Account Bootstrap Queue
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Operator-submitted bootstrap evidence is metadata-only. Admin/QA promotes complete evidence into a factual workload test after review."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">QA review</span>
             </div>
             <div class="cards" id="account-bootstrap-evidence-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Full Test Run <span class="help-tip" tabindex="0" data-tip="Records one complete human or Playwright dashboard pass, updates scenario statuses and creates problem records for failed or blocked scenarios.">?</span></h2>
+              <h2>
+                Full Test Run
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Records one complete human or Playwright dashboard pass, updates scenario statuses and creates problem records for failed or blocked scenarios."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Step 3.21</span>
             </div>
             <form id="human-test-run-form">
-              <label>Title <input name="title" value="Step 3.21 dashboard full pass"></label>
-              <label>Mode
+              <label>Title <input name="title" value="Step 3.21 dashboard full pass" /></label>
+              <label
+                >Mode
                 <select name="mode">
                   <option value="mixed_human_playwright">Mixed human + Playwright</option>
                   <option value="playwright_dashboard">Playwright dashboard</option>
@@ -1878,7 +3175,8 @@
                   <option value="manual_human">Manual human</option>
                 </select>
               </label>
-              <label>Status
+              <label
+                >Status
                 <select name="status">
                   <option value="passed">passed</option>
                   <option value="failed">failed</option>
@@ -1886,21 +3184,33 @@
                   <option value="needs_human_review">needs_human_review</option>
                 </select>
               </label>
-              <label>Environment <input name="environment" value="local_admin_api_8099"></label>
-              <label>Evidence IDs <input name="evidenceArtifactIds" value=""></label>
-              <label>Note <input name="note" value="Clicked like a human through all core dashboard views"></label>
+              <label>Environment <input name="environment" value="local_admin_api_8099" /></label>
+              <label>Evidence IDs <input name="evidenceArtifactIds" value="" /></label>
+              <label
+                >Note
+                <input name="note" value="Clicked like a human through all core dashboard views"
+              /></label>
               <button type="submit">Record Full Test Run</button>
             </form>
             <div class="cards" id="human-test-run-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Problem Registry <span class="help-tip" tabindex="0" data-tip="Records defects, UX issues, test gaps and compliance gaps found by humans or Playwright.">?</span></h2>
+              <h2>
+                Problem Registry
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Records defects, UX issues, test gaps and compliance gaps found by humans or Playwright."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Blocker rollup</span>
             </div>
             <form id="release-problem-form">
-              <label>Title <input name="title" value="Manual dashboard review finding"></label>
-              <label>Severity
+              <label>Title <input name="title" value="Manual dashboard review finding" /></label>
+              <label
+                >Severity
                 <select name="severity">
                   <option>medium</option>
                   <option>high</option>
@@ -1908,7 +3218,8 @@
                   <option>low</option>
                 </select>
               </label>
-              <label>Category
+              <label
+                >Category
                 <select name="category">
                   <option>ux_issue</option>
                   <option>defect</option>
@@ -1918,20 +3229,29 @@
                   <option>security_gap</option>
                 </select>
               </label>
-              <label>Module <input name="moduleKey" value="admin_web"></label>
-              <label>Owner <input name="owner" value="qa"></label>
-              <label>Evidence IDs <input name="evidenceArtifactIds" value=""></label>
+              <label>Module <input name="moduleKey" value="admin_web" /></label>
+              <label>Owner <input name="owner" value="qa" /></label>
+              <label>Evidence IDs <input name="evidenceArtifactIds" value="" /></label>
               <button type="submit">Create Problem</button>
             </form>
             <div class="cards" id="release-problem-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Evidence Artifact Index <span class="help-tip" tabindex="0" data-tip="Indexes screenshots, logs and summaries by path and hash. Do not store secrets or operational payloads here.">?</span></h2>
+              <h2>
+                Evidence Artifact Index
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Indexes screenshots, logs and summaries by path and hash. Do not store secrets or operational payloads here."
+                  >?</span
+                >
+              </h2>
               <span class="pill">Hash indexed</span>
             </div>
             <form id="evidence-artifact-form">
-              <label>Type
+              <label
+                >Type
                 <select name="type">
                   <option>screenshot</option>
                   <option>test_log</option>
@@ -1941,37 +3261,74 @@
                   <option>release_note</option>
                 </select>
               </label>
-              <label>Path <input name="path" value="docs/admin-panel-v2/test-artifacts/step3-11-dashboard-regression/release-desktop.png"></label>
-              <label>Source <input name="source" value="playwright"></label>
-              <label>Module <input name="linkedModule" value="release"></label>
+              <label
+                >Path
+                <input
+                  name="path"
+                  value="docs/admin-panel-v2/test-artifacts/step3-11-dashboard-regression/release-desktop.png"
+              /></label>
+              <label>Source <input name="source" value="playwright" /></label>
+              <label>Module <input name="linkedModule" value="release" /></label>
               <button type="submit">Index Artifact</button>
             </form>
             <div class="cards" id="evidence-artifact-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Księga 4.0 Matrix <span class="help-tip" tabindex="0" data-tip="Baseline controls and production blockers. Blocked items are not production-ready.">?</span></h2>
+              <h2>
+                Księga 4.0 Matrix
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Baseline controls and production blockers. Blocked items are not production-ready."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Baseline controls</span>
             </div>
             <div class="cards compact" id="release-ksiega-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>PHANTOM Boundary Proof <span class="help-tip" tabindex="0" data-tip="PHANTOM maturity is governance-only. It cannot unlock orchestrator jobs and cannot claim certification.">?</span></h2>
+              <h2>
+                PHANTOM Boundary Proof
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="PHANTOM maturity is governance-only. It cannot unlock orchestrator jobs and cannot claim certification."
+                  >?</span
+                >
+              </h2>
               <span class="pill phantom">Separate track</span>
             </div>
             <div class="cards compact" id="release-phantom-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Live Execution Proof <span class="help-tip" tabindex="0" data-tip="Shows live cloud, Firecracker and PHANTOM execution gates. Production execution remains false until external release approval.">?</span></h2>
+              <h2>
+                Live Execution Proof
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Shows live cloud, Firecracker and PHANTOM execution gates. Production execution remains false until external release approval."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Baseline locked</span>
             </div>
             <div class="cards compact" id="release-live-execution-cards"></div>
           </article>
           <article class="panel">
             <div class="panel-head">
-              <h2>Build Assessment <span class="help-tip" tabindex="0" data-tip="Summarizes current build state against Księga 4.0, PHANTOM v3.0, open problems and latest full test run.">?</span></h2>
+              <h2>
+                Build Assessment
+                <span
+                  class="help-tip"
+                  tabindex="0"
+                  data-tip="Summarizes current build state against Księga 4.0, PHANTOM v3.0, open problems and latest full test run."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Production false</span>
             </div>
             <div class="cards compact" id="release-build-assessment-cards"></div>
@@ -1981,7 +3338,14 @@
         <section class="grid view" data-view-panel="production-readiness" hidden>
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Production Readiness <span class="help-tip" data-tip="Single source of truth for operator cost, subscription, Pixel/Laptop path, G1/G2/workload state, app route state, CDR requirement, and production blockers.">?</span></h2>
+              <h2>
+                Production Readiness
+                <span
+                  class="help-tip"
+                  data-tip="Single source of truth for operator cost, subscription, Pixel/Laptop path, G1/G2/workload state, app route state, CDR requirement, and production blockers."
+                  >?</span
+                >
+              </h2>
               <span class="pill warn">Human gate required</span>
             </div>
             <div class="cards compact" id="production-readiness-summary-cards"></div>
@@ -1989,7 +3353,14 @@
 
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Operator Cost And Path <span class="help-tip" data-tip="Shows tier, minimum subscription length, estimated monthly infrastructure cost, operator price, G1/G2/workload host and whether Pixel/laptop routes have evidence.">?</span></h2>
+              <h2>
+                Operator Cost And Path
+                <span
+                  class="help-tip"
+                  data-tip="Shows tier, minimum subscription length, estimated monthly infrastructure cost, operator price, G1/G2/workload host and whether Pixel/laptop routes have evidence."
+                  >?</span
+                >
+              </h2>
               <span class="pill">One row per operator</span>
             </div>
             <div class="cards" id="production-readiness-operator-cards"></div>
@@ -1997,7 +3368,14 @@
 
           <article class="panel wide">
             <div class="panel-head">
-              <h2>10 Production Gates <span class="help-tip" data-tip="Hard factual gates for the known production blockers. Each gate has an acceptance rule, verification method, repair action and production execution locked off until a human gate approves the evidence.">?</span></h2>
+              <h2>
+                10 Production Gates
+                <span
+                  class="help-tip"
+                  data-tip="Hard factual gates for the known production blockers. Each gate has an acceptance rule, verification method, repair action and production execution locked off until a human gate approves the evidence."
+                  >?</span
+                >
+              </h2>
               <span class="pill danger">Factual proof required</span>
             </div>
             <div class="cards" id="production-readiness-production-gates-cards"></div>
@@ -2005,7 +3383,14 @@
 
           <article class="panel wide">
             <div class="panel-head">
-              <h2>Workload App Routes <span class="help-tip" data-tip="Each communicator or tool must expose a private workload route, retain no terminal-side operational data, and keep CDR mandatory for ingress/egress.">?</span></h2>
+              <h2>
+                Workload App Routes
+                <span
+                  class="help-tip"
+                  data-tip="Each communicator or tool must expose a private workload route, retain no terminal-side operational data, and keep CDR mandatory for ingress/egress."
+                  >?</span
+                >
+              </h2>
               <span class="pill danger">No mock success</span>
             </div>
             <div class="cards" id="production-readiness-app-cards"></div>

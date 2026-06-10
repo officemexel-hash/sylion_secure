@@ -98,17 +98,24 @@ export class OperatorEnvironmentService {
 
   createFromPipeline({ actor, pipelineId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    const pipeline = this.operatorProvisioning.getPipeline({ actor, pipelineId, correlationId: corr });
+    const pipeline = this.operatorProvisioning.getPipeline({
+      actor,
+      pipelineId,
+      correlationId: corr
+    });
     this.rbac.assert(actor, "operator.environment.manage", {
       operatorId: pipeline.operatorId,
       correlationId: corr,
       resourceType: RESOURCE_TYPES.OPERATOR_ENVIRONMENT
     });
     if (pipeline.status !== "local_lab_ready") {
-      throw validationError("Pipeline must be local_lab_ready before creating an operator environment", {
-        pipelineId,
-        status: pipeline.status
-      });
+      throw validationError(
+        "Pipeline must be local_lab_ready before creating an operator environment",
+        {
+          pipelineId,
+          status: pipeline.status
+        }
+      );
     }
     const environment = {
       id: newId("op_env"),
@@ -156,7 +163,10 @@ export class OperatorEnvironmentService {
       type: "environment_created",
       status: environment.status,
       summary: "Local operator environment created from provisioning pipeline",
-      details: { resourceCount: environment.localProvider.resources.length, runtimeCount: environment.mockFirecracker.runtimes.length },
+      details: {
+        resourceCount: environment.localProvider.resources.length,
+        runtimeCount: environment.mockFirecracker.runtimes.length
+      },
       correlationId: corr
     });
     this.#audit({
@@ -189,7 +199,10 @@ export class OperatorEnvironmentService {
       status: "environment_ready",
       localProvider: {
         ...previous.localProvider,
-        resources: previous.localProvider.resources.map((resource) => ({ ...resource, status: "running" }))
+        resources: previous.localProvider.resources.map((resource) => ({
+          ...resource,
+          status: "running"
+        }))
       },
       mockFirecracker: {
         ...previous.mockFirecracker,
@@ -219,7 +232,11 @@ export class OperatorEnvironmentService {
       operatorId: environment.operatorId,
       resource: { id: environment.id, kind: "operator_environment" },
       status: "healthy",
-      details: { detector: "operator-environment-harness", metric: "local_runtime_status", observedValue: "environment_ready" },
+      details: {
+        detector: "operator-environment-harness",
+        metric: "local_runtime_status",
+        observedValue: "environment_ready"
+      },
       correlationId: corr
     });
     this.#audit({
@@ -233,7 +250,13 @@ export class OperatorEnvironmentService {
     return publicEnvironment(environment);
   }
 
-  injectFailure({ actor, environmentId, failureType, reason = "local_lab_failure_injection", correlationId }) {
+  injectFailure({
+    actor,
+    environmentId,
+    failureType,
+    reason = "local_lab_failure_injection",
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     const previous = this.#requireEnvironment(environmentId);
     this.rbac.assert(actor, "operator.environment.manage", {
@@ -244,7 +267,10 @@ export class OperatorEnvironmentService {
     });
     const normalizedType = requireText(failureType, "failureType");
     if (!FAILURE_TYPES.has(normalizedType)) {
-      throw validationError("Unsupported failure type", { failureType, allowed: [...FAILURE_TYPES] });
+      throw validationError("Unsupported failure type", {
+        failureType,
+        allowed: [...FAILURE_TYPES]
+      });
     }
     const failedRuntimeId = previous.mockFirecracker.runtimes[0]?.id || null;
     const environment = {
@@ -289,8 +315,15 @@ export class OperatorEnvironmentService {
       signal: normalizedType === "provider_error" ? "provider_drift" : "microvm_crash_loop",
       tenantId: environment.tenantId,
       operatorId: environment.operatorId,
-      resource: { id: failedRuntimeId || environment.id, kind: normalizedType === "provider_error" ? "provider" : "microvm" },
-      details: { detector: "operator-environment-harness", evidenceRef: environment.id, observedValue: normalizedType },
+      resource: {
+        id: failedRuntimeId || environment.id,
+        kind: normalizedType === "provider_error" ? "provider" : "microvm"
+      },
+      details: {
+        detector: "operator-environment-harness",
+        evidenceRef: environment.id,
+        observedValue: normalizedType
+      },
       correlationId: corr
     });
     this.#audit({
@@ -318,7 +351,10 @@ export class OperatorEnvironmentService {
       status: "rolled_back",
       localProvider: {
         ...previous.localProvider,
-        resources: previous.localProvider.resources.map((resource) => ({ ...resource, status: "released" }))
+        resources: previous.localProvider.resources.map((resource) => ({
+          ...resource,
+          status: "released"
+        }))
       },
       mockFirecracker: {
         ...previous.mockFirecracker,
@@ -344,7 +380,10 @@ export class OperatorEnvironmentService {
       type: "rollback_completed",
       status: environment.status,
       summary: "Local harness resources released",
-      details: { releasedResources: environment.localProvider.resources.length, stoppedRuntimes: environment.mockFirecracker.runtimes.length },
+      details: {
+        releasedResources: environment.localProvider.resources.length,
+        stoppedRuntimes: environment.mockFirecracker.runtimes.length
+      },
       correlationId: corr
     });
     this.monitoring.recordHealthStatus({
@@ -353,7 +392,11 @@ export class OperatorEnvironmentService {
       operatorId: environment.operatorId,
       resource: { id: environment.id, kind: "operator_environment" },
       status: "unknown",
-      details: { detector: "operator-environment-harness", metric: "rollback_status", observedValue: "rolled_back" },
+      details: {
+        detector: "operator-environment-harness",
+        metric: "rollback_status",
+        observedValue: "rolled_back"
+      },
       correlationId: corr
     });
     this.#audit({
@@ -441,7 +484,15 @@ export class OperatorEnvironmentService {
     return event;
   }
 
-  #audit({ actor, action, environment, correlationId, previousValue = null, result, resourceType = RESOURCE_TYPES.OPERATOR_ENVIRONMENT }) {
+  #audit({
+    actor,
+    action,
+    environment,
+    correlationId,
+    previousValue = null,
+    result,
+    resourceType = RESOURCE_TYPES.OPERATOR_ENVIRONMENT
+  }) {
     this.audit.record({
       actorId: actor.id,
       action,

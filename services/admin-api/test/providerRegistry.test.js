@@ -100,7 +100,10 @@ test("provider API secret rotation returns a new reference and emits audit witho
     correlationId: "corr_provider_rotate"
   });
 
-  assert.notEqual(rotated.apiSecretReference.secretReference, provider.apiSecretReference.secretReference);
+  assert.notEqual(
+    rotated.apiSecretReference.secretReference,
+    provider.apiSecretReference.secretReference
+  );
   assert.equal(rotated.apiSecretReference.version, 2);
   const actions = audit.list().map((event) => event.action);
   assert.ok(actions.includes("provider.api_secret_rotated"));

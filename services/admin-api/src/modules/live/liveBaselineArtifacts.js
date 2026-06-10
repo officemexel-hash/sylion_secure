@@ -3,16 +3,79 @@ const DEFAULT_ADMIN_UPSTREAM = "http://10.42.0.10:8080";
 const DEFAULT_WORKLOAD_BIND = "10.42.0.13";
 
 const WORKLOAD_APPS = Object.freeze([
-  { key: "duckduckgo", host: "duckduckgo.sylion.internal", scheme: "http", port: 3001, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-duckduckgo.conf" },
-  { key: "libreoffice", host: "libreoffice.sylion.internal", scheme: "http", port: 3002, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-libreoffice.conf" },
-  { key: "whatsapp", host: "whatsapp.sylion.internal", scheme: "http", port: 3010, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-whatsapp.conf" },
-  { key: "telegram", host: "telegram.sylion.internal", scheme: "http", port: 3011, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-telegram.conf" },
-  { key: "threema", host: "threema.sylion.internal", scheme: "http", port: 3012, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-threema.conf" },
-  { key: "signal", host: "signal.sylion.internal", scheme: "http", port: 3013, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-signal.conf" },
-  { key: "zangi", host: "zangi.sylion.internal", scheme: "http", port: 3014, productionGate: "android_native_runner_required" },
-  { key: "protonmail", host: "protonmail.sylion.internal", scheme: "http", port: 3016, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-protonmail.conf", productionGate: "mail_account_human_test_required" },
-  { key: "simplex", host: "simplex.sylion.internal", scheme: "http", port: 3017, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-simplex.conf", productionGate: "simplex_desktop_or_android_image_required" },
-  { key: "exodus", host: "exodus.sylion.internal", scheme: "http", port: 3015, authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-exodus.conf", productionGate: "isolated_wallet_runtime_required" }
+  {
+    key: "duckduckgo",
+    host: "duckduckgo.sylion.internal",
+    scheme: "http",
+    port: 3001,
+    authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-duckduckgo.conf"
+  },
+  {
+    key: "libreoffice",
+    host: "libreoffice.sylion.internal",
+    scheme: "http",
+    port: 3002,
+    authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-libreoffice.conf"
+  },
+  {
+    key: "whatsapp",
+    host: "whatsapp.sylion.internal",
+    scheme: "http",
+    port: 3010,
+    authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-whatsapp.conf"
+  },
+  {
+    key: "telegram",
+    host: "telegram.sylion.internal",
+    scheme: "http",
+    port: 3011,
+    authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-telegram.conf"
+  },
+  {
+    key: "threema",
+    host: "threema.sylion.internal",
+    scheme: "http",
+    port: 3012,
+    authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-threema.conf"
+  },
+  {
+    key: "signal",
+    host: "signal.sylion.internal",
+    scheme: "http",
+    port: 3013,
+    authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-signal.conf"
+  },
+  {
+    key: "zangi",
+    host: "zangi.sylion.internal",
+    scheme: "http",
+    port: 3014,
+    productionGate: "android_native_runner_required"
+  },
+  {
+    key: "protonmail",
+    host: "protonmail.sylion.internal",
+    scheme: "http",
+    port: 3016,
+    authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-protonmail.conf",
+    productionGate: "mail_account_human_test_required"
+  },
+  {
+    key: "simplex",
+    host: "simplex.sylion.internal",
+    scheme: "http",
+    port: 3017,
+    authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-simplex.conf",
+    productionGate: "simplex_desktop_or_android_image_required"
+  },
+  {
+    key: "exodus",
+    host: "exodus.sylion.internal",
+    scheme: "http",
+    port: 3015,
+    authSnippet: "/etc/nginx/snippets/sylion-kasm-auth-exodus.conf",
+    productionGate: "isolated_wallet_runtime_required"
+  }
 ]);
 
 function yamlBlock(value, indent = "      ") {
@@ -33,11 +96,11 @@ function commonProxyHeaders() {
     "    proxy_set_header X-Real-IP $remote_addr;",
     "    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
     "    proxy_set_header X-Forwarded-Proto https;",
-    "    add_header Cache-Control \"no-store\" always;",
-    "    add_header X-Sylion-Terminal-Data-Stored \"false\" always;",
-    "    add_header X-Sylion-G1-G2-Bypass \"false\" always;",
-    "    add_header X-Sylion-CDR-Required \"true\" always;",
-    "    add_header X-Sylion-Workload-Gateway \"g2\" always;"
+    '    add_header Cache-Control "no-store" always;',
+    '    add_header X-Sylion-Terminal-Data-Stored "false" always;',
+    '    add_header X-Sylion-G1-G2-Bypass "false" always;',
+    '    add_header X-Sylion-CDR-Required "true" always;',
+    '    add_header X-Sylion-Workload-Gateway "g2" always;'
   ].join("\n");
 }
 
@@ -61,7 +124,9 @@ ${commonProxyHeaders()}
   const workloads = WORKLOAD_APPS.map((app) => {
     const auth = app.authSnippet ? `    include ${app.authSnippet};\n` : "";
     const proxySsl = app.proxySslVerify === false ? "    proxy_ssl_verify off;\n" : "";
-    const gate = app.productionGate ? `    add_header X-Sylion-Production-Gate "${app.productionGate}" always;\n` : "";
+    const gate = app.productionGate
+      ? `    add_header X-Sylion-Production-Gate "${app.productionGate}" always;\n`
+      : "";
     return `server {
   listen ${gatewayBind}:443 ssl;
   server_name ${app.host};
@@ -102,25 +167,35 @@ write_files:
   - path: /etc/sylion/gateway-runtime.json
     permissions: "0644"
     content: |
-${yamlBlock(JSON.stringify({
-    component: "g2_workload_gateway",
-    gatewayBind: options.gatewayBind || DEFAULT_GATEWAY_BIND,
-    workloadBind: options.workloadBind || DEFAULT_WORKLOAD_BIND,
-    noTerminalOperationalData: true,
-    noG1G2Bypass: true,
-    cdrRequiredForFileTransfer: true,
-    kasmAuthMode: "root_only_per_app_nginx_include",
-    productionExecutionAllowed: false
-  }, null, 2))}
+${yamlBlock(
+  JSON.stringify(
+    {
+      component: "g2_workload_gateway",
+      gatewayBind: options.gatewayBind || DEFAULT_GATEWAY_BIND,
+      workloadBind: options.workloadBind || DEFAULT_WORKLOAD_BIND,
+      noTerminalOperationalData: true,
+      noG1G2Bypass: true,
+      cdrRequiredForFileTransfer: true,
+      kasmAuthMode: "root_only_per_app_nginx_include",
+      productionExecutionAllowed: false
+    },
+    null,
+    2
+  )
+)}
   - path: /etc/nginx/sites-available/sylion-g2-broker
     permissions: "0644"
     content: |
 ${yamlBlock(nginxConfig)}
-${WORKLOAD_APPS.filter((app) => app.authSnippet).map((app) => `  - path: ${app.authSnippet}
+${WORKLOAD_APPS.filter((app) => app.authSnippet)
+  .map(
+    (app) => `  - path: ${app.authSnippet}
     permissions: "0600"
     content: |
       # Populated by the operator secret handoff flow. Do not store KasmVNC workload passwords in cloud-init.
-`).join("")}
+`
+  )
+  .join("")}
 runcmd:
   - [ bash, -lc, "install -d -m 0755 /etc/sylion/tls" ]
   - [ bash, -lc, "if [ ! -f /etc/sylion/tls/sylion-internal.key ]; then openssl req -x509 -nodes -newkey rsa:3072 -days 30 -subj '/CN=*.sylion.internal' -keyout /etc/sylion/tls/sylion-internal.key -out /etc/sylion/tls/sylion-internal.crt >/dev/null 2>&1; fi" ]
@@ -252,11 +327,16 @@ export function buildLiveBaselineUserData({ userDataByRole = {}, gatewayOptions 
   return {
     G1: userDataByRole.G1,
     G2: userDataByRole.G2 || renderG2GatewayCloudInit(gatewayOptions),
-    WORKLOAD: userDataByRole.WORKLOAD || renderWorkloadCloudInit({ sshPublicKey: gatewayOptions.sshPublicKey || null })
+    WORKLOAD:
+      userDataByRole.WORKLOAD ||
+      renderWorkloadCloudInit({ sshPublicKey: gatewayOptions.sshPublicKey || null })
   };
 }
 
-export function liveBaselineArtifactSummary({ gatewayBind = DEFAULT_GATEWAY_BIND, workloadBind = DEFAULT_WORKLOAD_BIND } = {}) {
+export function liveBaselineArtifactSummary({
+  gatewayBind = DEFAULT_GATEWAY_BIND,
+  workloadBind = DEFAULT_WORKLOAD_BIND
+} = {}) {
   return {
     g2WorkloadGateway: {
       included: true,

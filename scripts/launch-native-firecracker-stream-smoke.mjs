@@ -3,9 +3,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const cfg = {
   sshKey: process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
@@ -31,16 +32,20 @@ async function run(command, args, options = {}) {
 }
 
 async function ssh(host, script, options = {}) {
-  return run("ssh", [
-    "-i",
-    cfg.sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    script
-  ], options);
+  return run(
+    "ssh",
+    [
+      "-i",
+      cfg.sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      host,
+      script
+    ],
+    options
+  );
 }
 
 function remoteLaunchScript() {
@@ -201,36 +206,54 @@ echo "$headers" | grep -q 'X-Sylion-Workload-Gateway: g2' && echo g2_header=true
 echo "$headers" | grep -q 'X-Sylion-Terminal-Data-Stored: false' && echo terminal_header=true || echo terminal_header=false
 `;
   const { stdout } = await ssh(cfg.g2, script, { timeout: 30_000 });
-  return Object.fromEntries(stdout.split(/\r?\n/).filter((line) => line.includes("=")).map((line) => {
-    const [key, ...rest] = line.split("=");
-    const value = rest.join("=");
-    if (value === "true") return [key, true];
-    if (value === "false") return [key, false];
-    return [key, value];
-  }));
+  return Object.fromEntries(
+    stdout
+      .split(/\r?\n/)
+      .filter((line) => line.includes("="))
+      .map((line) => {
+        const [key, ...rest] = line.split("=");
+        const value = rest.join("=");
+        if (value === "true") return [key, true];
+        if (value === "false") return [key, false];
+        return [key, value];
+      })
+  );
 }
 
 async function main() {
   const args = new Set(process.argv.slice(2));
   if (!args.has("--apply")) {
-    console.log(JSON.stringify({
-      component: "native_firecracker_stream_smoke",
-      action: "plan_only",
-      appKey: cfg.appKey,
-      workload: cfg.workload,
-      g2: cfg.g2,
-      hostEndpoint: `${cfg.workloadPrivate}:${cfg.hostPort}`,
-      productionExecutionAllowed: false
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          component: "native_firecracker_stream_smoke",
+          action: "plan_only",
+          appKey: cfg.appKey,
+          workload: cfg.workload,
+          g2: cfg.g2,
+          hostEndpoint: `${cfg.workloadPrivate}:${cfg.hostPort}`,
+          productionExecutionAllowed: false
+        },
+        null,
+        2
+      )
+    );
     return;
   }
   const launched = await ssh(cfg.workload, remoteLaunchScript(), { timeout: 900_000 });
-  const evidence = JSON.parse(launched.stdout.slice(launched.stdout.indexOf("{"), launched.stdout.lastIndexOf("}") + 1));
+  const evidence = JSON.parse(
+    launched.stdout.slice(launched.stdout.indexOf("{"), launched.stdout.lastIndexOf("}") + 1)
+  );
   const g2 = await verifyFromG2();
   const result = {
     evidence,
     g2,
-    readyThroughG2: evidence.ready === true && g2.code === "200" && g2.marker === true && g2.g2_header === true && g2.terminal_header === true,
+    readyThroughG2:
+      evidence.ready === true &&
+      g2.code === "200" &&
+      g2.marker === true &&
+      g2.g2_header === true &&
+      g2.terminal_header === true,
     productionExecutionAllowed: false
   };
   console.log(JSON.stringify(result, null, 2));

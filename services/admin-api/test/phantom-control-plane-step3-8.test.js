@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_phantom_step3_8" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_phantom_step3_8" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -86,7 +90,12 @@ test("Step 3.8 PHANTOM review board records mandatory owners and never enables e
     assert.equal(item.payload.item.humanGateRequired, true);
     assert.equal(item.payload.item.sideEffectAllowed, false);
     assert.equal(item.payload.item.executionAllowed, false);
-    assert.deepEqual(item.payload.item.requiredOwners, ["Architect", "CISO", "Legal", "Compliance/Product"]);
+    assert.deepEqual(item.payload.item.requiredOwners, [
+      "Architect",
+      "CISO",
+      "Legal",
+      "Compliance/Product"
+    ]);
 
     for (const owner of ["legal", "ciso", "architect", "compliance"]) {
       const ack = await request(baseUrl, `/phantom/review-board/${item.payload.item.id}/ack`, {
@@ -106,7 +115,11 @@ test("Step 3.8 PHANTOM review board records mandatory owners and never enables e
     });
     assert.equal(status.status, 200);
     assert.equal(status.payload.item.executionEnabled, false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "phantom.review_board_status_changed"));
+    assert.ok(
+      app.services.audit
+        .list()
+        .some((event) => event.action === "phantom.review_board_status_changed")
+    );
   } finally {
     await close();
   }

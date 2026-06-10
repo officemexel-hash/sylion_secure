@@ -5,8 +5,14 @@ import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const DISPOSABLE_OPERATOR_SCOPE = "operator_teardown_lab";
-const DISPOSABLE_TEARDOWN_ACTIONS = new Set(["data_wipe", "environment_destroy", "account_revoke", "operator_teardown"]);
-const SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|panic.*code|otp|credential|private[_-]?key)/i;
+const DISPOSABLE_TEARDOWN_ACTIONS = new Set([
+  "data_wipe",
+  "environment_destroy",
+  "account_revoke",
+  "operator_teardown"
+]);
+const SECRET_FIELD_PATTERN =
+  /(password|secret|token|api[_-]?key|panic.*code|otp|credential|private[_-]?key)/i;
 const SECRET_FIELD_ALLOWLIST = new Set(["confirmation", "correlationId"]);
 
 function isoNow() {
@@ -14,14 +20,20 @@ function isoNow() {
 }
 
 function hashConfirmation(confirmation) {
-  return createHash("sha256").update(String(confirmation || "")).digest("hex");
+  return createHash("sha256")
+    .update(String(confirmation || ""))
+    .digest("hex");
 }
 
 function normalizeLabels(labels = []) {
-  return [...new Set(labels
-    .filter((label) => typeof label === "string")
-    .map((label) => label.trim())
-    .filter(Boolean))];
+  return [
+    ...new Set(
+      labels
+        .filter((label) => typeof label === "string")
+        .map((label) => label.trim())
+        .filter(Boolean)
+    )
+  ];
 }
 
 function findSecretLikeFields(value, path = []) {
@@ -42,10 +54,14 @@ function findSecretLikeFields(value, path = []) {
 function assertNoPlaintextSecretFields(body) {
   const fields = findSecretLikeFields(body);
   if (fields.length) {
-    throw validationError("Disposable teardown requests must not include plaintext secret material", {
-      fields,
-      allowedSecretHandling: "Use existing write-only secret refs; do not send passwords, API keys, panic codes or private keys."
-    });
+    throw validationError(
+      "Disposable teardown requests must not include plaintext secret material",
+      {
+        fields,
+        allowedSecretHandling:
+          "Use existing write-only secret refs; do not send passwords, API keys, panic codes or private keys."
+      }
+    );
   }
 }
 
@@ -56,11 +72,26 @@ export class OperatorService {
     this.entitlements = entitlements;
     this.tenants = tenants;
     this.operators = new PersistentMap({ store, collection: "operators" });
-    this.disposableTeardownPlans = new PersistentMap({ store, collection: "operator_disposable_teardown_plans" });
-    this.disposableTeardownJobs = new PersistentMap({ store, collection: "operator_disposable_teardown_jobs" });
+    this.disposableTeardownPlans = new PersistentMap({
+      store,
+      collection: "operator_disposable_teardown_plans"
+    });
+    this.disposableTeardownJobs = new PersistentMap({
+      store,
+      collection: "operator_disposable_teardown_jobs"
+    });
   }
 
-  create({ actor, tenantId, displayName, tier, disposable = false, destructiveTestScope = null, labels = [], correlationId }) {
+  create({
+    actor,
+    tenantId,
+    displayName,
+    tier,
+    disposable = false,
+    destructiveTestScope = null,
+    labels = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "operator.create", { tenantId, correlationId: corr });
     const tenant = this.tenants.get(tenantId);
@@ -113,7 +144,9 @@ export class OperatorService {
         vpsPerOperator: 3,
         router: "GL.iNet GL-XE3000 Puli AX",
         cdrMandatory: true,
-        workloadTenancy: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier) ? "dedicated_operator_only" : "shared_dedicated_pool_allowed",
+        workloadTenancy: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier)
+          ? "dedicated_operator_only"
+          : "shared_dedicated_pool_allowed",
         dedicatedWorkloadPerOperatorRequired: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier),
         phantomWorkloadDedicatedRequired: true
       },
@@ -133,7 +166,15 @@ export class OperatorService {
     return operator;
   }
 
-  update({ actor, operatorId, displayName = undefined, tier = undefined, status = undefined, labels = undefined, correlationId }) {
+  update({
+    actor,
+    operatorId,
+    displayName = undefined,
+    tier = undefined,
+    status = undefined,
+    labels = undefined,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "operator.manage", {
       operatorId,
@@ -154,7 +195,9 @@ export class OperatorService {
       patch.tier = tier;
       patch.baseline = {
         ...previous.baseline,
-        workloadTenancy: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier) ? "dedicated_operator_only" : "shared_dedicated_pool_allowed",
+        workloadTenancy: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier)
+          ? "dedicated_operator_only"
+          : "shared_dedicated_pool_allowed",
         dedicatedWorkloadPerOperatorRequired: [TIERS.PHANTOM, TIERS.SOVEREIGN].includes(tier)
       };
     }
@@ -248,7 +291,14 @@ export class OperatorService {
     return deletion;
   }
 
-  createDisposableTeardownPlan({ actor, operatorId, requestedAction = "operator_teardown", reason = null, body = {}, correlationId }) {
+  createDisposableTeardownPlan({
+    actor,
+    operatorId,
+    requestedAction = "operator_teardown",
+    reason = null,
+    body = {},
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "operator.disposable_teardown.manage", {
       operatorId,
@@ -314,7 +364,15 @@ export class OperatorService {
     return this.#publicTeardownPlan(plan, confirmationPhrase);
   }
 
-  executeDisposableTeardown({ actor, operatorId, planId, confirmation, reason = null, body = {}, correlationId }) {
+  executeDisposableTeardown({
+    actor,
+    operatorId,
+    planId,
+    confirmation,
+    reason = null,
+    body = {},
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "operator.disposable_teardown.manage", {
       operatorId,
@@ -324,7 +382,9 @@ export class OperatorService {
     assertNoPlaintextSecretFields(body);
     const operator = this.#requireOperator(operatorId);
     this.#assertDisposable(operator, corr);
-    const plan = planId ? this.disposableTeardownPlans.get(planId) : this.#latestTeardownPlanForOperator(operatorId);
+    const plan = planId
+      ? this.disposableTeardownPlans.get(planId)
+      : this.#latestTeardownPlanForOperator(operatorId);
     if (!plan || plan.operatorId !== operator.id) {
       throw notFound("disposable teardown plan", planId || operatorId);
     }
@@ -414,7 +474,9 @@ export class OperatorService {
     if (actor) {
       this.rbac.assert(actor, "operator.read", { tenantId, correlationId });
     }
-    return [...this.operators.values()].filter((operator) => !tenantId || operator.tenantId === tenantId);
+    return [...this.operators.values()].filter(
+      (operator) => !tenantId || operator.tenantId === tenantId
+    );
   }
 
   listDisposableTeardownPlans({ actor, operatorId = null, correlationId } = {}) {
@@ -437,7 +499,10 @@ export class OperatorService {
   }
 
   #assertDisposable(operator, correlationId) {
-    if (operator.disposable === true && operator.destructiveTest?.scope === DISPOSABLE_OPERATOR_SCOPE) {
+    if (
+      operator.disposable === true &&
+      operator.destructiveTest?.scope === DISPOSABLE_OPERATOR_SCOPE
+    ) {
       return;
     }
     this.audit.record({
@@ -457,17 +522,22 @@ export class OperatorService {
         sideEffectPrevented: true
       }
     });
-    throw validationError("Destructive teardown is allowed only for explicitly disposable test operators", {
-      operatorId: operator.id,
-      disposableRequired: true,
-      sideEffectPrevented: true
-    });
+    throw validationError(
+      "Destructive teardown is allowed only for explicitly disposable test operators",
+      {
+        operatorId: operator.id,
+        disposableRequired: true,
+        sideEffectPrevented: true
+      }
+    );
   }
 
   #latestTeardownPlanForOperator(operatorId) {
-    return [...this.disposableTeardownPlans.values()]
-      .filter((plan) => plan.operatorId === operatorId)
-      .sort((a, b) => Date.parse(b.generatedAt) - Date.parse(a.generatedAt))[0] || null;
+    return (
+      [...this.disposableTeardownPlans.values()]
+        .filter((plan) => plan.operatorId === operatorId)
+        .sort((a, b) => Date.parse(b.generatedAt) - Date.parse(a.generatedAt))[0] || null
+    );
   }
 
   #teardownResourceDiff(operator, requestedAction) {

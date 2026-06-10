@@ -5,16 +5,19 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const cfg = {
   sshKey: process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
   g2Host: process.env.SYLION_G2_SSH || "sylion@178.105.203.31",
   adminHost: process.env.SYLION_ADMIN_SSH || "root@188.245.227.27",
   g2EnvPath: process.env.SYLION_GUACAMOLE_ENV_PATH || "/etc/sylion/guacamole.env",
-  adminDropIn: process.env.SYLION_ADMIN_GUACAMOLE_DROPIN || "/etc/systemd/system/sylion-admin-api.service.d/42-guacamole-json-handoff.conf",
+  adminDropIn:
+    process.env.SYLION_ADMIN_GUACAMOLE_DROPIN ||
+    "/etc/systemd/system/sylion-admin-api.service.d/42-guacamole-json-handoff.conf",
   adminService: process.env.SYLION_ADMIN_SERVICE || "sylion-admin-api"
 };
 
@@ -28,20 +31,24 @@ function encodeScript(script) {
 
 async function ssh(host, script, options = {}) {
   const encoded = encodeScript(script);
-  const result = await execFileAsync("ssh", [
-    "-i",
-    cfg.sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    `printf %s ${shellQuote(encoded)} | base64 -d | bash`
-  ], {
-    input: options.input,
-    timeout: options.timeout ?? 60_000,
-    windowsHide: true
-  });
+  const result = await execFileAsync(
+    "ssh",
+    [
+      "-i",
+      cfg.sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      host,
+      `printf %s ${shellQuote(encoded)} | base64 -d | bash`
+    ],
+    {
+      input: options.input,
+      timeout: options.timeout ?? 60_000,
+      windowsHide: true
+    }
+  );
   return result.stdout.trim();
 }
 
@@ -99,7 +106,9 @@ async function main() {
   const secret = await readG2Secret();
   await writeAdminDropIn(secret);
   const expectedHash = sha256(`${secret}\n`);
-  const adminHash = await ssh(cfg.adminHost, `
+  const adminHash = await ssh(
+    cfg.adminHost,
+    `
 set -euo pipefail
 sudo systemctl show ${shellQuote(cfg.adminService)} -p Environment --value \
   | tr ' ' '\\n' \
@@ -108,14 +117,17 @@ sudo systemctl show ${shellQuote(cfg.adminService)} -p Environment --value \
   | cut -d= -f2- \
   | sha256sum \
   | awk '{print $1}'
-`);
-  console.log(JSON.stringify({
-    component: "guacamole_json_auth_handoff_secret_sync",
-    synced: adminHash === expectedHash,
-    adminService: cfg.adminService,
-    secretPrinted: false,
-    tokenMaterialStored: false
-  }));
+`
+  );
+  console.log(
+    JSON.stringify({
+      component: "guacamole_json_auth_handoff_secret_sync",
+      synced: adminHash === expectedHash,
+      adminService: cfg.adminService,
+      secretPrinted: false,
+      tokenMaterialStored: false
+    })
+  );
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

@@ -1,15 +1,25 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const outputDir = process.env.SYLION_DASHBOARD_SMOKE_OUTPUT_DIR
-  || join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-16-secrets-hetzner-regression");
+const outputDir =
+  process.env.SYLION_DASHBOARD_SMOKE_OUTPUT_DIR ||
+  join(
+    process.cwd(),
+    "docs",
+    "admin-panel-v2",
+    "test-artifacts",
+    "step3-16-secrets-hetzner-regression"
+  );
 const baseUrl = process.env.SYLION_ADMIN_URL || "http://127.0.0.1:8099/admin";
 
 async function loadPlaywright() {
   try {
     return await import("playwright");
   } catch (error) {
-    throw new Error("Playwright is not installed. Use the Codex browser skill for in-app testing, or install Playwright before running npm run test:dashboard.", { cause: error });
+    throw new Error(
+      "Playwright is not installed. Use the Codex browser skill for in-app testing, or install Playwright before running npm run test:dashboard.",
+      { cause: error }
+    );
   }
 }
 
@@ -36,10 +46,19 @@ async function setInputValue(page, selector, value) {
 
 async function waitForToast(page, text, timeout = 30000) {
   try {
-    await page.waitForFunction((expected) => document.querySelector("#toast")?.textContent?.includes(expected), text, { timeout });
+    await page.waitForFunction(
+      (expected) => document.querySelector("#toast")?.textContent?.includes(expected),
+      text,
+      { timeout }
+    );
   } catch (error) {
-    const currentToast = await page.locator("#toast").innerText().catch(() => "");
-    throw new Error(`Timed out waiting for toast "${text}". Current toast: "${currentToast}"`, { cause: error });
+    const currentToast = await page
+      .locator("#toast")
+      .innerText()
+      .catch(() => "");
+    throw new Error(`Timed out waiting for toast "${text}". Current toast: "${currentToast}"`, {
+      cause: error
+    });
   }
 }
 
@@ -52,7 +71,11 @@ async function maybeCompleteStepUp(page) {
   const modal = page.locator("#step-up-modal");
   if (await modal.isVisible({ timeout: 3000 }).catch(() => false)) {
     await page.getByRole("button", { name: "Verify FIDO2", exact: true }).click();
-    await page.waitForFunction(() => document.querySelector("#step-up-modal")?.hidden === true, null, { timeout: 10000 });
+    await page.waitForFunction(
+      () => document.querySelector("#step-up-modal")?.hidden === true,
+      null,
+      { timeout: 10000 }
+    );
   }
 }
 
@@ -101,7 +124,9 @@ async function chooseLiveProviderTuple(page) {
   });
   const operator = approval ? operators.find((item) => item.id === approval.operatorId) : null;
   if (!provider || !operator || !approval) {
-    throw new Error("Dashboard smoke could not find a coherent Hetzner provider/operator/approval tuple");
+    throw new Error(
+      "Dashboard smoke could not find a coherent Hetzner provider/operator/approval tuple"
+    );
   }
   return { provider, operator, approval };
 }
@@ -112,7 +137,8 @@ async function chooseLatestRouterTuple(page) {
     apiInPage(page, "/devices")
   ]);
   const operators = operatorsPayload.operators || [];
-  const router = [...(devicesPayload.devices || [])].reverse()
+  const router = [...(devicesPayload.devices || [])]
+    .reverse()
     .find((item) => item.type === "puli_ax_router" && item.assignedOperatorId);
   const operator = router ? operators.find((item) => item.id === router.assignedOperatorId) : null;
   if (!router || !operator) {
@@ -154,7 +180,9 @@ async function run() {
     await page.getByText("Dashboard", { exact: true }).waitFor({ timeout: 10000 });
 
     await clickButton(page, "Approvals");
-    await page.locator("#workload-lifecycle-allocation-select").waitFor({ state: "visible", timeout: 10000 });
+    await page
+      .locator("#workload-lifecycle-allocation-select")
+      .waitFor({ state: "visible", timeout: 10000 });
     actions.push("approvals_view_loaded");
 
     await clickButton(page, "Overview");
@@ -162,8 +190,14 @@ async function run() {
     await waitForToast(page, "Demo flow completed", 30000);
 
     await clickButton(page, "Operators");
-    await page.getByRole("heading", { name: "Provisioning Pipeline ?" }).waitFor({ timeout: 10000 });
-    await page.waitForFunction(() => document.querySelector("#pipeline-operator-select")?.options?.length > 0, null, { timeout: 10000 });
+    await page
+      .getByRole("heading", { name: "Provisioning Pipeline ?" })
+      .waitFor({ timeout: 10000 });
+    await page.waitForFunction(
+      () => document.querySelector("#pipeline-operator-select")?.options?.length > 0,
+      null,
+      { timeout: 10000 }
+    );
     await page.getByRole("button", { name: "Create Pipeline Draft" }).click();
     await waitForToast(page, "Operator provisioning draft created");
     await page.waitForTimeout(500);
@@ -207,7 +241,13 @@ async function run() {
     await selectOptionValue(page, "#router-posture-operator-select", packageTuple.operator.id);
     await selectOptionValue(page, "#router-posture-package-select", packageTuple.package.id);
     await selectOptionValue(page, "#router-posture-device-select", packageTuple.router.id);
-    for (const name of ["nftablesKillSwitch", "dnsTunnelOnly", "lanWanBypassBlocked", "signedFirmwareVerified", "packageInstalled"]) {
+    for (const name of [
+      "nftablesKillSwitch",
+      "dnsTunnelOnly",
+      "lanWanBypassBlocked",
+      "signedFirmwareVerified",
+      "packageInstalled"
+    ]) {
       await page.locator(`#router-posture-form input[name='${name}']`).setChecked(true);
     }
     await page.getByRole("button", { name: "Validate Router Posture" }).click();
@@ -234,8 +274,12 @@ async function run() {
 
     await clickButton(page, "Providers");
     await page.getByText("Live Cloud Gate").waitFor({ timeout: 10000 });
-    await page.locator("#secret-backend-form input[name='displayName']").fill(`Vault Transit Smoke ${Date.now()}`);
-    await page.locator("#secret-backend-form input[name='endpointReference']").fill("vault://sylion/smoke/transit");
+    await page
+      .locator("#secret-backend-form input[name='displayName']")
+      .fill(`Vault Transit Smoke ${Date.now()}`);
+    await page
+      .locator("#secret-backend-form input[name='endpointReference']")
+      .fill("vault://sylion/smoke/transit");
     await page.getByRole("button", { name: "Register Backend" }).click();
     await maybeCompleteStepUp(page);
     await waitForToast(page, "Secret backend contract recorded");
@@ -244,17 +288,37 @@ async function run() {
     await selectOptionValue(page, "#live-cloud-provider-select", liveTuple.provider.id);
     await selectOptionValue(page, "#live-cloud-operator-select", liveTuple.operator.id);
     await selectOptionValue(page, "#live-cloud-approval-select", liveTuple.approval.id);
-    await setInputValue(page, "#live-cloud-form input[name='idempotencyKey']", `live-smoke-${Date.now()}`);
+    await setInputValue(
+      page,
+      "#live-cloud-form input[name='idempotencyKey']",
+      `live-smoke-${Date.now()}`
+    );
     await page.getByRole("button", { name: "Request Live VPS Set" }).click();
     await maybeCompleteStepUp(page);
     await waitForToast(page, "Live cloud request recorded");
     await waitForDashboardIdle(page);
     await page.waitForTimeout(750);
     const rehearsalTuple = await chooseLiveProviderTuple(page);
-    await selectOptionValue(page, "#provider-rehearsal-provider-select", rehearsalTuple.provider.id);
-    await selectOptionValue(page, "#provider-rehearsal-operator-select", rehearsalTuple.operator.id);
-    await selectOptionValue(page, "#provider-rehearsal-approval-select", rehearsalTuple.approval.id);
-    await setInputValue(page, "#provider-rehearsal-form input[name='idempotencyKey']", `step3-18-rehearsal-${Date.now()}`);
+    await selectOptionValue(
+      page,
+      "#provider-rehearsal-provider-select",
+      rehearsalTuple.provider.id
+    );
+    await selectOptionValue(
+      page,
+      "#provider-rehearsal-operator-select",
+      rehearsalTuple.operator.id
+    );
+    await selectOptionValue(
+      page,
+      "#provider-rehearsal-approval-select",
+      rehearsalTuple.approval.id
+    );
+    await setInputValue(
+      page,
+      "#provider-rehearsal-form input[name='idempotencyKey']",
+      `step3-18-rehearsal-${Date.now()}`
+    );
     await page.getByRole("button", { name: "Run Rehearsal" }).click();
     await maybeCompleteStepUp(page);
     await waitForToast(page, "Provider rehearsal completed");
@@ -275,8 +339,21 @@ async function run() {
     await captureScreenshot(page, "live-execution-desktop.png");
     actions.push("live_cloud_rehearsal_firecracker_launch_rehearsal_cpu_gates");
     const providersText = await page.locator("main").innerText();
-    for (const expected of ["Provider Rehearsals", "smoke_passed", "Live Rollback Plans", "Rollback ready", "Secret Backend Status", "Plaintext retrieval", "Firecracker Launch Rehearsals", "Real kernel", "Secret source", "hetzner", "blocked_human_gate"]) {
-      if (!providersText.includes(expected)) issues.push(`Missing live provider dashboard text: ${expected}`);
+    for (const expected of [
+      "Provider Rehearsals",
+      "smoke_passed",
+      "Live Rollback Plans",
+      "Rollback ready",
+      "Secret Backend Status",
+      "Plaintext retrieval",
+      "Firecracker Launch Rehearsals",
+      "Real kernel",
+      "Secret source",
+      "hetzner",
+      "blocked_human_gate"
+    ]) {
+      if (!providersText.includes(expected))
+        issues.push(`Missing live provider dashboard text: ${expected}`);
     }
 
     await clickButton(page, "PHANTOM");
@@ -286,7 +363,19 @@ async function run() {
     await waitForToast(page, "PHANTOM execution request gated");
     actions.push("phantom_execution_request_gate");
 
-    const views = ["Overview", "Operators", "Provisioning", "Approvals", "Subscriptions", "Devices", "Providers", "Security", "PHANTOM", "Release", "Audit"];
+    const views = [
+      "Overview",
+      "Operators",
+      "Provisioning",
+      "Approvals",
+      "Subscriptions",
+      "Devices",
+      "Providers",
+      "Security",
+      "PHANTOM",
+      "Release",
+      "Audit"
+    ];
     for (const view of views) {
       await clickButton(page, view);
       await captureScreenshot(page, `${view.toLowerCase()}-desktop.png`);
@@ -294,20 +383,50 @@ async function run() {
 
     await clickButton(page, "PHANTOM");
     const phantomText = await page.locator("main").innerText();
-    for (const expected of ["Package Review Matrix", "Owner ack", "Evidence Coverage", "Execution Requests", "Production false"]) {
-      if (!phantomText.includes(expected)) issues.push(`Missing PHANTOM dashboard text: ${expected}`);
+    for (const expected of [
+      "Package Review Matrix",
+      "Owner ack",
+      "Evidence Coverage",
+      "Execution Requests",
+      "Production false"
+    ]) {
+      if (!phantomText.includes(expected))
+        issues.push(`Missing PHANTOM dashboard text: ${expected}`);
     }
 
     await clickButton(page, "Release");
     const releaseText = await page.locator("main").innerText();
-    for (const expected of ["Release Gate Control", "not_ready_for_production_execution", "PHANTOM execution=false", "Problem Registry", "Evidence Artifact Index", "Full Test Run", "Build Assessment", "Live Execution Proof", "CPU confidential gate", "Baseline locked"]) {
-      if (!releaseText.includes(expected)) issues.push(`Missing release dashboard text: ${expected}`);
+    for (const expected of [
+      "Release Gate Control",
+      "not_ready_for_production_execution",
+      "PHANTOM execution=false",
+      "Problem Registry",
+      "Evidence Artifact Index",
+      "Full Test Run",
+      "Build Assessment",
+      "Live Execution Proof",
+      "CPU confidential gate",
+      "Baseline locked"
+    ]) {
+      if (!releaseText.includes(expected))
+        issues.push(`Missing release dashboard text: ${expected}`);
     }
 
     await clickButton(page, "Operators");
     const operatorText = await page.locator("main").innerText();
-    for (const expected of ["Provisioning Pipeline", "Local Virtual VPS", "Secrets Gate", "Environment Harness", "Failure Injection", "Operator Environments", "rolled_back", "firecracker_start_failed", "local_lab_ready"]) {
-      if (!operatorText.includes(expected)) issues.push(`Missing operator provisioning dashboard text: ${expected}`);
+    for (const expected of [
+      "Provisioning Pipeline",
+      "Local Virtual VPS",
+      "Secrets Gate",
+      "Environment Harness",
+      "Failure Injection",
+      "Operator Environments",
+      "rolled_back",
+      "firecracker_start_failed",
+      "local_lab_ready"
+    ]) {
+      if (!operatorText.includes(expected))
+        issues.push(`Missing operator provisioning dashboard text: ${expected}`);
     }
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -323,13 +442,20 @@ async function run() {
   if (issues.length) {
     throw new Error(`Dashboard smoke issues:\n${issues.join("\n")}`);
   }
-  await writeFile(join(outputDir, "summary.json"), JSON.stringify({
-    baseUrl,
-    status: "passed",
-    actions,
-    issues,
-    checkedAt: new Date().toISOString()
-  }, null, 2));
+  await writeFile(
+    join(outputDir, "summary.json"),
+    JSON.stringify(
+      {
+        baseUrl,
+        status: "passed",
+        actions,
+        issues,
+        checkedAt: new Date().toISOString()
+      },
+      null,
+      2
+    )
+  );
   console.log(`Dashboard smoke completed against ${baseUrl}`);
 }
 

@@ -19,4 +19,3 @@ export function forbidden(action) {
 export function validationError(message, details = {}) {
   return new AppError("validation_error", message, 422, details);
 }
-

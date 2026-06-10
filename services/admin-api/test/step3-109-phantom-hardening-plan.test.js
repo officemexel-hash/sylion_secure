@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_step3_109" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_step3_109" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -50,11 +54,15 @@ test("Step 3.109 exposes the SYLION/PHANTOM hardening plan as policy-as-code", a
     assert.ok(response.payload.plan.milestones.every((item) => item.sideEffectAllowed === false));
     assert.ok(response.payload.plan.milestones.every((item) => item.executionAllowed === false));
 
-    const rfLab = response.payload.plan.milestones.find((item) => item.id === "hs_05_esim_and_rf_lab_governance");
+    const rfLab = response.payload.plan.milestones.find(
+      (item) => item.id === "hs_05_esim_and_rf_lab_governance"
+    );
     assert.equal(rfLab.decision, "lab_only_no_product_executor");
     assert.equal(rfLab.allowedInBaseline, false);
 
-    assert.ok(app.services.audit.list().some((event) => event.action === "phantom.hardening_plan_read"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "phantom.hardening_plan_read")
+    );
   } finally {
     await close();
   }
@@ -85,15 +93,23 @@ test("Step 3.109 evaluates hardening evidence without enabling execution", async
       }
     });
     assert.equal(response.status, 201);
-    const terminal = response.payload.evaluation.evaluations.find((item) => item.milestoneId === "hs_04_terminal_radio_isolation");
-    const ebpf = response.payload.evaluation.evaluations.find((item) => item.milestoneId === "hs_07_ebpf_runtime_monitoring");
-    const lab = response.payload.evaluation.evaluations.find((item) => item.milestoneId === "hs_05_esim_and_rf_lab_governance");
+    const terminal = response.payload.evaluation.evaluations.find(
+      (item) => item.milestoneId === "hs_04_terminal_radio_isolation"
+    );
+    const ebpf = response.payload.evaluation.evaluations.find(
+      (item) => item.milestoneId === "hs_07_ebpf_runtime_monitoring"
+    );
+    const lab = response.payload.evaluation.evaluations.find(
+      (item) => item.milestoneId === "hs_05_esim_and_rf_lab_governance"
+    );
     assert.equal(terminal.state, "ready_for_human_gate");
     assert.equal(ebpf.state, "ready_for_human_gate");
     assert.equal(lab.state, "blocked_by_policy_pending_evidence");
     assert.equal(response.payload.evaluation.executionAllowed, false);
     assert.equal(response.payload.evaluation.productionExecutionAllowed, false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "phantom.hardening_plan_evaluated"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "phantom.hardening_plan_evaluated")
+    );
   } finally {
     await close();
   }

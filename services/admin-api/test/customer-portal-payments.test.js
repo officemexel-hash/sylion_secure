@@ -59,14 +59,36 @@ test("customer portal exposes annual B2B pricing and provider status without sec
     assert.equal(pricing.status, 200);
     assert.equal(pricing.payload.minimumMonths, 12);
     assert.equal(pricing.payload.businessOnly, true);
-    assert.deepEqual(pricing.payload.tiers.map((tier) => tier.id), ["pilot", "standard", "pro", "phantom", "sovereign"]);
-    assert.equal(pricing.payload.tiers.find((tier) => tier.id === "pilot").annualCommitmentEur, 1188);
+    assert.deepEqual(
+      pricing.payload.tiers.map((tier) => tier.id),
+      ["pilot", "standard", "pro", "phantom", "sovereign"]
+    );
+    assert.equal(
+      pricing.payload.tiers.find((tier) => tier.id === "pilot").annualCommitmentEur,
+      1188
+    );
     assert.equal(pricing.payload.tiers.find((tier) => tier.id === "sovereign").appEnvironments, 60);
-    assert.equal(pricing.payload.tiers.find((tier) => tier.id === "phantom").operatorTier, "PHANTOM");
-    assert.match(pricing.payload.tiers.find((tier) => tier.id === "standard").summary, /operator token/i);
-    assert.ok(pricing.payload.tiers.find((tier) => tier.id === "pro").included.includes("20 isolated workload app environments"));
-    assert.ok(pricing.payload.tiers.find((tier) => tier.id === "sovereign").limits.includes("Dedicated provider capacity must be available"));
-    assert.ok(pricing.payload.tokenCatalog.some((token) => token.type === "operator_bootstrap_annual"));
+    assert.equal(
+      pricing.payload.tiers.find((tier) => tier.id === "phantom").operatorTier,
+      "PHANTOM"
+    );
+    assert.match(
+      pricing.payload.tiers.find((tier) => tier.id === "standard").summary,
+      /operator token/i
+    );
+    assert.ok(
+      pricing.payload.tiers
+        .find((tier) => tier.id === "pro")
+        .included.includes("20 isolated workload app environments")
+    );
+    assert.ok(
+      pricing.payload.tiers
+        .find((tier) => tier.id === "sovereign")
+        .limits.includes("Dedicated provider capacity must be available")
+    );
+    assert.ok(
+      pricing.payload.tokenCatalog.some((token) => token.type === "operator_bootstrap_annual")
+    );
     assert.ok(pricing.payload.purchaseRoutes.some((route) => route.id === "crypto_vault_token"));
     assert.equal(pricing.payload.resellerProgram.defaultDiscountPercent, 20);
     assert.match(pricing.payload.tokenSecurity.storage, /SHA-256 token hash/i);
@@ -114,7 +136,14 @@ test("Stripe checkout uses a real provider request shape and never issues token 
     },
     fetcher: async (url, init) => {
       calls.push({ url, init });
-      return new Response(JSON.stringify({ id: "cs_test_123", url: "https://checkout.stripe.test/session", mode: "payment" }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          id: "cs_test_123",
+          url: "https://checkout.stripe.test/session",
+          mode: "payment"
+        }),
+        { status: 200 }
+      );
     }
   });
   try {
@@ -126,7 +155,10 @@ test("Stripe checkout uses a real provider request shape and never issues token 
     assert.equal(checkout.payload.checkout.provider, "stripe");
     assert.equal(checkout.payload.checkout.amountEur, 2388);
     assert.equal(checkout.payload.checkout.minimumMonths, 12);
-    assert.equal(checkout.payload.checkout.providerCheckoutUrl, "https://checkout.stripe.test/session");
+    assert.equal(
+      checkout.payload.checkout.providerCheckoutUrl,
+      "https://checkout.stripe.test/session"
+    );
     assert.equal(app.services.billingPortal.listTokens().length, 0);
 
     assert.equal(calls.length, 1);
@@ -149,7 +181,11 @@ test("Stripe paid webhook makes token claimable and claim returns token material
       STRIPE_SECRET_KEY: "sk_test_redacted",
       STRIPE_WEBHOOK_SECRET: secret
     },
-    fetcher: async () => new Response(JSON.stringify({ id: "cs_test_456", url: "https://checkout.stripe.test/session" }), { status: 200 })
+    fetcher: async () =>
+      new Response(
+        JSON.stringify({ id: "cs_test_456", url: "https://checkout.stripe.test/session" }),
+        { status: 200 }
+      )
   });
   try {
     const checkout = await request(baseUrl, "/portal-api/checkouts", {
@@ -181,20 +217,33 @@ test("Stripe paid webhook makes token claimable and claim returns token material
     assert.equal(webhook.payload.checkout.status, "paid");
     assert.equal(webhook.payload.token.status, "claimable");
 
-    const claim = await request(baseUrl, `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`, {
-      method: "POST",
-      body: { vaultPublicId: "vault_test_public_id_0001" }
-    });
+    const claim = await request(
+      baseUrl,
+      `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`,
+      {
+        method: "POST",
+        body: { vaultPublicId: "vault_test_public_id_0001" }
+      }
+    );
     assert.equal(claim.status, 201);
     assert.match(claim.payload.redemptionToken, /^sylion_operator_bootstrap_annual_/);
     assert.equal(claim.payload.token.tokenStoredPlaintext, false);
 
-    const secondClaim = await request(baseUrl, `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`, {
-      method: "POST",
-      body: { vaultPublicId: "vault_test_public_id_0001" }
-    });
+    const secondClaim = await request(
+      baseUrl,
+      `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`,
+      {
+        method: "POST",
+        body: { vaultPublicId: "vault_test_public_id_0001" }
+      }
+    );
     assert.equal(secondClaim.status, 422);
-    assert.equal(JSON.stringify(app.services.billingPortal.listTokens()).includes(claim.payload.redemptionToken), false);
+    assert.equal(
+      JSON.stringify(app.services.billingPortal.listTokens()).includes(
+        claim.payload.redemptionToken
+      ),
+      false
+    );
   } finally {
     await close();
   }
@@ -206,10 +255,15 @@ test("Portal activation redeems paid token into operator, packages and first ses
     env: {
       STRIPE_SECRET_KEY: "sk_test_redacted",
       STRIPE_WEBHOOK_SECRET: secret,
-      SYLION_INTERNAL_CA_CERT_PEM: "-----BEGIN CERTIFICATE-----\nPUBLIC TEST CERT\n-----END CERTIFICATE-----",
+      SYLION_INTERNAL_CA_CERT_PEM:
+        "-----BEGIN CERTIFICATE-----\nPUBLIC TEST CERT\n-----END CERTIFICATE-----",
       SYLION_INTERNAL_CA_SHA256: "sha256-test"
     },
-    fetcher: async () => new Response(JSON.stringify({ id: "cs_activate", url: "https://checkout.stripe.test/activate" }), { status: 200 })
+    fetcher: async () =>
+      new Response(
+        JSON.stringify({ id: "cs_activate", url: "https://checkout.stripe.test/activate" }),
+        { status: 200 }
+      )
   });
   try {
     const checkout = await request(baseUrl, "/portal-api/checkouts", {
@@ -237,10 +291,14 @@ test("Portal activation redeems paid token into operator, packages and first ses
     });
     assert.equal(webhook.status, 200);
 
-    const claim = await request(baseUrl, `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`, {
-      method: "POST",
-      body: { vaultPublicId: "vault_activation_public_id" }
-    });
+    const claim = await request(
+      baseUrl,
+      `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`,
+      {
+        method: "POST",
+        body: { vaultPublicId: "vault_activation_public_id" }
+      }
+    );
     assert.equal(claim.status, 201);
 
     const activation = await request(baseUrl, "/portal-api/operator-bootstrap", {
@@ -277,8 +335,15 @@ test("Portal activation redeems paid token into operator, packages and first ses
       }
     });
     assert.equal(secondActivation.status, 422);
-    assert.equal(JSON.stringify(app.services.audit.list()).includes(claim.payload.redemptionToken), false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "portal.operator_bootstrap_completed"));
+    assert.equal(
+      JSON.stringify(app.services.audit.list()).includes(claim.payload.redemptionToken),
+      false
+    );
+    assert.ok(
+      app.services.audit
+        .list()
+        .some((event) => event.action === "portal.operator_bootstrap_completed")
+    );
   } finally {
     await close();
   }
@@ -288,7 +353,11 @@ test("Portal activation rejects secret-like profile material before provisioning
   const secret = "whsec_test_redacted";
   const { app, baseUrl, close } = await startTestServer({
     env: { STRIPE_SECRET_KEY: "sk_test_redacted", STRIPE_WEBHOOK_SECRET: secret },
-    fetcher: async () => new Response(JSON.stringify({ id: "cs_secret", url: "https://checkout.stripe.test/secret" }), { status: 200 })
+    fetcher: async () =>
+      new Response(
+        JSON.stringify({ id: "cs_secret", url: "https://checkout.stripe.test/secret" }),
+        { status: 200 }
+      )
   });
   try {
     const checkout = await request(baseUrl, "/portal-api/checkouts", {
@@ -298,7 +367,9 @@ test("Portal activation rejects secret-like profile material before provisioning
     const raw = JSON.stringify({
       id: "evt_secret_paid",
       type: "checkout.session.completed",
-      data: { object: { payment_status: "paid", metadata: { checkout_id: checkout.payload.checkout.id } } }
+      data: {
+        object: { payment_status: "paid", metadata: { checkout_id: checkout.payload.checkout.id } }
+      }
     });
     const timestamp = "1760000003";
     const signature = createHmac("sha256", secret).update(`${timestamp}.${raw}`).digest("hex");
@@ -307,10 +378,14 @@ test("Portal activation rejects secret-like profile material before provisioning
       rawBody: raw,
       headers: { "stripe-signature": `t=${timestamp},v1=${signature}` }
     });
-    const claim = await request(baseUrl, `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`, {
-      method: "POST",
-      body: { vaultPublicId: "vault_secret_public_id_0001" }
-    });
+    const claim = await request(
+      baseUrl,
+      `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`,
+      {
+        method: "POST",
+        body: { vaultPublicId: "vault_secret_public_id_0001" }
+      }
+    );
     const activation = await request(baseUrl, "/portal-api/operator-bootstrap", {
       method: "POST",
       body: {
@@ -336,9 +411,23 @@ test("CoinGate and Mollie checkout adapters use provider-specific endpoints", as
     fetcher: async (url, init) => {
       calls.push({ url, init });
       if (String(url).includes("coingate")) {
-        return new Response(JSON.stringify({ id: 1234, payment_url: "https://coingate.test/pay/1234", status: "new" }), { status: 200 });
+        return new Response(
+          JSON.stringify({
+            id: 1234,
+            payment_url: "https://coingate.test/pay/1234",
+            status: "new"
+          }),
+          { status: 200 }
+        );
       }
-      return new Response(JSON.stringify({ id: "tr_test", status: "open", _links: { checkout: { href: "https://mollie.test/pay/tr_test" } } }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          id: "tr_test",
+          status: "open",
+          _links: { checkout: { href: "https://mollie.test/pay/tr_test" } }
+        }),
+        { status: 200 }
+      );
     }
   });
   try {
@@ -370,7 +459,11 @@ test("Phantom paid token is visible but blocked behind manual review", async () 
       STRIPE_SECRET_KEY: "sk_test_redacted",
       STRIPE_WEBHOOK_SECRET: secret
     },
-    fetcher: async () => new Response(JSON.stringify({ id: "cs_phantom", url: "https://checkout.stripe.test/phantom" }), { status: 200 })
+    fetcher: async () =>
+      new Response(
+        JSON.stringify({ id: "cs_phantom", url: "https://checkout.stripe.test/phantom" }),
+        { status: 200 }
+      )
   });
   try {
     const checkout = await request(baseUrl, "/portal-api/checkouts", {
@@ -400,10 +493,14 @@ test("Phantom paid token is visible but blocked behind manual review", async () 
     assert.equal(webhook.status, 200);
     assert.equal(webhook.payload.token.status, "manual_review");
 
-    const claim = await request(baseUrl, `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`, {
-      method: "POST",
-      body: { vaultPublicId: "vault_test_public_id_0001" }
-    });
+    const claim = await request(
+      baseUrl,
+      `/portal-api/checkouts/${checkout.payload.checkout.id}/claim-token`,
+      {
+        method: "POST",
+        body: { vaultPublicId: "vault_test_public_id_0001" }
+      }
+    );
     assert.equal(claim.status, 422);
   } finally {
     await close();

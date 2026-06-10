@@ -7,4 +7,3 @@ export function newId(prefix) {
 export function requireCorrelationId(value) {
   return value || newId("corr");
 }
-

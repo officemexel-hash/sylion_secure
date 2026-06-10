@@ -1,823 +1,1436 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta http-equiv="Referrer-Policy" content="no-referrer">
-  <title>SYLION Operator Portal</title>
-  <link rel="stylesheet" href="/operator/styles.css">
-</head>
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo">SYLION</span>
-      <span class="portal-tag">Operator Portal</span>
-    </div>
-    <div class="status" id="status-strip">
-      <span class="dot dot-warn"></span>
-      <span class="status-text">Scoped local session required</span>
-    </div>
-  </header>
-
-  <nav class="sidebar" aria-label="Operator navigation">
-    <ul>
-      <li><a href="#overview" data-view="overview" class="active">Overview</a></li>
-      <li><a href="#app-switcher" data-view="app-switcher">Apps</a></li>
-      <li><a href="#devices" data-view="devices">Devices</a></li>
-      <li><a href="#workloads" data-view="workloads">Workloads</a></li>
-      <li><a href="#workload-control" data-view="workload-control">Workload Control</a></li>
-      <li><a href="#connection-path" data-view="connection-path">Connection Path</a></li>
-      <li><a href="#traffic-monitoring" data-view="traffic-monitoring">Traffic Monitor</a></li>
-      <li><a href="#live-access" data-view="live-access">Live Access</a></li>
-      <li><a href="#signal-preview" data-view="signal-preview">Signal Preview</a></li>
-      <li><a href="#runtime-gate" data-view="runtime-gate">Runtime Gate</a></li>
-      <li><a href="#account-bootstrap" data-view="account-bootstrap">Account Bootstrap</a></li>
-      <li><a href="#vpn" data-view="vpn">VPN status</a></li>
-      <li><a href="#streaming" data-view="streaming">Streaming</a></li>
-      <li><a href="#audit" data-view="audit">My audit</a></li>
-      <li><a href="#settings-unlock" data-view="settings-unlock">Security Unlock</a></li>
-      <li><a href="#settings-safety" data-view="settings-safety">Backup & Panic</a></li>
-      <li><a href="#settings-jurisdiction" data-view="settings-jurisdiction">Jurisdiction</a></li>
-      <li><a href="#matrix-server" data-view="matrix-server">Matrix Server</a></li>
-      <li><a href="#settings-fido2" data-view="settings-fido2">FIDO2 policy</a></li>
-      <li><a href="#settings-hsm" data-view="settings-hsm">HSM refs</a></li>
-      <li><a href="#subscription" data-view="subscription">Subscription</a></li>
-    </ul>
-  </nav>
-
-  <main class="content">
-    <section id="overview" class="view active">
-      <h1>Overview</h1>
-      <article class="card session-card">
-        <h2>Local operator session <span class="help-tip" tabindex="0" data-tip="Admin creates a scoped local operator token for Pixel or laptop lab testing. It is not production authentication and does not bypass FIDO2/HSM gates.">?</span></h2>
-        <form id="session-form">
-          <label>Admin bearer token <input name="adminToken" type="password" placeholder="Paste local admin session token"></label>
-          <label>Operator ID <input name="operatorId" placeholder="op_..."></label>
-          <label>Terminal mode
-            <select name="terminalMode">
-              <option value="pixel_grapheneos">Pixel GrapheneOS</option>
-              <option value="laptop_web_terminal">Laptop web terminal</option>
-            </select>
-          </label>
-          <label>Device ID <input name="deviceId" placeholder="optional assigned Pixel/laptop device"></label>
-          <button type="submit" class="primary">Start local session</button>
-        </form>
-        <p id="session-status" class="hint">No operator session active.</p>
-      </article>
-
-      <div class="card-grid">
-        <article class="card">
-          <h2>Status terminala</h2>
-          <p id="terminal-mode">Detecting...</p>
-          <p class="hint">Terminal mode can be Pixel GrapheneOS or laptop web terminal. Both attach through Puli AX and IPsec path to G1/G2/WORKLOAD.</p>
-        </article>
-        <article class="card">
-          <h2>VPN do G1/G2</h2>
-          <p id="vpn-overview" class="placeholder">Configuration pending</p>
-          <p class="hint">Router package is physically gated until Puli AX arrives. This view shows the contract now.</p>
-        </article>
-        <article class="card">
-          <h2>Operator session</h2>
-          <p id="operator-session">Not connected</p>
-          <p id="session-countdown" class="hint">Session timer unavailable.</p>
-          <p class="hint">Physical FIDO2 is deferred, but policy/configuration is active for admin and operator layers.</p>
-        </article>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="Referrer-Policy" content="no-referrer" />
+    <title>SYLION Operator Portal</title>
+    <link rel="stylesheet" href="/operator/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">SYLION</span>
+        <span class="portal-tag">Operator Portal</span>
       </div>
-    </section>
+      <div class="status" id="status-strip">
+        <span class="dot dot-warn"></span>
+        <span class="status-text">Scoped local session required</span>
+      </div>
+    </header>
 
-    <section id="app-switcher" class="view">
-      <h1>Apps</h1>
-      <p class="hint">Pixel launcher for moving between operator settings and WORKLOAD applications through the G1/G2 path. Workload links stay on internal `*.sylion.internal` names and do not store operational data on the terminal.</p>
-      <article class="card">
-        <h2>Operator controls</h2>
-        <div class="quick-grid">
-          <a class="quick-tile" href="#workload-control" data-view="workload-control"><strong>Workload Control</strong><span>counts, recreate requests, tier quota</span></a>
-          <a class="quick-tile" href="#traffic-monitoring" data-view="traffic-monitoring"><strong>Traffic Monitor</strong><span>blue-team path metadata</span></a>
-          <a class="quick-tile" href="#runtime-gate" data-view="runtime-gate"><strong>Runtime Gate</strong><span>Signal/Zangi launch blockers</span></a>
-          <a class="quick-tile" href="#settings-unlock" data-view="settings-unlock"><strong>Security Unlock</strong><span>G1/G2/WORKLOAD session policy</span></a>
-          <a class="quick-tile" href="#settings-safety" data-view="settings-safety"><strong>Backup & Panic</strong><span>backup, inactivity wipe, panic levels</span></a>
-          <a class="quick-tile" href="#settings-jurisdiction" data-view="settings-jurisdiction"><strong>Jurisdiction</strong><span>rotation policy by tier</span></a>
-          <a class="quick-tile" href="#matrix-server" data-view="matrix-server"><strong>Matrix Server</strong><span>own communication server request</span></a>
-          <a class="quick-tile" href="#subscription" data-view="subscription"><strong>Subscription</strong><span>renew, upgrade, quota view</span></a>
-          <a class="quick-tile" href="#audit" data-view="audit"><strong>My Audit</strong><span>operator-scoped actions</span></a>
+    <nav class="sidebar" aria-label="Operator navigation">
+      <ul>
+        <li><a href="#overview" data-view="overview" class="active">Overview</a></li>
+        <li><a href="#app-switcher" data-view="app-switcher">Apps</a></li>
+        <li><a href="#devices" data-view="devices">Devices</a></li>
+        <li><a href="#workloads" data-view="workloads">Workloads</a></li>
+        <li><a href="#workload-control" data-view="workload-control">Workload Control</a></li>
+        <li><a href="#connection-path" data-view="connection-path">Connection Path</a></li>
+        <li><a href="#traffic-monitoring" data-view="traffic-monitoring">Traffic Monitor</a></li>
+        <li><a href="#live-access" data-view="live-access">Live Access</a></li>
+        <li><a href="#signal-preview" data-view="signal-preview">Signal Preview</a></li>
+        <li><a href="#runtime-gate" data-view="runtime-gate">Runtime Gate</a></li>
+        <li><a href="#account-bootstrap" data-view="account-bootstrap">Account Bootstrap</a></li>
+        <li><a href="#vpn" data-view="vpn">VPN status</a></li>
+        <li><a href="#streaming" data-view="streaming">Streaming</a></li>
+        <li><a href="#audit" data-view="audit">My audit</a></li>
+        <li><a href="#settings-unlock" data-view="settings-unlock">Security Unlock</a></li>
+        <li><a href="#settings-safety" data-view="settings-safety">Backup & Panic</a></li>
+        <li><a href="#settings-jurisdiction" data-view="settings-jurisdiction">Jurisdiction</a></li>
+        <li><a href="#matrix-server" data-view="matrix-server">Matrix Server</a></li>
+        <li><a href="#settings-fido2" data-view="settings-fido2">FIDO2 policy</a></li>
+        <li><a href="#settings-hsm" data-view="settings-hsm">HSM refs</a></li>
+        <li><a href="#subscription" data-view="subscription">Subscription</a></li>
+      </ul>
+    </nav>
+
+    <main class="content">
+      <section id="overview" class="view active">
+        <h1>Overview</h1>
+        <article class="card session-card">
+          <h2>
+            Local operator session
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Admin creates a scoped local operator token for Pixel or laptop lab testing. It is not production authentication and does not bypass FIDO2/HSM gates."
+              >?</span
+            >
+          </h2>
+          <form id="session-form">
+            <label
+              >Admin bearer token
+              <input
+                name="adminToken"
+                type="password"
+                placeholder="Paste local admin session token"
+            /></label>
+            <label>Operator ID <input name="operatorId" placeholder="op_..." /></label>
+            <label
+              >Terminal mode
+              <select name="terminalMode">
+                <option value="pixel_grapheneos">Pixel GrapheneOS</option>
+                <option value="laptop_web_terminal">Laptop web terminal</option>
+              </select>
+            </label>
+            <label
+              >Device ID <input name="deviceId" placeholder="optional assigned Pixel/laptop device"
+            /></label>
+            <button type="submit" class="primary">Start local session</button>
+          </form>
+          <p id="session-status" class="hint">No operator session active.</p>
+        </article>
+
+        <div class="card-grid">
+          <article class="card">
+            <h2>Status terminala</h2>
+            <p id="terminal-mode">Detecting...</p>
+            <p class="hint">
+              Terminal mode can be Pixel GrapheneOS or laptop web terminal. Both attach through Puli
+              AX and IPsec path to G1/G2/WORKLOAD.
+            </p>
+          </article>
+          <article class="card">
+            <h2>VPN do G1/G2</h2>
+            <p id="vpn-overview" class="placeholder">Configuration pending</p>
+            <p class="hint">
+              Router package is physically gated until Puli AX arrives. This view shows the contract
+              now.
+            </p>
+          </article>
+          <article class="card">
+            <h2>Operator session</h2>
+            <p id="operator-session">Not connected</p>
+            <p id="session-countdown" class="hint">Session timer unavailable.</p>
+            <p class="hint">
+              Physical FIDO2 is deferred, but policy/configuration is active for admin and operator
+              layers.
+            </p>
+          </article>
         </div>
-      </article>
-      <article class="card">
-        <h2>WORKLOAD apps <span class="help-tip" tabindex="0" data-tip="These links open internal workload endpoints via VPN/G2. Signal currently uses Kasm auth; Zangi is compatibility-only until Android runtime gates pass.">?</span></h2>
-        <form id="workload-broker-form" class="dense-form">
-          <label>Prepare session
-            <select name="templateKey">
-              <option value="signal">Signal</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="telegram">Telegram</option>
-              <option value="threema">Threema</option>
-              <option value="zangi">Zangi</option>
-              <option value="simplex">SimpleX Chat</option>
-              <option value="protonmail">Proton Mail</option>
-              <option value="libreoffice">LibreOffice</option>
-              <option value="duckduckgo">DuckDuckGo</option>
-              <option value="exodus">Exodus</option>
-            </select>
-          </label>
-          <button type="submit" class="primary">Prepare workload session</button>
-        </form>
-        <p id="workload-broker-status" class="hint">Broker not prepared in this browser session.</p>
-        <form id="workload-recreate-form" class="dense-form danger-zone">
-          <label>Delete and recreate app
-            <select name="templateKey">
-              <option value="libreoffice">LibreOffice</option>
-              <option value="duckduckgo">DuckDuckGo</option>
-              <option value="signal">Signal</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="telegram">Telegram</option>
-              <option value="threema">Threema</option>
-              <option value="zangi">Zangi</option>
-              <option value="protonmail">Proton Mail</option>
-              <option value="simplex">SimpleX Chat</option>
-              <option value="exodus">Exodus</option>
-            </select>
-          </label>
-          <label>Confirmation <input name="confirmation" placeholder="RUN_LIVE_WORKLOAD_RECREATE" autocomplete="off"></label>
-          <button type="submit" class="secondary">Delete and recreate selected app</button>
-        </form>
-        <p id="workload-recreate-status" class="hint">Use this when an app was closed, black-screened, or must start from a clean Firecracker environment.</p>
-        <p id="live-workload-status-summary" class="hint">Live workload status not loaded yet.</p>
-        <div id="workload-launcher" class="quick-grid workload-launcher">
-          <a class="quick-tile" href="/operator/stream.html?app=signal" rel="noopener"><strong>Signal</strong><span>remote desktop workload</span></a>
-          <a class="quick-tile" href="/operator/stream.html?app=protonmail&broker=blind_e2ee" rel="noopener"><strong>Proton Mail</strong><span>secure mail workload</span></a>
-          <a class="quick-tile" href="/operator/stream.html?app=whatsapp" rel="noopener"><strong>WhatsApp</strong><span>web/container workload</span></a>
-          <a class="quick-tile" href="/operator/stream.html?app=telegram" rel="noopener"><strong>Telegram</strong><span>web/container workload</span></a>
-          <a class="quick-tile" href="/operator/stream.html?app=threema" rel="noopener"><strong>Threema</strong><span>web/container workload</span></a>
-          <a class="quick-tile" href="/operator/stream.html?app=simplex" rel="noopener"><strong>SimpleX</strong><span>privacy messenger gate</span></a>
-          <a class="quick-tile" href="/operator/stream.html?app=zangi" rel="noopener"><strong>Zangi</strong><span>Android-native gate pending</span></a>
-          <a class="quick-tile" href="/operator/stream.html?app=libreoffice" rel="noopener"><strong>LibreOffice</strong><span>document workload</span></a>
-          <a class="quick-tile" href="/operator/stream.html?app=duckduckgo_browser" rel="noopener"><strong>DuckDuckGo</strong><span>browser workload</span></a>
-          <a class="quick-tile" href="/operator/stream.html?app=exodus" rel="noopener"><strong>Exodus</strong><span>wallet workload, operator risk</span></a>
-        </div>
-        <p class="hint">Open apps through the SYLION stream wrapper on Pixel. The wrapper keeps keyboard controls outside the KasmVNC side drawer and does not store typed content on the terminal. Use Apps or Panel in the stream toolbar to return here.</p>
-      </article>
-    </section>
+      </section>
 
-    <section id="devices" class="view">
-      <h1>Moje urzadzenia</h1>
-      <p class="hint">Devices are scoped to the active operator portal session.</p>
-      <table id="devices-table">
-        <thead><tr><th>Typ</th><th>Model</th><th>Status</th><th>Posture</th></tr></thead>
-        <tbody id="devices-tbody"><tr><td colspan="4" class="placeholder">Loading...</td></tr></tbody>
-      </table>
-    </section>
-
-    <section id="workloads" class="view">
-      <h1>Workloads</h1>
-      <p class="hint">Workload microVM allocation metadata for the active operator. Execution remains gated.</p>
-      <ul id="workloads-list"><li class="placeholder">Loading...</li></ul>
-    </section>
-
-    <section id="workload-control" class="view">
-      <h1>Workload Control</h1>
-      <p class="hint">Operator controls desired communicator environments within subscription quota. Delete/recreate operations are queued in control-plane until the production runner is enabled.</p>
-      <article class="card">
-        <h2>Desired environments <span class="help-tip" tabindex="0" data-tip="The sum of all app environments cannot exceed your subscription quota. Each environment is isolated at WORKLOAD layer and files remain CDR-gated.">?</span></h2>
-        <dl class="compact-metrics">
-          <dt>Quota</dt><dd id="workload-control-quota">Loading...</dd>
-          <dt>Current</dt><dd id="workload-control-current">-</dd>
-          <dt>Last request</dt><dd id="workload-control-last">-</dd>
-        </dl>
-        <div id="workload-app-catalog" class="app-catalog">
-          <div class="placeholder">Loading authorized workload catalog...</div>
-        </div>
-        <form id="workload-control-form" class="dense-form">
-          <label>WhatsApp <input name="whatsapp" type="number" min="0" max="30" value="0"></label>
-          <label>Signal <input name="signal" type="number" min="0" max="30" value="0"></label>
-          <label>Telegram <input name="telegram" type="number" min="0" max="30" value="0"></label>
-          <label>Threema <input name="threema" type="number" min="0" max="30" value="0"></label>
-          <label>Zangi <input name="zangi" type="number" min="0" max="30" value="0"></label>
-          <label>Matrix Client <input name="matrix_client" type="number" min="0" max="30" value="0"></label>
-          <label>Matrix Server <input name="matrix_server" type="number" min="0" max="30" value="0"></label>
-          <label>SimpleX Chat <input name="simplex" type="number" min="0" max="30" value="0"></label>
-          <label>Proton Mail <input name="protonmail" type="number" min="0" max="30" value="0"></label>
-          <label>DuckDuckGo Browser <input name="duckduckgo_browser" type="number" min="0" max="30" value="0"></label>
-          <label>LibreOffice <input name="libreoffice" type="number" min="0" max="30" value="0"></label>
-          <label>Exodus <input name="exodus" type="number" min="0" max="30" value="0"></label>
-          <label>Action
-            <select name="action">
-              <option value="scale_to_counts">Set desired counts</option>
-              <option value="rotate_app">Delete and recreate selected app</option>
-              <option value="recreate_all">Delete and recreate all</option>
-            </select>
-          </label>
-          <label>Rotate app
-            <select name="rotateApp">
-              <option value="whatsapp">WhatsApp</option>
-              <option value="signal">Signal</option>
-              <option value="telegram">Telegram</option>
-              <option value="threema">Threema</option>
-              <option value="zangi">Zangi</option>
-              <option value="matrix_client">Matrix Client</option>
-              <option value="matrix_server">Matrix Server</option>
-              <option value="simplex">SimpleX Chat</option>
-              <option value="protonmail">Proton Mail</option>
-              <option value="duckduckgo_browser">DuckDuckGo Browser</option>
-              <option value="libreoffice">LibreOffice</option>
-              <option value="exodus">Exodus</option>
-            </select>
-          </label>
-          <button type="submit" class="primary">Queue workload change</button>
-        </form>
-        <div id="workload-control-preview" class="workload-preview placeholder">No pending request preview.</div>
-        <form id="workload-live-runner-form" class="dense-form">
-          <label>Live request ID <input name="requestId" placeholder="workload_control_..." autocomplete="off"></label>
-          <label>Confirmation <input name="confirmation" placeholder="RUN_LIVE_WORKLOAD_RECREATE" autocomplete="off"></label>
-          <label class="checkbox-line"><input name="wipeVolume" type="checkbox"> Wipe volume after four-eyes approval</label>
-          <label>Four-eyes approval ref <input name="fourEyesApprovalRef" placeholder="required only for wipe"></label>
-          <button type="submit" class="secondary">Run approved live recreate</button>
-        </form>
-        <div id="workload-live-runner-result" class="workload-preview placeholder">No live runner job executed from this browser session.</div>
-        <p class="hint">Live recreate runs only after server-side gate and exact confirmation phrase. Default mode preserves volumes, writes CDR/evidence metadata, then smoke-tests through G2. Exodus is treated as a dedicated wallet workload with explicit operator risk acceptance and no terminal-side secret storage.</p>
-      </article>
-    </section>
-
-    <section id="connection-path" class="view">
-      <h1>Connection Path</h1>
-      <p class="hint">Pixel/laptop terminal path: terminal -> Puli AX -> G1 -> G2 -> WORKLOAD -> isolated communicator microVMs. The terminal remains display/input only.</p>
-      <article class="card">
-        <h2>Path state</h2>
-        <dl>
-          <dt>State</dt><dd id="path-state" class="placeholder">configuration_pending</dd>
-          <dt>Terminal</dt><dd id="path-terminal" class="placeholder">-</dd>
-          <dt>Router</dt><dd id="path-router" class="placeholder">Puli AX pending</dd>
-          <dt>Router posture</dt><dd id="path-router-posture" class="placeholder">not_validated</dd>
-          <dt>Physical smoke</dt><dd id="path-router-smoke" class="placeholder">blocked</dd>
-          <dt>Transport</dt><dd id="path-transport" class="placeholder">ipsec_ikev2</dd>
-          <dt>Blockers</dt><dd id="path-blockers" class="placeholder">Loading...</dd>
-        </dl>
-      </article>
-      <article class="card">
-        <h2>VPN segments</h2>
-        <ul id="path-segments" class="path-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-      <article class="card">
-        <h2>Communicator microVMs</h2>
-        <ul id="path-microvms" class="path-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-    </section>
-
-    <section id="traffic-monitoring" class="view">
-      <h1>Traffic Monitor</h1>
-      <p class="hint">Operator blue-team view for Pixel/laptop -> Puli AX -> G1 -> G2 -> WORKLOAD -> app microVM/container. This is metadata-only monitoring: no messages, payloads, packet captures, files, wallet data or secrets.</p>
-      <article class="card">
-        <h2>Path summary <span class="help-tip" tabindex="0" data-tip="Shows segment health, encryption evidence, latency counters and alert metadata. It never inspects communicator content or stores terminal operational data.">?</span></h2>
-        <dl class="compact-metrics">
-          <dt>State</dt><dd id="traffic-state" class="placeholder">Loading...</dd>
-          <dt>Healthy</dt><dd id="traffic-healthy">-</dd>
-          <dt>Degraded</dt><dd id="traffic-degraded">-</dd>
-          <dt>Blocked</dt><dd id="traffic-blocked">-</dd>
-          <dt>Alerts</dt><dd id="traffic-alert-count">-</dd>
-        </dl>
-      </article>
-      <article class="card">
-        <h2>Segments</h2>
-        <ul id="traffic-segments" class="path-list"><li class="placeholder">Loading path metadata...</li></ul>
-      </article>
-      <article class="card">
-        <h2>Alerts</h2>
-        <ul id="traffic-alerts" class="path-list"><li class="placeholder">Loading alerts...</li></ul>
-      </article>
-      <article class="card">
-        <h2>Record metadata evidence</h2>
-        <form id="traffic-evidence-form" class="dense-form">
-          <label>Segment
-            <select name="segmentId">
-              <option value="pixel_router">Pixel/laptop -> Puli AX</option>
-              <option value="router_g1">Puli AX -> G1</option>
-              <option value="g1_g2">G1 -> G2</option>
-              <option value="g2_workload">G2 -> WORKLOAD</option>
-              <option value="workload_microvm">WORKLOAD -> app microVM/container</option>
-            </select>
-          </label>
-          <label>Status
-            <select name="status">
-              <option value="healthy">Healthy</option>
-              <option value="degraded">Degraded</option>
-              <option value="blocked">Blocked</option>
-            </select>
-          </label>
-          <label class="check-row"><input name="encrypted" type="checkbox" checked> Encryption/control evidence present</label>
-          <label>Transport <input name="transport" placeholder="ipsec_ikev2_mutual_certificate"></label>
-          <label>Latency ms <input name="latencyMs" type="number" min="0" max="600000" placeholder="optional"></label>
-          <label>Packet loss % <input name="packetLossPct" type="number" min="0" max="100" step="0.01" placeholder="optional"></label>
-          <label>Bytes in <input name="bytesIn" type="number" min="0" placeholder="optional"></label>
-          <label>Bytes out <input name="bytesOut" type="number" min="0" placeholder="optional"></label>
-          <label>Evidence refs <input name="evidenceRefs" placeholder="probe://..., audit://..." autocomplete="off"></label>
-          <button type="submit" class="primary">Record metadata</button>
-        </form>
-        <p id="traffic-evidence-status" class="hint">No blue-team metadata evidence recorded in this browser session.</p>
-      </article>
-      <article class="card">
-        <h2>Guardrails</h2>
-        <ul id="traffic-guardrails" class="key-list"><li class="placeholder">Loading guardrails...</li></ul>
-      </article>
-    </section>
-
-    <section id="live-access" class="view">
-      <h1>Live Access Foundation</h1>
-      <p class="hint">Stage A/B contract for Pixel -> VPN -> G1 -> G2 -> WORKLOAD without local browser shortcuts. Router and physical HSM/FIDO2 may stay deferred, but required network and CA evidence must pass.</p>
-      <article class="card">
-        <h2>Foundation state <span class="help-tip" tabindex="0" data-tip="This combines VPN evidence, Pixel CA trust, DNS-through-tunnel, G1/G2 policy path, G2 workload gateway and CDR guardrails.">?</span></h2>
-        <dl>
-          <dt>State</dt><dd id="live-access-state" class="placeholder">Loading...</dd>
-          <dt>Phase</dt><dd id="live-access-phase" class="placeholder">-</dd>
-          <dt>VPN evidence</dt><dd id="live-access-vpn" class="placeholder">-</dd>
-          <dt>CA trust</dt><dd id="live-access-ca" class="placeholder">-</dd>
-          <dt>Blockers</dt><dd id="live-access-blockers" class="placeholder">Loading...</dd>
-        </dl>
-      </article>
-      <article class="card">
-        <h2>Required checks</h2>
-        <ul id="live-access-checks" class="path-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-      <article class="card">
-        <h2>App gateways</h2>
-        <ul id="live-access-apps" class="path-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-      <article class="card">
-        <h2>Next actions</h2>
-        <ul id="live-access-next" class="path-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-    </section>
-
-    <section id="signal-preview" class="view">
-      <h1>Signal Preview</h1>
-      <p class="hint">Production-gated Signal workload path through Pixel -> G1 -> G2 -> WORKLOAD -> Firecracker/KVM. Physical HSM/FIDO2 can stay deferred while VPN, KVM and CDR are brought online.</p>
-      <article class="signal-shell">
-        <div class="signal-route" id="signal-route">
-          <span>Pixel</span><span>G1</span><span>G2</span><span>WORKLOAD</span><span>Signal microVM</span>
-        </div>
-        <div class="signal-device">
-          <div class="signal-statusbar">
-            <span>SYLION Stream</span>
-            <span id="signal-stream-resolution">-</span>
+      <section id="app-switcher" class="view">
+        <h1>Apps</h1>
+        <p class="hint">
+          Pixel launcher for moving between operator settings and WORKLOAD applications through the
+          G1/G2 path. Workload links stay on internal `*.sylion.internal` names and do not store
+          operational data on the terminal.
+        </p>
+        <article class="card">
+          <h2>Operator controls</h2>
+          <div class="quick-grid">
+            <a class="quick-tile" href="#workload-control" data-view="workload-control"
+              ><strong>Workload Control</strong
+              ><span>counts, recreate requests, tier quota</span></a
+            >
+            <a class="quick-tile" href="#traffic-monitoring" data-view="traffic-monitoring"
+              ><strong>Traffic Monitor</strong><span>blue-team path metadata</span></a
+            >
+            <a class="quick-tile" href="#runtime-gate" data-view="runtime-gate"
+              ><strong>Runtime Gate</strong><span>Signal/Zangi launch blockers</span></a
+            >
+            <a class="quick-tile" href="#settings-unlock" data-view="settings-unlock"
+              ><strong>Security Unlock</strong><span>G1/G2/WORKLOAD session policy</span></a
+            >
+            <a class="quick-tile" href="#settings-safety" data-view="settings-safety"
+              ><strong>Backup & Panic</strong><span>backup, inactivity wipe, panic levels</span></a
+            >
+            <a class="quick-tile" href="#settings-jurisdiction" data-view="settings-jurisdiction"
+              ><strong>Jurisdiction</strong><span>rotation policy by tier</span></a
+            >
+            <a class="quick-tile" href="#matrix-server" data-view="matrix-server"
+              ><strong>Matrix Server</strong><span>own communication server request</span></a
+            >
+            <a class="quick-tile" href="#subscription" data-view="subscription"
+              ><strong>Subscription</strong><span>renew, upgrade, quota view</span></a
+            >
+            <a class="quick-tile" href="#audit" data-view="audit"
+              ><strong>My Audit</strong><span>operator-scoped actions</span></a
+            >
           </div>
-          <div class="signal-appbar">
-            <div class="signal-avatar">S</div>
-            <div>
-              <strong>Signal</strong>
-              <small id="signal-slot-state">microVM slot pending</small>
-            </div>
+        </article>
+        <article class="card">
+          <h2>
+            WORKLOAD apps
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="These links open internal workload endpoints via VPN/G2. Signal currently uses Kasm auth; Zangi is compatibility-only until Android runtime gates pass."
+              >?</span
+            >
+          </h2>
+          <form id="workload-broker-form" class="dense-form">
+            <label
+              >Prepare session
+              <select name="templateKey">
+                <option value="signal">Signal</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="telegram">Telegram</option>
+                <option value="threema">Threema</option>
+                <option value="zangi">Zangi</option>
+                <option value="simplex">SimpleX Chat</option>
+                <option value="protonmail">Proton Mail</option>
+                <option value="libreoffice">LibreOffice</option>
+                <option value="duckduckgo">DuckDuckGo</option>
+                <option value="exodus">Exodus</option>
+              </select>
+            </label>
+            <button type="submit" class="primary">Prepare workload session</button>
+          </form>
+          <p id="workload-broker-status" class="hint">
+            Broker not prepared in this browser session.
+          </p>
+          <form id="workload-recreate-form" class="dense-form danger-zone">
+            <label
+              >Delete and recreate app
+              <select name="templateKey">
+                <option value="libreoffice">LibreOffice</option>
+                <option value="duckduckgo">DuckDuckGo</option>
+                <option value="signal">Signal</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="telegram">Telegram</option>
+                <option value="threema">Threema</option>
+                <option value="zangi">Zangi</option>
+                <option value="protonmail">Proton Mail</option>
+                <option value="simplex">SimpleX Chat</option>
+                <option value="exodus">Exodus</option>
+              </select>
+            </label>
+            <label
+              >Confirmation
+              <input
+                name="confirmation"
+                placeholder="RUN_LIVE_WORKLOAD_RECREATE"
+                autocomplete="off"
+            /></label>
+            <button type="submit" class="secondary">Delete and recreate selected app</button>
+          </form>
+          <p id="workload-recreate-status" class="hint">
+            Use this when an app was closed, black-screened, or must start from a clean Firecracker
+            environment.
+          </p>
+          <p id="live-workload-status-summary" class="hint">Live workload status not loaded yet.</p>
+          <div id="workload-launcher" class="quick-grid workload-launcher">
+            <a class="quick-tile" href="/operator/stream.html?app=signal" rel="noopener"
+              ><strong>Signal</strong><span>remote desktop workload</span></a
+            >
+            <a
+              class="quick-tile"
+              href="/operator/stream.html?app=protonmail&broker=blind_e2ee"
+              rel="noopener"
+              ><strong>Proton Mail</strong><span>secure mail workload</span></a
+            >
+            <a class="quick-tile" href="/operator/stream.html?app=whatsapp" rel="noopener"
+              ><strong>WhatsApp</strong><span>web/container workload</span></a
+            >
+            <a class="quick-tile" href="/operator/stream.html?app=telegram" rel="noopener"
+              ><strong>Telegram</strong><span>web/container workload</span></a
+            >
+            <a class="quick-tile" href="/operator/stream.html?app=threema" rel="noopener"
+              ><strong>Threema</strong><span>web/container workload</span></a
+            >
+            <a class="quick-tile" href="/operator/stream.html?app=simplex" rel="noopener"
+              ><strong>SimpleX</strong><span>privacy messenger gate</span></a
+            >
+            <a class="quick-tile" href="/operator/stream.html?app=zangi" rel="noopener"
+              ><strong>Zangi</strong><span>Android-native gate pending</span></a
+            >
+            <a class="quick-tile" href="/operator/stream.html?app=libreoffice" rel="noopener"
+              ><strong>LibreOffice</strong><span>document workload</span></a
+            >
+            <a class="quick-tile" href="/operator/stream.html?app=duckduckgo_browser" rel="noopener"
+              ><strong>DuckDuckGo</strong><span>browser workload</span></a
+            >
+            <a class="quick-tile" href="/operator/stream.html?app=exodus" rel="noopener"
+              ><strong>Exodus</strong><span>wallet workload, operator risk</span></a
+            >
           </div>
-          <div class="signal-thread">
-            <div class="signal-empty">
-              <strong>WORKLOAD microVM preview</strong>
-              <span id="signal-preview-state">Loading route...</span>
-            </div>
+          <p class="hint">
+            Open apps through the SYLION stream wrapper on Pixel. The wrapper keeps keyboard
+            controls outside the KasmVNC side drawer and does not store typed content on the
+            terminal. Use Apps or Panel in the stream toolbar to return here.
+          </p>
+        </article>
+      </section>
+
+      <section id="devices" class="view">
+        <h1>Moje urzadzenia</h1>
+        <p class="hint">Devices are scoped to the active operator portal session.</p>
+        <table id="devices-table">
+          <thead>
+            <tr>
+              <th>Typ</th>
+              <th>Model</th>
+              <th>Status</th>
+              <th>Posture</th>
+            </tr>
+          </thead>
+          <tbody id="devices-tbody">
+            <tr>
+              <td colspan="4" class="placeholder">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="workloads" class="view">
+        <h1>Workloads</h1>
+        <p class="hint">
+          Workload microVM allocation metadata for the active operator. Execution remains gated.
+        </p>
+        <ul id="workloads-list">
+          <li class="placeholder">Loading...</li>
+        </ul>
+      </section>
+
+      <section id="workload-control" class="view">
+        <h1>Workload Control</h1>
+        <p class="hint">
+          Operator controls desired communicator environments within subscription quota.
+          Delete/recreate operations are queued in control-plane until the production runner is
+          enabled.
+        </p>
+        <article class="card">
+          <h2>
+            Desired environments
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="The sum of all app environments cannot exceed your subscription quota. Each environment is isolated at WORKLOAD layer and files remain CDR-gated."
+              >?</span
+            >
+          </h2>
+          <dl class="compact-metrics">
+            <dt>Quota</dt>
+            <dd id="workload-control-quota">Loading...</dd>
+            <dt>Current</dt>
+            <dd id="workload-control-current">-</dd>
+            <dt>Last request</dt>
+            <dd id="workload-control-last">-</dd>
+          </dl>
+          <div id="workload-app-catalog" class="app-catalog">
+            <div class="placeholder">Loading authorized workload catalog...</div>
           </div>
-          <div class="signal-compose">
-            <span>CDR required for files</span>
-            <button type="button" id="signal-start-button" disabled>Start blocked</button>
+          <form id="workload-control-form" class="dense-form">
+            <label
+              >WhatsApp <input name="whatsapp" type="number" min="0" max="30" value="0"
+            /></label>
+            <label>Signal <input name="signal" type="number" min="0" max="30" value="0" /></label>
+            <label
+              >Telegram <input name="telegram" type="number" min="0" max="30" value="0"
+            /></label>
+            <label>Threema <input name="threema" type="number" min="0" max="30" value="0" /></label>
+            <label>Zangi <input name="zangi" type="number" min="0" max="30" value="0" /></label>
+            <label
+              >Matrix Client <input name="matrix_client" type="number" min="0" max="30" value="0"
+            /></label>
+            <label
+              >Matrix Server <input name="matrix_server" type="number" min="0" max="30" value="0"
+            /></label>
+            <label
+              >SimpleX Chat <input name="simplex" type="number" min="0" max="30" value="0"
+            /></label>
+            <label
+              >Proton Mail <input name="protonmail" type="number" min="0" max="30" value="0"
+            /></label>
+            <label
+              >DuckDuckGo Browser
+              <input name="duckduckgo_browser" type="number" min="0" max="30" value="0"
+            /></label>
+            <label
+              >LibreOffice <input name="libreoffice" type="number" min="0" max="30" value="0"
+            /></label>
+            <label>Exodus <input name="exodus" type="number" min="0" max="30" value="0" /></label>
+            <label
+              >Action
+              <select name="action">
+                <option value="scale_to_counts">Set desired counts</option>
+                <option value="rotate_app">Delete and recreate selected app</option>
+                <option value="recreate_all">Delete and recreate all</option>
+              </select>
+            </label>
+            <label
+              >Rotate app
+              <select name="rotateApp">
+                <option value="whatsapp">WhatsApp</option>
+                <option value="signal">Signal</option>
+                <option value="telegram">Telegram</option>
+                <option value="threema">Threema</option>
+                <option value="zangi">Zangi</option>
+                <option value="matrix_client">Matrix Client</option>
+                <option value="matrix_server">Matrix Server</option>
+                <option value="simplex">SimpleX Chat</option>
+                <option value="protonmail">Proton Mail</option>
+                <option value="duckduckgo_browser">DuckDuckGo Browser</option>
+                <option value="libreoffice">LibreOffice</option>
+                <option value="exodus">Exodus</option>
+              </select>
+            </label>
+            <button type="submit" class="primary">Queue workload change</button>
+          </form>
+          <div id="workload-control-preview" class="workload-preview placeholder">
+            No pending request preview.
           </div>
-        </div>
-        <dl class="stream-metrics">
-          <dt>Route</dt><dd id="signal-route-state">-</dd>
-          <dt>Isolation</dt><dd id="signal-isolation">-</dd>
-          <dt>Egress</dt><dd id="signal-egress">-</dd>
-          <dt>Production</dt><dd id="signal-production">false</dd>
-          <dt>VPN</dt><dd id="signal-vpn-substrate">-</dd>
-          <dt>KVM</dt><dd id="signal-kvm-substrate">-</dd>
-          <dt>CDR</dt><dd id="signal-cdr-substrate">-</dd>
-          <dt>HSM/FIDO2</dt><dd id="signal-hsm-fido-substrate">-</dd>
-        </dl>
-        <article class="signal-gates">
-          <h2>Production gates</h2>
-          <ul id="signal-gate-list" class="path-list">
-            <li class="placeholder">Loading Signal execution gates...</li>
+          <form id="workload-live-runner-form" class="dense-form">
+            <label
+              >Live request ID
+              <input name="requestId" placeholder="workload_control_..." autocomplete="off"
+            /></label>
+            <label
+              >Confirmation
+              <input
+                name="confirmation"
+                placeholder="RUN_LIVE_WORKLOAD_RECREATE"
+                autocomplete="off"
+            /></label>
+            <label class="checkbox-line"
+              ><input name="wipeVolume" type="checkbox" /> Wipe volume after four-eyes
+              approval</label
+            >
+            <label
+              >Four-eyes approval ref
+              <input name="fourEyesApprovalRef" placeholder="required only for wipe"
+            /></label>
+            <button type="submit" class="secondary">Run approved live recreate</button>
+          </form>
+          <div id="workload-live-runner-result" class="workload-preview placeholder">
+            No live runner job executed from this browser session.
+          </div>
+          <p class="hint">
+            Live recreate runs only after server-side gate and exact confirmation phrase. Default
+            mode preserves volumes, writes CDR/evidence metadata, then smoke-tests through G2.
+            Exodus is treated as a dedicated wallet workload with explicit operator risk acceptance
+            and no terminal-side secret storage.
+          </p>
+        </article>
+      </section>
+
+      <section id="connection-path" class="view">
+        <h1>Connection Path</h1>
+        <p class="hint">
+          Pixel/laptop terminal path: terminal -> Puli AX -> G1 -> G2 -> WORKLOAD -> isolated
+          communicator microVMs. The terminal remains display/input only.
+        </p>
+        <article class="card">
+          <h2>Path state</h2>
+          <dl>
+            <dt>State</dt>
+            <dd id="path-state" class="placeholder">configuration_pending</dd>
+            <dt>Terminal</dt>
+            <dd id="path-terminal" class="placeholder">-</dd>
+            <dt>Router</dt>
+            <dd id="path-router" class="placeholder">Puli AX pending</dd>
+            <dt>Router posture</dt>
+            <dd id="path-router-posture" class="placeholder">not_validated</dd>
+            <dt>Physical smoke</dt>
+            <dd id="path-router-smoke" class="placeholder">blocked</dd>
+            <dt>Transport</dt>
+            <dd id="path-transport" class="placeholder">ipsec_ikev2</dd>
+            <dt>Blockers</dt>
+            <dd id="path-blockers" class="placeholder">Loading...</dd>
+          </dl>
+        </article>
+        <article class="card">
+          <h2>VPN segments</h2>
+          <ul id="path-segments" class="path-list">
+            <li class="placeholder">Loading...</li>
           </ul>
         </article>
-      </article>
-    </section>
+        <article class="card">
+          <h2>Communicator microVMs</h2>
+          <ul id="path-microvms" class="path-list">
+            <li class="placeholder">Loading...</li>
+          </ul>
+        </article>
+      </section>
 
-    <section id="runtime-gate" class="view">
-      <h1>Runtime Gate</h1>
-      <p class="hint">Real workload launch status for native apps. Zangi is treated as Android-native workload, not as a Chromium placeholder.</p>
-      <article class="card">
-        <h2>Workload runtime <span class="help-tip" tabindex="0" data-tip="This gate checks whether the selected app can run as a real production workload on the current provider substrate. Android-native apps require KVM plus binder/binderfs and approved app artifacts.">?</span></h2>
-        <form id="runtime-gate-form" class="dense-form">
-          <label>Application
-            <select name="templateKey">
-              <option value="signal">Signal</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="telegram">Telegram</option>
-              <option value="threema">Threema</option>
-              <option value="zangi">Zangi</option>
-              <option value="simplex">SimpleX Chat</option>
-              <option value="protonmail">Proton Mail</option>
-              <option value="duckduckgo_browser">DuckDuckGo</option>
-              <option value="libreoffice">LibreOffice</option>
-              <option value="exodus">Exodus</option>
-            </select>
-          </label>
-          <button type="submit" class="primary">Check runtime</button>
-        </form>
-        <dl class="compact-metrics">
-          <dt>App</dt><dd id="runtime-gate-app">-</dd>
-          <dt>Runtime</dt><dd id="runtime-gate-kind">-</dd>
-          <dt>Runner</dt><dd id="runtime-gate-runner">-</dd>
-          <dt>Readiness</dt><dd id="runtime-gate-state">-</dd>
-          <dt>Android host fit</dt><dd id="runtime-gate-android-fit">-</dd>
-        </dl>
-        <ul id="runtime-gate-list" class="path-list">
-          <li class="placeholder">Select an application to check its real runtime gates.</li>
-        </ul>
-      </article>
-    </section>
+      <section id="traffic-monitoring" class="view">
+        <h1>Traffic Monitor</h1>
+        <p class="hint">
+          Operator blue-team view for Pixel/laptop -> Puli AX -> G1 -> G2 -> WORKLOAD -> app
+          microVM/container. This is metadata-only monitoring: no messages, payloads, packet
+          captures, files, wallet data or secrets.
+        </p>
+        <article class="card">
+          <h2>
+            Path summary
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Shows segment health, encryption evidence, latency counters and alert metadata. It never inspects communicator content or stores terminal operational data."
+              >?</span
+            >
+          </h2>
+          <dl class="compact-metrics">
+            <dt>State</dt>
+            <dd id="traffic-state" class="placeholder">Loading...</dd>
+            <dt>Healthy</dt>
+            <dd id="traffic-healthy">-</dd>
+            <dt>Degraded</dt>
+            <dd id="traffic-degraded">-</dd>
+            <dt>Blocked</dt>
+            <dd id="traffic-blocked">-</dd>
+            <dt>Alerts</dt>
+            <dd id="traffic-alert-count">-</dd>
+          </dl>
+        </article>
+        <article class="card">
+          <h2>Segments</h2>
+          <ul id="traffic-segments" class="path-list">
+            <li class="placeholder">Loading path metadata...</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>Alerts</h2>
+          <ul id="traffic-alerts" class="path-list">
+            <li class="placeholder">Loading alerts...</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>Record metadata evidence</h2>
+          <form id="traffic-evidence-form" class="dense-form">
+            <label
+              >Segment
+              <select name="segmentId">
+                <option value="pixel_router">Pixel/laptop -> Puli AX</option>
+                <option value="router_g1">Puli AX -> G1</option>
+                <option value="g1_g2">G1 -> G2</option>
+                <option value="g2_workload">G2 -> WORKLOAD</option>
+                <option value="workload_microvm">WORKLOAD -> app microVM/container</option>
+              </select>
+            </label>
+            <label
+              >Status
+              <select name="status">
+                <option value="healthy">Healthy</option>
+                <option value="degraded">Degraded</option>
+                <option value="blocked">Blocked</option>
+              </select>
+            </label>
+            <label class="check-row"
+              ><input name="encrypted" type="checkbox" checked /> Encryption/control evidence
+              present</label
+            >
+            <label
+              >Transport <input name="transport" placeholder="ipsec_ikev2_mutual_certificate"
+            /></label>
+            <label
+              >Latency ms
+              <input name="latencyMs" type="number" min="0" max="600000" placeholder="optional"
+            /></label>
+            <label
+              >Packet loss %
+              <input
+                name="packetLossPct"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                placeholder="optional"
+            /></label>
+            <label
+              >Bytes in <input name="bytesIn" type="number" min="0" placeholder="optional"
+            /></label>
+            <label
+              >Bytes out <input name="bytesOut" type="number" min="0" placeholder="optional"
+            /></label>
+            <label
+              >Evidence refs
+              <input name="evidenceRefs" placeholder="probe://..., audit://..." autocomplete="off"
+            /></label>
+            <button type="submit" class="primary">Record metadata</button>
+          </form>
+          <p id="traffic-evidence-status" class="hint">
+            No blue-team metadata evidence recorded in this browser session.
+          </p>
+        </article>
+        <article class="card">
+          <h2>Guardrails</h2>
+          <ul id="traffic-guardrails" class="key-list">
+            <li class="placeholder">Loading guardrails...</li>
+          </ul>
+        </article>
+      </section>
 
-    <section id="account-bootstrap" class="view">
-      <h1>Account Bootstrap</h1>
-      <p class="hint">Record human account setup evidence for communicator workloads. Do not enter phone numbers, OTP/SMS codes, passwords, wallet seeds or message content here. Use artifact references and pass/fail checks only.</p>
-      <article class="card">
-        <h2>Start bootstrap <span class="help-tip" tabindex="0" data-tip="This creates an operator-scoped evidence session. It does not mark production ready; admin/QA must still review factual evidence.">?</span></h2>
-        <form id="account-bootstrap-form" class="dense-form">
-          <label>App
-            <select name="appKey">
-              <option value="signal">Signal</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="telegram">Telegram</option>
-              <option value="threema">Threema</option>
-              <option value="zangi">Zangi</option>
-              <option value="simplex">SimpleX Chat</option>
-              <option value="matrix_client">Matrix Client</option>
-              <option value="protonmail">Proton Mail</option>
-              <option value="exodus">Exodus</option>
-            </select>
-          </label>
-          <label>Bootstrap mode
-            <select name="mode">
-              <option value="physical_mobile_companion">Physical mobile companion</option>
-              <option value="android_native_workload">Android-native workload</option>
-              <option value="approved_test_number_provider">Approved test-number provider</option>
-              <option value="desktop_linked_account">Desktop linked account</option>
-              <option value="manual_operator_account">Manual operator account</option>
-            </select>
-          </label>
-          <label>Runtime
-            <select name="runtimeMode">
-              <option value="desktop">Desktop</option>
-              <option value="web">Web</option>
-              <option value="android_native">Android native</option>
-              <option value="firecracker_gui">Firecracker GUI</option>
-              <option value="container">Container</option>
-            </select>
-          </label>
-          <label>Approved provider ref <input name="approvedPhoneProviderRef" placeholder="provider-ref://..." autocomplete="off"></label>
-          <button type="submit" class="primary">Create bootstrap session</button>
-        </form>
-        <p id="account-bootstrap-status" class="hint">No bootstrap session created in this browser session.</p>
-      </article>
-      <article class="card">
-        <h2>Private input handoff <span class="help-tip" tabindex="0" data-tip="Codex can navigate and verify metadata, but account details, SMS codes and passwords must be typed only by the operator directly inside the workload stream.">?</span></h2>
-        <div id="account-bootstrap-handoff" class="handoff-panel">
-          <p class="placeholder">Create or select a bootstrap session to see the safe handoff steps.</p>
-        </div>
-      </article>
-      <article class="card">
-        <h2>Record evidence</h2>
-        <form id="account-bootstrap-evidence-form" class="dense-form">
-          <label>Session ID <input name="sessionId" placeholder="acct_bootstrap_..." autocomplete="off"></label>
-          <label>Result
-            <select name="result">
-              <option value="in_progress">In progress</option>
-              <option value="blocked">Blocked</option>
-              <option value="failed">Failed</option>
-              <option value="passed">Passed</option>
-            </select>
-          </label>
-          <label class="check-row"><input name="uiVisible" type="checkbox"> UI visible on Pixel/laptop</label>
-          <label class="check-row"><input name="accountBootstrap" type="checkbox"> Account created/linked inside workload</label>
-          <label class="check-row"><input name="sendReceive" type="checkbox"> Send/receive tested</label>
-          <label class="check-row"><input name="walletWorkflow" type="checkbox"> Wallet workflow tested</label>
-          <label class="check-row"><input name="riskAcceptance" type="checkbox"> Operator risk accepted</label>
-          <label>Evidence artifact refs <input name="evidenceArtifactIds" placeholder="artifact://..., qa://..." autocomplete="off"></label>
-          <label>Latency ms <input name="latencyMs" type="number" min="0" max="600000" placeholder="optional"></label>
-          <label>Note <input name="note" placeholder="No secrets, no codes, no phone numbers" autocomplete="off"></label>
-          <button type="submit" class="secondary">Record evidence</button>
-        </form>
-      </article>
-      <article class="card">
-        <h2>Sessions</h2>
-        <div id="account-bootstrap-catalog" class="app-catalog"><div class="placeholder">Loading bootstrap catalog...</div></div>
-        <ul id="account-bootstrap-list" class="key-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-    </section>
+      <section id="live-access" class="view">
+        <h1>Live Access Foundation</h1>
+        <p class="hint">
+          Stage A/B contract for Pixel -> VPN -> G1 -> G2 -> WORKLOAD without local browser
+          shortcuts. Router and physical HSM/FIDO2 may stay deferred, but required network and CA
+          evidence must pass.
+        </p>
+        <article class="card">
+          <h2>
+            Foundation state
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="This combines VPN evidence, Pixel CA trust, DNS-through-tunnel, G1/G2 policy path, G2 workload gateway and CDR guardrails."
+              >?</span
+            >
+          </h2>
+          <dl>
+            <dt>State</dt>
+            <dd id="live-access-state" class="placeholder">Loading...</dd>
+            <dt>Phase</dt>
+            <dd id="live-access-phase" class="placeholder">-</dd>
+            <dt>VPN evidence</dt>
+            <dd id="live-access-vpn" class="placeholder">-</dd>
+            <dt>CA trust</dt>
+            <dd id="live-access-ca" class="placeholder">-</dd>
+            <dt>Blockers</dt>
+            <dd id="live-access-blockers" class="placeholder">Loading...</dd>
+          </dl>
+        </article>
+        <article class="card">
+          <h2>Required checks</h2>
+          <ul id="live-access-checks" class="path-list">
+            <li class="placeholder">Loading...</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>App gateways</h2>
+          <ul id="live-access-apps" class="path-list">
+            <li class="placeholder">Loading...</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h2>Next actions</h2>
+          <ul id="live-access-next" class="path-list">
+            <li class="placeholder">Loading...</li>
+          </ul>
+        </article>
+      </section>
 
-    <section id="vpn" class="view">
-      <h1>VPN status</h1>
-      <article class="card">
-        <h2>IPsec tunnel</h2>
-        <dl>
-          <dt>State</dt><dd id="vpn-state" class="placeholder">configuration_pending</dd>
-          <dt>Router</dt><dd id="vpn-router" class="placeholder">Puli AX pending</dd>
-          <dt>G1 endpoint</dt><dd id="vpn-g1" class="placeholder">-</dd>
-          <dt>G2 endpoint</dt><dd id="vpn-g2" class="placeholder">-</dd>
-          <dt>Workload endpoint</dt><dd id="vpn-workload" class="placeholder">-</dd>
-          <dt>Last handshake</dt><dd id="vpn-handshake" class="placeholder">-</dd>
-        </dl>
-        <p class="hint">Baseline path: terminal -> Puli AX -> G1 -> G2 -> WORKLOAD. No terminal-side operational data.</p>
-      </article>
-      <article class="card">
-        <h2>VPN install package</h2>
-        <dl>
-          <dt>Install state</dt><dd id="vpn-install-state" class="placeholder">blocked_human_gate</dd>
-          <dt>Profile type</dt><dd id="vpn-install-type" class="placeholder">android_ipsec_ikev2_profile</dd>
-          <dt>Blockers</dt><dd id="vpn-install-blockers" class="placeholder">Loading...</dd>
-        </dl>
-        <form id="vpn-evidence-form" class="dense-form">
-          <label><input name="vpnConnected" type="checkbox" checked> VPN connected</label>
-          <label>VPN interface <input name="vpnInterface" value="tun1"></label>
-          <label><input name="dnsThroughTunnel" type="checkbox" checked> DNS through tunnel</label>
-          <label><input name="certificateTrusted" type="checkbox" checked> Internal CA trusted</label>
-          <label>Reachable hosts <input name="reachableHosts" value="admin.sylion.internal,operator.sylion.internal,signal.sylion.internal,10.42.0.12"></label>
-          <button type="submit" class="primary">Record live VPN evidence</button>
-        </form>
-        <p id="vpn-evidence-status" class="hint">No live evidence recorded in this browser session.</p>
-      </article>
-      <article class="card">
-        <h2>Pixel CA provisioning <span class="help-tip" tabindex="0" data-tip="Installs the SYLION internal CA so GrapheneOS/Vanadium trusts operator and workload internal TLS names. Private keys are never included.">?</span></h2>
-        <dl>
-          <dt>Package</dt><dd id="ca-package-type" class="placeholder">Loading...</dd>
-          <dt>Trust scope</dt><dd id="ca-trust-scope" class="placeholder">-</dd>
-          <dt>Install method</dt><dd id="ca-install-method" class="placeholder">-</dd>
-          <dt>Fingerprint</dt><dd id="ca-fingerprint" class="placeholder">-</dd>
-        </dl>
-        <ol id="ca-install-steps" class="path-list">
-          <li class="placeholder">Loading CA provisioning steps...</li>
-        </ol>
-      </article>
-      <article class="card">
-        <h2>Laptop terminal package <span class="help-tip" tabindex="0" data-tip="Parallel terminal mode for laptop users. It keeps the same G1/G2/WORKLOAD path and browser thin-client boundary as Pixel, with no operational data stored on the laptop.">?</span></h2>
-        <dl>
-          <dt>Package</dt><dd id="laptop-package-type" class="placeholder">Loading...</dd>
-          <dt>Transport</dt><dd id="laptop-package-transport" class="placeholder">-</dd>
-          <dt>Entrypoints</dt><dd id="laptop-package-entrypoints" class="placeholder">-</dd>
-          <dt>Validation</dt><dd id="laptop-package-validation" class="placeholder">-</dd>
-        </dl>
-      </article>
-    </section>
-
-    <section id="streaming" class="view">
-      <h1>Streaming</h1>
-      <article class="stream-shell" aria-label="Pixel stream adaptive preview">
-        <div class="stream-toolbar">
-          <div>
-            <strong>G2 pixel stream</strong>
-            <span id="stream-status" class="placeholder">planning profile...</span>
+      <section id="signal-preview" class="view">
+        <h1>Signal Preview</h1>
+        <p class="hint">
+          Production-gated Signal workload path through Pixel -> G1 -> G2 -> WORKLOAD ->
+          Firecracker/KVM. Physical HSM/FIDO2 can stay deferred while VPN, KVM and CDR are brought
+          online.
+        </p>
+        <article class="signal-shell">
+          <div class="signal-route" id="signal-route">
+            <span>Pixel</span><span>G1</span><span>G2</span><span>WORKLOAD</span
+            ><span>Signal microVM</span>
           </div>
-          <span id="stream-resolution" class="stream-pill">-</span>
-        </div>
-        <div class="stream-stage">
-          <div class="stream-frame">
-            <div class="stream-grid"></div>
-            <div class="stream-center">
-              <strong id="stream-session-app">No stream session</strong>
-              <span id="stream-session-message">Choose an app and request a session to open the live G2 workload stream.</span>
-              <a id="stream-open-link" class="button-link" href="#app-switcher" hidden>Open live stream</a>
+          <div class="signal-device">
+            <div class="signal-statusbar">
+              <span>SYLION Stream</span>
+              <span id="signal-stream-resolution">-</span>
+            </div>
+            <div class="signal-appbar">
+              <div class="signal-avatar">S</div>
+              <div>
+                <strong>Signal</strong>
+                <small id="signal-slot-state">microVM slot pending</small>
+              </div>
+            </div>
+            <div class="signal-thread">
+              <div class="signal-empty">
+                <strong>WORKLOAD microVM preview</strong>
+                <span id="signal-preview-state">Loading route...</span>
+              </div>
+            </div>
+            <div class="signal-compose">
+              <span>CDR required for files</span>
+              <button type="button" id="signal-start-button" disabled>Start blocked</button>
             </div>
           </div>
+          <dl class="stream-metrics">
+            <dt>Route</dt>
+            <dd id="signal-route-state">-</dd>
+            <dt>Isolation</dt>
+            <dd id="signal-isolation">-</dd>
+            <dt>Egress</dt>
+            <dd id="signal-egress">-</dd>
+            <dt>Production</dt>
+            <dd id="signal-production">false</dd>
+            <dt>VPN</dt>
+            <dd id="signal-vpn-substrate">-</dd>
+            <dt>KVM</dt>
+            <dd id="signal-kvm-substrate">-</dd>
+            <dt>CDR</dt>
+            <dd id="signal-cdr-substrate">-</dd>
+            <dt>HSM/FIDO2</dt>
+            <dd id="signal-hsm-fido-substrate">-</dd>
+          </dl>
+          <article class="signal-gates">
+            <h2>Production gates</h2>
+            <ul id="signal-gate-list" class="path-list">
+              <li class="placeholder">Loading Signal execution gates...</li>
+            </ul>
+          </article>
+        </article>
+      </section>
+
+      <section id="runtime-gate" class="view">
+        <h1>Runtime Gate</h1>
+        <p class="hint">
+          Real workload launch status for native apps. Zangi is treated as Android-native workload,
+          not as a Chromium placeholder.
+        </p>
+        <article class="card">
+          <h2>
+            Workload runtime
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="This gate checks whether the selected app can run as a real production workload on the current provider substrate. Android-native apps require KVM plus binder/binderfs and approved app artifacts."
+              >?</span
+            >
+          </h2>
+          <form id="runtime-gate-form" class="dense-form">
+            <label
+              >Application
+              <select name="templateKey">
+                <option value="signal">Signal</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="telegram">Telegram</option>
+                <option value="threema">Threema</option>
+                <option value="zangi">Zangi</option>
+                <option value="simplex">SimpleX Chat</option>
+                <option value="protonmail">Proton Mail</option>
+                <option value="duckduckgo_browser">DuckDuckGo</option>
+                <option value="libreoffice">LibreOffice</option>
+                <option value="exodus">Exodus</option>
+              </select>
+            </label>
+            <button type="submit" class="primary">Check runtime</button>
+          </form>
+          <dl class="compact-metrics">
+            <dt>App</dt>
+            <dd id="runtime-gate-app">-</dd>
+            <dt>Runtime</dt>
+            <dd id="runtime-gate-kind">-</dd>
+            <dt>Runner</dt>
+            <dd id="runtime-gate-runner">-</dd>
+            <dt>Readiness</dt>
+            <dd id="runtime-gate-state">-</dd>
+            <dt>Android host fit</dt>
+            <dd id="runtime-gate-android-fit">-</dd>
+          </dl>
+          <ul id="runtime-gate-list" class="path-list">
+            <li class="placeholder">Select an application to check its real runtime gates.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="account-bootstrap" class="view">
+        <h1>Account Bootstrap</h1>
+        <p class="hint">
+          Record human account setup evidence for communicator workloads. Do not enter phone
+          numbers, OTP/SMS codes, passwords, wallet seeds or message content here. Use artifact
+          references and pass/fail checks only.
+        </p>
+        <article class="card">
+          <h2>
+            Start bootstrap
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="This creates an operator-scoped evidence session. It does not mark production ready; admin/QA must still review factual evidence."
+              >?</span
+            >
+          </h2>
+          <form id="account-bootstrap-form" class="dense-form">
+            <label
+              >App
+              <select name="appKey">
+                <option value="signal">Signal</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="telegram">Telegram</option>
+                <option value="threema">Threema</option>
+                <option value="zangi">Zangi</option>
+                <option value="simplex">SimpleX Chat</option>
+                <option value="matrix_client">Matrix Client</option>
+                <option value="protonmail">Proton Mail</option>
+                <option value="exodus">Exodus</option>
+              </select>
+            </label>
+            <label
+              >Bootstrap mode
+              <select name="mode">
+                <option value="physical_mobile_companion">Physical mobile companion</option>
+                <option value="android_native_workload">Android-native workload</option>
+                <option value="approved_test_number_provider">Approved test-number provider</option>
+                <option value="desktop_linked_account">Desktop linked account</option>
+                <option value="manual_operator_account">Manual operator account</option>
+              </select>
+            </label>
+            <label
+              >Runtime
+              <select name="runtimeMode">
+                <option value="desktop">Desktop</option>
+                <option value="web">Web</option>
+                <option value="android_native">Android native</option>
+                <option value="firecracker_gui">Firecracker GUI</option>
+                <option value="container">Container</option>
+              </select>
+            </label>
+            <label
+              >Approved provider ref
+              <input
+                name="approvedPhoneProviderRef"
+                placeholder="provider-ref://..."
+                autocomplete="off"
+            /></label>
+            <button type="submit" class="primary">Create bootstrap session</button>
+          </form>
+          <p id="account-bootstrap-status" class="hint">
+            No bootstrap session created in this browser session.
+          </p>
+        </article>
+        <article class="card">
+          <h2>
+            Private input handoff
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Codex can navigate and verify metadata, but account details, SMS codes and passwords must be typed only by the operator directly inside the workload stream."
+              >?</span
+            >
+          </h2>
+          <div id="account-bootstrap-handoff" class="handoff-panel">
+            <p class="placeholder">
+              Create or select a bootstrap session to see the safe handoff steps.
+            </p>
+          </div>
+        </article>
+        <article class="card">
+          <h2>Record evidence</h2>
+          <form id="account-bootstrap-evidence-form" class="dense-form">
+            <label
+              >Session ID
+              <input name="sessionId" placeholder="acct_bootstrap_..." autocomplete="off"
+            /></label>
+            <label
+              >Result
+              <select name="result">
+                <option value="in_progress">In progress</option>
+                <option value="blocked">Blocked</option>
+                <option value="failed">Failed</option>
+                <option value="passed">Passed</option>
+              </select>
+            </label>
+            <label class="check-row"
+              ><input name="uiVisible" type="checkbox" /> UI visible on Pixel/laptop</label
+            >
+            <label class="check-row"
+              ><input name="accountBootstrap" type="checkbox" /> Account created/linked inside
+              workload</label
+            >
+            <label class="check-row"
+              ><input name="sendReceive" type="checkbox" /> Send/receive tested</label
+            >
+            <label class="check-row"
+              ><input name="walletWorkflow" type="checkbox" /> Wallet workflow tested</label
+            >
+            <label class="check-row"
+              ><input name="riskAcceptance" type="checkbox" /> Operator risk accepted</label
+            >
+            <label
+              >Evidence artifact refs
+              <input
+                name="evidenceArtifactIds"
+                placeholder="artifact://..., qa://..."
+                autocomplete="off"
+            /></label>
+            <label
+              >Latency ms
+              <input name="latencyMs" type="number" min="0" max="600000" placeholder="optional"
+            /></label>
+            <label
+              >Note
+              <input
+                name="note"
+                placeholder="No secrets, no codes, no phone numbers"
+                autocomplete="off"
+            /></label>
+            <button type="submit" class="secondary">Record evidence</button>
+          </form>
+        </article>
+        <article class="card">
+          <h2>Sessions</h2>
+          <div id="account-bootstrap-catalog" class="app-catalog">
+            <div class="placeholder">Loading bootstrap catalog...</div>
+          </div>
+          <ul id="account-bootstrap-list" class="key-list">
+            <li class="placeholder">Loading...</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="vpn" class="view">
+        <h1>VPN status</h1>
+        <article class="card">
+          <h2>IPsec tunnel</h2>
+          <dl>
+            <dt>State</dt>
+            <dd id="vpn-state" class="placeholder">configuration_pending</dd>
+            <dt>Router</dt>
+            <dd id="vpn-router" class="placeholder">Puli AX pending</dd>
+            <dt>G1 endpoint</dt>
+            <dd id="vpn-g1" class="placeholder">-</dd>
+            <dt>G2 endpoint</dt>
+            <dd id="vpn-g2" class="placeholder">-</dd>
+            <dt>Workload endpoint</dt>
+            <dd id="vpn-workload" class="placeholder">-</dd>
+            <dt>Last handshake</dt>
+            <dd id="vpn-handshake" class="placeholder">-</dd>
+          </dl>
+          <p class="hint">
+            Baseline path: terminal -> Puli AX -> G1 -> G2 -> WORKLOAD. No terminal-side operational
+            data.
+          </p>
+        </article>
+        <article class="card">
+          <h2>VPN install package</h2>
+          <dl>
+            <dt>Install state</dt>
+            <dd id="vpn-install-state" class="placeholder">blocked_human_gate</dd>
+            <dt>Profile type</dt>
+            <dd id="vpn-install-type" class="placeholder">android_ipsec_ikev2_profile</dd>
+            <dt>Blockers</dt>
+            <dd id="vpn-install-blockers" class="placeholder">Loading...</dd>
+          </dl>
+          <form id="vpn-evidence-form" class="dense-form">
+            <label><input name="vpnConnected" type="checkbox" checked /> VPN connected</label>
+            <label>VPN interface <input name="vpnInterface" value="tun1" /></label>
+            <label
+              ><input name="dnsThroughTunnel" type="checkbox" checked /> DNS through tunnel</label
+            >
+            <label
+              ><input name="certificateTrusted" type="checkbox" checked /> Internal CA
+              trusted</label
+            >
+            <label
+              >Reachable hosts
+              <input
+                name="reachableHosts"
+                value="admin.sylion.internal,operator.sylion.internal,signal.sylion.internal,10.42.0.12"
+            /></label>
+            <button type="submit" class="primary">Record live VPN evidence</button>
+          </form>
+          <p id="vpn-evidence-status" class="hint">
+            No live evidence recorded in this browser session.
+          </p>
+        </article>
+        <article class="card">
+          <h2>
+            Pixel CA provisioning
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Installs the SYLION internal CA so GrapheneOS/Vanadium trusts operator and workload internal TLS names. Private keys are never included."
+              >?</span
+            >
+          </h2>
+          <dl>
+            <dt>Package</dt>
+            <dd id="ca-package-type" class="placeholder">Loading...</dd>
+            <dt>Trust scope</dt>
+            <dd id="ca-trust-scope" class="placeholder">-</dd>
+            <dt>Install method</dt>
+            <dd id="ca-install-method" class="placeholder">-</dd>
+            <dt>Fingerprint</dt>
+            <dd id="ca-fingerprint" class="placeholder">-</dd>
+          </dl>
+          <ol id="ca-install-steps" class="path-list">
+            <li class="placeholder">Loading CA provisioning steps...</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h2>
+            Laptop terminal package
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Parallel terminal mode for laptop users. It keeps the same G1/G2/WORKLOAD path and browser thin-client boundary as Pixel, with no operational data stored on the laptop."
+              >?</span
+            >
+          </h2>
+          <dl>
+            <dt>Package</dt>
+            <dd id="laptop-package-type" class="placeholder">Loading...</dd>
+            <dt>Transport</dt>
+            <dd id="laptop-package-transport" class="placeholder">-</dd>
+            <dt>Entrypoints</dt>
+            <dd id="laptop-package-entrypoints" class="placeholder">-</dd>
+            <dt>Validation</dt>
+            <dd id="laptop-package-validation" class="placeholder">-</dd>
+          </dl>
+        </article>
+      </section>
+
+      <section id="streaming" class="view">
+        <h1>Streaming</h1>
+        <article class="stream-shell" aria-label="Pixel stream adaptive preview">
+          <div class="stream-toolbar">
+            <div>
+              <strong>G2 pixel stream</strong>
+              <span id="stream-status" class="placeholder">planning profile...</span>
+            </div>
+            <span id="stream-resolution" class="stream-pill">-</span>
+          </div>
+          <div class="stream-stage">
+            <div class="stream-frame">
+              <div class="stream-grid"></div>
+              <div class="stream-center">
+                <strong id="stream-session-app">No stream session</strong>
+                <span id="stream-session-message"
+                  >Choose an app and request a session to open the live G2 workload stream.</span
+                >
+                <a id="stream-open-link" class="button-link" href="#app-switcher" hidden
+                  >Open live stream</a
+                >
+              </div>
+            </div>
+          </div>
+          <dl class="stream-metrics">
+            <dt>Codec</dt>
+            <dd id="stream-codec">-</dd>
+            <dt>FPS</dt>
+            <dd id="stream-fps">-</dd>
+            <dt>Bitrate</dt>
+            <dd id="stream-bitrate">-</dd>
+            <dt>Touch scale</dt>
+            <dd id="stream-pointer-scale">-</dd>
+          </dl>
+          <form id="stream-session-form" class="dense-form">
+            <label
+              >Stream app
+              <select name="templateKey">
+                <option value="signal">Signal</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="telegram">Telegram</option>
+                <option value="threema">Threema</option>
+                <option value="duckduckgo_browser">DuckDuckGo</option>
+                <option value="libreoffice">LibreOffice</option>
+                <option value="zangi">Zangi</option>
+                <option value="simplex">SimpleX Chat</option>
+                <option value="protonmail">Proton Mail</option>
+                <option value="exodus">Exodus</option>
+              </select>
+            </label>
+            <label
+              >Session broker
+              <select name="protocol">
+                <option value="guacamole" selected>Guacamole interim broker</option>
+                <option value="blind_e2ee">PHANTOM Blind E2EE target</option>
+                <option value="webrtc_selkies">Selkies/WebRTC interim candidate</option>
+                <option value="novnc_lab">noVNC lab only</option>
+              </select>
+            </label>
+            <button type="submit" class="primary">Request stream session</button>
+          </form>
+          <form id="stream-readiness-form" class="dense-form">
+            <label
+              ><input name="g2StreamGatewayReady" type="checkbox" checked /> G2 stream gateway
+              ready</label
+            >
+            <label
+              >Broker protocol
+              <select name="protocol">
+                <option value="guacamole" selected>Guacamole interim</option>
+                <option value="blind_e2ee">PHANTOM Blind E2EE target</option>
+                <option value="webrtc_selkies">Selkies/WebRTC interim</option>
+                <option value="novnc_lab">noVNC lab only</option>
+              </select>
+            </label>
+            <label
+              ><input name="tlsInternalOnly" type="checkbox" checked /> Internal TLS only</label
+            >
+            <label><input name="guacdTls" type="checkbox" checked /> Guacamole to guacd TLS</label>
+            <label
+              ><input name="g2ToWorkloadEncrypted" type="checkbox" checked /> G2 to workload
+              encrypted</label
+            >
+            <label><input name="e2eeStream" type="checkbox" /> E2EE pixel frames</label>
+            <label><input name="sframeValidated" type="checkbox" /> SFrame validation proof</label>
+            <label
+              ><input name="keySeparationVerified" type="checkbox" /> Stream keys outside G2</label
+            >
+            <label
+              ><input name="inputProxyReady" type="checkbox" checked /> Input proxy ready</label
+            >
+            <label
+              >Ready sources
+              <input
+                name="sources"
+                value="signal,duckduckgo_browser,libreoffice,simplex,protonmail"
+            /></label>
+            <button type="submit">Record stream readiness</button>
+          </form>
+          <p id="stream-readiness-status" class="hint">
+            No stream readiness evidence recorded in this browser session.
+          </p>
+          <form id="stream-runtime-form" class="dense-form">
+            <label>G2 bind <input name="gatewayBindAddress" value="10.42.0.12" /></label>
+            <label
+              >G2 port <input name="gatewayPort" type="number" min="1" max="65535" value="8443"
+            /></label>
+            <label
+              >Runtime broker
+              <select name="protocol">
+                <option value="guacamole" selected>Guacamole interim</option>
+                <option value="blind_e2ee">PHANTOM Blind E2EE target</option>
+                <option value="webrtc_selkies">Selkies/WebRTC interim</option>
+                <option value="novnc_lab">noVNC lab only</option>
+              </select>
+            </label>
+            <label><input name="guacdTls" type="checkbox" checked /> Guacamole to guacd TLS</label>
+            <label
+              ><input name="g2ToWorkloadEncrypted" type="checkbox" checked /> G2 to workload
+              encrypted</label
+            >
+            <label><input name="e2eeStream" type="checkbox" /> E2EE pixel frames</label>
+            <label><input name="sframeValidated" type="checkbox" /> SFrame validation proof</label>
+            <label
+              ><input name="keySeparationVerified" type="checkbox" /> Stream keys outside G2</label
+            >
+            <label
+              >Source apps
+              <input
+                name="sources"
+                value="signal:10.42.0.13:7901,duckduckgo_browser:10.42.0.13:7902,libreoffice:10.42.0.13:7903,protonmail:10.42.0.13:7917,simplex:10.42.0.13:7918"
+            /></label>
+            <button type="submit">Record runtime manifest</button>
+          </form>
+          <p id="stream-runtime-status" class="hint">
+            No stream runtime manifest recorded in this browser session.
+          </p>
+          <dl class="stream-metrics">
+            <dt>Session</dt>
+            <dd id="stream-session-state">not_requested</dd>
+            <dt>Gateway</dt>
+            <dd id="stream-session-gateway">-</dd>
+            <dt>Broker</dt>
+            <dd id="stream-session-broker">-</dd>
+            <dt>PHANTOM</dt>
+            <dd id="stream-session-phantom">-</dd>
+            <dt>Launch URL</dt>
+            <dd id="stream-session-url">-</dd>
+            <dt>Blockers</dt>
+            <dd id="stream-session-blockers">-</dd>
+          </dl>
+          <p class="hint">
+            The VPS/G2 side must change stream resolution dynamically to match Pixel viewport,
+            orientation, DPR, and network budget. Terminal remains display/input only.
+          </p>
+        </article>
+      </section>
+
+      <section id="audit" class="view">
+        <h1>Moje akcje (audit)</h1>
+        <p class="hint">Scope: only events for the active operator.</p>
+        <ul id="audit-list">
+          <li class="placeholder">Loading...</li>
+        </ul>
+      </section>
+
+      <section id="settings-unlock" class="view">
+        <h1>Security Unlock</h1>
+        <div class="placeholder-banner">
+          <p>
+            <strong>Write-only unlock:</strong> G1/G2/WORKLOAD passwords are accepted for rotation
+            metadata only. The panel never returns plaintext and active sessions do not require
+            re-entry until expiration.
+          </p>
         </div>
-        <dl class="stream-metrics">
-          <dt>Codec</dt><dd id="stream-codec">-</dd>
-          <dt>FPS</dt><dd id="stream-fps">-</dd>
-          <dt>Bitrate</dt><dd id="stream-bitrate">-</dd>
-          <dt>Touch scale</dt><dd id="stream-pointer-scale">-</dd>
-        </dl>
-        <form id="stream-session-form" class="dense-form">
-          <label>Stream app
-            <select name="templateKey">
-              <option value="signal">Signal</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="telegram">Telegram</option>
-              <option value="threema">Threema</option>
-              <option value="duckduckgo_browser">DuckDuckGo</option>
-              <option value="libreoffice">LibreOffice</option>
-              <option value="zangi">Zangi</option>
-              <option value="simplex">SimpleX Chat</option>
-              <option value="protonmail">Proton Mail</option>
-              <option value="exodus">Exodus</option>
-            </select>
-          </label>
-          <label>Session broker
-            <select name="protocol">
-              <option value="guacamole" selected>Guacamole interim broker</option>
-              <option value="blind_e2ee">PHANTOM Blind E2EE target</option>
-              <option value="webrtc_selkies">Selkies/WebRTC interim candidate</option>
-              <option value="novnc_lab">noVNC lab only</option>
-            </select>
-          </label>
-          <button type="submit" class="primary">Request stream session</button>
+        <article class="card">
+          <h2>
+            Session and layer unlock
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Set how long a successful operator session remains valid. After expiry, FIDO2 re-auth will be required when physical keys are connected."
+              >?</span
+            >
+          </h2>
+          <form id="unlock-form">
+            <label
+              >Session hours <input name="sessionHours" type="number" min="1" max="24" value="12"
+            /></label>
+            <label
+              >G1 password
+              <input
+                name="g1Password"
+                type="password"
+                autocomplete="new-password"
+                placeholder="write-only rotation"
+            /></label>
+            <label
+              >G2 password
+              <input
+                name="g2Password"
+                type="password"
+                autocomplete="new-password"
+                placeholder="write-only rotation"
+            /></label>
+            <label
+              >Workload/VPS password
+              <input
+                name="workloadPassword"
+                type="password"
+                autocomplete="new-password"
+                placeholder="write-only rotation"
+            /></label>
+            <label class="check-row"
+              ><input name="fido2RequiredAtSessionEnd" type="checkbox" checked /> FIDO2 at session
+              end</label
+            >
+            <button type="submit" class="primary">Save unlock policy</button>
+          </form>
+          <ul id="unlock-list" class="key-list">
+            <li class="placeholder">Loading...</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="settings-safety" class="view">
+        <h1>Backup & Panic</h1>
+        <div class="placeholder-banner">
+          <p>
+            <strong>Safety controls:</strong> backup covers configuration/metadata only. Panic codes
+            are write-only and destructive execution remains blocked until production gates and
+            human authorization are complete.
+          </p>
+        </div>
+        <article class="card">
+          <h2>
+            Backup, inactivity wipe and panic levels
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Auto-wipe is armed by lack of operator sessions. Panic levels can wipe data, recreate environments, or revoke the account depending on configured policy and tier gates."
+              >?</span
+            >
+          </h2>
+          <form id="safety-form">
+            <label class="check-row"
+              ><input name="backupEnabled" type="checkbox" /> Backup enabled</label
+            >
+            <label
+              >Backup cadence hours
+              <input name="backupCadenceHours" type="number" min="1" max="168" value="24"
+            /></label>
+            <label class="check-row"
+              ><input name="inactivityWipeEnabled" type="checkbox" checked /> Auto-wipe when
+              inactive</label
+            >
+            <label
+              >Inactive days
+              <input name="inactivityWipeDays" type="number" min="1" max="365" value="14"
+            /></label>
+            <label
+              >Level 1 panic code
+              <input
+                name="data_wipeCode"
+                type="password"
+                autocomplete="new-password"
+                placeholder="wipe data"
+            /></label>
+            <label
+              >Level 2 panic code
+              <input
+                name="environment_destroyCode"
+                type="password"
+                autocomplete="new-password"
+                placeholder="destroy environments"
+            /></label>
+            <label
+              >Level 3 panic code
+              <input
+                name="account_revokeCode"
+                type="password"
+                autocomplete="new-password"
+                placeholder="revoke account"
+            /></label>
+            <button type="submit" class="primary">Save safety policy</button>
+          </form>
+          <ul id="safety-list" class="key-list">
+            <li class="placeholder">Loading...</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="settings-jurisdiction" class="view">
+        <h1>Jurisdiction</h1>
+        <p class="hint">
+          Jurisdiction hopping depends on subscription tier. Standard allows manual-only control,
+          Pro scheduled rotation, Sovereign full policy.
+        </p>
+        <article class="card">
+          <h2>
+            Rotation policy
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Choose how operator workloads rotate across approved jurisdictions. Real migration stays gated by provider capacity, VPN policy and CDR audit."
+              >?</span
+            >
+          </h2>
+          <form id="jurisdiction-form">
+            <label
+              >Mode
+              <select name="mode">
+                <option value="disabled">Disabled</option>
+                <option value="manual">Manual</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="full_policy">Full policy</option>
+              </select>
+            </label>
+            <label>Regions <input name="regions" placeholder="de,fi,nl" /></label>
+            <label>Countries <input name="countries" placeholder="DE,FI,NL" /></label>
+            <label>Providers <input name="providers" placeholder="hetzner,ovh,scaleway" /></label>
+            <label
+              >Frequency hours
+              <input name="frequencyHours" type="number" min="4" max="8760" value="168"
+            /></label>
+            <button type="submit" class="primary">Save jurisdiction policy</button>
+          </form>
+          <div id="jurisdiction-options" class="workload-preview placeholder">
+            Loading provider locations...
+          </div>
+          <ul id="jurisdiction-list" class="key-list">
+            <li class="placeholder">Loading...</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="matrix-server" class="view">
+        <h1>Matrix Server</h1>
+        <p class="hint">
+          Operator can request a paid custom Matrix server for private communication. DNS,
+          federation, CDR and provider execution remain reviewed before launch.
+        </p>
+        <article class="card">
+          <h2>
+            Custom Matrix request
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Creates a control-plane request for a dedicated Matrix homeserver. It does not launch production infrastructure by itself."
+              >?</span
+            >
+          </h2>
+          <form id="matrix-form">
+            <label>Hostname <input name="hostname" placeholder="matrix.operator.example" /></label>
+            <label class="check-row"
+              ><input name="federation" type="checkbox" /> Enable federation</label
+            >
+            <button type="submit" class="primary">Request Matrix server</button>
+          </form>
+          <ul id="matrix-list" class="key-list">
+            <li class="placeholder">Loading...</li>
+          </ul>
+        </article>
+      </section>
+
+      <section id="settings-fido2" class="view">
+        <h1>FIDO2 policy</h1>
+        <div class="placeholder-banner">
+          <p>
+            <strong>Configuration active:</strong> physical FIDO2 enrollment remains deferred, but
+            the operator policy can be set now.
+          </p>
+        </div>
+        <form id="fido2-form">
+          <label
+            >Session hours
+            <input name="defaultSessionHours" type="number" min="1" max="24" value="12"
+          /></label>
+          <label>Transports <input name="allowedTransports" value="usb,nfc" /></label>
+          <button type="submit" class="primary">Save FIDO2 policy</button>
         </form>
-        <form id="stream-readiness-form" class="dense-form">
-          <label><input name="g2StreamGatewayReady" type="checkbox" checked> G2 stream gateway ready</label>
-          <label>Broker protocol
-            <select name="protocol">
-              <option value="guacamole" selected>Guacamole interim</option>
-              <option value="blind_e2ee">PHANTOM Blind E2EE target</option>
-              <option value="webrtc_selkies">Selkies/WebRTC interim</option>
-              <option value="novnc_lab">noVNC lab only</option>
-            </select>
-          </label>
-          <label><input name="tlsInternalOnly" type="checkbox" checked> Internal TLS only</label>
-          <label><input name="guacdTls" type="checkbox" checked> Guacamole to guacd TLS</label>
-          <label><input name="g2ToWorkloadEncrypted" type="checkbox" checked> G2 to workload encrypted</label>
-          <label><input name="e2eeStream" type="checkbox"> E2EE pixel frames</label>
-          <label><input name="sframeValidated" type="checkbox"> SFrame validation proof</label>
-          <label><input name="keySeparationVerified" type="checkbox"> Stream keys outside G2</label>
-          <label><input name="inputProxyReady" type="checkbox" checked> Input proxy ready</label>
-          <label>Ready sources <input name="sources" value="signal,duckduckgo_browser,libreoffice,simplex,protonmail"></label>
-          <button type="submit">Record stream readiness</button>
+        <ul id="fido2-list" class="key-list">
+          <li class="placeholder">Loading...</li>
+        </ul>
+      </section>
+
+      <section id="settings-hsm" class="view">
+        <h1>HSM references</h1>
+        <div class="placeholder-banner">
+          <p>
+            <strong>Reference-only:</strong> HSM/BYO-HSM physical integration is deferred. Store
+            references and evidence only.
+          </p>
+        </div>
+        <form id="hsm-form">
+          <label>References <input name="references" placeholder="hsm-ref://operator/key" /></label>
+          <label
+            >Attestation refs <input name="attestationRefs" placeholder="evidence://operator/hsm"
+          /></label>
+          <button type="submit" class="primary">Save HSM references</button>
         </form>
-        <p id="stream-readiness-status" class="hint">No stream readiness evidence recorded in this browser session.</p>
-        <form id="stream-runtime-form" class="dense-form">
-          <label>G2 bind <input name="gatewayBindAddress" value="10.42.0.12"></label>
-          <label>G2 port <input name="gatewayPort" type="number" min="1" max="65535" value="8443"></label>
-          <label>Runtime broker
-            <select name="protocol">
-              <option value="guacamole" selected>Guacamole interim</option>
-              <option value="blind_e2ee">PHANTOM Blind E2EE target</option>
-              <option value="webrtc_selkies">Selkies/WebRTC interim</option>
-              <option value="novnc_lab">noVNC lab only</option>
-            </select>
-          </label>
-          <label><input name="guacdTls" type="checkbox" checked> Guacamole to guacd TLS</label>
-          <label><input name="g2ToWorkloadEncrypted" type="checkbox" checked> G2 to workload encrypted</label>
-          <label><input name="e2eeStream" type="checkbox"> E2EE pixel frames</label>
-          <label><input name="sframeValidated" type="checkbox"> SFrame validation proof</label>
-          <label><input name="keySeparationVerified" type="checkbox"> Stream keys outside G2</label>
-          <label>Source apps <input name="sources" value="signal:10.42.0.13:7901,duckduckgo_browser:10.42.0.13:7902,libreoffice:10.42.0.13:7903,protonmail:10.42.0.13:7917,simplex:10.42.0.13:7918"></label>
-          <button type="submit">Record runtime manifest</button>
-        </form>
-        <p id="stream-runtime-status" class="hint">No stream runtime manifest recorded in this browser session.</p>
-        <dl class="stream-metrics">
-          <dt>Session</dt><dd id="stream-session-state">not_requested</dd>
-          <dt>Gateway</dt><dd id="stream-session-gateway">-</dd>
-          <dt>Broker</dt><dd id="stream-session-broker">-</dd>
-          <dt>PHANTOM</dt><dd id="stream-session-phantom">-</dd>
-          <dt>Launch URL</dt><dd id="stream-session-url">-</dd>
-          <dt>Blockers</dt><dd id="stream-session-blockers">-</dd>
-        </dl>
-        <p class="hint">The VPS/G2 side must change stream resolution dynamically to match Pixel viewport, orientation, DPR, and network budget. Terminal remains display/input only.</p>
-      </article>
-    </section>
+        <ul id="hsm-list" class="key-list">
+          <li class="placeholder">Loading...</li>
+        </ul>
+      </section>
 
-    <section id="audit" class="view">
-      <h1>Moje akcje (audit)</h1>
-      <p class="hint">Scope: only events for the active operator.</p>
-      <ul id="audit-list"><li class="placeholder">Loading...</li></ul>
-    </section>
+      <section id="subscription" class="view">
+        <h1>Subscription</h1>
+        <article class="card">
+          <h2>Plan</h2>
+          <p id="subscription-plan" class="placeholder">Loading...</p>
+        </article>
+        <article class="card">
+          <h2>Quota</h2>
+          <p id="subscription-quota" class="placeholder">Loading...</p>
+        </article>
+        <article class="card">
+          <h2>
+            Renew or upgrade
+            <span
+              class="help-tip"
+              tabindex="0"
+              data-tip="Queues a billing request for admin review. It does not charge automatically in this local control-plane build."
+              >?</span
+            >
+          </h2>
+          <form id="subscription-form">
+            <label
+              >Action
+              <select name="action">
+                <option value="renew">Renew current tier</option>
+                <option value="upgrade">Upgrade tier</option>
+                <option value="downgrade">Downgrade tier</option>
+              </select>
+            </label>
+            <label
+              >Target tier
+              <select name="targetTier">
+                <option value="PRO">PRO</option>
+                <option value="SOVEREIGN">SOVEREIGN</option>
+                <option value="STANDARD">STANDARD</option>
+              </select>
+            </label>
+            <button type="submit" class="primary">Queue billing request</button>
+          </form>
+          <p id="subscription-request-status" class="hint">
+            No billing request queued in this session.
+          </p>
+        </article>
+      </section>
+    </main>
 
-    <section id="settings-unlock" class="view">
-      <h1>Security Unlock</h1>
-      <div class="placeholder-banner">
-        <p><strong>Write-only unlock:</strong> G1/G2/WORKLOAD passwords are accepted for rotation metadata only. The panel never returns plaintext and active sessions do not require re-entry until expiration.</p>
-      </div>
-      <article class="card">
-        <h2>Session and layer unlock <span class="help-tip" tabindex="0" data-tip="Set how long a successful operator session remains valid. After expiry, FIDO2 re-auth will be required when physical keys are connected.">?</span></h2>
-        <form id="unlock-form">
-          <label>Session hours <input name="sessionHours" type="number" min="1" max="24" value="12"></label>
-          <label>G1 password <input name="g1Password" type="password" autocomplete="new-password" placeholder="write-only rotation"></label>
-          <label>G2 password <input name="g2Password" type="password" autocomplete="new-password" placeholder="write-only rotation"></label>
-          <label>Workload/VPS password <input name="workloadPassword" type="password" autocomplete="new-password" placeholder="write-only rotation"></label>
-          <label class="check-row"><input name="fido2RequiredAtSessionEnd" type="checkbox" checked> FIDO2 at session end</label>
-          <button type="submit" class="primary">Save unlock policy</button>
-        </form>
-        <ul id="unlock-list" class="key-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-    </section>
+    <footer class="footer">
+      <p>
+        SYLION Operator Portal - scoped local contract (per
+        <a href="/operator-api/about" target="_blank" rel="noopener">ADR-terminal-modes-001</a>) -
+        <strong>production execution disabled</strong>
+      </p>
+      <p>For admin operations: <a href="/admin">/admin</a></p>
+    </footer>
 
-    <section id="settings-safety" class="view">
-      <h1>Backup & Panic</h1>
-      <div class="placeholder-banner">
-        <p><strong>Safety controls:</strong> backup covers configuration/metadata only. Panic codes are write-only and destructive execution remains blocked until production gates and human authorization are complete.</p>
-      </div>
-      <article class="card">
-        <h2>Backup, inactivity wipe and panic levels <span class="help-tip" tabindex="0" data-tip="Auto-wipe is armed by lack of operator sessions. Panic levels can wipe data, recreate environments, or revoke the account depending on configured policy and tier gates.">?</span></h2>
-        <form id="safety-form">
-          <label class="check-row"><input name="backupEnabled" type="checkbox"> Backup enabled</label>
-          <label>Backup cadence hours <input name="backupCadenceHours" type="number" min="1" max="168" value="24"></label>
-          <label class="check-row"><input name="inactivityWipeEnabled" type="checkbox" checked> Auto-wipe when inactive</label>
-          <label>Inactive days <input name="inactivityWipeDays" type="number" min="1" max="365" value="14"></label>
-          <label>Level 1 panic code <input name="data_wipeCode" type="password" autocomplete="new-password" placeholder="wipe data"></label>
-          <label>Level 2 panic code <input name="environment_destroyCode" type="password" autocomplete="new-password" placeholder="destroy environments"></label>
-          <label>Level 3 panic code <input name="account_revokeCode" type="password" autocomplete="new-password" placeholder="revoke account"></label>
-          <button type="submit" class="primary">Save safety policy</button>
-        </form>
-        <ul id="safety-list" class="key-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-    </section>
-
-    <section id="settings-jurisdiction" class="view">
-      <h1>Jurisdiction</h1>
-      <p class="hint">Jurisdiction hopping depends on subscription tier. Standard allows manual-only control, Pro scheduled rotation, Sovereign full policy.</p>
-      <article class="card">
-        <h2>Rotation policy <span class="help-tip" tabindex="0" data-tip="Choose how operator workloads rotate across approved jurisdictions. Real migration stays gated by provider capacity, VPN policy and CDR audit.">?</span></h2>
-        <form id="jurisdiction-form">
-          <label>Mode
-            <select name="mode">
-              <option value="disabled">Disabled</option>
-              <option value="manual">Manual</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="full_policy">Full policy</option>
-            </select>
-          </label>
-          <label>Regions <input name="regions" placeholder="de,fi,nl"></label>
-          <label>Countries <input name="countries" placeholder="DE,FI,NL"></label>
-          <label>Providers <input name="providers" placeholder="hetzner,ovh,scaleway"></label>
-          <label>Frequency hours <input name="frequencyHours" type="number" min="4" max="8760" value="168"></label>
-          <button type="submit" class="primary">Save jurisdiction policy</button>
-        </form>
-        <div id="jurisdiction-options" class="workload-preview placeholder">Loading provider locations...</div>
-        <ul id="jurisdiction-list" class="key-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-    </section>
-
-    <section id="matrix-server" class="view">
-      <h1>Matrix Server</h1>
-      <p class="hint">Operator can request a paid custom Matrix server for private communication. DNS, federation, CDR and provider execution remain reviewed before launch.</p>
-      <article class="card">
-        <h2>Custom Matrix request <span class="help-tip" tabindex="0" data-tip="Creates a control-plane request for a dedicated Matrix homeserver. It does not launch production infrastructure by itself.">?</span></h2>
-        <form id="matrix-form">
-          <label>Hostname <input name="hostname" placeholder="matrix.operator.example"></label>
-          <label class="check-row"><input name="federation" type="checkbox"> Enable federation</label>
-          <button type="submit" class="primary">Request Matrix server</button>
-        </form>
-        <ul id="matrix-list" class="key-list"><li class="placeholder">Loading...</li></ul>
-      </article>
-    </section>
-
-    <section id="settings-fido2" class="view">
-      <h1>FIDO2 policy</h1>
-      <div class="placeholder-banner">
-        <p><strong>Configuration active:</strong> physical FIDO2 enrollment remains deferred, but the operator policy can be set now.</p>
-      </div>
-      <form id="fido2-form">
-        <label>Session hours <input name="defaultSessionHours" type="number" min="1" max="24" value="12"></label>
-        <label>Transports <input name="allowedTransports" value="usb,nfc"></label>
-        <button type="submit" class="primary">Save FIDO2 policy</button>
-      </form>
-      <ul id="fido2-list" class="key-list"><li class="placeholder">Loading...</li></ul>
-    </section>
-
-    <section id="settings-hsm" class="view">
-      <h1>HSM references</h1>
-      <div class="placeholder-banner">
-        <p><strong>Reference-only:</strong> HSM/BYO-HSM physical integration is deferred. Store references and evidence only.</p>
-      </div>
-      <form id="hsm-form">
-        <label>References <input name="references" placeholder="hsm-ref://operator/key"></label>
-        <label>Attestation refs <input name="attestationRefs" placeholder="evidence://operator/hsm"></label>
-        <button type="submit" class="primary">Save HSM references</button>
-      </form>
-      <ul id="hsm-list" class="key-list"><li class="placeholder">Loading...</li></ul>
-    </section>
-
-    <section id="subscription" class="view">
-      <h1>Subscription</h1>
-      <article class="card">
-        <h2>Plan</h2>
-        <p id="subscription-plan" class="placeholder">Loading...</p>
-      </article>
-      <article class="card">
-        <h2>Quota</h2>
-        <p id="subscription-quota" class="placeholder">Loading...</p>
-      </article>
-      <article class="card">
-        <h2>Renew or upgrade <span class="help-tip" tabindex="0" data-tip="Queues a billing request for admin review. It does not charge automatically in this local control-plane build.">?</span></h2>
-        <form id="subscription-form">
-          <label>Action
-            <select name="action">
-              <option value="renew">Renew current tier</option>
-              <option value="upgrade">Upgrade tier</option>
-              <option value="downgrade">Downgrade tier</option>
-            </select>
-          </label>
-          <label>Target tier
-            <select name="targetTier">
-              <option value="PRO">PRO</option>
-              <option value="SOVEREIGN">SOVEREIGN</option>
-              <option value="STANDARD">STANDARD</option>
-            </select>
-          </label>
-          <button type="submit" class="primary">Queue billing request</button>
-        </form>
-        <p id="subscription-request-status" class="hint">No billing request queued in this session.</p>
-      </article>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <p>SYLION Operator Portal - scoped local contract (per <a href="/operator-api/about" target="_blank" rel="noopener">ADR-terminal-modes-001</a>) - <strong>production execution disabled</strong></p>
-    <p>For admin operations: <a href="/admin">/admin</a></p>
-  </footer>
-
-  <script src="/operator/app.js?v=step3-115"></script>
-</body>
+    <script src="/operator/app.js?v=step3-115"></script>
+  </body>
 </html>

@@ -36,9 +36,27 @@ const PROVIDER_METADATA = Object.freeze({
     defaultRegions: ["fsn1", "nbg1", "hel1"],
     defaultCountries: ["DE", "FI"],
     regionCatalog: [
-      { region: "fsn1", country: "DE", city: "Falkenstein", firecrackerEligible: true, androidWorkloadEligible: true },
-      { region: "nbg1", country: "DE", city: "Nuremberg", firecrackerEligible: true, androidWorkloadEligible: true },
-      { region: "hel1", country: "FI", city: "Helsinki", firecrackerEligible: true, androidWorkloadEligible: true }
+      {
+        region: "fsn1",
+        country: "DE",
+        city: "Falkenstein",
+        firecrackerEligible: true,
+        androidWorkloadEligible: true
+      },
+      {
+        region: "nbg1",
+        country: "DE",
+        city: "Nuremberg",
+        firecrackerEligible: true,
+        androidWorkloadEligible: true
+      },
+      {
+        region: "hel1",
+        country: "FI",
+        city: "Helsinki",
+        firecrackerEligible: true,
+        androidWorkloadEligible: true
+      }
     ],
     docsUrl: "https://robot.hetzner.com/doc/webservice/en.html",
     runtimeCapabilities: {
@@ -88,7 +106,8 @@ const PROVIDER_METADATA = Object.freeze({
       { region: "eu-west-1", country: "IE", city: "Dublin" },
       { region: "us-east-1", country: "US", city: "Northern Virginia" }
     ],
-    docsUrl: "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/amazon-ec2-nested-virtualization.html",
+    docsUrl:
+      "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/amazon-ec2-nested-virtualization.html",
     runtimeCapabilities: {
       containers: true,
       nestedKvm: "c8i_m8i_r8i_or_bare_metal",
@@ -111,7 +130,8 @@ const PROVIDER_METADATA = Object.freeze({
       { region: "polandcentral", country: "PL", city: "Warsaw" },
       { region: "germanywestcentral", country: "DE", city: "Frankfurt" }
     ],
-    docsUrl: "https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-vm-overview",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-vm-overview",
     runtimeCapabilities: {
       containers: true,
       nestedKvm: "requires_supported_nested_virtualization_size",
@@ -134,7 +154,8 @@ const PROVIDER_METADATA = Object.freeze({
       { region: "europe-west3", country: "DE", city: "Frankfurt" },
       { region: "us-central1", country: "US", city: "Iowa" }
     ],
-    docsUrl: "https://cloud.google.com/confidential-computing/confidential-vm/docs/confidential-vm-overview",
+    docsUrl:
+      "https://cloud.google.com/confidential-computing/confidential-vm/docs/confidential-vm-overview",
     runtimeCapabilities: {
       containers: true,
       nestedKvm: "nested_virtualization_supported_on_selected_machines",
@@ -157,7 +178,8 @@ const PROVIDER_METADATA = Object.freeze({
       { region: "uk-london-1", country: "GB", city: "London" },
       { region: "us-ashburn-1", country: "US", city: "Ashburn" }
     ],
-    docsUrl: "https://docs.oracle.com/en-us/iaas/Content/Compute/References/confidential_compute.htm",
+    docsUrl:
+      "https://docs.oracle.com/en-us/iaas/Content/Compute/References/confidential_compute.htm",
     runtimeCapabilities: {
       containers: true,
       nestedKvm: "bare_metal_preferred",
@@ -195,10 +217,20 @@ const PROVIDER_METADATA = Object.freeze({
 });
 
 const BILLING_HEALTH = new Set(["unknown", "healthy", "warning", "blocked"]);
-const RUNTIME_CAPABILITIES = new Set(["containers", "nestedKvm", "bareMetalKvm", "firecracker", "androidWorkloads", "intelTdx", "amdSevSnp"]);
+const RUNTIME_CAPABILITIES = new Set([
+  "containers",
+  "nestedKvm",
+  "bareMetalKvm",
+  "firecracker",
+  "androidWorkloads",
+  "intelTdx",
+  "amdSevSnp"
+]);
 
 function sanitizeProviderType(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function normalizeRegions(regions, defaults) {
@@ -222,19 +254,25 @@ function normalizeCountries(countries, defaults = []) {
   if (!Array.isArray(source) || source.length === 0) {
     throw validationError("Provider countries must be a non-empty array");
   }
-  return [...new Set(source.map((country) => String(country).trim().toUpperCase()).filter(Boolean))];
+  return [
+    ...new Set(source.map((country) => String(country).trim().toUpperCase()).filter(Boolean))
+  ];
 }
 
 function normalizeRegionCatalog(regionCatalog, regions, countries, defaults = []) {
   const source = Array.isArray(regionCatalog) && regionCatalog.length ? regionCatalog : defaults;
-  const normalized = source.map((entry) => ({
-    region: String(entry.region || "").trim(),
-    country: String(entry.country || "").trim().toUpperCase(),
-    city: entry.city ? String(entry.city).trim() : null,
-    firecrackerEligible: entry.firecrackerEligible ?? null,
-    confidentialComputeEligible: entry.confidentialComputeEligible ?? null,
-    androidWorkloadEligible: entry.androidWorkloadEligible ?? null
-  })).filter((entry) => entry.region && entry.country);
+  const normalized = source
+    .map((entry) => ({
+      region: String(entry.region || "").trim(),
+      country: String(entry.country || "")
+        .trim()
+        .toUpperCase(),
+      city: entry.city ? String(entry.city).trim() : null,
+      firecrackerEligible: entry.firecrackerEligible ?? null,
+      confidentialComputeEligible: entry.confidentialComputeEligible ?? null,
+      androidWorkloadEligible: entry.androidWorkloadEligible ?? null
+    }))
+    .filter((entry) => entry.region && entry.country);
   if (normalized.length) return normalized;
   return regions.map((region, index) => ({
     region,
@@ -318,29 +356,32 @@ export class ProviderRegistryService {
     correlationId
   }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "provider.create", { resourceType: RESOURCE_TYPES.PROVIDER, correlationId: corr });
+    this.rbac.assert(actor, "provider.create", {
+      resourceType: RESOURCE_TYPES.PROVIDER,
+      correlationId: corr
+    });
 
     const base = this.#resolveMetadata(providerType, displayName, metadata);
     const providerId = newId("provider");
     const secret = externalSecretReference
       ? this.secrets.createExternalReference({
-        actor,
-        name: `${base.providerKey}:${providerId}:api`,
-        purpose: "provider_api",
-        externalReference: externalSecretReference,
-        backendId: secretBackendId,
-        providerId,
-        evidenceRefs: [`provider://${base.providerKey}/external-secret-reference`],
-        correlationId: corr
-      })
+          actor,
+          name: `${base.providerKey}:${providerId}:api`,
+          purpose: "provider_api",
+          externalReference: externalSecretReference,
+          backendId: secretBackendId,
+          providerId,
+          evidenceRefs: [`provider://${base.providerKey}/external-secret-reference`],
+          correlationId: corr
+        })
       : this.secrets.create({
-        actor,
-        name: `${base.providerKey}:${providerId}:api`,
-        purpose: "provider_api",
-        plaintext: apiSecret,
-        providerId,
-        correlationId: corr
-      });
+          actor,
+          name: `${base.providerKey}:${providerId}:api`,
+          purpose: "provider_api",
+          plaintext: apiSecret,
+          providerId,
+          correlationId: corr
+        });
     const provider = {
       id: providerId,
       providerKey: base.providerKey,
@@ -359,11 +400,23 @@ export class ProviderRegistryService {
       countries: normalizeCountries(countries, base.defaultCountries),
       quota: normalizeQuota(quota),
       billingHealth: normalizeBillingHealth(billingHealth),
-      runtimeCapabilities: normalizeRuntimeCapabilities(runtimeCapabilities, base.runtimeCapabilities),
-      connection: this.#testConnection({ providerKey: base.providerKey, testConnection, correlationId: corr }),
+      runtimeCapabilities: normalizeRuntimeCapabilities(
+        runtimeCapabilities,
+        base.runtimeCapabilities
+      ),
+      connection: this.#testConnection({
+        providerKey: base.providerKey,
+        testConnection,
+        correlationId: corr
+      }),
       createdAt: new Date().toISOString()
     };
-    provider.regionCatalog = normalizeRegionCatalog(regionCatalog, provider.regions, provider.countries, base.regionCatalog);
+    provider.regionCatalog = normalizeRegionCatalog(
+      regionCatalog,
+      provider.regions,
+      provider.countries,
+      base.regionCatalog
+    );
 
     this.providers.set(provider.id, provider);
     this.audit.record({
@@ -379,13 +432,19 @@ export class ProviderRegistryService {
 
   list({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "provider.read", { resourceType: RESOURCE_TYPES.PROVIDER, correlationId: corr });
+    this.rbac.assert(actor, "provider.read", {
+      resourceType: RESOURCE_TYPES.PROVIDER,
+      correlationId: corr
+    });
     return [...this.providers.values()];
   }
 
   listEligible({ actor, capability, country = null, tier = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "provider.read", { resourceType: RESOURCE_TYPES.PROVIDER, correlationId: corr });
+    this.rbac.assert(actor, "provider.read", {
+      resourceType: RESOURCE_TYPES.PROVIDER,
+      correlationId: corr
+    });
     const cap = String(capability || "").trim();
     if (!RUNTIME_CAPABILITIES.has(cap)) {
       throw validationError("Unsupported provider runtime capability filter", {
@@ -401,14 +460,22 @@ export class ProviderRegistryService {
         const countries = provider.countries || ["UNSPECIFIED"];
         return !wantedCountry || countries.includes(wantedCountry);
       })
-      .filter((provider) => !wantedTier || provider.runtimeCapabilities?.recommendedTier === wantedTier || wantedTier === "SOVEREIGN")
+      .filter(
+        (provider) =>
+          !wantedTier ||
+          provider.runtimeCapabilities?.recommendedTier === wantedTier ||
+          wantedTier === "SOVEREIGN"
+      )
       .map((provider) => ({
         id: provider.id,
         providerKey: provider.providerKey,
         displayName: provider.displayName,
         countries: provider.countries || ["UNSPECIFIED"],
-        regions: (provider.regionCatalog || provider.regions?.map((region) => ({ region, country: "UNSPECIFIED", city: null })) || [])
-          .filter((region) => !wantedCountry || region.country === wantedCountry),
+        regions: (
+          provider.regionCatalog ||
+          provider.regions?.map((region) => ({ region, country: "UNSPECIFIED", city: null })) ||
+          []
+        ).filter((region) => !wantedCountry || region.country === wantedCountry),
         runtimeCapabilities: provider.runtimeCapabilities,
         productionExecutionAllowed: false
       }));
@@ -418,11 +485,13 @@ export class ProviderRegistryService {
     const allowedRuntimeClasses = Array.isArray(providerPolicy.allowedRuntimeClasses)
       ? providerPolicy.allowedRuntimeClasses
       : [];
-    const needsFirecracker = providerPolicy.firecrackerRequired === true
-      || allowedRuntimeClasses.includes("firecracker")
-      || allowedRuntimeClasses.includes("confidential");
-    const needsConfidential = providerPolicy.confidentialComputeRequired === true
-      || allowedRuntimeClasses.includes("confidential");
+    const needsFirecracker =
+      providerPolicy.firecrackerRequired === true ||
+      allowedRuntimeClasses.includes("firecracker") ||
+      allowedRuntimeClasses.includes("confidential");
+    const needsConfidential =
+      providerPolicy.confidentialComputeRequired === true ||
+      allowedRuntimeClasses.includes("confidential");
     const needsContainers = !needsFirecracker && !needsConfidential;
     const providerEligible = (provider) => {
       const caps = provider.runtimeCapabilities || {};
@@ -439,17 +508,25 @@ export class ProviderRegistryService {
     const providers = [...this.providers.values()]
       .filter(providerEligible)
       .map((provider) => {
-        const regions = (provider.regionCatalog || provider.regions?.map((region) => ({ region, country: "UNSPECIFIED", city: null })) || [])
+        const regions = (
+          provider.regionCatalog ||
+          provider.regions?.map((region) => ({ region, country: "UNSPECIFIED", city: null })) ||
+          []
+        )
           .filter(regionEligible)
           .map((region) => ({
             region: region.region,
             country: region.country,
             city: region.city || null,
-            firecrackerEligible: region.firecrackerEligible ?? provider.runtimeCapabilities?.firecracker !== false,
-            confidentialComputeEligible: region.confidentialComputeEligible ?? (
-              provider.runtimeCapabilities?.intelTdx !== false || provider.runtimeCapabilities?.amdSevSnp !== false
-            ),
-            androidWorkloadEligible: region.androidWorkloadEligible ?? provider.runtimeCapabilities?.androidWorkloads !== false
+            firecrackerEligible:
+              region.firecrackerEligible ?? provider.runtimeCapabilities?.firecracker !== false,
+            confidentialComputeEligible:
+              region.confidentialComputeEligible ??
+              (provider.runtimeCapabilities?.intelTdx !== false ||
+                provider.runtimeCapabilities?.amdSevSnp !== false),
+            androidWorkloadEligible:
+              region.androidWorkloadEligible ??
+              provider.runtimeCapabilities?.androidWorkloads !== false
           }));
         return {
           id: provider.id,
@@ -458,22 +535,33 @@ export class ProviderRegistryService {
           countries: [...new Set(regions.map((region) => region.country))],
           regions,
           runtimeCapabilities: provider.runtimeCapabilities,
-          requiresAttestationReview: needsConfidential
-            && provider.runtimeCapabilities?.intelTdx !== true
-            && provider.runtimeCapabilities?.amdSevSnp !== true,
+          requiresAttestationReview:
+            needsConfidential &&
+            provider.runtimeCapabilities?.intelTdx !== true &&
+            provider.runtimeCapabilities?.amdSevSnp !== true,
           productionExecutionAllowed: false
         };
       })
       .filter((provider) => provider.regions.length > 0);
     return {
       tier,
-      requiredRuntime: needsConfidential ? "confidential" : needsFirecracker ? "firecracker" : "containers",
+      requiredRuntime: needsConfidential
+        ? "confidential"
+        : needsFirecracker
+          ? "firecracker"
+          : "containers",
       providers,
       countries: [...new Set(providers.flatMap((provider) => provider.countries))].sort(),
-      regions: [...new Map(providers.flatMap((provider) => provider.regions.map((region) => [
-        `${provider.providerKey}:${region.region}`,
-        { ...region, providerKey: provider.providerKey, providerName: provider.displayName }
-      ]))).values()],
+      regions: [
+        ...new Map(
+          providers.flatMap((provider) =>
+            provider.regions.map((region) => [
+              `${provider.providerKey}:${region.region}`,
+              { ...region, providerKey: provider.providerKey, providerName: provider.displayName }
+            ])
+          )
+        ).values()
+      ],
       providerCatalogConfigured: this.providers.size > 0,
       productionExecutionAllowed: false
     };
@@ -509,7 +597,11 @@ export class ProviderRegistryService {
         version: secret.version,
         rotatedAt: secret.rotatedAt
       },
-      connection: this.#testConnection({ providerKey: provider.providerKey, testConnection, correlationId: corr }),
+      connection: this.#testConnection({
+        providerKey: provider.providerKey,
+        testConnection,
+        correlationId: corr
+      }),
       updatedAt: new Date().toISOString()
     };
 
@@ -530,7 +622,14 @@ export class ProviderRegistryService {
     return rotated;
   }
 
-  rotateExternalSecretReference({ actor, providerId, externalSecretReference, evidenceRefs = [], testConnection = { mode: "external_reference" }, correlationId }) {
+  rotateExternalSecretReference({
+    actor,
+    providerId,
+    externalSecretReference,
+    evidenceRefs = [],
+    testConnection = { mode: "external_reference" },
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     const provider = this.providers.get(providerId);
     if (!provider) {
@@ -560,7 +659,11 @@ export class ProviderRegistryService {
         custody: secret.custody,
         externalReference: secret.externalReference
       },
-      connection: this.#testConnection({ providerKey: provider.providerKey, testConnection, correlationId: corr }),
+      connection: this.#testConnection({
+        providerKey: provider.providerKey,
+        testConnection,
+        correlationId: corr
+      }),
       updatedAt: new Date().toISOString()
     };
     this.providers.set(providerId, rotated);
@@ -619,7 +722,9 @@ export class ProviderRegistryService {
 
   #testConnection({ providerKey, testConnection, correlationId }) {
     if (this.connectionTester) {
-      return normalizeConnectionResult(this.connectionTester({ providerKey, testConnection, correlationId }));
+      return normalizeConnectionResult(
+        this.connectionTester({ providerKey, testConnection, correlationId })
+      );
     }
     if (testConnection?.mode === "mock") {
       return normalizeConnectionResult({

@@ -3,7 +3,12 @@ const path = require("path");
 const { chromium } = require("playwright");
 
 const repo = path.resolve(__dirname, "..");
-const input = path.join(repo, "docs", "sylion-phantom-technical-book", "KSIEGA_4_0_SYLION_PHANTOM.md");
+const input = path.join(
+  repo,
+  "docs",
+  "sylion-phantom-technical-book",
+  "KSIEGA_4_0_SYLION_PHANTOM.md"
+);
 const outDir = path.dirname(input);
 const htmlPath = path.join(outDir, "KSIEGA_4_0_SYLION_PHANTOM.html");
 const pdfPath = path.join(outDir, "KSIEGA_4_0_SYLION_PHANTOM.pdf");
@@ -29,14 +34,22 @@ function renderTable(block) {
     .split(/\r?\n/)
     .filter(Boolean)
     .map((line) => line.trim());
-  const header = rows[0].split("|").slice(1, -1).map((c) => inlineFormat(c.trim()));
-  const bodyRows = rows.slice(2).map((row) => row.split("|").slice(1, -1).map((c) => inlineFormat(c.trim())));
+  const header = rows[0]
+    .split("|")
+    .slice(1, -1)
+    .map((c) => inlineFormat(c.trim()));
+  const bodyRows = rows.slice(2).map((row) =>
+    row
+      .split("|")
+      .slice(1, -1)
+      .map((c) => inlineFormat(c.trim()))
+  );
   return [
     "<table>",
     "<thead><tr>" + header.map((h) => `<th>${h}</th>`).join("") + "</tr></thead>",
     "<tbody>",
     ...bodyRows.map((row) => "<tr>" + row.map((c) => `<td>${c}</td>`).join("") + "</tr>"),
-    "</tbody></table>",
+    "</tbody></table>"
   ].join("\n");
 }
 
@@ -47,7 +60,9 @@ function renderMermaid(block) {
   const nodeLabels = new Map();
 
   for (const line of lines) {
-    const match = line.match(/^\s*([A-Za-z0-9_]+)(?:\["([^"]+)"\])?\s*-->\s*([A-Za-z0-9_]+)(?:\["([^"]+)"\])?/);
+    const match = line.match(
+      /^\s*([A-Za-z0-9_]+)(?:\["([^"]+)"\])?\s*-->\s*([A-Za-z0-9_]+)(?:\["([^"]+)"\])?/
+    );
     if (!match) continue;
     const [, from, fromLabel, to, toLabel] = match;
     if (!nodeLabels.has(from)) nodeLabels.set(from, fromLabel || from);
@@ -56,7 +71,9 @@ function renderMermaid(block) {
   }
 
   for (const [id, label] of nodeLabels.entries()) {
-    nodes.push(`<div class="diagram-node" data-node="${escapeHtml(id)}">${inlineFormat(label)}</div>`);
+    nodes.push(
+      `<div class="diagram-node" data-node="${escapeHtml(id)}">${inlineFormat(label)}</div>`
+    );
   }
 
   if (nodes.length === 0) {
@@ -265,7 +282,10 @@ fs.writeFileSync(htmlPath, html, "utf8");
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 1800 }, deviceScaleFactor: 1 });
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 1800 },
+    deviceScaleFactor: 1
+  });
   await page.goto(`file://${htmlPath.replace(/\\/g, "/")}`, { waitUntil: "load" });
   await page.screenshot({ path: screenshotPath, fullPage: false });
   await page.pdf({
@@ -275,7 +295,7 @@ fs.writeFileSync(htmlPath, html, "utf8");
     margin: { top: "14mm", right: "14mm", bottom: "16mm", left: "14mm" },
     displayHeaderFooter: true,
     headerTemplate: `<div style="font-size:7px;color:#667085;width:100%;padding:0 14mm;">Księga 4.0 - SYLION + PHANTOM baseline techniczny</div>`,
-    footerTemplate: `<div style="font-size:7px;color:#667085;width:100%;padding:0 14mm;display:flex;justify-content:space-between;"><span>2026-06-01</span><span>strona <span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
+    footerTemplate: `<div style="font-size:7px;color:#667085;width:100%;padding:0 14mm;display:flex;justify-content:space-between;"><span>2026-06-01</span><span>strona <span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`
   });
   await browser.close();
   const size = fs.statSync(pdfPath).size;

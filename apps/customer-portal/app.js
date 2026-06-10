@@ -29,13 +29,17 @@ const PROVIDER_META = {
 const $ = (selector) => document.querySelector(selector);
 
 function escapeHtml(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[char]);
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]
+  );
 }
 
 function show(value) {
@@ -69,7 +73,10 @@ function tenancyLabel(value) {
 async function api(path, { method = "GET", body } = {}) {
   const response = await fetch(path, {
     method,
-    headers: { "content-type": "application/json", "x-correlation-id": `corr_portal_${correlationId()}` },
+    headers: {
+      "content-type": "application/json",
+      "x-correlation-id": `corr_portal_${correlationId()}`
+    },
     body: body ? JSON.stringify(body) : undefined
   });
   const payload = await response.json();
@@ -135,8 +142,11 @@ function renderSelectedTier() {
   $("#selected-tier-annual").textContent = formatMoney(tier.annualCommitmentEur);
   $("#selected-tier-envs").textContent = String(tier.appEnvironments);
   $("#selected-tier-tenancy").textContent = tenancyLabel(tier.workloadTenancy);
-  $("#selected-tier-review").textContent = tier.reviewRequired ? "Manual review required" : "Self-service token";
-  $("#checkout-tier-summary").textContent = `${tier.name}: ${formatMoney(tier.annualCommitmentEur)} annual B2B commitment, ${tier.appEnvironments} app environments, ${tier.reviewRequired ? "manual review before token claim" : "self-service claim after paid webhook"}.`;
+  $("#selected-tier-review").textContent = tier.reviewRequired
+    ? "Manual review required"
+    : "Self-service token";
+  $("#checkout-tier-summary").textContent =
+    `${tier.name}: ${formatMoney(tier.annualCommitmentEur)} annual B2B commitment, ${tier.appEnvironments} app environments, ${tier.reviewRequired ? "manual review before token claim" : "self-service claim after paid webhook"}.`;
   $("#selected-tier-included").innerHTML = (tier.included || [])
     .map((item) => `<li>${escapeHtml(item)}</li>`)
     .join("");
@@ -187,18 +197,27 @@ function renderProviders() {
 }
 
 function renderProviderStatus() {
-  $("#stripe-status").textContent = state.providers.stripe?.configured ? "configured" : "needs keys";
-  $("#coingate-status").textContent = state.providers.coingate?.configured ? "configured" : "needs keys";
-  $("#mollie-status").textContent = state.providers.mollie?.configured ? "configured" : "needs keys";
+  $("#stripe-status").textContent = state.providers.stripe?.configured
+    ? "configured"
+    : "needs keys";
+  $("#coingate-status").textContent = state.providers.coingate?.configured
+    ? "configured"
+    : "needs keys";
+  $("#mollie-status").textContent = state.providers.mollie?.configured
+    ? "configured"
+    : "needs keys";
 }
 
 function renderLegalNotice() {
   const notice = state.legalNotice || {};
   $("#legal-copy").textContent = [
     notice.customerSegment || "Business customers only",
-    notice.refundPolicy || "Dedicated provisioning costs are non-refundable after provisioning except where mandatory law requires otherwise.",
+    notice.refundPolicy ||
+      "Dedicated provisioning costs are non-refundable after provisioning except where mandatory law requires otherwise.",
     notice.securityClaim || "The portal sells scoped provisioning tokens and package handoff."
-  ].map((item) => String(item).replace(/\.$/, "")).join(". ");
+  ]
+    .map((item) => String(item).replace(/\.$/, ""))
+    .join(". ");
 }
 
 function collectForm(form) {
@@ -232,9 +251,15 @@ function renderActivationResult(payload) {
     <button type="button" data-download="puliAx">Download Puli AX package</button>
     <button type="button" data-download="laptop">Download laptop package</button>
   `;
-  target.querySelector('[data-download="pixel"]').addEventListener("click", () => downloadJson(packages.pixel.fileName, packages.pixel));
-  target.querySelector('[data-download="puliAx"]').addEventListener("click", () => downloadJson(packages.puliAx.fileName, packages.puliAx));
-  target.querySelector('[data-download="laptop"]').addEventListener("click", () => downloadJson(packages.laptop.fileName, packages.laptop));
+  target
+    .querySelector('[data-download="pixel"]')
+    .addEventListener("click", () => downloadJson(packages.pixel.fileName, packages.pixel));
+  target
+    .querySelector('[data-download="puliAx"]')
+    .addEventListener("click", () => downloadJson(packages.puliAx.fileName, packages.puliAx));
+  target
+    .querySelector('[data-download="laptop"]')
+    .addEventListener("click", () => downloadJson(packages.laptop.fileName, packages.laptop));
 }
 
 function autofillFromUrl() {
@@ -307,10 +332,13 @@ $("#token-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = collectForm(event.currentTarget);
   try {
-    const payload = await api(`/portal-api/checkouts/${encodeURIComponent(data.checkoutId)}/claim-token`, {
-      method: "POST",
-      body: { vaultPublicId: data.vaultPublicId }
-    });
+    const payload = await api(
+      `/portal-api/checkouts/${encodeURIComponent(data.checkoutId)}/claim-token`,
+      {
+        method: "POST",
+        body: { vaultPublicId: data.vaultPublicId }
+      }
+    );
     $("#activation-token").value = payload.redemptionToken || "";
     show(payload);
   } catch (error) {

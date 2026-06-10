@@ -10,10 +10,13 @@ async function startServer() {
   const { port } = server.address();
   return {
     baseUrl: `http://127.0.0.1:${port}`,
-    close: () => new Promise((resolve) => server.close(() => {
-      app.close();
-      resolve();
-    }))
+    close: () =>
+      new Promise((resolve) =>
+        server.close(() => {
+          app.close();
+          resolve();
+        })
+      )
   };
 }
 
@@ -34,7 +37,10 @@ test("admin can rename, retier and delete operators with audit-retained confirma
   const server = await startServer();
   try {
     const client = await loginClient(server.baseUrl);
-    const tenant = await client.createTenant({ name: "Operator Management Tenant", tier: TIERS.PRO });
+    const tenant = await client.createTenant({
+      name: "Operator Management Tenant",
+      tier: TIERS.PRO
+    });
     const created = await client.createOperator({
       tenantId: tenant.tenant.id,
       displayName: "Original Operator",
@@ -53,10 +59,11 @@ test("admin can rename, retier and delete operators with audit-retained confirma
     assert.equal(updated.operator.baseline.workloadTenancy, "dedicated_operator_only");
 
     await assert.rejects(
-      () => client.deleteOperator(created.operator.id, {
-        confirmation: "DELETE_OPERATOR:wrong",
-        reason: "negative confirmation test"
-      }),
+      () =>
+        client.deleteOperator(created.operator.id, {
+          confirmation: "DELETE_OPERATOR:wrong",
+          reason: "negative confirmation test"
+        }),
       /confirmation did not match/
     );
 
@@ -68,7 +75,10 @@ test("admin can rename, retier and delete operators with audit-retained confirma
     assert.equal(deleted.deletion.auditRetention, "preserved");
 
     const operators = await client.request("/operators");
-    assert.equal(operators.operators.some((operator) => operator.id === created.operator.id), false);
+    assert.equal(
+      operators.operators.some((operator) => operator.id === created.operator.id),
+      false
+    );
 
     const audit = await client.listAuditEvents();
     assert.ok(audit.events.some((event) => event.action === "operator.updated"));
@@ -82,7 +92,10 @@ test("admin operator commercial summary exposes segmentation, cost and subscript
   const server = await startServer();
   try {
     const client = await loginClient(server.baseUrl);
-    const tenant = await client.createTenant({ name: "Commercial Segmentation Tenant", tier: TIERS.PRO });
+    const tenant = await client.createTenant({
+      name: "Commercial Segmentation Tenant",
+      tier: TIERS.PRO
+    });
     const created = await client.createOperator({
       tenantId: tenant.tenant.id,
       displayName: "Commercial Operator",

@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_step3_3" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_step3_3" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -43,10 +47,16 @@ test("Step 3.3 locks repeated failed admin authentication and recovery never aut
       email: "admin@sylion.local",
       password: "wrong-password"
     };
-    const first = await request(baseUrl, "/auth/webauthn/enrollment/options", { method: "POST", body });
+    const first = await request(baseUrl, "/auth/webauthn/enrollment/options", {
+      method: "POST",
+      body
+    });
     assert.equal(first.status, 401);
 
-    const second = await request(baseUrl, "/auth/webauthn/enrollment/options", { method: "POST", body });
+    const second = await request(baseUrl, "/auth/webauthn/enrollment/options", {
+      method: "POST",
+      body
+    });
     assert.equal(second.status, 401);
 
     const locked = await request(baseUrl, "/auth/webauthn/enrollment/options", {
@@ -105,14 +115,18 @@ test("Step 3.3 recovery workflow is review-only and denied to support readonly",
     assert.equal(list.status, 200);
     assert.equal(list.payload.requests.length, 1);
 
-    const updated = await request(baseUrl, `/auth/recovery/requests/${recovery.payload.request.id}/status`, {
-      method: "POST",
-      token: adminToken,
-      body: {
-        status: "approved_placeholder",
-        note: "Human gate recorded; no unlock side effect."
+    const updated = await request(
+      baseUrl,
+      `/auth/recovery/requests/${recovery.payload.request.id}/status`,
+      {
+        method: "POST",
+        token: adminToken,
+        body: {
+          status: "approved_placeholder",
+          note: "Human gate recorded; no unlock side effect."
+        }
       }
-    });
+    );
     assert.equal(updated.status, 200);
     assert.equal(updated.payload.request.status, "approved_placeholder");
     assert.equal(updated.payload.request.autoUnlock, false);
@@ -142,8 +156,14 @@ test("Step 3.3 break-glass is a HUMAN GATE placeholder with PHANTOM separation",
     assert.equal(requestResult.payload.request.humanGateRequired, true);
     assert.equal(requestResult.payload.request.approvalRequired, true);
     assert.equal(requestResult.payload.request.sideEffectExecuted, false);
-    assert.equal(requestResult.payload.request.baselineBoundary, "SYLION_BASELINE_PLACEHOLDER_ONLY");
-    assert.equal(requestResult.payload.request.phantomBoundary, "PHANTOM_V3_SEPARATE_TRACK_NOT_IMPLEMENTED");
+    assert.equal(
+      requestResult.payload.request.baselineBoundary,
+      "SYLION_BASELINE_PLACEHOLDER_ONLY"
+    );
+    assert.equal(
+      requestResult.payload.request.phantomBoundary,
+      "PHANTOM_V3_SEPARATE_TRACK_NOT_IMPLEMENTED"
+    );
 
     const list = await request(baseUrl, "/auth/break-glass/requests", { token });
     assert.equal(list.status, 200);
@@ -151,7 +171,9 @@ test("Step 3.3 break-glass is a HUMAN GATE placeholder with PHANTOM separation",
 
     const audit = await request(baseUrl, "/audit/events", { token });
     assert.ok(audit.payload.events.some((event) => event.action === "auth.break_glass_requested"));
-    assert.ok(audit.payload.events.some((event) => event.action === "auth.break_glass_human_gate_required"));
+    assert.ok(
+      audit.payload.events.some((event) => event.action === "auth.break_glass_human_gate_required")
+    );
   } finally {
     await close();
   }

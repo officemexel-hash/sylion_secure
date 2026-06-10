@@ -2,7 +2,13 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-86-app-runner-chain");
+const outputDir = join(
+  process.cwd(),
+  "docs",
+  "admin-panel-v2",
+  "test-artifacts",
+  "step3-86-app-runner-chain"
+);
 const continueOnFailure = process.env.SYLION_CHAIN_STOP_ON_FIRST_FAILURE !== "true";
 
 const APPS = Object.freeze([
@@ -10,31 +16,61 @@ const APPS = Object.freeze([
     appKey: "duckduckgo_browser",
     label: "DuckDuckGo",
     command: ["node", "scripts/workload-duckduckgo-human-runner.mjs"],
-    summaryPath: ["docs", "admin-panel-v2", "test-artifacts", "step3-86-duckduckgo-human-runner", "summary.json"]
+    summaryPath: [
+      "docs",
+      "admin-panel-v2",
+      "test-artifacts",
+      "step3-86-duckduckgo-human-runner",
+      "summary.json"
+    ]
   },
   {
     appKey: "libreoffice",
     label: "LibreOffice",
     command: ["node", "scripts/workload-libreoffice-human-runner.mjs"],
-    summaryPath: ["docs", "admin-panel-v2", "test-artifacts", "step3-86-libreoffice-human-runner", "summary.json"]
+    summaryPath: [
+      "docs",
+      "admin-panel-v2",
+      "test-artifacts",
+      "step3-86-libreoffice-human-runner",
+      "summary.json"
+    ]
   },
   ...["signal", "whatsapp", "telegram", "threema", "zangi", "simplex"].map((appKey) => ({
     appKey,
     label: appKey === "simplex" ? "SimpleX Chat" : appKey[0].toUpperCase() + appKey.slice(1),
     command: ["node", "scripts/workload-communicator-human-runner.mjs", `--app=${appKey}`],
-    summaryPath: ["docs", "admin-panel-v2", "test-artifacts", `step3-86-${appKey}-human-runner`, "summary.json"]
+    summaryPath: [
+      "docs",
+      "admin-panel-v2",
+      "test-artifacts",
+      `step3-86-${appKey}-human-runner`,
+      "summary.json"
+    ]
   })),
   {
     appKey: "protonmail",
     label: "Proton Mail",
     command: ["node", "scripts/workload-protonmail-human-runner.mjs"],
-    summaryPath: ["docs", "admin-panel-v2", "test-artifacts", "step3-86-workload-factual-human-runner", "summary.json"]
+    summaryPath: [
+      "docs",
+      "admin-panel-v2",
+      "test-artifacts",
+      "step3-86-workload-factual-human-runner",
+      "summary.json"
+    ]
   },
   {
     appKey: "exodus",
     label: "Exodus",
     command: ["node", "scripts/workload-exodus-human-runner.mjs"],
-    summaryPath: ["docs", "admin-panel-v2", "test-artifacts", "step3-86-exodus-human-runner", "summary.json"]
+    summaryPath: [
+      "docs",
+      "admin-panel-v2",
+      "test-artifacts",
+      "step3-86-exodus-human-runner",
+      "summary.json"
+    ]
   }
 ]);
 
@@ -87,12 +123,20 @@ async function run() {
     });
     const summaryPath = join(process.cwd(), ...app.summaryPath);
     const summary = await readJson(summaryPath);
-    const scaffoldApp = summary?.apps?.find?.((item) => item.appKey === app.appKey) || summary?.apps?.[0] || null;
-    const evaluation = summary?.evaluation || (scaffoldApp ? {
-      strictResult: scaffoldApp.strictResult,
-      result: String(scaffoldApp.strictResult || "UNKNOWN").toLowerCase(),
-      blockers: [`required_checks_pending:${(scaffoldApp.requiredChecks || []).join(",")}`, "strict_pass_requires_real_human_ui_and_metadata_evidence"]
-    } : null);
+    const scaffoldApp =
+      summary?.apps?.find?.((item) => item.appKey === app.appKey) || summary?.apps?.[0] || null;
+    const evaluation =
+      summary?.evaluation ||
+      (scaffoldApp
+        ? {
+            strictResult: scaffoldApp.strictResult,
+            result: String(scaffoldApp.strictResult || "UNKNOWN").toLowerCase(),
+            blockers: [
+              `required_checks_pending:${(scaffoldApp.requiredChecks || []).join(",")}`,
+              "strict_pass_requires_real_human_ui_and_metadata_evidence"
+            ]
+          }
+        : null);
     const result = {
       appKey: app.appKey,
       label: app.label,
@@ -118,13 +162,21 @@ async function run() {
       endedAt: new Date().toISOString()
     };
     results.push(result);
-    await writeFile(join(outputDir, "summary.json"), JSON.stringify({
-      generatedAt: new Date().toISOString(),
-      continueOnFailure,
-      productionExecutionAllowed: false,
-      terminalDataStored: false,
-      apps: results
-    }, null, 2), "utf8");
+    await writeFile(
+      join(outputDir, "summary.json"),
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          continueOnFailure,
+          productionExecutionAllowed: false,
+          terminalDataStored: false,
+          apps: results
+        },
+        null,
+        2
+      ),
+      "utf8"
+    );
     if (execution.code !== 0 && !continueOnFailure) {
       break;
     }

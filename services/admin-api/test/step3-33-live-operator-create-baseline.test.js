@@ -108,9 +108,24 @@ test("Step 3.33 operator creation can create a gated live G1/G2/WORKLOAD baselin
       async createVpsSet(input) {
         providerCalls.push(input);
         return [
-          { role: "G1", providerResourceId: "hcloud-step333-g1", name: "sylion-step333-g1", location: input.region },
-          { role: "G2", providerResourceId: "hcloud-step333-g2", name: "sylion-step333-g2", location: input.region },
-          { role: "WORKLOAD", providerResourceId: "hcloud-step333-workload", name: "sylion-step333-workload", location: input.region }
+          {
+            role: "G1",
+            providerResourceId: "hcloud-step333-g1",
+            name: "sylion-step333-g1",
+            location: input.region
+          },
+          {
+            role: "G2",
+            providerResourceId: "hcloud-step333-g2",
+            name: "sylion-step333-g2",
+            location: input.region
+          },
+          {
+            role: "WORKLOAD",
+            providerResourceId: "hcloud-step333-workload",
+            name: "sylion-step333-workload",
+            location: input.region
+          }
         ];
       }
     })
@@ -148,7 +163,10 @@ test("Step 3.33 operator creation can create a gated live G1/G2/WORKLOAD baselin
     assert.equal(created.liveBaseline.mode, "operator_create_live_baseline");
     assert.equal(created.liveBaseline.request.status, "executed_provider_mutation");
     assert.equal(created.liveBaseline.request.resources.length, 3);
-    assert.deepEqual(created.liveBaseline.request.resources.map((resource) => resource.role), ["G1", "G2", "WORKLOAD"]);
+    assert.deepEqual(
+      created.liveBaseline.request.resources.map((resource) => resource.role),
+      ["G1", "G2", "WORKLOAD"]
+    );
     assert.equal(created.liveBaseline.request.rollbackReady, true);
     assert.equal(providerCalls.length, 1);
     assert.equal(providerCalls[0].operatorId, created.operator.id);
@@ -156,25 +174,47 @@ test("Step 3.33 operator creation can create a gated live G1/G2/WORKLOAD baselin
     assert.match(providerCalls[0].userDataByRole.G2, /server_name signal\.sylion\.internal/);
     assert.match(providerCalls[0].userDataByRole.G2, /X-Sylion-Terminal-Data-Stored/);
     assert.match(providerCalls[0].userDataByRole.G2, /X-Sylion-CDR-Required/);
-    assert.match(providerCalls[0].userDataByRole.G2, /\/etc\/nginx\/snippets\/sylion-kasm-auth-signal\.conf/);
-    assert.match(providerCalls[0].userDataByRole.G2, /\/etc\/nginx\/snippets\/sylion-kasm-auth-duckduckgo\.conf/);
+    assert.match(
+      providerCalls[0].userDataByRole.G2,
+      /\/etc\/nginx\/snippets\/sylion-kasm-auth-signal\.conf/
+    );
+    assert.match(
+      providerCalls[0].userDataByRole.G2,
+      /\/etc\/nginx\/snippets\/sylion-kasm-auth-duckduckgo\.conf/
+    );
     assert.match(providerCalls[0].userDataByRole.G2, /server_name protonmail\.sylion\.internal/);
     assert.match(providerCalls[0].userDataByRole.G2, /server_name simplex\.sylion\.internal/);
     assert.doesNotMatch(providerCalls[0].userDataByRole.G2, /sylion-signal-local|a2FzbV91c2Vy/);
     assert.match(providerCalls[0].userDataByRole.WORKLOAD, /sylion-start-workloads\.sh/);
     assert.match(providerCalls[0].userDataByRole.WORKLOAD, /openssl rand -base64 24/);
     assert.match(providerCalls[0].userDataByRole.WORKLOAD, /10\\\.\(42\|44\)\\\./);
-    assert.doesNotMatch(providerCalls[0].userDataByRole.WORKLOAD, /sylion-signal-local|a2FzbV91c2Vy/);
+    assert.doesNotMatch(
+      providerCalls[0].userDataByRole.WORKLOAD,
+      /sylion-signal-local|a2FzbV91c2Vy/
+    );
     assert.equal(created.liveBaseline.artifacts.g2WorkloadGateway.included, true);
     assert.equal(created.liveBaseline.artifacts.g2WorkloadGateway.bindAddress, "10.42.0.12");
     assert.equal(created.liveBaseline.artifacts.workloadContainers.included, true);
-    assert.equal(created.liveBaseline.artifacts.workloadContainers.signalPasswordMode, "generated_on_workload_root_only");
-    assert.ok(created.liveBaseline.artifacts.g2WorkloadGateway.hostnames.includes("zangi.sylion.internal"));
-    assert.ok(created.liveBaseline.artifacts.g2WorkloadGateway.hostnames.includes("protonmail.sylion.internal"));
-    assert.ok(created.liveBaseline.artifacts.g2WorkloadGateway.hostnames.includes("simplex.sylion.internal"));
+    assert.equal(
+      created.liveBaseline.artifacts.workloadContainers.signalPasswordMode,
+      "generated_on_workload_root_only"
+    );
+    assert.ok(
+      created.liveBaseline.artifacts.g2WorkloadGateway.hostnames.includes("zangi.sylion.internal")
+    );
+    assert.ok(
+      created.liveBaseline.artifacts.g2WorkloadGateway.hostnames.includes(
+        "protonmail.sylion.internal"
+      )
+    );
+    assert.ok(
+      created.liveBaseline.artifacts.g2WorkloadGateway.hostnames.includes("simplex.sylion.internal")
+    );
     assert.equal(JSON.stringify(created).includes("test-token-only-in-env-step3-33"), false);
     assert.equal(JSON.stringify(created).includes("test-secret-never-leak-step3-33-live"), false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "live_cloud.vps_set_created"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "live_cloud.vps_set_created")
+    );
   } finally {
     await close();
   }

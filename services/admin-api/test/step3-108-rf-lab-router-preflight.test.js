@@ -72,7 +72,8 @@ function labRequestBody({ operatorId, routerDeviceId }) {
     routerDeviceId,
     labName: "Shielded RF validation lab",
     jurisdiction: "PL",
-    purpose: "Closed Faraday cage router software readiness characterization with no public-network exposure.",
+    purpose:
+      "Closed Faraday cage router software readiness characterization with no public-network exposure.",
     faradayCageEvidenceRef: "evidence://rf-lab/faraday-cage-calibration-2026-06",
     rfLeakageTestRef: "evidence://rf-lab/leakage-test-pass-2026-06",
     legalOpinionRef: "legal://rf-lab/pl-closed-cage-review-2026-06",
@@ -82,7 +83,8 @@ function labRequestBody({ operatorId, routerDeviceId }) {
 }
 
 function readyPreflight() {
-  return summarizeRfLabRouterPreflight(parseKeyValueLines(`
+  return summarizeRfLabRouterPreflight(
+    parseKeyValueLines(`
 hostname=puli-ax-lab
 kernel=5.15.167
 arch=aarch64
@@ -108,11 +110,13 @@ raw_cellular_identifiers_read=false
 sim_secret_material_read=false
 mutation_commands_executed=false
 product_runtime_executor_available=false
-`), {
-    routerIp: "192.168.8.1",
-    startedAt: "2026-06-01T10:00:00.000Z",
-    completedAt: "2026-06-01T10:00:01.000Z"
-  });
+`),
+    {
+      routerIp: "192.168.8.1",
+      startedAt: "2026-06-01T10:00:00.000Z",
+      completedAt: "2026-06-01T10:00:01.000Z"
+    }
+  );
 }
 
 test("Step 3.108 summarizes router RF lab software readiness from read-only metadata", () => {
@@ -144,13 +148,16 @@ test("Step 3.108 attaches sanitized router preflight metadata to an RF lab test"
       method: "POST",
       body: labRequestBody({ operatorId, routerDeviceId: router.id })
     });
-    const recorded = await client.request(`/rf-lab/imei-change-tests/${created.test.id}/router-preflight`, {
-      method: "POST",
-      body: {
-        preflight: readyPreflight(),
-        evidenceRefs: ["evidence://rf-lab/router-preflight-puli-ax-2026-06"]
+    const recorded = await client.request(
+      `/rf-lab/imei-change-tests/${created.test.id}/router-preflight`,
+      {
+        method: "POST",
+        body: {
+          preflight: readyPreflight(),
+          evidenceRefs: ["evidence://rf-lab/router-preflight-puli-ax-2026-06"]
+        }
       }
-    });
+    );
     const preflight = recorded.test.routerSoftwarePreflights.at(-1);
     assert.equal(preflight.status, "preflight_ready_for_human_gate");
     assert.equal(preflight.routerIpRef, "redacted-router-ip-ref");
@@ -173,33 +180,35 @@ test("Step 3.108 rejects unsafe router preflight evidence", async () => {
       body: labRequestBody({ operatorId, routerDeviceId: router.id })
     });
     await assert.rejects(
-      () => client.request(`/rf-lab/imei-change-tests/${created.test.id}/router-preflight`, {
-        method: "POST",
-        body: {
-          preflight: {
-            ...readyPreflight(),
-            controls: {
-              ...readyPreflight().controls,
-              mutationCommandsExecuted: true
+      () =>
+        client.request(`/rf-lab/imei-change-tests/${created.test.id}/router-preflight`, {
+          method: "POST",
+          body: {
+            preflight: {
+              ...readyPreflight(),
+              controls: {
+                ...readyPreflight().controls,
+                mutationCommandsExecuted: true
+              }
             }
           }
-        }
-      }),
+        }),
       (error) => error.status === 422
     );
     await assert.rejects(
-      () => client.request(`/rf-lab/imei-change-tests/${created.test.id}/router-preflight`, {
-        method: "POST",
-        body: {
-          preflight: {
-            ...readyPreflight(),
-            facts: {
-              ...readyPreflight().facts,
-              hostname: "router-123456789012345"
+      () =>
+        client.request(`/rf-lab/imei-change-tests/${created.test.id}/router-preflight`, {
+          method: "POST",
+          body: {
+            preflight: {
+              ...readyPreflight(),
+              facts: {
+                ...readyPreflight().facts,
+                hostname: "router-123456789012345"
+              }
             }
           }
-        }
-      }),
+        }),
       (error) => error.status === 422
     );
   } finally {

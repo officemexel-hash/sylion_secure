@@ -163,7 +163,11 @@ test("Step 3.85 operator traffic monitor exposes metadata-only path state and ro
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const response = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/traffic-monitoring");
+    const response = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/traffic-monitoring"
+    );
     const monitoring = response.monitoring;
     assert.equal(monitoring.mode, "metadata_only_blue_team_monitoring");
     assert.equal(monitoring.guardrails.metadataOnly, true);
@@ -171,7 +175,14 @@ test("Step 3.85 operator traffic monitor exposes metadata-only path state and ro
     assert.equal(monitoring.guardrails.packetCaptureStored, false);
     assert.equal(monitoring.guardrails.terminalDataStored, false);
     assert.equal(monitoring.segments.length, 5);
-    assert.deepEqual(monitoring.route, ["Pixel/laptop", "Puli AX", "G1", "G2", "WORKLOAD", "microVM/container"]);
+    assert.deepEqual(monitoring.route, [
+      "Pixel/laptop",
+      "Puli AX",
+      "G1",
+      "G2",
+      "WORKLOAD",
+      "microVM/container"
+    ]);
     assert.ok(monitoring.alerts.some((alert) => alert.code === "puli_ax_pending"));
     assert.ok(monitoring.alerts.some((alert) => alert.code === "vpn_evidence_missing"));
     assert.equal(JSON.stringify(monitoring).includes("message_database"), false);
@@ -186,51 +197,70 @@ test("Step 3.85 traffic evidence updates one segment and rejects content or pack
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const recorded = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/traffic-monitoring/evidence", {
-      method: "POST",
-      body: {
-        segmentId: "g1_g2",
-        status: "healthy",
-        encrypted: true,
-        transport: "ipsec_ikev2_mutual_certificate",
-        latencyMs: 12,
-        packetLossPct: 0,
-        bytesIn: 4096,
-        bytesOut: 2048,
-        evidenceRefs: ["probe://g1-g2/ping", "audit://route-policy"]
+    const recorded = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/traffic-monitoring/evidence",
+      {
+        method: "POST",
+        body: {
+          segmentId: "g1_g2",
+          status: "healthy",
+          encrypted: true,
+          transport: "ipsec_ikev2_mutual_certificate",
+          latencyMs: 12,
+          packetLossPct: 0,
+          bytesIn: 4096,
+          bytesOut: 2048,
+          evidenceRefs: ["probe://g1-g2/ping", "audit://route-policy"]
+        }
       }
-    });
+    );
     assert.equal(recorded.evidence.segmentId, "g1_g2");
     assert.equal(recorded.evidence.status, "healthy");
     assert.equal(recorded.evidence.contentInspected, false);
     assert.equal(recorded.evidence.packetCaptureStored, false);
-    const monitoring = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/traffic-monitoring");
+    const monitoring = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/traffic-monitoring"
+    );
     const g1g2 = monitoring.monitoring.segments.find((segment) => segment.id === "g1_g2");
     assert.equal(g1g2.status, "healthy");
     assert.equal(g1g2.latencyMs, 12);
     assert.equal(g1g2.evidenceId, recorded.evidence.id);
 
-    const deniedMessage = await operatorRaw(baseUrl, seeded.session.token, "/operator-api/traffic-monitoring/evidence", {
-      method: "POST",
-      body: {
-        segmentId: "g2_workload",
-        status: "healthy",
-        encrypted: true,
-        messageContent: "forbidden"
+    const deniedMessage = await operatorRaw(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/traffic-monitoring/evidence",
+      {
+        method: "POST",
+        body: {
+          segmentId: "g2_workload",
+          status: "healthy",
+          encrypted: true,
+          messageContent: "forbidden"
+        }
       }
-    });
+    );
     assert.equal(deniedMessage.status, 422);
     assert.equal(deniedMessage.payload.error.code, "validation_error");
 
-    const deniedPcap = await operatorRaw(baseUrl, seeded.session.token, "/operator-api/traffic-monitoring/evidence", {
-      method: "POST",
-      body: {
-        segmentId: "workload_microvm",
-        status: "healthy",
-        encrypted: true,
-        packetCapture: "forbidden"
+    const deniedPcap = await operatorRaw(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/traffic-monitoring/evidence",
+      {
+        method: "POST",
+        body: {
+          segmentId: "workload_microvm",
+          status: "healthy",
+          encrypted: true,
+          packetCapture: "forbidden"
+        }
       }
-    });
+    );
     assert.equal(deniedPcap.status, 422);
     assert.equal(deniedPcap.payload.error.code, "validation_error");
   } finally {
@@ -255,14 +285,22 @@ test("Step 3.85 VPN and streaming evidence lift G1/G2/workload monitoring while 
     const seeded = await seedOperator(client, "PRO");
     await recordLiveVpnEvidence(baseUrl, seeded.session.token);
     await recordStreamingEvidence(baseUrl, seeded.session.token);
-    const response = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/traffic-monitoring");
-    const byId = Object.fromEntries(response.monitoring.segments.map((segment) => [segment.id, segment]));
+    const response = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/traffic-monitoring"
+    );
+    const byId = Object.fromEntries(
+      response.monitoring.segments.map((segment) => [segment.id, segment])
+    );
     assert.equal(byId.router_g1.status, "degraded");
     assert.ok(byId.router_g1.blockers.includes("puli_ax_physical_router_pending"));
     assert.equal(byId.g1_g2.status, "healthy");
     assert.equal(byId.g2_workload.status, "healthy");
     assert.equal(byId.workload_microvm.status, "degraded");
-    assert.ok(byId.workload_microvm.blockers.includes("per_app_firecracker_runtime_factual_test_required"));
+    assert.ok(
+      byId.workload_microvm.blockers.includes("per_app_firecracker_runtime_factual_test_required")
+    );
     assert.equal(response.monitoring.summary.healthy, 2);
     assert.equal(response.monitoring.guardrails.g1G2BypassAllowed, false);
     assert.equal(response.monitoring.guardrails.cdrRequiredForFiles, true);

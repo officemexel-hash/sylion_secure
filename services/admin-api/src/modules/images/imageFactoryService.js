@@ -25,7 +25,9 @@ function assertNoSecrets(value, path = "input") {
   for (const [key, nested] of Object.entries(value)) {
     const currentPath = `${path}.${key}`;
     if (/secret|password|seed|private.*key|plaintext|token/i.test(key)) {
-      throw validationError("Image artifacts must not contain plaintext secrets", { field: currentPath });
+      throw validationError("Image artifacts must not contain plaintext secrets", {
+        field: currentPath
+      });
     }
     assertNoSecrets(nested, currentPath);
   }
@@ -44,11 +46,26 @@ export class ImageFactoryService {
     this.artifacts = new PersistentMap({ store, collection: "image_artifacts" });
   }
 
-  build({ actor, artifactType, operatorId, tenantId = null, sourceRef, policy = {}, certificateRef = null, deviceId = null, appId = null, version = "0.1.0", correlationId }) {
+  build({
+    actor,
+    artifactType,
+    operatorId,
+    tenantId = null,
+    sourceRef,
+    policy = {},
+    certificateRef = null,
+    deviceId = null,
+    appId = null,
+    version = "0.1.0",
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "image.artifact.build", { tenantId, operatorId, correlationId: corr });
     if (!ARTIFACT_TYPES.has(artifactType)) {
-      throw validationError("Unsupported artifact type", { artifactType, supported: [...ARTIFACT_TYPES] });
+      throw validationError("Unsupported artifact type", {
+        artifactType,
+        supported: [...ARTIFACT_TYPES]
+      });
     }
     assertNoSecrets({ policy, sourceRef, certificateRef });
 
@@ -58,10 +75,14 @@ export class ImageFactoryService {
         throw validationError("Device for artifact was not found", { deviceId });
       }
       if (artifactType === "pixel_grapheneos_profile" && device.type !== DEVICE_TYPES.PIXEL) {
-        throw validationError("Pixel profile artifact requires a Pixel/GrapheneOS device", { deviceId });
+        throw validationError("Pixel profile artifact requires a Pixel/GrapheneOS device", {
+          deviceId
+        });
       }
       if (artifactType === "puli_ax_router_config" && device.type !== DEVICE_TYPES.ROUTER) {
-        throw validationError("Router config artifact requires a Puli AX router device", { deviceId });
+        throw validationError("Router config artifact requires a Puli AX router device", {
+          deviceId
+        });
       }
     }
     if (appId && this.appCatalog && !this.appCatalog.get(appId)) {
@@ -107,8 +128,10 @@ export class ImageFactoryService {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "image.artifact.read", { operatorId, correlationId: corr });
     return [...this.artifacts.values()].filter((artifact) => {
-      return (!operatorId || artifact.operatorId === operatorId)
-        && (!artifactType || artifact.artifactType === artifactType);
+      return (
+        (!operatorId || artifact.operatorId === operatorId) &&
+        (!artifactType || artifact.artifactType === artifactType)
+      );
     });
   }
 

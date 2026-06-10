@@ -6,13 +6,22 @@ function arg(name, fallback = null) {
   return found ? found.slice(prefix.length) : fallback;
 }
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
-const sshKey = arg("key", process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey);
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
+const sshKey = arg(
+  "key",
+  process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey
+);
 const host = arg("host", process.env.SYLION_WORKLOAD_SSH_HOST);
 const user = arg("user", process.env.SYLION_WORKLOAD_SSH_USER || "root");
-const workloadHost = arg("target", process.env.SYLION_WORKLOAD_NATIVE_SSH || process.env.SYLION_WORKLOAD_SSH || (host ? `${user}@${host}` : "root@65.109.123.72"));
+const workloadHost = arg(
+  "target",
+  process.env.SYLION_WORKLOAD_NATIVE_SSH ||
+    process.env.SYLION_WORKLOAD_SSH ||
+    (host ? `${user}@${host}` : "root@65.109.123.72")
+);
 const zangiApkRef = arg("zangi-apk-ref", process.env.SYLION_ZANGI_APK_REF);
 const androidImageRef = arg("android-image-ref", process.env.SYLION_ANDROID_WORKLOAD_IMAGE_REF);
 
@@ -21,7 +30,9 @@ function safeRef(value, field) {
   const text = String(value).trim();
   if (!text) return null;
   if (/password|secret|token|api[_-]?key|otp|sms|seed|mnemonic|private[_-]?key/i.test(text)) {
-    throw new Error(`${field} must be an artifact/package/image reference, not secret-bearing material`);
+    throw new Error(
+      `${field} must be an artifact/package/image reference, not secret-bearing material`
+    );
   }
   return text;
 }
@@ -67,22 +78,26 @@ async function run(command, args, options = {}) {
 }
 
 async function ssh(script, options = {}) {
-  return run("ssh", [
-    "-i",
-    sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "ConnectTimeout=10",
-    "-o",
-    "ServerAliveInterval=10",
-    "-o",
-    "ServerAliveCountMax=2",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    workloadHost,
-    "bash -s"
-  ], { ...options, input: script });
+  return run(
+    "ssh",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "ConnectTimeout=10",
+      "-o",
+      "ServerAliveInterval=10",
+      "-o",
+      "ServerAliveCountMax=2",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      workloadHost,
+      "bash -s"
+    ],
+    { ...options, input: script }
+  );
 }
 
 async function probe() {
@@ -100,14 +115,20 @@ printf 'waydroid=%s\\n' "$(command -v waydroid >/dev/null 2>&1 && echo true || e
 printf 'anbox=%s\\n' "$(command -v anbox >/dev/null 2>&1 && echo true || echo false)"
 `;
   const { stdout } = await ssh(script);
-  const facts = Object.fromEntries(stdout.split(/\r?\n/).filter(Boolean).map((line) => {
-    const [key, ...rest] = line.split("=");
-    const value = rest.join("=");
-    if (value === "true") return [key, true];
-    if (value === "false") return [key, false];
-    return [key, value];
-  }));
-  const binderReady = facts.binder_device || facts.binderfs_supported || Number(facts.binderfs_mounts || 0) > 0;
+  const facts = Object.fromEntries(
+    stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => {
+        const [key, ...rest] = line.split("=");
+        const value = rest.join("=");
+        if (value === "true") return [key, true];
+        if (value === "false") return [key, false];
+        return [key, value];
+      })
+  );
+  const binderReady =
+    facts.binder_device || facts.binderfs_supported || Number(facts.binderfs_mounts || 0) > 0;
   const hostBlockers = [
     ...(facts.kvm ? [] : ["workload_host_missing_dev_kvm"]),
     ...(binderReady ? [] : ["workload_host_missing_binder_or_binderfs"])

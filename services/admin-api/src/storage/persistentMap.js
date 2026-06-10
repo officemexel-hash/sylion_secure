@@ -4,9 +4,10 @@ export class PersistentMap extends Map {
     this.store = store;
     this.collection = collection;
     if (store) {
-      const entries = typeof store.listEntries === "function"
-        ? store.listEntries(collection)
-        : store.list(collection).map((item) => ({ key: item.id, value: item }));
+      const entries =
+        typeof store.listEntries === "function"
+          ? store.listEntries(collection)
+          : store.list(collection).map((item) => ({ key: item.id, value: item }));
       for (const item of entries) {
         super.set(item.key, item.value);
       }

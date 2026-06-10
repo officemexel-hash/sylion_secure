@@ -109,7 +109,10 @@ test("Step 3.49 exposes Hetzner Robot as a dedicated KVM workload provider witho
     assert.equal(provider.providerKey, "hetzner_robot");
     assert.equal(provider.runtimeCapabilities.bareMetalKvm, true);
     assert.equal(provider.runtimeCapabilities.firecracker, true);
-    assert.equal(provider.runtimeCapabilities.androidWorkloads, "bare_metal_kvm_binderfs_gate_required");
+    assert.equal(
+      provider.runtimeCapabilities.androidWorkloads,
+      "bare_metal_kvm_binderfs_gate_required"
+    );
     assert.equal(JSON.stringify(provider).includes("robot-reference-only-never-leak"), false);
   } finally {
     await close();
@@ -243,7 +246,9 @@ test("Step 3.49 allows STANDARD and PRO shared pools but blocks SOVEREIGN and PH
       hardwareGateConfirmed: true
     });
     assert.equal(sovereignShared.order.status, "blocked_human_gate");
-    assert.ok(sovereignShared.order.gate.blockers.includes("sovereign_requires_dedicated_operator_workload"));
+    assert.ok(
+      sovereignShared.order.gate.blockers.includes("sovereign_requires_dedicated_operator_workload")
+    );
 
     const phantomShared = await client.createHetznerRobotDedicatedWorkloadOrder({
       providerId: pro.provider.id,
@@ -260,7 +265,9 @@ test("Step 3.49 allows STANDARD and PRO shared pools but blocks SOVEREIGN and PH
       hardwareGateConfirmed: true
     });
     assert.equal(phantomShared.order.status, "blocked_human_gate");
-    assert.ok(phantomShared.order.gate.blockers.includes("phantom_requires_dedicated_operator_workload"));
+    assert.ok(
+      phantomShared.order.gate.blockers.includes("phantom_requires_dedicated_operator_workload")
+    );
   } finally {
     await close();
   }
@@ -358,7 +365,11 @@ test("Step 3.49 Hetzner Robot adapter normalizes nested product catalog rows", a
             product: {
               id: "AX102-U",
               name: "AX102",
-              description: ["AMD Ryzen 9 7950X3D", "128 GB DDR5 RAM", "2 x 1.92 TB NVMe SSD Datacenter Edition"],
+              description: [
+                "AMD Ryzen 9 7950X3D",
+                "128 GB DDR5 RAM",
+                "2 x 1.92 TB NVMe SSD Datacenter Edition"
+              ],
               location: ["FSN1", "HEL1"],
               price: [
                 { location: "HEL1", price: { net: "117.30" }, price_setup: { net: "500.00" } }

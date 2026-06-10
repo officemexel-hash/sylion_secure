@@ -5,9 +5,10 @@ import { forwardPlan } from "./install-workload-guacamole-vnc-forwards.mjs";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 function configuredMaxConnectionsPerUser() {
   const value = Number(process.env.SYLION_GUACAMOLE_MAX_CONNECTIONS_PER_USER || "10");
@@ -33,22 +34,21 @@ const connectionPlan = {
   limits: {
     maxConnectionsPerUser: configuredMaxConnectionsPerUser()
   },
-  connections: forwardPlan.forwards
-    .map((forward) => ({
-      key: forward.key,
-      name: forward.label,
-      mode: forward.mode,
-      protocol: "vnc",
-      hostname: process.env.SYLION_G2_DOCKER_BRIDGE_IP || "172.18.0.1",
-      port: forward.bindPort + 10000,
-      maxConnectionsPerUser: configuredMaxConnectionsPerUser(),
-      proxyTarget: {
-        hostname: process.env.SYLION_WORKLOAD_NATIVE_PRIVATE_IP || "10.44.0.13",
-        port: forward.bindPort + 20000,
-        transport: "tls_stunnel_private_bind"
-      },
-      required: forward.required
-    })),
+  connections: forwardPlan.forwards.map((forward) => ({
+    key: forward.key,
+    name: forward.label,
+    mode: forward.mode,
+    protocol: "vnc",
+    hostname: process.env.SYLION_G2_DOCKER_BRIDGE_IP || "172.18.0.1",
+    port: forward.bindPort + 10000,
+    maxConnectionsPerUser: configuredMaxConnectionsPerUser(),
+    proxyTarget: {
+      hostname: process.env.SYLION_WORKLOAD_NATIVE_PRIVATE_IP || "10.44.0.13",
+      port: forward.bindPort + 20000,
+      transport: "tls_stunnel_private_bind"
+    },
+    required: forward.required
+  })),
   blockedConnections: [],
   invariants: {
     privateAddressOnly: true,
@@ -85,7 +85,10 @@ function publicPlan(input = connectionPlan) {
 
 function renderConnectionSql(input = connectionPlan) {
   const connectionRows = input.connections
-    .map((connection) => `  (${sqlString(connection.name)}, ${sqlString(connection.protocol)}, ${Number(connection.maxConnectionsPerUser)})`)
+    .map(
+      (connection) =>
+        `  (${sqlString(connection.name)}, ${sqlString(connection.protocol)}, ${Number(connection.maxConnectionsPerUser)})`
+    )
     .join(",\n");
   const parameterRows = input.connections
     .flatMap((connection) => [
@@ -97,7 +100,10 @@ function renderConnectionSql(input = connectionPlan) {
       [connection.name, "autoretry", "3"],
       [connection.name, "resize-method", "display-update"]
     ])
-    .map(([connectionName, parameterName, parameterValue]) => `  ((SELECT connection_id FROM guacamole_connection WHERE connection_name = ${sqlString(connectionName)}), ${sqlString(parameterName)}, ${sqlString(parameterValue)})`)
+    .map(
+      ([connectionName, parameterName, parameterValue]) =>
+        `  ((SELECT connection_id FROM guacamole_connection WHERE connection_name = ${sqlString(connectionName)}), ${sqlString(parameterName)}, ${sqlString(parameterValue)})`
+    )
     .join(",\n");
 
   return `
@@ -231,12 +237,7 @@ printf '{"component":"g2_guacamole_workload_connection_seed","applied":true,"con
 `;
 }
 
-export {
-  connectionPlan,
-  publicPlan,
-  renderConnectionSql,
-  renderRemoteScript
-};
+export { connectionPlan, publicPlan, renderConnectionSql, renderRemoteScript };
 
 async function run(command, args, options = {}) {
   const result = await execFileAsync(command, args, {
@@ -249,28 +250,34 @@ async function run(command, args, options = {}) {
 
 async function apply(input = connectionPlan) {
   const encoded = Buffer.from(renderRemoteScript(input), "utf8").toString("base64");
-  const result = await run("ssh", [
-    "-i",
-    process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    input.g2.host,
-    `printf %s ${shellQuote(encoded)} | base64 -d | bash`
-  ], { timeout: 300_000 });
+  const result = await run(
+    "ssh",
+    [
+      "-i",
+      process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      input.g2.host,
+      `printf %s ${shellQuote(encoded)} | base64 -d | bash`
+    ],
+    { timeout: 300_000 }
+  );
   if (result.stdout) {
     console.log(result.stdout);
     return;
   }
-  console.log(JSON.stringify({
-    component: input.component,
-    applied: true,
-    connectionCount: input.connections.length,
-    maxConnectionsPerUser: input.limits.maxConnectionsPerUser,
-    remoteStdoutEmpty: true,
-    secretsPrinted: false
-  }));
+  console.log(
+    JSON.stringify({
+      component: input.component,
+      applied: true,
+      connectionCount: input.connections.length,
+      maxConnectionsPerUser: input.limits.maxConnectionsPerUser,
+      remoteStdoutEmpty: true,
+      secretsPrinted: false
+    })
+  );
 }
 
 async function main() {
@@ -291,7 +298,9 @@ async function main() {
     await apply();
     return;
   }
-  console.error("Usage: node scripts/seed-g2-guacamole-workload-connections.mjs --print-plan|--render-sql|--render-remote-script|--apply");
+  console.error(
+    "Usage: node scripts/seed-g2-guacamole-workload-connections.mjs --print-plan|--render-sql|--render-remote-script|--apply"
+  );
   process.exitCode = 2;
 }
 

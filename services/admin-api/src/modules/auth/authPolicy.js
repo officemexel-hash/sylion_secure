@@ -19,7 +19,11 @@ export const AUTH_ACTION_POLICY = Object.freeze({
   "credential.revoke": { requiresSession: true, requiresFreshStepUp: true },
   "credential.suspend": { requiresSession: true, requiresFreshStepUp: true },
   "recovery.update": { requiresSession: true, noAutoUnlock: true },
-  "break_glass.request": { requiresSession: true, humanGateRequired: true, sideEffectAllowed: false }
+  "break_glass.request": {
+    requiresSession: true,
+    humanGateRequired: true,
+    sideEffectAllowed: false
+  }
 });
 
 export function publicAuthPolicyMatrix() {

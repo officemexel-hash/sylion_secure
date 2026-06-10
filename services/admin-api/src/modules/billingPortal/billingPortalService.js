@@ -5,16 +5,25 @@ import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
 const PROVIDERS = new Set(["stripe", "coingate", "mollie"]);
-const CHECKOUT_STATUSES = new Set(["created", "provider_redirect_ready", "paid", "failed", "expired", "chargeback_hold"]);
+const CHECKOUT_STATUSES = new Set([
+  "created",
+  "provider_redirect_ready",
+  "paid",
+  "failed",
+  "expired",
+  "chargeback_hold"
+]);
 const TOKEN_STATUSES = new Set(["claimable", "claimed", "provisioned", "revoked", "manual_review"]);
-const SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|seed|mnemonic|private[_-]?key|wallet|panic)/i;
+const SECRET_FIELD_PATTERN =
+  /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|seed|mnemonic|private[_-]?key|wallet|panic)/i;
 
 export const PORTAL_TIERS = Object.freeze({
   pilot: {
     id: "pilot",
     name: "Pilot",
     tagline: "Entry operator bootstrap for controlled pilots",
-    summary: "One annual B2B activation token for a small operator workspace, including baseline Pixel and Puli AX package generation plus shared dedicated workload placement for pilot use.",
+    summary:
+      "One annual B2B activation token for a small operator workspace, including baseline Pixel and Puli AX package generation plus shared dedicated workload placement for pilot use.",
     badge: "Pilot start",
     monthlyPriceEur: 99,
     minimumMonths: 12,
@@ -47,7 +56,8 @@ export const PORTAL_TIERS = Object.freeze({
     id: "standard",
     name: "Standard",
     tagline: "Core production tier for regular operators",
-    summary: "Annual operator token with higher workload quota, stronger session controls and standard jurisdiction policy configuration for approved deployments.",
+    summary:
+      "Annual operator token with higher workload quota, stronger session controls and standard jurisdiction policy configuration for approved deployments.",
     badge: "Most practical",
     monthlyPriceEur: 199,
     minimumMonths: 12,
@@ -80,7 +90,8 @@ export const PORTAL_TIERS = Object.freeze({
     id: "pro",
     name: "Pro",
     tagline: "Expanded workload capacity and policy options",
-    summary: "Annual token for operators that need more app environments, stronger workload rotation controls and broader provider or jurisdiction configuration.",
+    summary:
+      "Annual token for operators that need more app environments, stronger workload rotation controls and broader provider or jurisdiction configuration.",
     badge: "Expanded",
     monthlyPriceEur: 499,
     minimumMonths: 12,
@@ -113,7 +124,8 @@ export const PORTAL_TIERS = Object.freeze({
     id: "phantom",
     name: "Phantom",
     tagline: "Manual-review tier for sensitive deployments",
-    summary: "Publicly visible tier that requires eligibility review before token claim. It is separated from baseline code paths and does not imply automatic operational approval.",
+    summary:
+      "Publicly visible tier that requires eligibility review before token claim. It is separated from baseline code paths and does not imply automatic operational approval.",
     badge: "Manual review",
     monthlyPriceEur: 1000,
     minimumMonths: 12,
@@ -146,7 +158,8 @@ export const PORTAL_TIERS = Object.freeze({
     id: "sovereign",
     name: "Sovereign",
     tagline: "Dedicated operator infrastructure and governance",
-    summary: "Highest public tier for dedicated operator-only placement, expanded capacity and governance evidence. Requires review before activation material is released.",
+    summary:
+      "Highest public tier for dedicated operator-only placement, expanded capacity and governance evidence. Requires review before activation material is released.",
     badge: "Dedicated",
     monthlyPriceEur: 2999,
     minimumMonths: 12,
@@ -231,7 +244,9 @@ function requireUrl(value, field) {
 }
 
 function tokenHash(token) {
-  return createHash("sha256").update(String(token || ""), "utf8").digest("hex");
+  return createHash("sha256")
+    .update(String(token || ""), "utf8")
+    .digest("hex");
 }
 
 function tokenPreview(token) {
@@ -269,8 +284,14 @@ function safeCompanyProfile(input = {}) {
 function rejectSecrets(value, path = "profile") {
   if (value === null || value === undefined) return;
   if (typeof value === "string") {
-    if (/-----BEGIN|private[_ -]?key|api[_ -]?key|password|secret|token|seed|mnemonic|otp|sms/i.test(value)) {
-      throw validationError("Portal activation profile must not contain secret material", { field: path });
+    if (
+      /-----BEGIN|private[_ -]?key|api[_ -]?key|password|secret|token|seed|mnemonic|otp|sms/i.test(
+        value
+      )
+    ) {
+      throw validationError("Portal activation profile must not contain secret material", {
+        field: path
+      });
     }
     return;
   }
@@ -282,7 +303,9 @@ function rejectSecrets(value, path = "profile") {
     for (const [key, nested] of Object.entries(value)) {
       const nestedPath = `${path}.${key}`;
       if (SECRET_FIELD_PATTERN.test(key)) {
-        throw validationError("Portal activation profile must not contain secret material", { field: nestedPath });
+        throw validationError("Portal activation profile must not contain secret material", {
+          field: nestedPath
+        });
       }
       rejectSecrets(nested, nestedPath);
     }
@@ -292,11 +315,20 @@ function rejectSecrets(value, path = "profile") {
 function safeActivationProfile(input = {}) {
   rejectSecrets(input, "activationProfile");
   return {
-    operatorDisplayName: String(input.operatorDisplayName || "").trim().slice(0, 120) || "SYLION Operator",
+    operatorDisplayName:
+      String(input.operatorDisplayName || "")
+        .trim()
+        .slice(0, 120) || "SYLION Operator",
     companyName: input.companyName ? String(input.companyName).trim().slice(0, 160) : null,
-    resellerReference: input.resellerReference ? String(input.resellerReference).trim().slice(0, 160) : null,
-    hardwareBundleId: input.hardwareBundleId ? String(input.hardwareBundleId).trim().slice(0, 160) : null,
-    fulfillmentMode: ["self_service_download", "reseller_preconfigured_hardware"].includes(input.fulfillmentMode)
+    resellerReference: input.resellerReference
+      ? String(input.resellerReference).trim().slice(0, 160)
+      : null,
+    hardwareBundleId: input.hardwareBundleId
+      ? String(input.hardwareBundleId).trim().slice(0, 160)
+      : null,
+    fulfillmentMode: ["self_service_download", "reseller_preconfigured_hardware"].includes(
+      input.fulfillmentMode
+    )
       ? input.fulfillmentMode
       : "self_service_download",
     terminalMode: ["pixel_grapheneos", "laptop_web_terminal"].includes(input.terminalMode)
@@ -334,10 +366,15 @@ function configured(value) {
 }
 
 function decodeStripeSignature(header = "") {
-  return Object.fromEntries(String(header).split(",").map((part) => {
-    const [key, value] = part.split("=");
-    return [key, value];
-  }).filter(([key, value]) => key && value));
+  return Object.fromEntries(
+    String(header)
+      .split(",")
+      .map((part) => {
+        const [key, value] = part.split("=");
+        return [key, value];
+      })
+      .filter(([key, value]) => key && value)
+  );
 }
 
 function timingSafeHexEqual(left, right) {
@@ -378,17 +415,20 @@ export class BillingPortalService {
         {
           id: "company_invoice",
           name: "Company invoice",
-          summary: "B2B checkout with company details, invoice trail and provider payment reconciliation."
+          summary:
+            "B2B checkout with company details, invoice trail and provider payment reconciliation."
         },
         {
           id: "crypto_vault_token",
           name: "Crypto vault token",
-          summary: "No customer account is created in SYLION. The buyer receives a one-time token tied to the declared vault public id; payment-provider compliance still applies."
+          summary:
+            "No customer account is created in SYLION. The buyer receives a one-time token tied to the declared vault public id; payment-provider compliance still applies."
         },
         {
           id: "reseller_preconfigured_hardware",
           name: "Reseller hardware route",
-          summary: "Approved reseller issues or hands off a paid token with preconfigured Pixel and Puli AX hardware; FIDO2/HSM pairing remains customer-side."
+          summary:
+            "Approved reseller issues or hands off a paid token with preconfigured Pixel and Puli AX hardware; FIDO2/HSM pairing remains customer-side."
         }
       ],
       resellerProgram: {
@@ -403,8 +443,10 @@ export class BillingPortalService {
       tokenSecurity: {
         entropy: "192-bit random token material returned once",
         storage: "Only SHA-256 token hash and short preview are stored server-side",
-        binding: "Claim and redemption require matching checkout, vault public id, status and tier policy",
-        audit: "Payment webhook, token claim and operator activation events are audited without raw token material"
+        binding:
+          "Claim and redemption require matching checkout, vault public id, status and tier policy",
+        audit:
+          "Payment webhook, token claim and operator activation events are audited without raw token material"
       },
       rotationPolicy: {
         global: [
@@ -415,10 +457,13 @@ export class BillingPortalService {
           "When higher-tier operators rotate away from a jurisdiction, freed capacity can be reused for lower-tier operators only after teardown, evidence and policy checks."
         ],
         byTier: {
-          pilot: "No default jurisdiction rotation; capacity can be placed in an approved shared dedicated pool.",
-          standard: "Limited provider and jurisdiction controls; rotation uses existing approved pools where policy allows.",
+          pilot:
+            "No default jurisdiction rotation; capacity can be placed in an approved shared dedicated pool.",
+          standard:
+            "Limited provider and jurisdiction controls; rotation uses existing approved pools where policy allows.",
           pro: "Broader provider/jurisdiction controls and workload rotation requests within live inventory.",
-          phantom: "Manual-review rotation with dedicated or strongly isolated workload requirement.",
+          phantom:
+            "Manual-review rotation with dedicated or strongly isolated workload requirement.",
           sovereign: "Dedicated operator-only placement and strongest governance/cost visibility."
         }
       },
@@ -426,7 +471,8 @@ export class BillingPortalService {
         {
           type: PORTAL_TOKEN_TYPES.OPERATOR_BOOTSTRAP,
           name: "Operator bootstrap token",
-          purpose: "Creates the first operator profile and package handoff after payment or approved review."
+          purpose:
+            "Creates the first operator profile and package handoff after payment or approved review."
         },
         {
           type: PORTAL_TOKEN_TYPES.SUBSCRIPTION_EXTEND,
@@ -456,7 +502,8 @@ export class BillingPortalService {
         {
           type: PORTAL_TOKEN_TYPES.PHANTOM_REVIEW,
           name: "PHANTOM review token",
-          purpose: "Starts the manual PHANTOM eligibility review. It does not enable execution by itself."
+          purpose:
+            "Starts the manual PHANTOM eligibility review. It does not enable execution by itself."
         },
         {
           type: PORTAL_TOKEN_TYPES.PHANTOM_ACCESS,
@@ -467,9 +514,12 @@ export class BillingPortalService {
       legalNotice: {
         customerSegment: "Business customers only",
         minimumCommitment: "12 months",
-        refundPolicy: "Dedicated provisioning costs are non-refundable after provisioning except where mandatory law requires otherwise.",
-        securityClaim: "The portal sells scoped provisioning tokens and package handoff. It does not claim anonymity or impossible security.",
-        reviewNotice: "PHANTOM and Sovereign tiers require manual review before activation material can be claimed."
+        refundPolicy:
+          "Dedicated provisioning costs are non-refundable after provisioning except where mandatory law requires otherwise.",
+        securityClaim:
+          "The portal sells scoped provisioning tokens and package handoff. It does not claim anonymity or impossible security.",
+        reviewNotice:
+          "PHANTOM and Sovereign tiers require manual review before activation material can be claimed."
       }
     };
   }
@@ -519,15 +569,34 @@ export class BillingPortalService {
     const tier = requireTier(tierId);
     const profile = safeCompanyProfile(companyProfile);
     if (!profile.businessOnlyAccepted) {
-      throw validationError("Business-only checkout terms must be accepted", { businessOnlyAccepted: false });
+      throw validationError("Business-only checkout terms must be accepted", {
+        businessOnlyAccepted: false
+      });
     }
     if (!profile.noRefundAfterProvisioningAccepted) {
-      throw validationError("Provisioning no-refund acknowledgement is required", { noRefundAfterProvisioningAccepted: false });
+      throw validationError("Provisioning no-refund acknowledgement is required", {
+        noRefundAfterProvisioningAccepted: false
+      });
     }
     const vaultId = requireText(vaultPublicId, "vaultPublicId", 16);
-    const checkedSuccessUrl = requireUrl(successUrl || this.env.SYLION_PORTAL_SUCCESS_URL || "https://portal.sylion.example/checkout/success", "successUrl");
-    const checkedCancelUrl = requireUrl(cancelUrl || this.env.SYLION_PORTAL_CANCEL_URL || "https://portal.sylion.example/checkout/cancel", "cancelUrl");
-    const baseWebhookUrl = requireUrl(webhookBaseUrl || this.env.SYLION_PORTAL_WEBHOOK_BASE_URL || "https://admin.sylion.internal/portal-api/webhooks", "webhookBaseUrl");
+    const checkedSuccessUrl = requireUrl(
+      successUrl ||
+        this.env.SYLION_PORTAL_SUCCESS_URL ||
+        "https://portal.sylion.example/checkout/success",
+      "successUrl"
+    );
+    const checkedCancelUrl = requireUrl(
+      cancelUrl ||
+        this.env.SYLION_PORTAL_CANCEL_URL ||
+        "https://portal.sylion.example/checkout/cancel",
+      "cancelUrl"
+    );
+    const baseWebhookUrl = requireUrl(
+      webhookBaseUrl ||
+        this.env.SYLION_PORTAL_WEBHOOK_BASE_URL ||
+        "https://admin.sylion.internal/portal-api/webhooks",
+      "webhookBaseUrl"
+    );
 
     if (!Object.values(PORTAL_TOKEN_TYPES).includes(tokenType)) {
       throw validationError("Unsupported portal token type", { tokenType });
@@ -590,9 +659,10 @@ export class BillingPortalService {
     const corr = requireCorrelationId(correlationId);
     const selectedProvider = requireProvider(provider);
     const raw = Buffer.isBuffer(rawBody) ? rawBody.toString("utf8") : String(rawBody || "");
-    const event = selectedProvider === "stripe"
-      ? this.#parseAndVerifyStripeWebhook({ rawBody: raw, headers })
-      : await this.#reconcileProviderWebhook({ provider: selectedProvider, rawBody: raw });
+    const event =
+      selectedProvider === "stripe"
+        ? this.#parseAndVerifyStripeWebhook({ rawBody: raw, headers })
+        : await this.#reconcileProviderWebhook({ provider: selectedProvider, rawBody: raw });
     const eventRecord = {
       id: newId("portal_webhook"),
       provider: selectedProvider,
@@ -617,19 +687,31 @@ export class BillingPortalService {
         result: "unknown_checkout",
         newValue: eventRecord
       });
-      throw validationError("Payment webhook references unknown checkout", { checkoutId: event.checkoutId, provider: selectedProvider });
+      throw validationError("Payment webhook references unknown checkout", {
+        checkoutId: event.checkoutId,
+        provider: selectedProvider
+      });
     }
     if (checkout.provider !== selectedProvider) {
-      throw validationError("Payment webhook provider mismatch", { checkoutId: checkout.id, expected: checkout.provider, actual: selectedProvider });
+      throw validationError("Payment webhook provider mismatch", {
+        checkoutId: checkout.id,
+        expected: checkout.provider,
+        actual: selectedProvider
+      });
     }
-    const status = event.paymentStatus === "paid" ? "paid" : event.paymentStatus === "failed" ? "failed" : checkout.status;
+    const status =
+      event.paymentStatus === "paid"
+        ? "paid"
+        : event.paymentStatus === "failed"
+          ? "failed"
+          : checkout.status;
     if (!CHECKOUT_STATUSES.has(status)) {
       throw validationError("Unsupported checkout status transition", { status });
     }
     checkout = {
       ...checkout,
       status,
-      paidAt: status === "paid" ? (checkout.paidAt || isoNow()) : checkout.paidAt,
+      paidAt: status === "paid" ? checkout.paidAt || isoNow() : checkout.paidAt,
       providerPaymentId: event.providerPaymentId || checkout.providerPaymentId
     };
     this.checkouts.set(checkout.id, checkout);
@@ -661,7 +743,10 @@ export class BillingPortalService {
     if (!checkout) throw validationError("Checkout was not found", { checkoutId });
     const vaultId = requireText(vaultPublicId, "vaultPublicId", 16);
     if (checkout.vaultPublicId !== vaultId) {
-      throw validationError("Vault identity does not match checkout", { checkoutId, vaultPublicIdMatched: false });
+      throw validationError("Vault identity does not match checkout", {
+        checkoutId,
+        vaultPublicIdMatched: false
+      });
     }
     if (checkout.status !== "paid") {
       throw validationError("Checkout is not paid yet", { checkoutId, status: checkout.status });
@@ -669,10 +754,16 @@ export class BillingPortalService {
     const existing = [...this.tokens.values()].find((item) => item.checkoutId === checkout.id);
     if (!existing) throw validationError("Checkout has no claimable token", { checkoutId });
     if (existing.status !== "claimable" && existing.status !== "manual_review") {
-      throw validationError("Token was already claimed or is not claimable", { tokenId: existing.id, status: existing.status });
+      throw validationError("Token was already claimed or is not claimable", {
+        tokenId: existing.id,
+        status: existing.status
+      });
     }
     if (existing.status === "manual_review") {
-      throw validationError("Token requires manual review before claim", { tokenId: existing.id, tierId: existing.tierId });
+      throw validationError("Token requires manual review before claim", {
+        tokenId: existing.id,
+        tierId: existing.tierId
+      });
     }
     const rawToken = `sylion_${existing.tokenType}_${randomBytes(24).toString("base64url")}`;
     const updated = {
@@ -700,9 +791,18 @@ export class BillingPortalService {
     };
   }
 
-  prepareOperatorBootstrapToken({ redemptionToken, vaultPublicId, activationProfile = {}, correlationId }) {
+  prepareOperatorBootstrapToken({
+    redemptionToken,
+    vaultPublicId,
+    activationProfile = {},
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    const { record, profile } = this.#requireRedeemableBootstrapToken({ redemptionToken, vaultPublicId, activationProfile });
+    const { record, profile } = this.#requireRedeemableBootstrapToken({
+      redemptionToken,
+      vaultPublicId,
+      activationProfile
+    });
     this.audit.record({
       actorId: "portal_vault",
       action: "portal.operator_bootstrap_token_preflight",
@@ -723,9 +823,20 @@ export class BillingPortalService {
     };
   }
 
-  redeemOperatorBootstrapToken({ redemptionToken, vaultPublicId, activationProfile = {}, operatorId = null, tenantId = null, correlationId }) {
+  redeemOperatorBootstrapToken({
+    redemptionToken,
+    vaultPublicId,
+    activationProfile = {},
+    operatorId = null,
+    tenantId = null,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    const { record, profile } = this.#requireRedeemableBootstrapToken({ redemptionToken, vaultPublicId, activationProfile });
+    const { record, profile } = this.#requireRedeemableBootstrapToken({
+      redemptionToken,
+      vaultPublicId,
+      activationProfile
+    });
     const updated = {
       ...record,
       status: "provisioned",
@@ -773,14 +884,16 @@ export class BillingPortalService {
         provisionedAt: record.provisionedAt || null,
         provisionedOperatorId: record.provisionedOperatorId || null,
         provisionedTenantId: record.provisionedTenantId || null,
-        activationProfile: record.provisionRequest ? {
-          operatorDisplayName: record.provisionRequest.operatorDisplayName,
-          companyName: record.provisionRequest.companyName || null,
-          resellerReference: record.provisionRequest.resellerReference || null,
-          hardwareBundleId: record.provisionRequest.hardwareBundleId || null,
-          fulfillmentMode: record.provisionRequest.fulfillmentMode,
-          terminalMode: record.provisionRequest.terminalMode
-        } : null,
+        activationProfile: record.provisionRequest
+          ? {
+              operatorDisplayName: record.provisionRequest.operatorDisplayName,
+              companyName: record.provisionRequest.companyName || null,
+              resellerReference: record.provisionRequest.resellerReference || null,
+              hardwareBundleId: record.provisionRequest.hardwareBundleId || null,
+              fulfillmentMode: record.provisionRequest.fulfillmentMode,
+              terminalMode: record.provisionRequest.terminalMode
+            }
+          : null,
         tokenStoredPlaintext: false,
         terminalDataStored: false,
         productionExecutionAllowed: false
@@ -794,13 +907,22 @@ export class BillingPortalService {
       throw validationError("Portal token was not found", { tokenMaterialLogged: false });
     }
     if (record.tokenType !== PORTAL_TOKEN_TYPES.OPERATOR_BOOTSTRAP) {
-      throw validationError("Portal token cannot bootstrap an operator", { tokenId: record.id, tokenType: record.tokenType });
+      throw validationError("Portal token cannot bootstrap an operator", {
+        tokenId: record.id,
+        tokenType: record.tokenType
+      });
     }
     if (record.vaultPublicId !== requireText(vaultPublicId, "vaultPublicId", 16)) {
-      throw validationError("Vault identity does not match portal token", { tokenId: record.id, vaultPublicIdMatched: false });
+      throw validationError("Vault identity does not match portal token", {
+        tokenId: record.id,
+        vaultPublicIdMatched: false
+      });
     }
     if (record.status !== "claimed") {
-      throw validationError("Portal token is not ready for operator activation", { tokenId: record.id, status: record.status });
+      throw validationError("Portal token is not ready for operator activation", {
+        tokenId: record.id,
+        status: record.status
+      });
     }
     return { record, profile: safeActivationProfile(activationProfile) };
   }
@@ -873,7 +995,11 @@ export class BillingPortalService {
     });
     const payload = await parseJsonResponse(response);
     if (!response.ok) {
-      throw new AppError("payment_provider_error", "Stripe checkout creation failed", 502, { provider: "stripe", status: response.status, code: payload?.error?.code });
+      throw new AppError("payment_provider_error", "Stripe checkout creation failed", 502, {
+        provider: "stripe",
+        status: response.status,
+        code: payload?.error?.code
+      });
     }
     return {
       providerSessionId: payload.id,
@@ -903,7 +1029,11 @@ export class BillingPortalService {
     });
     const payload = await parseJsonResponse(response);
     if (!response.ok) {
-      throw new AppError("payment_provider_error", "CoinGate order creation failed", 502, { provider: "coingate", status: response.status, code: payload?.code });
+      throw new AppError("payment_provider_error", "CoinGate order creation failed", 502, {
+        provider: "coingate",
+        status: response.status,
+        code: payload?.code
+      });
     }
     return {
       providerSessionId: payload.id ? String(payload.id) : null,
@@ -936,7 +1066,10 @@ export class BillingPortalService {
     });
     const payload = await parseJsonResponse(response);
     if (!response.ok) {
-      throw new AppError("payment_provider_error", "Mollie payment creation failed", 502, { provider: "mollie", status: response.status });
+      throw new AppError("payment_provider_error", "Mollie payment creation failed", 502, {
+        provider: "mollie",
+        status: response.status
+      });
     }
     return {
       providerSessionId: payload.id,
@@ -949,20 +1082,40 @@ export class BillingPortalService {
   #assertProviderConfigured(provider) {
     const status = this.providerStatus()[provider];
     if (!status?.configured) {
-      throw new AppError("provider_not_configured", `${provider} payment provider is not configured`, 503, {
-        provider,
-        requiredEnv: provider === "stripe" ? ["STRIPE_SECRET_KEY"] : provider === "coingate" ? ["COINGATE_API_TOKEN"] : ["MOLLIE_API_KEY"]
-      });
+      throw new AppError(
+        "provider_not_configured",
+        `${provider} payment provider is not configured`,
+        503,
+        {
+          provider,
+          requiredEnv:
+            provider === "stripe"
+              ? ["STRIPE_SECRET_KEY"]
+              : provider === "coingate"
+                ? ["COINGATE_API_TOKEN"]
+                : ["MOLLIE_API_KEY"]
+        }
+      );
     }
     if (!this.fetcher) {
-      throw new AppError("provider_not_configured", "Payment provider fetcher is not available", 503, { provider });
+      throw new AppError(
+        "provider_not_configured",
+        "Payment provider fetcher is not available",
+        503,
+        { provider }
+      );
     }
   }
 
   #parseAndVerifyStripeWebhook({ rawBody, headers }) {
     const secret = this.env.STRIPE_WEBHOOK_SECRET;
     if (!configured(secret)) {
-      throw new AppError("provider_not_configured", "Stripe webhook secret is not configured", 503, { provider: "stripe", requiredEnv: ["STRIPE_WEBHOOK_SECRET"] });
+      throw new AppError(
+        "provider_not_configured",
+        "Stripe webhook secret is not configured",
+        503,
+        { provider: "stripe", requiredEnv: ["STRIPE_WEBHOOK_SECRET"] }
+      );
     }
     const signatureHeader = headers["stripe-signature"] || headers["Stripe-Signature"];
     const parsed = decodeStripeSignature(signatureHeader);
@@ -977,7 +1130,10 @@ export class BillingPortalService {
       providerEventId: payload.id || newId("stripe_evt"),
       checkoutId: session.metadata?.checkout_id,
       providerPaymentId: session.payment_intent || session.id,
-      paymentStatus: session.payment_status === "paid" || payload.type === "checkout.session.completed" ? "paid" : "pending"
+      paymentStatus:
+        session.payment_status === "paid" || payload.type === "checkout.session.completed"
+          ? "paid"
+          : "pending"
     };
   }
 
@@ -990,40 +1146,58 @@ export class BillingPortalService {
     const payload = rawBody ? JSON.parse(rawBody) : {};
     let order = payload;
     if (payload.id && configured(this.env.COINGATE_API_TOKEN)) {
-      const response = await this.fetcher(`https://api.coingate.com/api/v2/orders/${encodeURIComponent(payload.id)}`, {
-        headers: { authorization: authorizationToken(this.env.COINGATE_API_TOKEN) }
-      });
+      const response = await this.fetcher(
+        `https://api.coingate.com/api/v2/orders/${encodeURIComponent(payload.id)}`,
+        {
+          headers: { authorization: authorizationToken(this.env.COINGATE_API_TOKEN) }
+        }
+      );
       if (response.ok) order = await parseJsonResponse(response);
     }
     return {
       providerEventId: order.id ? String(order.id) : newId("coingate_evt"),
       checkoutId: order.order_id || order.custom_order_id || payload.order_id,
       providerPaymentId: order.id ? String(order.id) : null,
-      paymentStatus: ["paid", "confirmed"].includes(String(order.status || "").toLowerCase()) ? "paid" : "pending"
+      paymentStatus: ["paid", "confirmed"].includes(String(order.status || "").toLowerCase())
+        ? "paid"
+        : "pending"
     };
   }
 
   async #reconcileMollieWebhook(rawBody) {
     const params = new URLSearchParams(rawBody);
-    const paymentId = params.get("id") || (() => {
-      try {
-        return JSON.parse(rawBody || "{}").id;
-      } catch {
-        return null;
-      }
-    })();
+    const paymentId =
+      params.get("id") ||
+      (() => {
+        try {
+          return JSON.parse(rawBody || "{}").id;
+        } catch {
+          return null;
+        }
+      })();
     if (!paymentId) {
       throw validationError("Mollie webhook did not include payment id", { provider: "mollie" });
     }
     if (!configured(this.env.MOLLIE_API_KEY)) {
-      throw new AppError("provider_not_configured", "Mollie API key is required to reconcile webhook", 503, { provider: "mollie", requiredEnv: ["MOLLIE_API_KEY"] });
+      throw new AppError(
+        "provider_not_configured",
+        "Mollie API key is required to reconcile webhook",
+        503,
+        { provider: "mollie", requiredEnv: ["MOLLIE_API_KEY"] }
+      );
     }
-    const response = await this.fetcher(`https://api.mollie.com/v2/payments/${encodeURIComponent(paymentId)}`, {
-      headers: { authorization: authorizationBearer(this.env.MOLLIE_API_KEY) }
-    });
+    const response = await this.fetcher(
+      `https://api.mollie.com/v2/payments/${encodeURIComponent(paymentId)}`,
+      {
+        headers: { authorization: authorizationBearer(this.env.MOLLIE_API_KEY) }
+      }
+    );
     const payment = await parseJsonResponse(response);
     if (!response.ok) {
-      throw new AppError("payment_provider_error", "Mollie payment reconciliation failed", 502, { provider: "mollie", status: response.status });
+      throw new AppError("payment_provider_error", "Mollie payment reconciliation failed", 502, {
+        provider: "mollie",
+        status: response.status
+      });
     }
     return {
       providerEventId: payment.id,

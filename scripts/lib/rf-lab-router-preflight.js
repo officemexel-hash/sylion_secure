@@ -62,11 +62,10 @@ echo product_runtime_executor_available=false
 `;
 }
 
-export function summarizeRfLabRouterPreflight(kv, {
-  routerIp = null,
-  startedAt = null,
-  completedAt = null
-} = {}) {
+export function summarizeRfLabRouterPreflight(
+  kv,
+  { routerIp = null, startedAt = null, completedAt = null } = {}
+) {
   const capabilities = {
     opkgPresent: bool(kv.opkg_present),
     python3Present: bool(kv.python3_present) || bool(kv.package_python3),
@@ -94,14 +93,18 @@ export function summarizeRfLabRouterPreflight(kv, {
     passwordPrinted: false,
     secretsStored: false
   };
-  const pcscStackPresent = capabilities.pcscdPresent
-    && capabilities.pcscLibraryPresent
-    && (capabilities.ccidPackagePresent || capabilities.openscPackagePresent || capabilities.openscToolPresent);
-  const labToolingReady = capabilities.python3Present
-    && capabilities.pysimShellPresent
-    && pcscStackPresent
-    && capabilities.usbBusPresent
-    && capabilities.smartcardReaderHint;
+  const pcscStackPresent =
+    capabilities.pcscdPresent &&
+    capabilities.pcscLibraryPresent &&
+    (capabilities.ccidPackagePresent ||
+      capabilities.openscPackagePresent ||
+      capabilities.openscToolPresent);
+  const labToolingReady =
+    capabilities.python3Present &&
+    capabilities.pysimShellPresent &&
+    pcscStackPresent &&
+    capabilities.usbBusPresent &&
+    capabilities.smartcardReaderHint;
   const blockers = [
     ...(capabilities.python3Present ? [] : ["python3_missing"]),
     ...(capabilities.pysimShellPresent ? [] : ["pysim_shell_missing"]),
@@ -112,7 +115,9 @@ export function summarizeRfLabRouterPreflight(kv, {
     ...(controls.rawCellularIdentifiersRead ? ["raw_cellular_identifier_read_detected"] : []),
     ...(controls.simSecretMaterialRead ? ["sim_secret_material_read_detected"] : []),
     ...(controls.mutationCommandsExecuted ? ["mutation_command_execution_detected"] : []),
-    ...(controls.productRuntimeExecutorAvailable ? ["product_runtime_executor_must_remain_absent"] : []),
+    ...(controls.productRuntimeExecutorAvailable
+      ? ["product_runtime_executor_must_remain_absent"]
+      : []),
     "faraday_cage_evidence_required",
     "legal_ciso_architect_hardware_approval_required"
   ];
@@ -143,10 +148,12 @@ export function assertRfLabPreflightSafe(summary) {
   if (/\b\d{14,20}\b/.test(serialized)) {
     throw new Error("RF lab preflight summary contains a raw cellular identifier-like value");
   }
-  if (summary?.controls?.rawCellularIdentifiersRead === true
-    || summary?.controls?.simSecretMaterialRead === true
-    || summary?.controls?.mutationCommandsExecuted === true
-    || summary?.controls?.productRuntimeExecutorAvailable === true) {
+  if (
+    summary?.controls?.rawCellularIdentifiersRead === true ||
+    summary?.controls?.simSecretMaterialRead === true ||
+    summary?.controls?.mutationCommandsExecuted === true ||
+    summary?.controls?.productRuntimeExecutorAvailable === true
+  ) {
     throw new Error("RF lab preflight summary indicates a forbidden side effect");
   }
   return summary;

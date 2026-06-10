@@ -140,7 +140,11 @@ test("Step 3.53 registers a CDR-gated Signal Firecracker manifest without produc
     assert.equal(result.manifest.secretsReleaseAllowed, false);
     assert.equal(result.manifest.terminalDataStored, false);
     assert.equal(result.manifest.cdrPolicyRef, "cdr://mandatory-workload-file-transfer");
-    assert.ok(result.manifest.checks.every((check) => check.requiredForLab === false || check.status === "passed"));
+    assert.ok(
+      result.manifest.checks.every(
+        (check) => check.requiredForLab === false || check.status === "passed"
+      )
+    );
 
     const listed = await client.listWorkloadImageManifests();
     assert.equal(listed.manifests.length, 1);
@@ -156,22 +160,30 @@ test("Step 3.53 blocks public stream bindings and sensitive build evidence", asy
     const client = await loginClient(baseUrl);
     await registerLabHost(client);
 
-    const publicStream = await client.createWorkloadImageManifest(signalManifest({
-      streamGateway: {
-        bindAddress: "0.0.0.0",
-        sourcePort: 7901,
-        throughG2: true,
-        pixelOptimized: true,
-        publicExposureAllowed: true
-      }
-    }));
+    const publicStream = await client.createWorkloadImageManifest(
+      signalManifest({
+        streamGateway: {
+          bindAddress: "0.0.0.0",
+          sourcePort: 7901,
+          throughG2: true,
+          pixelOptimized: true,
+          publicExposureAllowed: true
+        }
+      })
+    );
     assert.equal(publicStream.manifest.readyForLabLaunch, false);
-    assert.equal(publicStream.manifest.checks.find((check) => check.key === "private_stream_binding").status, "blocked");
+    assert.equal(
+      publicStream.manifest.checks.find((check) => check.key === "private_stream_binding").status,
+      "blocked"
+    );
 
     await assert.rejects(
-      () => client.createWorkloadImageManifest(signalManifest({
-        buildEvidence: { accidentalToken: "api_key_should_never_be_here" }
-      })),
+      () =>
+        client.createWorkloadImageManifest(
+          signalManifest({
+            buildEvidence: { accidentalToken: "api_key_should_never_be_here" }
+          })
+        ),
       /sensitive runtime data/
     );
   } finally {
@@ -185,30 +197,37 @@ test("Step 3.53 requires Android-native evidence for Zangi", async () => {
     const client = await loginClient(baseUrl);
     await registerLabHost(client);
 
-    const blocked = await client.createWorkloadImageManifest(signalManifest({
-      appKey: "zangi",
-      appName: "Zangi",
-      imageRef: "image://sylion/zangi-firecracker-lab-v0",
-      rootfsRef: "artifact://workload-native-lab-01/apps/zangi/rootfs.ext4",
-      packageRef: "package://zangi/android-apk/pending-approved-download"
-    }));
+    const blocked = await client.createWorkloadImageManifest(
+      signalManifest({
+        appKey: "zangi",
+        appName: "Zangi",
+        imageRef: "image://sylion/zangi-firecracker-lab-v0",
+        rootfsRef: "artifact://workload-native-lab-01/apps/zangi/rootfs.ext4",
+        packageRef: "package://zangi/android-apk/pending-approved-download"
+      })
+    );
     assert.equal(blocked.manifest.readyForLabLaunch, false);
-    assert.equal(blocked.manifest.checks.find((check) => check.key === "zangi_android_runtime").status, "blocked");
+    assert.equal(
+      blocked.manifest.checks.find((check) => check.key === "zangi_android_runtime").status,
+      "blocked"
+    );
 
-    const androidReady = await client.createWorkloadImageManifest(signalManifest({
-      appKey: "zangi",
-      appName: "Zangi",
-      runtimeKind: "android_native_workload",
-      imageRef: "image://sylion/zangi-android-native-lab-v0",
-      kernelRef: null,
-      rootfsRef: null,
-      packageRef: "package://zangi/android-apk/pending-approved-download",
-      buildEvidence: {
-        binderfs: true,
-        androidRuntime: true,
-        cdrHookDeclared: true
-      }
-    }));
+    const androidReady = await client.createWorkloadImageManifest(
+      signalManifest({
+        appKey: "zangi",
+        appName: "Zangi",
+        runtimeKind: "android_native_workload",
+        imageRef: "image://sylion/zangi-android-native-lab-v0",
+        kernelRef: null,
+        rootfsRef: null,
+        packageRef: "package://zangi/android-apk/pending-approved-download",
+        buildEvidence: {
+          binderfs: true,
+          androidRuntime: true,
+          cdrHookDeclared: true
+        }
+      })
+    );
     assert.equal(androidReady.manifest.readyForLabLaunch, true);
   } finally {
     await close();

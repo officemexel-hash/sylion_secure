@@ -67,7 +67,8 @@ function labRequestBody({ operatorId, routerDeviceId }) {
     routerDeviceId,
     labName: "Shielded RF validation lab",
     jurisdiction: "PL",
-    purpose: "Closed Faraday cage characterization of router modem identity behavior with no public-network exposure.",
+    purpose:
+      "Closed Faraday cage characterization of router modem identity behavior with no public-network exposure.",
     faradayCageEvidenceRef: "evidence://rf-lab/faraday-cage-calibration-2026-06",
     rfLeakageTestRef: "evidence://rf-lab/leakage-test-pass-2026-06",
     legalOpinionRef: "legal://rf-lab/pl-closed-cage-review-2026-06",
@@ -103,23 +104,25 @@ test("Step 3.107 rejects raw cellular identifiers and operational modem details"
     const client = await loginClient(baseUrl);
     const { operatorId, router } = await createOperatorAndRouter(client);
     await assert.rejects(
-      () => client.request("/rf-lab/imei-change-tests", {
-        method: "POST",
-        body: {
-          ...labRequestBody({ operatorId, routerDeviceId: router.id }),
-          currentImei: "123456789012345"
-        }
-      }),
+      () =>
+        client.request("/rf-lab/imei-change-tests", {
+          method: "POST",
+          body: {
+            ...labRequestBody({ operatorId, routerDeviceId: router.id }),
+            currentImei: "123456789012345"
+          }
+        }),
       (error) => error.status === 422
     );
     await assert.rejects(
-      () => client.request("/rf-lab/imei-change-tests", {
-        method: "POST",
-        body: {
-          ...labRequestBody({ operatorId, routerDeviceId: router.id }),
-          purpose: "Use AT+EXAMPLE to write identity in the lab."
-        }
-      }),
+      () =>
+        client.request("/rf-lab/imei-change-tests", {
+          method: "POST",
+          body: {
+            ...labRequestBody({ operatorId, routerDeviceId: router.id }),
+            purpose: "Use AT+EXAMPLE to write identity in the lab."
+          }
+        }),
       (error) => error.status === 422
     );
   } finally {
@@ -159,7 +162,8 @@ test("Step 3.107 needs four approvals before evidence and still denies product r
         isolationStillActive: true,
         publicNetworkObserved: false,
         spectrumMonitorRef: "evidence://rf-lab/spectrum-monitor-clean",
-        resultSummary: "Closed-cage evidence recorded. Product runtime did not perform radio identity mutation.",
+        resultSummary:
+          "Closed-cage evidence recorded. Product runtime did not perform radio identity mutation.",
         preChangeIdentifierHash: preHash,
         postChangeIdentifierHash: postHash,
         evidenceRefs: ["evidence://rf-lab/final-report"]
@@ -170,10 +174,15 @@ test("Step 3.107 needs four approvals before evidence and still denies product r
     assert.equal(JSON.stringify(evidence).includes("123456789012345"), false);
 
     await assert.rejects(
-      () => client.request(`/rf-lab/imei-change-tests/${testId}/execute-product-runtime`, { method: "POST" }),
+      () =>
+        client.request(`/rf-lab/imei-change-tests/${testId}/execute-product-runtime`, {
+          method: "POST"
+        }),
       (error) => error.status === 403
     );
-    assert.ok(app.services.audit.list().some((event) => event.action === "rf_lab.product_execution_denied"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "rf_lab.product_execution_denied")
+    );
   } finally {
     await close();
   }

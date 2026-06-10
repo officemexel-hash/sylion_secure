@@ -4,9 +4,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const cfg = {
   sshKey: process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
@@ -17,24 +18,102 @@ const cfg = {
 };
 
 const apps = Object.freeze([
-  { key: "duckduckgo_browser", evidenceKey: "duckduckgo", name: "DuckDuckGo", host: "duckduckgo.sylion.internal", runtime: "firecracker_gui", class: "browser" },
-  { key: "libreoffice", evidenceKey: "libreoffice", name: "LibreOffice", host: "libreoffice.sylion.internal", runtime: "firecracker_gui", class: "office" },
-  { key: "whatsapp", evidenceKey: "whatsapp", name: "WhatsApp", host: "whatsapp.sylion.internal", runtime: "firecracker_web_or_android_native", class: "communicator" },
-  { key: "telegram", evidenceKey: "telegram", name: "Telegram", host: "telegram.sylion.internal", runtime: "firecracker_web_or_android_native", class: "communicator" },
-  { key: "threema", evidenceKey: "threema", name: "Threema", host: "threema.sylion.internal", runtime: "firecracker_web_or_android_native", class: "communicator" },
-  { key: "signal", evidenceKey: "signal", name: "Signal", host: "signal.sylion.internal", runtime: "firecracker_desktop", class: "communicator" },
-  { key: "zangi", evidenceKey: "zangi", name: "Zangi", host: "zangi.sylion.internal", runtime: "android_native_required", class: "communicator", androidNativeRequired: true },
-  { key: "simplex", evidenceKey: "simplex", name: "SimpleX Chat", host: "simplex.sylion.internal", runtime: "desktop_or_android_native_required", class: "communicator", desktopOrAndroidImageRequired: true },
-  { key: "protonmail", evidenceKey: "protonmail", name: "Proton Mail", host: "protonmail.sylion.internal", runtime: "firecracker_webmail", class: "mail", accountLoginRequired: true },
-  { key: "exodus", evidenceKey: "exodus", name: "Exodus", host: "exodus.sylion.internal", runtime: "dedicated_wallet_runtime", class: "wallet", pixelFitReviewRequired: true }
+  {
+    key: "duckduckgo_browser",
+    evidenceKey: "duckduckgo",
+    name: "DuckDuckGo",
+    host: "duckduckgo.sylion.internal",
+    runtime: "firecracker_gui",
+    class: "browser"
+  },
+  {
+    key: "libreoffice",
+    evidenceKey: "libreoffice",
+    name: "LibreOffice",
+    host: "libreoffice.sylion.internal",
+    runtime: "firecracker_gui",
+    class: "office"
+  },
+  {
+    key: "whatsapp",
+    evidenceKey: "whatsapp",
+    name: "WhatsApp",
+    host: "whatsapp.sylion.internal",
+    runtime: "firecracker_web_or_android_native",
+    class: "communicator"
+  },
+  {
+    key: "telegram",
+    evidenceKey: "telegram",
+    name: "Telegram",
+    host: "telegram.sylion.internal",
+    runtime: "firecracker_web_or_android_native",
+    class: "communicator"
+  },
+  {
+    key: "threema",
+    evidenceKey: "threema",
+    name: "Threema",
+    host: "threema.sylion.internal",
+    runtime: "firecracker_web_or_android_native",
+    class: "communicator"
+  },
+  {
+    key: "signal",
+    evidenceKey: "signal",
+    name: "Signal",
+    host: "signal.sylion.internal",
+    runtime: "firecracker_desktop",
+    class: "communicator"
+  },
+  {
+    key: "zangi",
+    evidenceKey: "zangi",
+    name: "Zangi",
+    host: "zangi.sylion.internal",
+    runtime: "android_native_required",
+    class: "communicator",
+    androidNativeRequired: true
+  },
+  {
+    key: "simplex",
+    evidenceKey: "simplex",
+    name: "SimpleX Chat",
+    host: "simplex.sylion.internal",
+    runtime: "desktop_or_android_native_required",
+    class: "communicator",
+    desktopOrAndroidImageRequired: true
+  },
+  {
+    key: "protonmail",
+    evidenceKey: "protonmail",
+    name: "Proton Mail",
+    host: "protonmail.sylion.internal",
+    runtime: "firecracker_webmail",
+    class: "mail",
+    accountLoginRequired: true
+  },
+  {
+    key: "exodus",
+    evidenceKey: "exodus",
+    name: "Exodus",
+    host: "exodus.sylion.internal",
+    runtime: "dedicated_wallet_runtime",
+    class: "wallet",
+    pixelFitReviewRequired: true
+  }
 ]);
 
 function sshArgs(host, command) {
   return [
-    "-i", cfg.sshKey,
-    "-o", "BatchMode=yes",
-    "-o", "StrictHostKeyChecking=accept-new",
-    "-o", "ConnectTimeout=8",
+    "-i",
+    cfg.sshKey,
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "-o",
+    "ConnectTimeout=8",
     host,
     command
   ];
@@ -53,7 +132,9 @@ async function sshJson(host, command) {
 }
 
 async function workloadEvidence() {
-  const appRows = apps.map((app) => `${app.key}|${app.evidenceKey}|${app.androidNativeRequired ? "true" : "false"}`).join("\n");
+  const appRows = apps
+    .map((app) => `${app.key}|${app.evidenceKey}|${app.androidNativeRequired ? "true" : "false"}`)
+    .join("\n");
   const script = `
 python3 - <<'PY'
 import glob
@@ -190,12 +271,13 @@ SYLION_STATUS_APPS
 
 function appState(app, workload, route) {
   const transportReady = route?.routeReachable === true;
-  const workloadReady = workload?.ready === true
-    && workload.appRunning === true
-    && workload.appCrashed !== true
-    && workload.visibleWindow === true
-    && workload.vncBannerReady === true
-    && (workload.targetContentRequired !== true || workload.targetContentVerified === true);
+  const workloadReady =
+    workload?.ready === true &&
+    workload.appRunning === true &&
+    workload.appCrashed !== true &&
+    workload.visibleWindow === true &&
+    workload.vncBannerReady === true &&
+    (workload.targetContentRequired !== true || workload.targetContentVerified === true);
   const blockers = [
     ...(transportReady ? [] : ["g2_route_not_reachable"]),
     ...(workload?.evidencePresent ? [] : ["workload_evidence_missing"]),
@@ -215,7 +297,8 @@ function appState(app, workload, route) {
       blockers.push("simplex_account_send_receive_not_proven");
     } else if (app.accountLoginRequired) {
       functionalState = "ui_ready_account_test_required";
-      operatorAction = "operator_logs_into_mailbox_inside_workload_then_records_metadata_only_evidence";
+      operatorAction =
+        "operator_logs_into_mailbox_inside_workload_then_records_metadata_only_evidence";
       blockers.push("protonmail_login_and_mailbox_visibility_not_proven");
     } else if (app.class === "communicator") {
       functionalState = "ui_ready_account_test_required";
@@ -243,7 +326,11 @@ function appState(app, workload, route) {
     runtime: app.runtime,
     class: app.class,
     transport: {
-      state: transportReady ? (route?.authRequired ? "reachable_auth_required" : "reachable") : "blocked",
+      state: transportReady
+        ? route?.authRequired
+          ? "reachable_auth_required"
+          : "reachable"
+        : "blocked",
       rootHttpStatus: route?.rootHttpStatus ?? null,
       targetHttpStatus: route?.targetHttpStatus ?? null,
       authRequired: route?.authRequired === true,
@@ -277,7 +364,9 @@ export async function collectLiveWorkloadStatus() {
   const [workload, routes] = await Promise.all([workloadEvidence(), g2Routes()]);
   const workloadByKey = new Map(workload.records.map((record) => [record.key, record]));
   const routeByKey = new Map(routes.records.map((record) => [record.key, record]));
-  const appStatuses = apps.map((app) => appState(app, workloadByKey.get(app.key), routeByKey.get(app.key)));
+  const appStatuses = apps.map((app) =>
+    appState(app, workloadByKey.get(app.key), routeByKey.get(app.key))
+  );
   return {
     generatedAt,
     source: "real_g2_and_ax102_metadata_probe",
@@ -289,9 +378,15 @@ export async function collectLiveWorkloadStatus() {
       transportReady: appStatuses.filter((app) => app.transport.state !== "blocked").length,
       workloadUiReady: appStatuses.filter((app) => app.workload.state === "ready").length,
       functionalReady: appStatuses.filter((app) => app.functionalState === "ui_ready").length,
-      accountTestRequired: appStatuses.filter((app) => app.functionalState === "ui_ready_account_test_required").map((app) => app.key),
-      blocked: appStatuses.filter((app) => app.functionalState.startsWith("blocked")).map((app) => app.key),
-      pixelFitReviewRequired: appStatuses.filter((app) => app.functionalState === "ui_ready_pixel_fit_review_required").map((app) => app.key),
+      accountTestRequired: appStatuses
+        .filter((app) => app.functionalState === "ui_ready_account_test_required")
+        .map((app) => app.key),
+      blocked: appStatuses
+        .filter((app) => app.functionalState.startsWith("blocked"))
+        .map((app) => app.key),
+      pixelFitReviewRequired: appStatuses
+        .filter((app) => app.functionalState === "ui_ready_pixel_fit_review_required")
+        .map((app) => app.key),
       productionExecutionAllowed: false
     },
     safety: {
@@ -311,30 +406,36 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
       console.log(JSON.stringify(snapshot, null, 2));
     })
     .catch((error) => {
-      console.log(JSON.stringify({
-        generatedAt: new Date().toISOString(),
-        source: "real_g2_and_ax102_metadata_probe",
-        state: "status_probe_failed",
-        error: error.message,
-        apps: [],
-        summary: {
-          totalApps: 0,
-          transportReady: 0,
-          workloadUiReady: 0,
-          functionalReady: 0,
-          accountTestRequired: [],
-          blocked: apps.map((app) => app.key),
-          productionExecutionAllowed: false
-        },
-        safety: {
-          contentInspected: false,
-          messageContentStored: false,
-          walletDataStored: false,
-          terminalDataStored: false,
-          cdrRequired: true,
-          secretsPrinted: false
-        }
-      }, null, 2));
+      console.log(
+        JSON.stringify(
+          {
+            generatedAt: new Date().toISOString(),
+            source: "real_g2_and_ax102_metadata_probe",
+            state: "status_probe_failed",
+            error: error.message,
+            apps: [],
+            summary: {
+              totalApps: 0,
+              transportReady: 0,
+              workloadUiReady: 0,
+              functionalReady: 0,
+              accountTestRequired: [],
+              blocked: apps.map((app) => app.key),
+              productionExecutionAllowed: false
+            },
+            safety: {
+              contentInspected: false,
+              messageContentStored: false,
+              walletDataStored: false,
+              terminalDataStored: false,
+              cdrRequired: true,
+              secretsPrinted: false
+            }
+          },
+          null,
+          2
+        )
+      );
       process.exitCode = 1;
     });
 }

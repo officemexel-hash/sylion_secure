@@ -17,8 +17,10 @@ export const PROHIBITED_CELLULAR_ACTIONS = Object.freeze([
 
 const PROHIBITED_ACTION_SET = new Set(PROHIBITED_CELLULAR_ACTIONS);
 const TERMINAL_MODES = new Set([DEVICE_TYPES.PIXEL, DEVICE_TYPES.LAPTOP_TERMINAL]);
-const CELLULAR_SECRET_FIELD = /(ki|opc|adm|pin|puk|secret|password|token|private[_-]?key|seed|mnemonic)/i;
-const TERMINAL_EVIDENCE_SECRET_FIELD = /(imei|imsi|iccid|ki|opc|phone|sms|otp|secret|password|token|private[_-]?key|seed|mnemonic|message|chat|payload|file[_-]?content)/i;
+const CELLULAR_SECRET_FIELD =
+  /(ki|opc|adm|pin|puk|secret|password|token|private[_-]?key|seed|mnemonic)/i;
+const TERMINAL_EVIDENCE_SECRET_FIELD =
+  /(imei|imsi|iccid|ki|opc|phone|sms|otp|secret|password|token|private[_-]?key|seed|mnemonic|message|chat|payload|file[_-]?content)/i;
 
 function isoNow() {
   return new Date().toISOString();
@@ -129,7 +131,9 @@ export class TerminalAdmissionPolicyService {
       resourceType: RESOURCE_TYPES.CELLULAR_INVENTORY
     });
     const operator = this.#requireOperator(operatorId);
-    const router = routerDeviceId ? this.#requireDevice(routerDeviceId, DEVICE_TYPES.ROUTER, operatorId) : this.#latestDevice(operatorId, DEVICE_TYPES.ROUTER);
+    const router = routerDeviceId
+      ? this.#requireDevice(routerDeviceId, DEVICE_TYPES.ROUTER, operatorId)
+      : this.#latestDevice(operatorId, DEVICE_TYPES.ROUTER);
     rejectSecretFields({ modem, sim, network, evidenceRefs }, CELLULAR_SECRET_FIELD);
 
     const record = {
@@ -157,7 +161,11 @@ export class TerminalAdmissionPolicyService {
         signalQuality: network.signalQuality || null,
         roaming: network.roaming === true
       },
-      supportedActions: ["read_only_inventory", "legal_provider_profile_lifecycle", "terminal_admission_evidence"],
+      supportedActions: [
+        "read_only_inventory",
+        "legal_provider_profile_lifecycle",
+        "terminal_admission_evidence"
+      ],
       prohibitedActions: [...PROHIBITED_CELLULAR_ACTIONS],
       evidenceRefs,
       rawValuesRedacted: true,
@@ -212,7 +220,10 @@ export class TerminalAdmissionPolicyService {
     });
     const operator = this.#requireOperator(operatorId);
     if (!TERMINAL_MODES.has(terminalMode)) {
-      throw validationError("Unsupported terminal mode", { terminalMode, supported: [...TERMINAL_MODES] });
+      throw validationError("Unsupported terminal mode", {
+        terminalMode,
+        supported: [...TERMINAL_MODES]
+      });
     }
     rejectSecretFields(evidence, TERMINAL_EVIDENCE_SECRET_FIELD, "evidence");
 
@@ -231,14 +242,19 @@ export class TerminalAdmissionPolicyService {
     if (!terminal) blockers.push(`${terminalMode}_device_required`);
     if (!router) blockers.push("puli_ax_router_required");
     if (!fido2) blockers.push("fido2_device_required");
-    if (terminalMode === DEVICE_TYPES.PIXEL && evidence.pixelCellularDisabled !== true) blockers.push("pixel_cellular_disabled_evidence_required");
-    if (terminalMode === DEVICE_TYPES.PIXEL && evidence.pixelWifiOnly !== true) blockers.push("pixel_wifi_only_evidence_required");
+    if (terminalMode === DEVICE_TYPES.PIXEL && evidence.pixelCellularDisabled !== true)
+      blockers.push("pixel_cellular_disabled_evidence_required");
+    if (terminalMode === DEVICE_TYPES.PIXEL && evidence.pixelWifiOnly !== true)
+      blockers.push("pixel_wifi_only_evidence_required");
     if (evidence.routerPairingVerified !== true) blockers.push("router_pairing_evidence_required");
     if (evidence.fido2UserVerified !== true) blockers.push("fido2_user_verification_required");
     if (evidence.ipsecToG1Established !== true) blockers.push("ipsec_to_g1_evidence_required");
-    if (evidence.certificateChainTrusted !== true) blockers.push("certificate_chain_trust_evidence_required");
-    if (evidence.terminalDataStored !== false) blockers.push("terminal_no_operational_data_evidence_required");
-    if (routerReadiness && routerReadiness.readyForPhysicalSmoke !== true) blockers.push(...routerReadiness.blockers);
+    if (evidence.certificateChainTrusted !== true)
+      blockers.push("certificate_chain_trust_evidence_required");
+    if (evidence.terminalDataStored !== false)
+      blockers.push("terminal_no_operational_data_evidence_required");
+    if (routerReadiness && routerReadiness.readyForPhysicalSmoke !== true)
+      blockers.push(...routerReadiness.blockers);
     if (!routerReadiness) blockers.push("router_readiness_service_unavailable");
 
     const record = {
@@ -259,8 +275,12 @@ export class TerminalAdmissionPolicyService {
         "WORKLOAD Firecracker/container layer"
       ],
       controls: {
-        pixelCellularDisabled: terminalMode === DEVICE_TYPES.PIXEL ? evidence.pixelCellularDisabled === true : "not_applicable",
-        pixelWifiOnly: terminalMode === DEVICE_TYPES.PIXEL ? evidence.pixelWifiOnly === true : "not_applicable",
+        pixelCellularDisabled:
+          terminalMode === DEVICE_TYPES.PIXEL
+            ? evidence.pixelCellularDisabled === true
+            : "not_applicable",
+        pixelWifiOnly:
+          terminalMode === DEVICE_TYPES.PIXEL ? evidence.pixelWifiOnly === true : "not_applicable",
         routerPairingVerified: evidence.routerPairingVerified === true,
         fido2UserVerified: evidence.fido2UserVerified === true,
         ipsecToG1Established: evidence.ipsecToG1Established === true,
@@ -308,14 +328,23 @@ export class TerminalAdmissionPolicyService {
   }
 
   #latestDevice(operatorId, type) {
-    return this.devices.listForOperatorScoped(operatorId).filter((device) => device.type === type).at(-1) || null;
+    return (
+      this.devices
+        .listForOperatorScoped(operatorId)
+        .filter((device) => device.type === type)
+        .at(-1) || null
+    );
   }
 
   #requireDevice(deviceId, type, operatorId) {
     const device = this.devices.get(deviceId);
     if (!device) throw notFound("device", deviceId);
     if (device.type !== type) {
-      throw validationError("Device type mismatch", { deviceId, expected: type, actual: device.type });
+      throw validationError("Device type mismatch", {
+        deviceId,
+        expected: type,
+        actual: device.type
+      });
     }
     if (device.assignedOperatorId !== operatorId) {
       throw validationError("Device is not assigned to this operator", { deviceId, operatorId });

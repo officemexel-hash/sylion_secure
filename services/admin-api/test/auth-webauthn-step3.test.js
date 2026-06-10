@@ -13,7 +13,11 @@ async function startTestServer(authOptions = {}) {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_step3_auth" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_step3_auth" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -27,7 +31,12 @@ async function request(baseUrl, path, { method = "GET", token, body, correlation
   return { status: response.status, payload };
 }
 
-async function enroll(baseUrl, email = "admin@sylion.local", password = "ChangeMe-LocalOnly-1!", credentialId = "cred-admin-step3") {
+async function enroll(
+  baseUrl,
+  email = "admin@sylion.local",
+  password = "ChangeMe-LocalOnly-1!",
+  credentialId = "cred-admin-step3"
+) {
   const options = await request(baseUrl, "/auth/webauthn/enrollment/options", {
     method: "POST",
     body: { email, password }

@@ -18,7 +18,15 @@ const ROTATION_SCOPES = new Set([
 
 const TIER_SCOPE_ALLOWLIST = Object.freeze({
   STANDARD: new Set(["session", "ip_route", "region"]),
-  PRO: new Set(["session", "ip_route", "microvm", "workload_vps", "provider", "region", "certificates"]),
+  PRO: new Set([
+    "session",
+    "ip_route",
+    "microvm",
+    "workload_vps",
+    "provider",
+    "region",
+    "certificates"
+  ]),
   SOVEREIGN: ROTATION_SCOPES
 });
 
@@ -44,13 +52,20 @@ function assertNoSensitiveRouteData(value, path = "routeEvidence") {
   if (!value || typeof value !== "object") return;
   for (const [key, nested] of Object.entries(value)) {
     const currentPath = `${path}.${key}`;
-    if (/password|secret|token|api[_-]?key|otp|seed|mnemonic|private[_-]?key|message|chat|payload|body|communication[_-]?content/i.test(key)) {
+    if (
+      /password|secret|token|api[_-]?key|otp|seed|mnemonic|private[_-]?key|message|chat|payload|body|communication[_-]?content/i.test(
+        key
+      )
+    ) {
       throw validationError("Route evidence must not contain secrets or communication content", {
         field: currentPath,
         boundary: "ROUTE_METADATA_ONLY"
       });
     }
-    if (typeof nested === "string" && /-----BEGIN|bearer\s+|api[_-]?key|password=|token=|secret=/i.test(nested)) {
+    if (
+      typeof nested === "string" &&
+      /-----BEGIN|bearer\s+|api[_-]?key|password=|token=|secret=/i.test(nested)
+    ) {
       throw validationError("Route evidence contains sensitive runtime data", {
         field: currentPath,
         boundary: "ROUTE_METADATA_ONLY"
@@ -61,7 +76,9 @@ function assertNoSensitiveRouteData(value, path = "routeEvidence") {
 }
 
 function normalizeEnum(value, allowed, field, fallback = null) {
-  const normalized = String(value || fallback || "").trim().toLowerCase();
+  const normalized = String(value || fallback || "")
+    .trim()
+    .toLowerCase();
   if (!allowed.has(normalized)) {
     throw validationError(`${field} is not supported`, { field, value, allowed: [...allowed] });
   }
@@ -84,9 +101,27 @@ export class JurisdictionPolicyService {
     this.routeEvidence = new PersistentMap({ store, collection: "jurisdiction_route_evidence" });
   }
 
-  create({ actor, tenantId, operatorId, tier, name, allowedProviders, allowedRegions, blockedRegions = [], rotationFrequency, rotationScopes, cooldownHours = 24, approvalRequired = true, correlationId }) {
+  create({
+    actor,
+    tenantId,
+    operatorId,
+    tier,
+    name,
+    allowedProviders,
+    allowedRegions,
+    blockedRegions = [],
+    rotationFrequency,
+    rotationScopes,
+    cooldownHours = 24,
+    approvalRequired = true,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "jurisdiction.policy.create", { tenantId, operatorId, correlationId: corr });
+    this.rbac.assert(actor, "jurisdiction.policy.create", {
+      tenantId,
+      operatorId,
+      correlationId: corr
+    });
     const tierLimits = this.entitlements.getTier(tier);
     if (!name || name.trim().length < 2) {
       throw validationError("Jurisdiction policy name is required");
@@ -154,7 +189,9 @@ export class JurisdictionPolicyService {
     });
     const deniedScopes = requestedScopes.filter((scope) => !policy.rotationScopes.includes(scope));
     if (deniedScopes.length > 0) {
-      throw validationError("Requested rotation scopes are not allowed by policy", { deniedScopes });
+      throw validationError("Requested rotation scopes are not allowed by policy", {
+        deniedScopes
+      });
     }
     const rotationPlan = {
       id: newId("rotation"),
@@ -210,8 +247,18 @@ export class JurisdictionPolicyService {
     });
     assertNoSensitiveRouteData({ checks, evidenceRefs, blockers });
     const normalizedResult = normalizeEnum(result, ROUTE_RESULTS, "result");
-    const normalizedEgress = normalizeEnum(egressClass, ROUTE_EGRESS_CLASSES, "egressClass", "unknown");
-    const normalizedTerminal = normalizeEnum(terminalMode, TERMINAL_MODES, "terminalMode", "unknown");
+    const normalizedEgress = normalizeEnum(
+      egressClass,
+      ROUTE_EGRESS_CLASSES,
+      "egressClass",
+      "unknown"
+    );
+    const normalizedTerminal = normalizeEnum(
+      terminalMode,
+      TERMINAL_MODES,
+      "terminalMode",
+      "unknown"
+    );
     const decision = policyDecision || (normalizedResult === "passed" ? "allow" : "deny");
     const requiredChecks = {
       tierPolicyEnforced: passedCheck(checks, "tierPolicyEnforced"),
@@ -223,17 +270,26 @@ export class JurisdictionPolicyService {
     };
     const recordBlockers = [
       ...safeArray(blockers, "blockers"),
-      ...(normalizedResult === "passed" && !requiredChecks.tierPolicyEnforced ? ["tierPolicyEnforced_not_passed"] : []),
-      ...(normalizedResult === "passed" && !requiredChecks.routePolicyEnforced ? ["routePolicyEnforced_not_passed"] : []),
-      ...(normalizedResult === "passed" && !requiredChecks.egressClassObserved ? ["egressClassObserved_not_passed"] : []),
+      ...(normalizedResult === "passed" && !requiredChecks.tierPolicyEnforced
+        ? ["tierPolicyEnforced_not_passed"]
+        : []),
+      ...(normalizedResult === "passed" && !requiredChecks.routePolicyEnforced
+        ? ["routePolicyEnforced_not_passed"]
+        : []),
+      ...(normalizedResult === "passed" && !requiredChecks.egressClassObserved
+        ? ["egressClassObserved_not_passed"]
+        : []),
       ...(requiredChecks.terminalDataStored ? ["terminal_data_storage_forbidden"] : []),
       ...(requiredChecks.contentInspected ? ["content_inspection_forbidden"] : []),
       ...(requiredChecks.anonymityClaimed ? ["anonymity_claim_forbidden"] : [])
     ];
     if (normalizedResult === "passed" && recordBlockers.length) {
-      throw validationError("Passed route evidence requires tier, route and egress checks with no terminal data or anonymity claim", {
-        blockers: recordBlockers
-      });
+      throw validationError(
+        "Passed route evidence requires tier, route and egress checks with no terminal data or anonymity claim",
+        {
+          blockers: recordBlockers
+        }
+      );
     }
     const record = {
       id: newId("route_ev"),
@@ -281,38 +337,47 @@ export class JurisdictionPolicyService {
       correlationId: corr,
       resourceType: RESOURCE_TYPES.JURISDICTION_ROUTE_EVIDENCE
     });
-    return [...this.routeEvidence.values()]
-      .filter((record) => !operatorId || record.operatorId === operatorId);
+    return [...this.routeEvidence.values()].filter(
+      (record) => !operatorId || record.operatorId === operatorId
+    );
   }
 
   routeEvidenceSummary({ operatorIds = [] } = {}) {
     const operatorSet = new Set(operatorIds.filter(Boolean));
-    const records = [...this.routeEvidence.values()]
-      .filter((record) => operatorSet.size === 0 || operatorSet.has(record.operatorId));
+    const records = [...this.routeEvidence.values()].filter(
+      (record) => operatorSet.size === 0 || operatorSet.has(record.operatorId)
+    );
     const egressClasses = new Set(records.map((record) => record.egressClass));
-    const allowedRouteObserved = records.some((record) => (
-      record.result === "passed"
-      && record.policyDecision === "allow"
-      && record.tierEntitled === true
-      && record.checks?.tierPolicyEnforced === true
-      && record.checks?.routePolicyEnforced === true
-      && record.checks?.egressClassObserved === true
-      && record.terminalDataStored === false
-      && record.contentInspected === false
-      && record.anonymityClaimed === false
-      && ["tor", "jurisdictional_vpn"].includes(record.egressClass)
-    ));
-    const deniedTierObserved = records.some((record) => (
-      record.policyDecision === "deny"
-      && record.tierEntitled === false
-      && record.checks?.tierPolicyEnforced === true
-    ));
-    const terminalDataStoredFalseObserved = records.some((record) => record.terminalDataStored === false);
-    const contentInspectedFalseObserved = records.some((record) => record.contentInspected === false);
-    const ready = allowedRouteObserved
-      && deniedTierObserved
-      && terminalDataStoredFalseObserved
-      && contentInspectedFalseObserved;
+    const allowedRouteObserved = records.some(
+      (record) =>
+        record.result === "passed" &&
+        record.policyDecision === "allow" &&
+        record.tierEntitled === true &&
+        record.checks?.tierPolicyEnforced === true &&
+        record.checks?.routePolicyEnforced === true &&
+        record.checks?.egressClassObserved === true &&
+        record.terminalDataStored === false &&
+        record.contentInspected === false &&
+        record.anonymityClaimed === false &&
+        ["tor", "jurisdictional_vpn"].includes(record.egressClass)
+    );
+    const deniedTierObserved = records.some(
+      (record) =>
+        record.policyDecision === "deny" &&
+        record.tierEntitled === false &&
+        record.checks?.tierPolicyEnforced === true
+    );
+    const terminalDataStoredFalseObserved = records.some(
+      (record) => record.terminalDataStored === false
+    );
+    const contentInspectedFalseObserved = records.some(
+      (record) => record.contentInspected === false
+    );
+    const ready =
+      allowedRouteObserved &&
+      deniedTierObserved &&
+      terminalDataStoredFalseObserved &&
+      contentInspectedFalseObserved;
     return {
       records: records.length,
       egressClasses: [...egressClasses],
@@ -321,12 +386,14 @@ export class JurisdictionPolicyService {
       terminalDataStoredFalseObserved,
       contentInspectedFalseObserved,
       ready,
-      blockers: ready ? [] : [
-        ...(allowedRouteObserved ? [] : ["tor_or_jurisdiction_route_probe_missing"]),
-        ...(deniedTierObserved ? [] : ["tier_denial_probe_missing"]),
-        ...(terminalDataStoredFalseObserved ? [] : ["terminal_no_data_evidence_missing"]),
-        ...(contentInspectedFalseObserved ? [] : ["content_not_inspected_evidence_missing"])
-      ],
+      blockers: ready
+        ? []
+        : [
+            ...(allowedRouteObserved ? [] : ["tor_or_jurisdiction_route_probe_missing"]),
+            ...(deniedTierObserved ? [] : ["tier_denial_probe_missing"]),
+            ...(terminalDataStoredFalseObserved ? [] : ["terminal_no_data_evidence_missing"]),
+            ...(contentInspectedFalseObserved ? [] : ["content_not_inspected_evidence_missing"])
+          ],
       productionExecutionAllowed: false
     };
   }

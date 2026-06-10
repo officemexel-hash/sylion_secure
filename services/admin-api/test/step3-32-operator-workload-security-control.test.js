@@ -43,7 +43,12 @@ async function loginClient(baseUrl) {
   return anon.withToken(session.token);
 }
 
-async function operatorRequest(baseUrl, token, path, { method = "GET", body, expectOk = true } = {}) {
+async function operatorRequest(
+  baseUrl,
+  token,
+  path,
+  { method = "GET", body, expectOk = true } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -151,7 +156,11 @@ test("Step 3.32 operator can queue communicator environment counts within tier q
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
 
-    const before = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control");
+    const before = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control"
+    );
     assert.equal(before.payload.control.quota.maxWorkloadEnvironments, 20);
     assert.equal(before.payload.control.guardrails.cdrRequired, true);
     assert.equal(before.payload.control.guardrails.terminalDataStored, false);
@@ -173,10 +182,15 @@ test("Step 3.32 operator can queue communicator environment counts within tier q
       libreoffice: 1,
       exodus: 1
     };
-    const queued = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
-      method: "POST",
-      body: { action: "scale_to_counts", desiredCounts }
-    });
+    const queued = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control/requests",
+      {
+        method: "POST",
+        body: { action: "scale_to_counts", desiredCounts }
+      }
+    );
     assert.equal(queued.status, 201);
     assert.equal(queued.payload.request.totalRequested, 9);
     assert.equal(queued.payload.request.controlPlaneOnly, true);
@@ -187,13 +201,21 @@ test("Step 3.32 operator can queue communicator environment counts within tier q
     assert.ok(queued.payload.request.executionPlan.stages.includes("cdr_policy_attached"));
     assert.ok(queued.payload.request.executionPlan.stages.includes("panic_policy_checked"));
 
-    const after = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control");
+    const after = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control"
+    );
     assert.equal(after.payload.control.latestRequest.state, "queued_control_plane_update");
     assert.equal(after.payload.control.latestDesiredCounts.signal, 2);
-    assert.ok(after.payload.control.catalog.some((app) => app.key === "exodus" && app.category === "wallet"));
+    assert.ok(
+      after.payload.control.catalog.some((app) => app.key === "exodus" && app.category === "wallet")
+    );
     assert.equal(after.payload.control.latestDesiredCounts.exodus, 1);
 
-    const audit = app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id);
+    const audit = app.services.audit
+      .list()
+      .filter((event) => event.operatorId === seeded.operator.id);
     assert.ok(audit.some((event) => event.action === "operator_portal.workload_control_requested"));
   } finally {
     await close();
@@ -205,16 +227,32 @@ test("Step 3.32 Zangi native runtime is blocked until Android host gates pass", 
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const execution = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-execution/zangi");
+    const execution = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-execution/zangi"
+    );
     assert.equal(execution.payload.execution.runtime.kind, "android_workload");
-    assert.equal(execution.payload.execution.runtime.runner, "real_android_workload_runner_required");
+    assert.equal(
+      execution.payload.execution.runtime.runner,
+      "real_android_workload_runner_required"
+    );
     assert.equal(execution.payload.execution.runtime.substrate.androidRuntime.ready, false);
     assert.ok(execution.payload.execution.blockers.includes("android_kvm_device_not_ready"));
-    assert.ok(execution.payload.execution.warnings.includes("native_zangi_requires_android_workload_not_chromium_download_page"));
+    assert.ok(
+      execution.payload.execution.warnings.includes(
+        "native_zangi_requires_android_workload_not_chromium_download_page"
+      )
+    );
 
-    const start = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-execution/zangi/start", {
-      method: "POST"
-    });
+    const start = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-execution/zangi/start",
+      {
+        method: "POST"
+      }
+    );
     assert.equal(start.payload.request.state, "blocked");
     assert.equal(start.payload.request.launchAllowed, false);
     assert.equal(start.payload.request.productionExecutionAllowed, false);
@@ -231,19 +269,41 @@ test("Step 3.32 Zangi runtime gate consumes approved Android-native manifest ref
     const manifest = await registerAndroidReadyHostAndManifest(client);
     assert.equal(manifest.manifest.readyForLabLaunch, true);
 
-    const control = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control");
+    const control = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control"
+    );
     const zangiCatalog = control.payload.control.catalog.find((app) => app.key === "zangi");
     assert.equal(zangiCatalog.runtimeGate.ready, true);
     assert.equal(zangiCatalog.runtimeGate.evidenceSource, "workload_image_manifest");
     assert.equal(zangiCatalog.runtimeGate.manifestId, manifest.manifest.id);
-    assert.equal(zangiCatalog.runtimeGate.refs.androidImageRef, "image://sylion/android-native/zangi-lab-v0");
-    assert.equal(zangiCatalog.runtimeGate.refs.zangiApkRef, "package://zangi/android-apk/approved-lab-ref");
+    assert.equal(
+      zangiCatalog.runtimeGate.refs.androidImageRef,
+      "image://sylion/android-native/zangi-lab-v0"
+    );
+    assert.equal(
+      zangiCatalog.runtimeGate.refs.zangiApkRef,
+      "package://zangi/android-apk/approved-lab-ref"
+    );
 
-    const execution = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-execution/zangi");
+    const execution = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-execution/zangi"
+    );
     assert.equal(execution.payload.execution.runtime.substrate.androidRuntime.ready, true);
-    assert.equal(execution.payload.execution.runtime.substrate.androidRuntime.evidenceSource, "workload_image_manifest");
-    assert.equal(execution.payload.execution.blockers.includes("android_kvm_device_not_ready"), false);
-    assert.ok(execution.payload.execution.blockers.includes("human_production_execution_approval_required"));
+    assert.equal(
+      execution.payload.execution.runtime.substrate.androidRuntime.evidenceSource,
+      "workload_image_manifest"
+    );
+    assert.equal(
+      execution.payload.execution.blockers.includes("android_kvm_device_not_ready"),
+      false
+    );
+    assert.ok(
+      execution.payload.execution.blockers.includes("human_production_execution_approval_required")
+    );
     assert.equal(execution.payload.execution.productionExecutionAllowed, false);
   } finally {
     await close();
@@ -255,30 +315,55 @@ test("Step 3.32 destructive workload recreate requests expose CDR and panic exec
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const queued = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
-      method: "POST",
-      body: {
-        action: "rotate_app",
-        rotateApp: "whatsapp",
-        desiredCounts: {
-          whatsapp: 2,
-          signal: 1
+    const queued = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control/requests",
+      {
+        method: "POST",
+        body: {
+          action: "rotate_app",
+          rotateApp: "whatsapp",
+          desiredCounts: {
+            whatsapp: 2,
+            signal: 1
+          }
         }
       }
-    });
+    );
     assert.equal(queued.status, 201);
     assert.equal(queued.payload.request.state, "queued_destructive_recreate_control_plane");
     assert.equal(queued.payload.request.deleteRecreateMode, "queued_control_plane");
     assert.equal(queued.payload.request.destructiveCleanupAllowed, false);
     assert.equal(queued.payload.request.executionPlan.targetApp, "whatsapp");
-    assert.equal(queued.payload.request.executionPlan.cdr.fileIngressEgressBlockedWithoutDecision, true);
-    assert.equal(queued.payload.request.executionPlan.panicPolicy.destructiveActionRequiresSessionUnlock, true);
-    assert.equal(queued.payload.request.executionPlan.liveRunner.command, "npm run live:workload-recreate -- --app=whatsapp");
+    assert.equal(
+      queued.payload.request.executionPlan.cdr.fileIngressEgressBlockedWithoutDecision,
+      true
+    );
+    assert.equal(
+      queued.payload.request.executionPlan.panicPolicy.destructiveActionRequiresSessionUnlock,
+      true
+    );
+    assert.equal(
+      queued.payload.request.executionPlan.liveRunner.command,
+      "npm run live:workload-recreate -- --app=whatsapp"
+    );
     assert.equal(queued.payload.request.executionPlan.liveRunner.wipeVolumeDefault, false);
-    assert.equal(queued.payload.request.executionPlan.liveRunner.wipeVolumeRequiresPanicOrFourEyes, true);
+    assert.equal(
+      queued.payload.request.executionPlan.liveRunner.wipeVolumeRequiresPanicOrFourEyes,
+      true
+    );
     assert.equal(queued.payload.request.executionPlan.liveRunner.signalAuthHandoffRequired, false);
-    assert.ok(queued.payload.request.executionPlan.liveRunner.expectedEvidence.includes("privateBindOnly=true"));
-    assert.ok(queued.payload.request.executionPlan.targetRefs.includes(`workload-slot://${seeded.operator.id}/whatsapp`));
+    assert.ok(
+      queued.payload.request.executionPlan.liveRunner.expectedEvidence.includes(
+        "privateBindOnly=true"
+      )
+    );
+    assert.ok(
+      queued.payload.request.executionPlan.targetRefs.includes(
+        `workload-slot://${seeded.operator.id}/whatsapp`
+      )
+    );
   } finally {
     await close();
   }
@@ -289,27 +374,43 @@ test("Step 3.32 live workload runner blocks destructive execution until server g
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const queued = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
-      method: "POST",
-      body: {
-        action: "rotate_app",
-        rotateApp: "signal",
-        desiredCounts: { signal: 1 }
+    const queued = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control/requests",
+      {
+        method: "POST",
+        body: {
+          action: "rotate_app",
+          rotateApp: "signal",
+          desiredCounts: { signal: 1 }
+        }
       }
-    });
-    const blocked = await operatorRequest(baseUrl, seeded.session.token, `/operator-api/workload-control/requests/${queued.payload.request.id}/execute`, {
-      method: "POST",
-      body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" }
-    });
+    );
+    const blocked = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      `/operator-api/workload-control/requests/${queued.payload.request.id}/execute`,
+      {
+        method: "POST",
+        body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" }
+      }
+    );
     assert.equal(blocked.payload.job.state, "blocked_before_live_runner");
-    assert.ok(blocked.payload.job.blockers.includes("SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED_not_true"));
+    assert.ok(
+      blocked.payload.job.blockers.includes("SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED_not_true")
+    );
     assert.equal(blocked.payload.job.cdrRequired, true);
     assert.equal(blocked.payload.job.terminalDataStored, false);
     assert.equal(blocked.payload.job.privateBindOnlyRequired, true);
     assert.equal(blocked.payload.job.signalAuthHandoffRequired, true);
 
-    const audit = app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id);
-    assert.ok(audit.some((event) => event.action === "operator_portal.workload_live_runner_blocked"));
+    const audit = app.services.audit
+      .list()
+      .filter((event) => event.operatorId === seeded.operator.id);
+    assert.ok(
+      audit.some((event) => event.action === "operator_portal.workload_live_runner_blocked")
+    );
   } finally {
     await close();
   }
@@ -331,14 +432,17 @@ test("Step 3.32 live workload runner executes approved recreate and stores sanit
         privateBindOnly: true,
         checkedAt: new Date(0).toISOString()
       },
-      signalHandoff: input.app === "signal" ? {
-        applied: true,
-        secretPrinted: false,
-        signalStatus: "200",
-        terminalDataStored: false,
-        g1G2BypassAllowed: false,
-        cdrRequired: true
-      } : null,
+      signalHandoff:
+        input.app === "signal"
+          ? {
+              applied: true,
+              secretPrinted: false,
+              signalStatus: "200",
+              terminalDataStored: false,
+              g1G2BypassAllowed: false,
+              cdrRequired: true
+            }
+          : null,
       smoke: { [input.app]: "200" },
       productionExecutionAllowed: false
     };
@@ -355,20 +459,33 @@ test("Step 3.32 live workload runner executes approved recreate and stores sanit
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "PRO");
-    const queued = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
-      method: "POST",
-      body: {
-        action: "rotate_app",
-        rotateApp: "duckduckgo_browser",
-        desiredCounts: { duckduckgo_browser: 1 }
+    const queued = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control/requests",
+      {
+        method: "POST",
+        body: {
+          action: "rotate_app",
+          rotateApp: "duckduckgo_browser",
+          desiredCounts: { duckduckgo_browser: 1 }
+        }
       }
-    });
-    assert.equal(queued.payload.request.executionPlan.liveRunner.command, "npm run live:workload-recreate -- --app=duckduckgo");
+    );
+    assert.equal(
+      queued.payload.request.executionPlan.liveRunner.command,
+      "npm run live:workload-recreate -- --app=duckduckgo"
+    );
 
-    const executed = await operatorRequest(baseUrl, seeded.session.token, `/operator-api/workload-control/requests/${queued.payload.request.id}/execute`, {
-      method: "POST",
-      body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" }
-    });
+    const executed = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      `/operator-api/workload-control/requests/${queued.payload.request.id}/execute`,
+      {
+        method: "POST",
+        body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" }
+      }
+    );
     assert.equal(executed.payload.job.state, "completed_live_workload_recreate");
     assert.equal(executed.payload.job.runnerApp, "duckduckgo");
     assert.equal(executed.payload.job.wipeVolume, false);
@@ -380,28 +497,51 @@ test("Step 3.32 live workload runner executes approved recreate and stores sanit
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0], { app: "duckduckgo", wipeVolume: false });
 
-    const after = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control");
+    const after = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control"
+    );
     assert.equal(after.payload.control.latestJob.state, "completed_live_workload_recreate");
     assert.equal(after.payload.control.latestRequest.liveJobId, executed.payload.job.id);
-    const audit = app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id);
-    assert.ok(audit.some((event) => event.action === "operator_portal.workload_live_runner_started"));
-    assert.ok(audit.some((event) => event.action === "operator_portal.workload_live_runner_completed"));
+    const audit = app.services.audit
+      .list()
+      .filter((event) => event.operatorId === seeded.operator.id);
+    assert.ok(
+      audit.some((event) => event.action === "operator_portal.workload_live_runner_started")
+    );
+    assert.ok(
+      audit.some((event) => event.action === "operator_portal.workload_live_runner_completed")
+    );
     assert.equal(JSON.stringify(audit).includes("VNC_PW"), false);
 
-    const queuedProton = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
-      method: "POST",
-      body: {
-        action: "rotate_app",
-        rotateApp: "protonmail",
-        desiredCounts: { protonmail: 1 }
+    const queuedProton = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control/requests",
+      {
+        method: "POST",
+        body: {
+          action: "rotate_app",
+          rotateApp: "protonmail",
+          desiredCounts: { protonmail: 1 }
+        }
       }
-    });
-    assert.equal(queuedProton.payload.request.executionPlan.liveRunner.command, "npm run live:workload-recreate -- --app=protonmail");
+    );
+    assert.equal(
+      queuedProton.payload.request.executionPlan.liveRunner.command,
+      "npm run live:workload-recreate -- --app=protonmail"
+    );
 
-    const executedProton = await operatorRequest(baseUrl, seeded.session.token, `/operator-api/workload-control/requests/${queuedProton.payload.request.id}/execute`, {
-      method: "POST",
-      body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" }
-    });
+    const executedProton = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      `/operator-api/workload-control/requests/${queuedProton.payload.request.id}/execute`,
+      {
+        method: "POST",
+        body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE" }
+      }
+    );
     assert.equal(executedProton.payload.job.state, "completed_live_workload_recreate");
     assert.equal(executedProton.payload.job.runnerApp, "protonmail");
     assert.equal(executedProton.payload.job.result.smoke.protonmail, "200");
@@ -417,18 +557,23 @@ test("Step 3.32 operator workload control denies counts above subscription quota
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client, "STANDARD");
-    const denied = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/workload-control/requests", {
-      method: "POST",
-      expectOk: false,
-      body: {
-        action: "scale_to_counts",
-        desiredCounts: {
-          whatsapp: 5,
-          signal: 4,
-          telegram: 2
+    const denied = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/workload-control/requests",
+      {
+        method: "POST",
+        expectOk: false,
+        body: {
+          action: "scale_to_counts",
+          desiredCounts: {
+            whatsapp: 5,
+            signal: 4,
+            telegram: 2
+          }
         }
       }
-    });
+    );
     assert.equal(denied.status, 422);
     assert.match(denied.payload.error.message, /quota/i);
     assert.equal(denied.payload.error.details.maxWorkloadEnvironments, 10);
@@ -444,16 +589,21 @@ test("Step 3.32 operator unlock policy stores only write-only layer password met
     const seeded = await seedOperator(client, "PRO");
     const secretPhrase = "Layer passphrase local only 12345";
 
-    const saved = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/unlock", {
-      method: "POST",
-      body: {
-        sessionHours: 12,
-        g1Password: secretPhrase,
-        g2Password: `${secretPhrase} g2`,
-        workloadPassword: `${secretPhrase} workload`,
-        fido2RequiredAtSessionEnd: true
+    const saved = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/settings/unlock",
+      {
+        method: "POST",
+        body: {
+          sessionHours: 12,
+          g1Password: secretPhrase,
+          g2Password: `${secretPhrase} g2`,
+          workloadPassword: `${secretPhrase} workload`,
+          fido2RequiredAtSessionEnd: true
+        }
       }
-    });
+    );
     assert.equal(saved.payload.policy.sessionHours, 12);
     assert.equal(saved.payload.policy.layers.g1.passwordSet, true);
     assert.equal(saved.payload.policy.layers.g2.passwordMaterialStored, false);
@@ -469,7 +619,9 @@ test("Step 3.32 operator unlock policy stores only write-only layer password met
     });
     assert.equal(nextSession.session.sessionHours, 12);
 
-    const serializedAudit = JSON.stringify(app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id));
+    const serializedAudit = JSON.stringify(
+      app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id)
+    );
     assert.equal(serializedAudit.includes(secretPhrase), false);
     assert.match(serializedAudit, /operator_portal\.unlock_policy_updated/);
   } finally {
@@ -484,17 +636,22 @@ test("Step 3.32 operator safety controls keep panic codes write-only", async () 
     const seeded = await seedOperator(client, "PRO");
     const panicCode = "Panic level one local only 12345";
 
-    const saved = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/settings/safety", {
-      method: "POST",
-      body: {
-        backupEnabled: true,
-        backupCadenceHours: 24,
-        inactivityWipeEnabled: true,
-        inactivityWipeDays: 10,
-        data_wipeCode: panicCode,
-        environment_destroyCode: `${panicCode} destroy`
+    const saved = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/settings/safety",
+      {
+        method: "POST",
+        body: {
+          backupEnabled: true,
+          backupCadenceHours: 24,
+          inactivityWipeEnabled: true,
+          inactivityWipeDays: 10,
+          data_wipeCode: panicCode,
+          environment_destroyCode: `${panicCode} destroy`
+        }
       }
-    });
+    );
     assert.equal(saved.payload.policy.backup.enabled, true);
     assert.equal(saved.payload.policy.backup.workloadDataIncluded, false);
     assert.equal(saved.payload.policy.inactivityWipe.afterDays, 10);
@@ -502,7 +659,9 @@ test("Step 3.32 operator safety controls keep panic codes write-only", async () 
     assert.equal(saved.payload.policy.panicCodes.environment_destroy.codeMaterialStored, false);
     assert.equal(JSON.stringify(saved.payload).includes(panicCode), false);
 
-    const serializedAudit = JSON.stringify(app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id));
+    const serializedAudit = JSON.stringify(
+      app.services.audit.list().filter((event) => event.operatorId === seeded.operator.id)
+    );
     assert.equal(serializedAudit.includes(panicCode), false);
     assert.match(serializedAudit, /operator_portal\.safety_policy_updated/);
   } finally {
@@ -515,46 +674,66 @@ test("Step 3.32 jurisdiction, Matrix and subscription requests are quota and con
   try {
     const client = await loginClient(baseUrl);
     const standard = await seedOperator(client, "STANDARD");
-    const denied = await operatorRequest(baseUrl, standard.session.token, "/operator-api/settings/jurisdiction", {
-      method: "POST",
-      expectOk: false,
-      body: {
-        mode: "scheduled",
-        regions: ["de", "fi"]
+    const denied = await operatorRequest(
+      baseUrl,
+      standard.session.token,
+      "/operator-api/settings/jurisdiction",
+      {
+        method: "POST",
+        expectOk: false,
+        body: {
+          mode: "scheduled",
+          regions: ["de", "fi"]
+        }
       }
-    });
+    );
     assert.equal(denied.status, 422);
     assert.match(denied.payload.error.message, /subscription/i);
 
     const pro = await seedOperator(client, "PRO");
-    const jurisdiction = await operatorRequest(baseUrl, pro.session.token, "/operator-api/settings/jurisdiction", {
-      method: "POST",
-      body: {
-        mode: "scheduled",
-        regions: ["de", "fi"]
+    const jurisdiction = await operatorRequest(
+      baseUrl,
+      pro.session.token,
+      "/operator-api/settings/jurisdiction",
+      {
+        method: "POST",
+        body: {
+          mode: "scheduled",
+          regions: ["de", "fi"]
+        }
       }
-    });
+    );
     assert.equal(jurisdiction.payload.policy.mode, "scheduled");
     assert.equal(jurisdiction.payload.policy.productionExecutionAllowed, false);
 
-    const matrix = await operatorRequest(baseUrl, pro.session.token, "/operator-api/matrix-server/requests", {
-      method: "POST",
-      body: {
-        hostname: "matrix.operator.example",
-        federation: true
+    const matrix = await operatorRequest(
+      baseUrl,
+      pro.session.token,
+      "/operator-api/matrix-server/requests",
+      {
+        method: "POST",
+        body: {
+          hostname: "matrix.operator.example",
+          federation: true
+        }
       }
-    });
+    );
     assert.equal(matrix.status, 201);
     assert.equal(matrix.payload.request.state, "queued_addon_and_dns_review");
     assert.equal(matrix.payload.request.terminalDataStored, false);
 
-    const billing = await operatorRequest(baseUrl, pro.session.token, "/operator-api/subscription/requests", {
-      method: "POST",
-      body: {
-        action: "upgrade",
-        targetTier: "SOVEREIGN"
+    const billing = await operatorRequest(
+      baseUrl,
+      pro.session.token,
+      "/operator-api/subscription/requests",
+      {
+        method: "POST",
+        body: {
+          action: "upgrade",
+          targetTier: "SOVEREIGN"
+        }
       }
-    });
+    );
     assert.equal(billing.status, 201);
     assert.equal(billing.payload.request.state, "queued_billing_review");
     assert.equal(billing.payload.request.billingExecutionAllowed, false);

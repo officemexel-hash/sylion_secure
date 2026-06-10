@@ -4,9 +4,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 const DEFAULT_G1_HOST = "sylion@178.105.200.112";
-const DEFAULT_G1_KEY = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const DEFAULT_G1_KEY =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 const DEFAULT_OUT = "docs/admin-panel-v2/test-artifacts/g1-ipsec-responder/latest.json";
 
 function argValue(name, fallback = null) {
@@ -25,20 +26,25 @@ function isoNow() {
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve) => {
-    execFile(command, args, {
-      windowsHide: true,
-      timeout: options.timeout || 120_000,
-      maxBuffer: options.maxBuffer || 2 * 1024 * 1024,
-      input: options.input
-    }, (error, stdout, stderr) => {
-      resolve({
-        ok: !error,
-        code: error?.code || 0,
-        stdout: String(stdout || "").trim(),
-        stderr: String(stderr || "").trim(),
-        message: error?.message || null
-      });
-    });
+    execFile(
+      command,
+      args,
+      {
+        windowsHide: true,
+        timeout: options.timeout || 120_000,
+        maxBuffer: options.maxBuffer || 2 * 1024 * 1024,
+        input: options.input
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          ok: !error,
+          code: error?.code || 0,
+          stdout: String(stdout || "").trim(),
+          stderr: String(stderr || "").trim(),
+          message: error?.message || null
+        });
+      }
+    );
   });
 }
 
@@ -92,18 +98,23 @@ function spawnWithInput(command, args, input, options = {}) {
 }
 
 async function ssh({ host, keyPath, script, timeout = 120_000 }) {
-  return spawnWithInput("ssh", [
-    "-i",
-    keyPath,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "PasswordAuthentication=no",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    "sudo -n sh -s"
-  ], script, { timeout });
+  return spawnWithInput(
+    "ssh",
+    [
+      "-i",
+      keyPath,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "PasswordAuthentication=no",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      host,
+      "sudo -n sh -s"
+    ],
+    script,
+    { timeout }
+  );
 }
 
 function parseKeyValueLines(output) {

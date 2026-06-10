@@ -2,13 +2,18 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "playwright";
 import { writeHumanEvidenceSummary } from "./lib/human-evidence.mjs";
-import { communicatorDefinition, evaluateCommunicatorFactualState } from "./lib/communicator-factual-evaluator.mjs";
+import {
+  communicatorDefinition,
+  evaluateCommunicatorFactualState
+} from "./lib/communicator-factual-evaluator.mjs";
 import { AdminApiClient } from "../services/admin-api/src/sdk/adminApiClient.js";
 
-const args = new Map(process.argv.slice(2).map((arg) => {
-  const [key, ...rest] = arg.replace(/^--/, "").split("=");
-  return [key, rest.join("=") || "true"];
-}));
+const args = new Map(
+  process.argv.slice(2).map((arg) => {
+    const [key, ...rest] = arg.replace(/^--/, "").split("=");
+    return [key, rest.join("=") || "true"];
+  })
+);
 const appKey = args.get("app") || process.env.SYLION_APP_UNDER_TEST || "signal";
 const definition = communicatorDefinition(appKey);
 if (!definition) {
@@ -18,12 +23,19 @@ if (!definition) {
 const prefix = appKey.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 const baseUrl = process.env.SYLION_BASE_URL || "http://127.0.0.1:18099";
 const terminalMode = process.env.SYLION_TERMINAL_MODE || "pixel_grapheneos";
-const runtimeMode = process.env.SYLION_RUNTIME_MODE || (appKey === "zangi" ? "android_native" : "firecracker_gui");
+const runtimeMode =
+  process.env.SYLION_RUNTIME_MODE || (appKey === "zangi" ? "android_native" : "firecracker_gui");
 const indexHumanEvidence = process.env.SYLION_INDEX_HUMAN_EVIDENCE === "true";
 const openStream = process.env[`SYLION_${prefix}_OPEN_STREAM`] === "true";
 const recordFactualPass = process.env[`SYLION_${prefix}_RECORD_FACTUAL`] === "true";
 const headless = process.env.SYLION_HEADLESS !== "false";
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", `step3-86-${appKey}-human-runner`);
+const outputDir = join(
+  process.cwd(),
+  "docs",
+  "admin-panel-v2",
+  "test-artifacts",
+  `step3-86-${appKey}-human-runner`
+);
 
 function repoRelativePath(path) {
   return path.startsWith(process.cwd())
@@ -40,8 +52,11 @@ function envBool(name) {
 }
 
 function markerFromText(text) {
-  const normalized = String(text || "").replace(/\s+/g, " ").trim();
-  if (appKey === "signal" && /signal/i.test(normalized)) return runtimeMode === "android_native" ? "signal_android" : "signal_desktop";
+  const normalized = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (appKey === "signal" && /signal/i.test(normalized))
+    return runtimeMode === "android_native" ? "signal_android" : "signal_desktop";
   if (appKey === "whatsapp" && /whats ?app/i.test(normalized)) {
     if (/log in|qr|link/i.test(normalized)) return "web_whatsapp_login_only";
     return runtimeMode === "android_native" ? "whatsapp_android" : "whatsapp_desktop";
@@ -81,7 +96,11 @@ async function loginClient() {
     });
     await anon.verifyEnrollment({
       challengeId: enrollment.challenge.id,
-      credential: { id: credentialId, publicKey: `simulated-public-key:${credentialId}`, transports: ["usb"] }
+      credential: {
+        id: credentialId,
+        publicKey: `simulated-public-key:${credentialId}`,
+        transports: ["usb"]
+      }
     });
   } catch {
     // Repeatable local and remote harnesses may already have admin WebAuthn enrollment.
@@ -90,7 +109,8 @@ async function loginClient() {
     email: "admin@sylion.local",
     password: "ChangeMe-LocalOnly-1!"
   });
-  const loginCredentialId = loginOptions.challenge.publicKey.allowCredentials?.at(-1)?.id || credentialId;
+  const loginCredentialId =
+    loginOptions.challenge.publicKey.allowCredentials?.at(-1)?.id || credentialId;
   const session = await anon.verifyWebAuthnLogin({
     challengeId: loginOptions.challenge.id,
     credentialId: loginCredentialId,
@@ -136,7 +156,10 @@ async function createOrSelectOperator(client) {
     };
   }
   const stamp = Date.now();
-  const tenant = await client.createTenant({ name: `Step 3.86 ${definition.label} Tenant ${stamp}`, tier: "PRO" });
+  const tenant = await client.createTenant({
+    name: `Step 3.86 ${definition.label} Tenant ${stamp}`,
+    tier: "PRO"
+  });
   const operator = await client.createOperator({
     tenantId: tenant.tenant.id,
     displayName: `Step 3.86 ${definition.label} Operator ${stamp}`,
@@ -221,7 +244,9 @@ function routeProbeFromEnv() {
     dnsThroughTunnel: envBool("DNS_THROUGH_TUNNEL"),
     terminalDefaultRoute: env("TERMINAL_DEFAULT_ROUTE", "unknown"),
     workloadEgress: env("WORKLOAD_EGRESS", "unknown"),
-    evidenceArtifactIds: env("ROUTE_EVIDENCE_REF")?.startsWith("artifact://") ? [env("ROUTE_EVIDENCE_REF")] : []
+    evidenceArtifactIds: env("ROUTE_EVIDENCE_REF")?.startsWith("artifact://")
+      ? [env("ROUTE_EVIDENCE_REF")]
+      : []
   };
 }
 
@@ -248,7 +273,10 @@ async function visualProbeFromBrowser({ operatorToken, streamSession }) {
     await page.goto(operatorUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
     await page.waitForTimeout(1000);
     screenshots.operator = await screenshot(page, `${appKey}-operator-workload-control`);
-    const operatorText = await page.locator("body").innerText().catch(() => "");
+    const operatorText = await page
+      .locator("body")
+      .innerText()
+      .catch(() => "");
     if (!new RegExp(`${definition.label}|Workload|Apps`, "i").test(operatorText)) {
       probe.status = "failed";
       probe.marker = "operator_panel_missing";
@@ -257,11 +285,18 @@ async function visualProbeFromBrowser({ operatorToken, streamSession }) {
       await page.goto(streamSession.launchUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
       await page.waitForTimeout(1500);
       screenshots.stream = await screenshot(page, `${appKey}-stream-view`);
-      const streamText = await page.locator("body").innerText().catch(() => "");
+      const streamText = await page
+        .locator("body")
+        .innerText()
+        .catch(() => "");
       const title = await page.title().catch(() => "");
       const marker = markerFromText(`${title} ${streamText}`);
       probe.marker = marker;
-      probe.status = definition.acceptedMarkers.includes(marker) ? "passed" : marker ? "failed" : "blocked";
+      probe.status = definition.acceptedMarkers.includes(marker)
+        ? "passed"
+        : marker
+          ? "failed"
+          : "blocked";
       probe.evidenceRef = `screenshot:${repoRelativePath(screenshots.stream)}`;
       probe.evidenceArtifactIds = [`artifact://local/step3-86-${appKey}-stream-view`];
     } else if (screenshots.operator) {
@@ -283,17 +318,24 @@ async function run() {
   const matrixResponse = await client.listWorkloadFactualMatrix({ appKey });
   const matrixItem = matrixResponse.matrix[0];
   const selected = await createOrSelectOperator(client);
-  const connectionPath = await operatorRequest(selected.session.token, "/operator-api/connection-path");
-  const streamPayload = await operatorRequest(selected.session.token, "/operator-api/streaming-sessions", {
-    method: "POST",
-    body: {
-      templateKey: appKey,
-      protocol: process.env.SYLION_G2_SESSION_BROKER || "webrtc_or_selkies",
-      width: Number(process.env.SYLION_PIXEL_WIDTH || 390),
-      height: Number(process.env.SYLION_PIXEL_HEIGHT || 844),
-      dpr: Number(process.env.SYLION_PIXEL_DPR || 3)
+  const connectionPath = await operatorRequest(
+    selected.session.token,
+    "/operator-api/connection-path"
+  );
+  const streamPayload = await operatorRequest(
+    selected.session.token,
+    "/operator-api/streaming-sessions",
+    {
+      method: "POST",
+      body: {
+        templateKey: appKey,
+        protocol: process.env.SYLION_G2_SESSION_BROKER || "webrtc_or_selkies",
+        width: Number(process.env.SYLION_PIXEL_WIDTH || 390),
+        height: Number(process.env.SYLION_PIXEL_HEIGHT || 844),
+        dpr: Number(process.env.SYLION_PIXEL_DPR || 3)
+      }
     }
-  });
+  );
   const browserVisual = await visualProbeFromBrowser({
     operatorToken: selected.session.token,
     streamSession: streamPayload.session
@@ -341,7 +383,12 @@ async function run() {
     streamBrokerProtocol: streamPayload.session.gateway?.protocol || null,
     streamSourceReadiness: streamPayload.session.source?.readiness || null,
     streamInternalLaunchUrlPresent: Boolean(streamPayload.session.launchUrl),
-    screenshots: Object.fromEntries(Object.entries(browserVisual.screenshots).map(([name, path]) => [name, repoRelativePath(path)])),
+    screenshots: Object.fromEntries(
+      Object.entries(browserVisual.screenshots).map(([name, path]) => [
+        name,
+        repoRelativePath(path)
+      ])
+    ),
     evaluation,
     recordedFactualTestId: recordedFactualTest?.test?.id || null,
     recordFactualPass,
@@ -351,68 +398,80 @@ async function run() {
   };
   await writeFile(join(outputDir, "summary.json"), JSON.stringify(safeSummary, null, 2), "utf8");
   const blockers = evaluation.result === "passed" ? [] : evaluation.blockers;
-  const humanEvidence = await writeHumanEvidenceSummary(outputDir, {
-    testId: `step3-86-${appKey}-human-factual-runner`,
-    testVersion: "step3.86",
-    tester: `Codex ${definition.label} app-specific factual runner`,
-    environment: {
-      mode: "app_specific_human_runner",
-      adminApi: "configured_admin_api",
-      appKey,
-      runtimeMode,
-      productionMutationAllowed: false
+  const humanEvidence = await writeHumanEvidenceSummary(
+    outputDir,
+    {
+      testId: `step3-86-${appKey}-human-factual-runner`,
+      testVersion: "step3.86",
+      tester: `Codex ${definition.label} app-specific factual runner`,
+      environment: {
+        mode: "app_specific_human_runner",
+        adminApi: "configured_admin_api",
+        appKey,
+        runtimeMode,
+        productionMutationAllowed: false
+      },
+      terminal: {
+        type: terminalMode,
+        browserAutomation: "playwright_pixel_viewport",
+        operationalDataOnTerminal: false
+      },
+      pathTested: `${terminalMode} -> operator panel -> G2 streaming session -> ${definition.label} workload`,
+      expectedBehavior: matrixItem.expectedBehavior,
+      preconditions: [
+        "Admin API is reachable.",
+        "Operator session exists or is created for this run.",
+        `${definition.label} factual matrix row is available.`,
+        "Evidence stores only metadata refs and screenshots; no OTP, account secret or communication content is copied into JSON."
+      ],
+      actions: [
+        `Read ${definition.label} factual matrix.`,
+        "Create or select operator session.",
+        `Request ${definition.label} streaming session through operator API.`,
+        "Open operator panel in Pixel-sized Playwright viewport.",
+        "Optionally open internal stream URL when explicitly enabled.",
+        "Evaluate UI marker, account bootstrap, send/receive metadata and route proof with strict pass gates."
+      ],
+      evidenceRefs: [
+        "summary.json",
+        ...Object.entries(safeSummary.screenshots).map(
+          ([name, path]) => `screenshot:${name}:${path}`
+        ),
+        "operator-api:/operator-api/connection-path",
+        "operator-api:/operator-api/streaming-sessions",
+        "matrix:/release/workload-factual-matrix"
+      ],
+      result: evaluation.strictResult,
+      blockers,
+      residualRisk: [
+        `A blocked result means the runner did not prove real ${definition.label} account bootstrap and send/receive yet.`,
+        "PASS requires human or automated pixel evidence plus metadata-only workflow evidence through the workload route.",
+        "This runner does not inspect, copy or store communication content."
+      ],
+      nextRequiredAction:
+        evaluation.result === "passed"
+          ? "Promote this communicator pattern to the next workload runner."
+          : `Repair the missing ${definition.label} stream/UI/bootstrap/send-receive/route evidence, then rerun this runner until the strict gates pass.`,
+      notes: [
+        `streamSessionState=${streamPayload.session.state}`,
+        `requiredChecks=${matrixItem.mandatoryChecks.join(",")}`,
+        `recordFactualPass=${recordFactualPass}`
+      ]
     },
-    terminal: {
-      type: terminalMode,
-      browserAutomation: "playwright_pixel_viewport",
-      operationalDataOnTerminal: false
-    },
-    pathTested: `${terminalMode} -> operator panel -> G2 streaming session -> ${definition.label} workload`,
-    expectedBehavior: matrixItem.expectedBehavior,
-    preconditions: [
-      "Admin API is reachable.",
-      "Operator session exists or is created for this run.",
-      `${definition.label} factual matrix row is available.`,
-      "Evidence stores only metadata refs and screenshots; no OTP, account secret or communication content is copied into JSON."
-    ],
-    actions: [
-      `Read ${definition.label} factual matrix.`,
-      "Create or select operator session.",
-      `Request ${definition.label} streaming session through operator API.`,
-      "Open operator panel in Pixel-sized Playwright viewport.",
-      "Optionally open internal stream URL when explicitly enabled.",
-      "Evaluate UI marker, account bootstrap, send/receive metadata and route proof with strict pass gates."
-    ],
-    evidenceRefs: [
-      "summary.json",
-      ...Object.entries(safeSummary.screenshots).map(([name, path]) => `screenshot:${name}:${path}`),
-      "operator-api:/operator-api/connection-path",
-      "operator-api:/operator-api/streaming-sessions",
-      "matrix:/release/workload-factual-matrix"
-    ],
-    result: evaluation.strictResult,
-    blockers,
-    residualRisk: [
-      `A blocked result means the runner did not prove real ${definition.label} account bootstrap and send/receive yet.`,
-      "PASS requires human or automated pixel evidence plus metadata-only workflow evidence through the workload route.",
-      "This runner does not inspect, copy or store communication content."
-    ],
-    nextRequiredAction: evaluation.result === "passed"
-      ? "Promote this communicator pattern to the next workload runner."
-      : `Repair the missing ${definition.label} stream/UI/bootstrap/send-receive/route evidence, then rerun this runner until the strict gates pass.`,
-    notes: [
-      `streamSessionState=${streamPayload.session.state}`,
-      `requiredChecks=${matrixItem.mandatoryChecks.join(",")}`,
-      `recordFactualPass=${recordFactualPass}`
-    ]
-  }, { fileName: "human-evidence.json" });
+    { fileName: "human-evidence.json" }
+  );
   safeSummary.humanEvidencePath = repoRelativePath(humanEvidence.path);
   if (indexHumanEvidence && evaluation.result !== "passed") {
     const indexed = await client.recordHumanEvidenceRepairLoop({
       summary: humanEvidence.summary,
       evidenceArtifactPath: repoRelativePath(humanEvidence.path),
       linkedModule: `workload_app:${appKey}`,
-      ksiegaControlRefs: ["thin_client_terminal", "g1_g2_workload_path", "workload_factual_state", "cdr_mandatory"],
+      ksiegaControlRefs: [
+        "thin_client_terminal",
+        "g1_g2_workload_path",
+        "workload_factual_state",
+        "cdr_mandatory"
+      ],
       phantomBoundaryImpact: "none"
     });
     safeSummary.indexedRepairLoopId = indexed.run.id;

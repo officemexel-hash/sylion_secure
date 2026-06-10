@@ -80,13 +80,20 @@ test("Step 3.30 generates Puli AX router package without secrets and with IPsec 
     assert.equal(pkg.manifest.targetHardware, "GL.iNet GL-XE3000 Puli AX");
     assert.equal(pkg.manifest.secretsIncluded, false);
     assert.equal(pkg.manifest.privateKeyMaterialIncluded, false);
-    assert.deepEqual(pkg.manifest.ipsecProfiles.map((profile) => profile.id), ["T0", "T1", "T2"]);
+    assert.deepEqual(
+      pkg.manifest.ipsecProfiles.map((profile) => profile.id),
+      ["T0", "T1", "T2"]
+    );
     assert.ok(pkg.manifest.ipsecProfiles.every((profile) => profile.protocol === "ipsec_ikev2"));
-    assert.ok(pkg.manifest.ipsecProfiles.every((profile) => profile.authentication === "mutual_certificate"));
+    assert.ok(
+      pkg.manifest.ipsecProfiles.every((profile) => profile.authentication === "mutual_certificate")
+    );
     assert.equal(pkg.manifest.controls.internalDns.resolver, "10.42.0.11");
     assert.equal(pkg.manifest.controls.internalDns.staticHostTarget, "10.42.0.12");
     assert.ok(pkg.manifest.controls.internalDns.requiredHosts.includes("simplex.sylion.internal"));
-    assert.ok(pkg.manifest.controls.internalDns.requiredHosts.includes("protonmail.sylion.internal"));
+    assert.ok(
+      pkg.manifest.controls.internalDns.requiredHosts.includes("protonmail.sylion.internal")
+    );
     assert.equal(JSON.stringify(pkg).includes("BEGIN PRIVATE KEY"), false);
     assert.equal(JSON.stringify(pkg).includes("apiKey"), false);
 
@@ -105,7 +112,9 @@ test("Step 3.30 validates router posture only when OpenWrt, strongSwan, kill swi
   try {
     const client = await loginClient(baseUrl);
     const { operator, router } = await seedOperatorWithRouter(client);
-    const generated = await client.generateRouterPackage(operator.id, { routerDeviceId: router.id });
+    const generated = await client.generateRouterPackage(operator.id, {
+      routerDeviceId: router.id
+    });
 
     const blocked = await client.validateRouterPosture(operator.id, {
       packageId: generated.package.id,
@@ -160,23 +169,27 @@ test("Step 3.30 rejects router package or posture payloads that contain secrets"
     const client = await loginClient(baseUrl);
     const { operator, router } = await seedOperatorWithRouter(client);
     await assert.rejects(
-      () => client.generateRouterPackage(operator.id, {
-        routerDeviceId: router.id,
-        evidenceRefs: ["secret://private-key-not-allowed"]
-      }),
+      () =>
+        client.generateRouterPackage(operator.id, {
+          routerDeviceId: router.id,
+          evidenceRefs: ["secret://private-key-not-allowed"]
+        }),
       /must not contain secrets/
     );
-    const generated = await client.generateRouterPackage(operator.id, { routerDeviceId: router.id });
+    const generated = await client.generateRouterPackage(operator.id, {
+      routerDeviceId: router.id
+    });
     await assert.rejects(
-      () => client.validateRouterPosture(operator.id, {
-        packageId: generated.package.id,
-        routerDeviceId: router.id,
-        evidence: {
-          model: "GL.iNet GL-XE3000 Puli AX",
-          firmwareVersion: "OpenWrt 23.05.5",
-          privateKey: "-----BEGIN PRIVATE KEY-----"
-        }
-      }),
+      () =>
+        client.validateRouterPosture(operator.id, {
+          packageId: generated.package.id,
+          routerDeviceId: router.id,
+          evidence: {
+            model: "GL.iNet GL-XE3000 Puli AX",
+            firmwareVersion: "OpenWrt 23.05.5",
+            privateKey: "-----BEGIN PRIVATE KEY-----"
+          }
+        }),
       /must not contain secrets/
     );
   } finally {

@@ -4,9 +4,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const forwardPlan = {
   step: "3.80",
@@ -340,12 +341,7 @@ jq -s --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
 `;
 }
 
-export {
-  forwardPlan,
-  publicPlan,
-  renderRemoteScript,
-  renderG2VerificationScript
-};
+export { forwardPlan, publicPlan, renderRemoteScript, renderG2VerificationScript };
 
 async function run(command, args, options = {}) {
   const result = await execFileAsync(command, args, {
@@ -358,27 +354,44 @@ async function run(command, args, options = {}) {
 
 async function ssh(host, script, input = forwardPlan, options = {}) {
   const encoded = Buffer.from(script, "utf8").toString("base64");
-  return run("ssh", [
-    "-i",
-    process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    `printf %s ${shellQuote(encoded)} | base64 -d | bash`
-  ], { timeout: options.timeout ?? 300_000, input });
+  return run(
+    "ssh",
+    [
+      "-i",
+      process.env.SYLION_ADMIN_SSH_KEY || defaultSshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      host,
+      `printf %s ${shellQuote(encoded)} | base64 -d | bash`
+    ],
+    { timeout: options.timeout ?? 300_000, input }
+  );
 }
 
 async function apply(input = forwardPlan) {
-  const workloadResult = await ssh(input.workload.host, renderRemoteScript(input), input, { timeout: 420_000 });
-  const verificationResult = await ssh(input.verifier.g2Host, renderG2VerificationScript(input), input, { timeout: 120_000 });
-  console.log(JSON.stringify({
-    component: input.component,
-    workloadEvidence: JSON.parse(workloadResult.stdout),
-    g2Verification: JSON.parse(verificationResult.stdout),
-    secretsPrinted: false
-  }, null, 2));
+  const workloadResult = await ssh(input.workload.host, renderRemoteScript(input), input, {
+    timeout: 420_000
+  });
+  const verificationResult = await ssh(
+    input.verifier.g2Host,
+    renderG2VerificationScript(input),
+    input,
+    { timeout: 120_000 }
+  );
+  console.log(
+    JSON.stringify(
+      {
+        component: input.component,
+        workloadEvidence: JSON.parse(workloadResult.stdout),
+        g2Verification: JSON.parse(verificationResult.stdout),
+        secretsPrinted: false
+      },
+      null,
+      2
+    )
+  );
 }
 
 async function main() {
@@ -399,7 +412,9 @@ async function main() {
     await apply();
     return;
   }
-  console.error("Usage: node scripts/install-workload-guacamole-vnc-forwards.mjs --print-plan|--render-remote-script|--render-g2-verification-script|--apply");
+  console.error(
+    "Usage: node scripts/install-workload-guacamole-vnc-forwards.mjs --print-plan|--render-remote-script|--render-g2-verification-script|--apply"
+  );
   process.exitCode = 2;
 }
 

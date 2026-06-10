@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_monitoring_test" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_monitoring_test" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -86,7 +90,11 @@ test("M15 records required health, alert, and anomaly events without communicati
     const listed = await request(baseUrl, "/monitoring/events", { token });
     assert.equal(listed.status, 200);
     assert.equal(listed.payload.events.length, 7);
-    assert.ok(listed.payload.events.every((event) => JSON.stringify(event).includes("message text") === false));
+    assert.ok(
+      listed.payload.events.every(
+        (event) => JSON.stringify(event).includes("message text") === false
+      )
+    );
 
     const rejected = await request(baseUrl, "/monitoring/signals", {
       method: "POST",
@@ -145,9 +153,13 @@ test("M17 creates incidents from alerts with owner, timeline, resources, and fou
     assert.deepEqual(incident.affectedResources, [{ id: "cert-ipsec-1", kind: "certificate" }]);
     assert.equal(incident.timeline[0].type, "created_from_alert");
     assert.ok(incident.runbookTasks.some((task) => task.action === "cert.rotate"));
-    assert.ok(incident.runbookTasks.filter((task) => task.destructive).every((task) => {
-      return task.approvalRequired === true && task.fourEyes === true;
-    }));
+    assert.ok(
+      incident.runbookTasks
+        .filter((task) => task.destructive)
+        .every((task) => {
+          return task.approvalRequired === true && task.fourEyes === true;
+        })
+    );
 
     const updated = await request(baseUrl, `/incidents/${incident.id}/timeline`, {
       method: "POST",

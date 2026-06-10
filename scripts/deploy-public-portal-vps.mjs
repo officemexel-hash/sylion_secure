@@ -26,7 +26,11 @@ function run(command, args, { input = null, quiet = false } = {}) {
   const result = spawnSync(command, args, {
     input,
     encoding: "utf8",
-    stdio: input ? ["pipe", quiet ? "pipe" : "inherit", quiet ? "pipe" : "inherit"] : quiet ? "pipe" : "inherit",
+    stdio: input
+      ? ["pipe", quiet ? "pipe" : "inherit", quiet ? "pipe" : "inherit"]
+      : quiet
+        ? "pipe"
+        : "inherit",
     shell: false
   });
   if (result.status !== 0) {
@@ -46,7 +50,9 @@ async function hcloud(path, { method = "GET", body = null, token }) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(`Hetzner Cloud API ${method} ${path} failed with ${response.status}: ${payload.error?.code || "unknown"}`);
+    throw new Error(
+      `Hetzner Cloud API ${method} ${path} failed with ${response.status}: ${payload.error?.code || "unknown"}`
+    );
   }
   return payload;
 }
@@ -82,7 +88,10 @@ async function createHetznerServer(args) {
   const sshKeyName = args.get("ssh-key-name") || "sylion-public-portal-deploy";
   const sshPublicKey = args.get("ssh-public-key") || ".deploy/sylion_hetzner_admin_ed25519.pub";
   const sshKey = await ensureSshKey({ token, name: sshKeyName, publicKeyPath: sshPublicKey });
-  const networkId = await resolveNetworkId({ token, network: args.get("network") || args.get("network-id") || "" });
+  const networkId = await resolveNetworkId({
+    token,
+    network: args.get("network") || args.get("network-id") || ""
+  });
   const createBody = {
     name,
     server_type: serverType,
@@ -116,13 +125,7 @@ async function createHetznerServer(args) {
 
 async function createDeploymentTar(tmp) {
   const tarPath = join(tmp, "sylion-public-portal.tar");
-  run("tar", [
-    "-cf",
-    tarPath,
-    "apps/customer-portal",
-    "services/public-portal",
-    "package.json"
-  ]);
+  run("tar", ["-cf", tarPath, "apps/customer-portal", "services/public-portal", "package.json"]);
   return tarPath;
 }
 
@@ -143,9 +146,12 @@ async function writePortalEnv(tmp, { controlPlaneBaseUrl, publicOrigin }) {
 
 function ssh(host, key, command) {
   return run("ssh", [
-    "-o", "BatchMode=yes",
-    "-o", "StrictHostKeyChecking=accept-new",
-    "-i", key,
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "-i",
+    key,
     `root@${host}`,
     command
   ]);
@@ -153,9 +159,12 @@ function ssh(host, key, command) {
 
 function scp(host, key, localPath, remotePath) {
   run("scp", [
-    "-o", "BatchMode=yes",
-    "-o", "StrictHostKeyChecking=accept-new",
-    "-i", key,
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "-i",
+    key,
     localPath,
     `root@${host}:${remotePath}`
   ]);
@@ -163,14 +172,22 @@ function scp(host, key, localPath, remotePath) {
 
 async function waitForSsh(host, key) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    const result = spawnSync("ssh", [
-      "-o", "BatchMode=yes",
-      "-o", "StrictHostKeyChecking=accept-new",
-      "-o", "ConnectTimeout=5",
-      "-i", key,
-      `root@${host}`,
-      "true"
-    ], { stdio: "ignore", shell: false });
+    const result = spawnSync(
+      "ssh",
+      [
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        "-o",
+        "ConnectTimeout=5",
+        "-i",
+        key,
+        `root@${host}`,
+        "true"
+      ],
+      { stdio: "ignore", shell: false }
+    );
     if (result.status === 0) return;
     await new Promise((resolveWait) => setTimeout(resolveWait, 5000));
   }
@@ -256,12 +273,20 @@ async function installAdminPortalSecret({ adminHost, adminKey, portalPrivateIp =
   try {
     const secret = requiredEnv("SYLION_PUBLIC_PORTAL_SHARED_SECRET");
     const envPath = join(tmp, "50-public-portal-secret.conf");
-    await writeFile(envPath, `[Service]\nEnvironment=\"SYLION_PUBLIC_PORTAL_SHARED_SECRET=${secret}\"\n`, { mode: 0o600 });
+    await writeFile(
+      envPath,
+      `[Service]\nEnvironment=\"SYLION_PUBLIC_PORTAL_SHARED_SECRET=${secret}\"\n`,
+      { mode: 0o600 }
+    );
     scp(adminHost, adminKey, envPath, "/tmp/50-public-portal-secret.conf");
     const firewall = portalPrivateIp
       ? `; ufw allow from ${portalPrivateIp} to any port 8080 proto tcp comment 'SYLION public portal edge to private admin portal-api' || true`
       : "";
-    ssh(adminHost, adminKey, `set -e; install -m 0600 /tmp/50-public-portal-secret.conf /etc/systemd/system/sylion-admin-api.service.d/50-public-portal-secret.conf; rm -f /tmp/50-public-portal-secret.conf${firewall}; systemctl daemon-reload; systemctl restart sylion-admin-api; sleep 2; systemctl is-active sylion-admin-api >/dev/null`);
+    ssh(
+      adminHost,
+      adminKey,
+      `set -e; install -m 0600 /tmp/50-public-portal-secret.conf /etc/systemd/system/sylion-admin-api.service.d/50-public-portal-secret.conf; rm -f /tmp/50-public-portal-secret.conf${firewall}; systemctl daemon-reload; systemctl restart sylion-admin-api; sleep 2; systemctl is-active sylion-admin-api >/dev/null`
+    );
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }
@@ -270,7 +295,10 @@ async function installAdminPortalSecret({ adminHost, adminKey, portalPrivateIp =
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const key = args.get("key") || ".deploy/sylion_hetzner_admin_ed25519";
-  const controlPlaneBaseUrl = args.get("control-plane") || process.env.SYLION_CONTROL_PLANE_BASE_URL || "http://10.42.0.10:8080";
+  const controlPlaneBaseUrl =
+    args.get("control-plane") ||
+    process.env.SYLION_CONTROL_PLANE_BASE_URL ||
+    "http://10.42.0.10:8080";
   const publicOrigin = args.get("public-origin") || process.env.SYLION_PUBLIC_PORTAL_ORIGIN || "";
   const adminHost = args.get("admin-host") || "";
   const adminKey = args.get("admin-key") || key;
@@ -291,13 +319,15 @@ async function main() {
     scp(host, key, envPath, "/tmp/public-portal.env");
     installRemotePortal(host, key);
     await installAdminPortalSecret({ adminHost, adminKey, portalPrivateIp });
-    console.log(JSON.stringify({
-      status: "ok",
-      service: "sylion-public-portal",
-      host,
-      controlPlaneBaseUrl,
-      secretPrinted: false
-    }));
+    console.log(
+      JSON.stringify({
+        status: "ok",
+        service: "sylion-public-portal",
+        host,
+        controlPlaneBaseUrl,
+        secretPrinted: false
+      })
+    );
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }

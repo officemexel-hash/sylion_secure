@@ -9,16 +9,66 @@
   const STREAM_PATH = "/vnc.html?autoconnect=true&resize=remote&path=websockify";
   const SELKIES_PATH = "/";
   const WORKLOADS = Object.freeze({
-    duckduckgo_browser: { label: "DuckDuckGo", host: "duckduckgo.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    libreoffice: { label: "LibreOffice", host: "libreoffice.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    whatsapp: { label: "WhatsApp", host: "whatsapp.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    protonmail: { label: "Proton Mail", host: "protonmail.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    telegram: { label: "Telegram", host: "telegram.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    threema: { label: "Threema", host: "threema.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    signal: { label: "Signal", host: "signal.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    simplex: { label: "SimpleX Chat", host: "simplex.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    zangi: { label: "Zangi", host: "zangi.sylion.internal", path: SELKIES_PATH, directGateway: true },
-    exodus: { label: "Exodus", host: "exodus.sylion.internal", path: SELKIES_PATH, directGateway: true }
+    duckduckgo_browser: {
+      label: "DuckDuckGo",
+      host: "duckduckgo.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    },
+    libreoffice: {
+      label: "LibreOffice",
+      host: "libreoffice.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    },
+    whatsapp: {
+      label: "WhatsApp",
+      host: "whatsapp.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    },
+    protonmail: {
+      label: "Proton Mail",
+      host: "protonmail.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    },
+    telegram: {
+      label: "Telegram",
+      host: "telegram.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    },
+    threema: {
+      label: "Threema",
+      host: "threema.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    },
+    signal: {
+      label: "Signal",
+      host: "signal.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    },
+    simplex: {
+      label: "SimpleX Chat",
+      host: "simplex.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    },
+    zangi: {
+      label: "Zangi",
+      host: "zangi.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    },
+    exodus: {
+      label: "Exodus",
+      host: "exodus.sylion.internal",
+      path: SELKIES_PATH,
+      directGateway: true
+    }
   });
 
   const ALIASES = Object.freeze({
@@ -29,7 +79,9 @@
   const $ = (sel) => document.querySelector(sel);
   const params = new URLSearchParams(window.location.search);
   const requestedApp = normalizeApp(params.get("app") || "duckduckgo_browser");
-  const requestedBroker = String(params.get("broker") || defaultBrokerForApp(requestedApp)).toLowerCase();
+  const requestedBroker = String(
+    params.get("broker") || defaultBrokerForApp(requestedApp)
+  ).toLowerCase();
   const operatorToken = bootstrapOperatorToken();
   const frame = $("#workload-stream-frame");
   const blindCanvas = $("#blind-e2ee-canvas");
@@ -49,12 +101,25 @@
   let blindFrameRect = null;
 
   function normalizeApp(value) {
-    const clean = String(value || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    const clean = String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "");
     return ALIASES[clean] || clean;
   }
 
   function defaultBrokerForApp(appKey) {
-    return ["protonmail", "signal", "duckduckgo_browser", "libreoffice", "whatsapp", "telegram", "threema", "simplex"].includes(appKey) ? "blind_e2ee" : "guacamole";
+    return [
+      "protonmail",
+      "signal",
+      "duckduckgo_browser",
+      "libreoffice",
+      "whatsapp",
+      "telegram",
+      "threema",
+      "simplex"
+    ].includes(appKey)
+      ? "blind_e2ee"
+      : "guacamole";
   }
 
   function bootstrapOperatorToken() {
@@ -72,7 +137,10 @@
       window.history.replaceState(null, "", cleanUrl);
       return token;
     }
-    return sessionStorage.getItem("sylion.operator.token") || sessionStorage.getItem("sylion.operator.streamToken");
+    return (
+      sessionStorage.getItem("sylion.operator.token") ||
+      sessionStorage.getItem("sylion.operator.streamToken")
+    );
   }
 
   function appUrl(app) {
@@ -197,17 +265,20 @@
     blindCaptureBusy = true;
     blindLastCaptureAt = now;
     try {
-      const res = await fetch(`/operator-api/blind-e2ee/sessions/${encodeURIComponent(session.id)}/frames/capture-once`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "content-type": "application/json",
-          "x-correlation-id": `corr_operator_blind_capture_${crypto.randomUUID()}`,
-          "x-sylion-operator-csrf": "same-origin-ui",
-          ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
-        },
-        body: JSON.stringify({})
-      });
+      const res = await fetch(
+        `/operator-api/blind-e2ee/sessions/${encodeURIComponent(session.id)}/frames/capture-once`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "content-type": "application/json",
+            "x-correlation-id": `corr_operator_blind_capture_${crypto.randomUUID()}`,
+            "x-sylion-operator-csrf": "same-origin-ui",
+            ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
+          },
+          body: JSON.stringify({})
+        }
+      );
       const payload = await res.json();
       if (!res.ok) {
         throw new Error(payload?.error?.message || `HTTP ${res.status}`);
@@ -218,7 +289,13 @@
     }
   }
 
-  async function sendWorkloadInput({ text = "", submit = false, preKeys = [], postKeys = [], pointer = null } = {}) {
+  async function sendWorkloadInput({
+    text = "",
+    submit = false,
+    preKeys = [],
+    postKeys = [],
+    pointer = null
+  } = {}) {
     if (inputBusy) return null;
     inputBusy = true;
     state.textContent = "Sending keyboard events to workload...";
@@ -232,16 +309,30 @@
           "x-sylion-operator-csrf": "same-origin-ui",
           ...(operatorToken ? { authorization: `Bearer ${operatorToken}` } : {})
         },
-        body: JSON.stringify({ templateKey: requestedApp, text, submit, preKeys, postKeys, ...(pointer ? { pointer } : {}) })
+        body: JSON.stringify({
+          templateKey: requestedApp,
+          text,
+          submit,
+          preKeys,
+          postKeys,
+          ...(pointer ? { pointer } : {})
+        })
       });
       const payload = await res.json();
       if (!res.ok || payload?.input?.state !== "workload_input_sent") {
-        const blockers = payload?.input?.blockers?.join(", ") || payload?.error?.message || `HTTP ${res.status}`;
+        const blockers =
+          payload?.input?.blockers?.join(", ") || payload?.error?.message || `HTTP ${res.status}`;
         throw new Error(blockers);
       }
       state.textContent = "Keyboard events sent.";
       const keyCount = preKeys.length + postKeys.length + (submit ? 1 : 0);
-      showToast(text ? (keyCount ? "Text and keys sent to workload." : "Text sent to workload.") : "Key sent to workload.");
+      showToast(
+        text
+          ? keyCount
+            ? "Text and keys sent to workload."
+            : "Text sent to workload."
+          : "Key sent to workload."
+      );
       return payload.input;
     } finally {
       inputBusy = false;
@@ -272,7 +363,9 @@
   }
 
   function base64ToBytes(value) {
-    const normalized = String(value || "").replaceAll("-", "+").replaceAll("_", "/");
+    const normalized = String(value || "")
+      .replaceAll("-", "+")
+      .replaceAll("_", "/");
     const raw = window.atob(normalized);
     const bytes = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i += 1) {
@@ -312,7 +405,11 @@
     if (frameEnvelope.algorithm !== "ECDH_P384_AES_256_GCM_FRAME_V1") {
       throw new Error(`Unsupported terminal decoder algorithm: ${frameEnvelope.algorithm}`);
     }
-    if (!frameEnvelope.workloadPublicKeyJwk || !frameEnvelope.ivB64 || !frameEnvelope.ciphertextB64) {
+    if (
+      !frameEnvelope.workloadPublicKeyJwk ||
+      !frameEnvelope.ivB64 ||
+      !frameEnvelope.ciphertextB64
+    ) {
       throw new Error("Encrypted frame is missing workload public key, IV, or ciphertext");
     }
     const pair = await ensureBlindTerminalKeyPair();
@@ -338,14 +435,24 @@
     if (frameEnvelope.sframeHeaderB64) {
       options.additionalData = base64ToBytes(frameEnvelope.sframeHeaderB64);
     }
-    const plaintext = await crypto.subtle.decrypt(options, aesKey, base64ToBytes(frameEnvelope.ciphertextB64));
+    const plaintext = await crypto.subtle.decrypt(
+      options,
+      aesKey,
+      base64ToBytes(frameEnvelope.ciphertextB64)
+    );
     return new Uint8Array(plaintext);
   }
 
   function resizeBlindCanvas(width, height) {
     const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
-    const cssWidth = Math.max(1, Math.round(blindCanvas?.clientWidth || window.innerWidth || width || 390));
-    const cssHeight = Math.max(1, Math.round(blindCanvas?.clientHeight || window.innerHeight || height || 844));
+    const cssWidth = Math.max(
+      1,
+      Math.round(blindCanvas?.clientWidth || window.innerWidth || width || 390)
+    );
+    const cssHeight = Math.max(
+      1,
+      Math.round(blindCanvas?.clientHeight || window.innerHeight || height || 844)
+    );
     blindCanvas.width = Math.round(cssWidth * dpr);
     blindCanvas.height = Math.round(cssHeight * dpr);
     return { cssWidth, cssHeight, dpr };
@@ -391,7 +498,14 @@
     ctx.drawImage(bitmap, x, y, drawWidth, drawHeight);
     // Remember where the workload framebuffer is drawn (in canvas pixels) + its native size so a
     // tap on the canvas can be mapped back to a VM pointer coordinate for click-to-focus/click.
-    blindFrameRect = { offsetX: x, offsetY: y, drawWidth, drawHeight, fbWidth: bitmap.width, fbHeight: bitmap.height };
+    blindFrameRect = {
+      offsetX: x,
+      offsetY: y,
+      drawWidth,
+      drawHeight,
+      fbWidth: bitmap.width,
+      fbHeight: bitmap.height
+    };
     ctx.fillStyle = "rgba(5, 6, 8, 0.72)";
     ctx.fillRect(8 * dpr, 8 * dpr, 174 * dpr, 28 * dpr);
     ctx.fillStyle = "#d8dde8";
@@ -456,7 +570,10 @@
       document.documentElement.style.setProperty("--stream-keyboard-offset", "0px");
       return;
     }
-    const offset = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
+    const offset = Math.max(
+      0,
+      Math.round(window.innerHeight - viewport.height - viewport.offsetTop)
+    );
     document.documentElement.style.setProperty("--stream-keyboard-offset", `${offset}px`);
   }
 
@@ -492,20 +609,40 @@
   async function recreateWorkload() {
     if (recreateBusy) return;
     const appKey = requestedApp;
-    if (!window.confirm(`Delete and recreate the "${appKey}" workload?\n\nThis rebuilds the Firecracker VM on AX102 (a few minutes) and disconnects the current stream.`)) {
+    if (
+      !window.confirm(
+        `Delete and recreate the "${appKey}" workload?\n\nThis rebuilds the Firecracker VM on AX102 (a few minutes) and disconnects the current stream.`
+      )
+    ) {
       return;
     }
     recreateBusy = true;
     try {
       showToast(`Recreating ${appKey}: queuing request...`);
       const control = await operatorApi("/operator-api/workload-control");
-      const currentCounts = control.control?.latestDesiredCounts || control.control?.currentCounts || {};
+      const currentCounts =
+        control.control?.latestDesiredCounts || control.control?.currentCounts || {};
       const appKeys = [
-        "whatsapp", "signal", "telegram", "threema", "zangi", "simplex",
-        "matrix_client", "matrix_server", "protonmail", "duckduckgo_browser", "libreoffice", "exodus"
+        "whatsapp",
+        "signal",
+        "telegram",
+        "threema",
+        "zangi",
+        "simplex",
+        "matrix_client",
+        "matrix_server",
+        "protonmail",
+        "duckduckgo_browser",
+        "libreoffice",
+        "exodus"
       ];
-      const desiredCounts = Object.fromEntries(appKeys.map((key) => [key, Number(currentCounts[key] || 0)]));
-      if (desiredCounts[appKey] === 0 && Object.prototype.hasOwnProperty.call(desiredCounts, appKey)) {
+      const desiredCounts = Object.fromEntries(
+        appKeys.map((key) => [key, Number(currentCounts[key] || 0)])
+      );
+      if (
+        desiredCounts[appKey] === 0 &&
+        Object.prototype.hasOwnProperty.call(desiredCounts, appKey)
+      ) {
         desiredCounts[appKey] = 1;
       }
       const queued = await operatorApi("/operator-api/workload-control/requests", {
@@ -515,10 +652,17 @@
       showToast(`Recreating ${appKey} on AX102; this can take a few minutes...`);
       let jobState = "running";
       try {
-        const executed = await operatorApi(`/operator-api/workload-control/requests/${encodeURIComponent(queued.request.id)}/execute`, {
-          method: "POST",
-          body: { confirmation: "RUN_LIVE_WORKLOAD_RECREATE", wipeVolume: false, fourEyesApprovalRef: null }
-        });
+        const executed = await operatorApi(
+          `/operator-api/workload-control/requests/${encodeURIComponent(queued.request.id)}/execute`,
+          {
+            method: "POST",
+            body: {
+              confirmation: "RUN_LIVE_WORKLOAD_RECREATE",
+              wipeVolume: false,
+              fourEyesApprovalRef: null
+            }
+          }
+        );
         jobState = executed.job?.state || "unknown";
       } catch (executeError) {
         // The Firecracker rebuild runs server-side for several minutes; the front proxy usually
@@ -530,7 +674,9 @@
         showToast(`${appKey} recreated. Reloading stream...`);
         setTimeout(() => window.location.reload(), 1800);
       } else if (jobState === "running_after_timeout") {
-        showToast(`${appKey} recreate is running on AX102 (a few minutes). Reopen it from "Apps" once it is back.`);
+        showToast(
+          `${appKey} recreate is running on AX102 (a few minutes). Reopen it from "Apps" once it is back.`
+        );
       } else {
         showToast(`${appKey} recreate finished: ${jobState}. Use "Apps" to reopen if needed.`);
       }
@@ -557,13 +703,19 @@
         showToast("Private input panel ready.");
       }
       if (action === "input-enter") {
-        sendWorkloadInput({ submit: true }).catch((error) => showToast(`Input blocked: ${error.message}`));
+        sendWorkloadInput({ submit: true }).catch((error) =>
+          showToast(`Input blocked: ${error.message}`)
+        );
       }
       if (action === "input-backspace") {
-        sendWorkloadInput({ postKeys: ["backspace"] }).catch((error) => showToast(`Input blocked: ${error.message}`));
+        sendWorkloadInput({ postKeys: ["backspace"] }).catch((error) =>
+          showToast(`Input blocked: ${error.message}`)
+        );
       }
       if (action === "input-clear") {
-        sendWorkloadInput({ preKeys: ["select_all", "backspace"] }).catch((error) => showToast(`Input blocked: ${error.message}`));
+        sendWorkloadInput({ preKeys: ["select_all", "backspace"] }).catch((error) =>
+          showToast(`Input blocked: ${error.message}`)
+        );
       }
       if (action === "input-close") {
         hideInputPanel();
@@ -587,11 +739,16 @@
         const canvasX = (event.clientX - rect.left) * (blindCanvas.width / rect.width);
         const canvasY = (event.clientY - rect.top) * (blindCanvas.height / rect.height);
         const r = blindFrameRect;
-        if (canvasX < r.offsetX || canvasX > r.offsetX + r.drawWidth || canvasY < r.offsetY || canvasY > r.offsetY + r.drawHeight) {
+        if (
+          canvasX < r.offsetX ||
+          canvasX > r.offsetX + r.drawWidth ||
+          canvasY < r.offsetY ||
+          canvasY > r.offsetY + r.drawHeight
+        ) {
           return;
         }
-        const vmX = Math.round((canvasX - r.offsetX) / r.drawWidth * r.fbWidth);
-        const vmY = Math.round((canvasY - r.offsetY) / r.drawHeight * r.fbHeight);
+        const vmX = Math.round(((canvasX - r.offsetX) / r.drawWidth) * r.fbWidth);
+        const vmY = Math.round(((canvasY - r.offsetY) / r.drawHeight) * r.fbHeight);
         sendWorkloadInput({ pointer: { x: vmX, y: vmY } })
           .then(() => showToast(`Tap sent (${vmX}, ${vmY})`))
           .catch((error) => showToast(`Tap blocked: ${error.message}`));
@@ -621,7 +778,9 @@
       }
       if (event.key === "Backspace" && !inputText.value) {
         event.preventDefault();
-        sendWorkloadInput({ postKeys: ["backspace"] }).catch((error) => showToast(`Input blocked: ${error.message}`));
+        sendWorkloadInput({ postKeys: ["backspace"] }).catch((error) =>
+          showToast(`Input blocked: ${error.message}`)
+        );
       }
       if (event.key === "Escape") {
         event.preventDefault();
@@ -676,7 +835,10 @@
     }
     label.textContent = workload.label;
     bindControls();
-    if (requestedBroker !== "blind_e2ee" && (requestedBroker === "direct_lab" || workload.directGateway)) {
+    if (
+      requestedBroker !== "blind_e2ee" &&
+      (requestedBroker === "direct_lab" || workload.directGateway)
+    ) {
       state.textContent = "Opening direct stream through internal G2 workload gateway...";
       frame.src = appUrl(workload);
       return;
@@ -687,7 +849,9 @@
         const terminalPublicKeyJwk = await exportBlindTerminalPublicKey();
         const blindSession = await fetchBlindE2eeSession(requestedApp, terminalPublicKeyJwk);
         if (blindSession?.state !== "blind_e2ee_session_ready") {
-          throw new Error(`Blind E2EE blocked: ${(blindSession?.blockers || []).join(", ") || "unknown blocker"}`);
+          throw new Error(
+            `Blind E2EE blocked: ${(blindSession?.blockers || []).join(", ") || "unknown blocker"}`
+          );
         }
         state.textContent = `Blind E2EE relay active for ${workload.label}.`;
         await pollBlindE2eeRelay(blindSession);
@@ -704,7 +868,9 @@
     try {
       const handoff = await fetchGuacamoleHandoff(requestedApp);
       if (!handoff?.launchUrl || handoff.state !== "guacamole_handoff_ready") {
-        throw new Error(`Handoff blocked: ${(handoff?.blockers || []).join(", ") || "unknown blocker"}`);
+        throw new Error(
+          `Handoff blocked: ${(handoff?.blockers || []).join(", ") || "unknown blocker"}`
+        );
       }
       await openGuacamoleHandoff(handoff);
     } catch (error) {

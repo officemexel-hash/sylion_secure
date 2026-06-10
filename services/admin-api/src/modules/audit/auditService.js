@@ -32,9 +32,7 @@ export class AuditService {
       previousHash: this.lastHash
     };
 
-    const hash = createHash("sha256")
-      .update(stableJson(event))
-      .digest("hex");
+    const hash = createHash("sha256").update(stableJson(event)).digest("hex");
 
     const storedEvent = { ...event, hash };
     this.events.push(storedEvent);

@@ -14,10 +14,34 @@ const TERMINAL_MODES = Object.freeze({
 });
 
 const WORKLOAD_CONTROL_APPS = Object.freeze([
-  { key: "whatsapp", name: "WhatsApp", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
-  { key: "signal", name: "Signal", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
-  { key: "telegram", name: "Telegram", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
-  { key: "threema", name: "Threema", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  {
+    key: "whatsapp",
+    name: "WhatsApp",
+    category: "messenger",
+    isolation: "container_standard_firecracker_pro",
+    cdrRequired: true
+  },
+  {
+    key: "signal",
+    name: "Signal",
+    category: "messenger",
+    isolation: "container_standard_firecracker_pro",
+    cdrRequired: true
+  },
+  {
+    key: "telegram",
+    name: "Telegram",
+    category: "messenger",
+    isolation: "container_standard_firecracker_pro",
+    cdrRequired: true
+  },
+  {
+    key: "threema",
+    name: "Threema",
+    category: "messenger",
+    isolation: "container_standard_firecracker_pro",
+    cdrRequired: true
+  },
   {
     key: "zangi",
     name: "Zangi",
@@ -27,9 +51,20 @@ const WORKLOAD_CONTROL_APPS = Object.freeze([
     nativeRuntimeRequired: true,
     nativeRuntimeClass: "android_workload",
     compatibilityMode: "remote_browser_download_page_only",
-    productionNativeRequires: ["kvm_device", "binder_or_binderfs", "approved_android_image", "approved_zangi_apk_ref"]
+    productionNativeRequires: [
+      "kvm_device",
+      "binder_or_binderfs",
+      "approved_android_image",
+      "approved_zangi_apk_ref"
+    ]
   },
-  { key: "matrix_client", name: "Matrix Client", category: "messenger", isolation: "container_standard_firecracker_pro", cdrRequired: true },
+  {
+    key: "matrix_client",
+    name: "Matrix Client",
+    category: "messenger",
+    isolation: "container_standard_firecracker_pro",
+    cdrRequired: true
+  },
   {
     key: "simplex",
     name: "SimpleX Chat",
@@ -37,13 +72,48 @@ const WORKLOAD_CONTROL_APPS = Object.freeze([
     isolation: "desktop_or_android_workload_required",
     cdrRequired: true,
     privacyCandidate: true,
-    productionNativeRequires: ["approved_simplex_desktop_or_android_image", "account_bootstrap_send_receive_test"]
+    productionNativeRequires: [
+      "approved_simplex_desktop_or_android_image",
+      "account_bootstrap_send_receive_test"
+    ]
   },
-  { key: "matrix_server", name: "Matrix Server", category: "server", isolation: "dedicated_service_workload", cdrRequired: true },
-  { key: "protonmail", name: "Proton Mail", category: "mail", isolation: "container_standard_firecracker_pro", cdrRequired: true, requiresAccountBootstrap: true },
-  { key: "duckduckgo_browser", name: "DuckDuckGo Browser", category: "browser", isolation: "container_standard_firecracker_pro", cdrRequired: true },
-  { key: "libreoffice", name: "LibreOffice", category: "office", isolation: "container_standard_firecracker_pro", cdrRequired: true },
-  { key: "exodus", name: "Exodus", category: "wallet", isolation: "dedicated_wallet_workload", cdrRequired: true, requiresOperatorRiskAcceptance: true }
+  {
+    key: "matrix_server",
+    name: "Matrix Server",
+    category: "server",
+    isolation: "dedicated_service_workload",
+    cdrRequired: true
+  },
+  {
+    key: "protonmail",
+    name: "Proton Mail",
+    category: "mail",
+    isolation: "container_standard_firecracker_pro",
+    cdrRequired: true,
+    requiresAccountBootstrap: true
+  },
+  {
+    key: "duckduckgo_browser",
+    name: "DuckDuckGo Browser",
+    category: "browser",
+    isolation: "container_standard_firecracker_pro",
+    cdrRequired: true
+  },
+  {
+    key: "libreoffice",
+    name: "LibreOffice",
+    category: "office",
+    isolation: "container_standard_firecracker_pro",
+    cdrRequired: true
+  },
+  {
+    key: "exodus",
+    name: "Exodus",
+    category: "wallet",
+    isolation: "dedicated_wallet_workload",
+    cdrRequired: true,
+    requiresOperatorRiskAcceptance: true
+  }
 ]);
 
 const ANDROID_WORKLOAD_APPS = new Set(["zangi"]);
@@ -72,7 +142,13 @@ const UNLOCK_LAYERS = Object.freeze(["g1", "g2", "workload"]);
 const PANIC_LEVELS = Object.freeze(["data_wipe", "environment_destroy", "account_revoke"]);
 const JURISDICTION_MODES = Object.freeze(["disabled", "manual", "scheduled", "full_policy"]);
 const ACCOUNT_BOOTSTRAP_RESULTS = new Set(["passed", "failed", "blocked", "in_progress"]);
-const ACCOUNT_BOOTSTRAP_CHECK_STATUSES = new Set(["passed", "failed", "blocked", "not_run", "not_applicable"]);
+const ACCOUNT_BOOTSTRAP_CHECK_STATUSES = new Set([
+  "passed",
+  "failed",
+  "blocked",
+  "not_run",
+  "not_applicable"
+]);
 const ACCOUNT_BOOTSTRAP_MODES = new Set([
   "desktop_linked_account",
   "android_native_workload",
@@ -80,8 +156,10 @@ const ACCOUNT_BOOTSTRAP_MODES = new Set([
   "approved_test_number_provider",
   "manual_operator_account"
 ]);
-const BOOTSTRAP_SECRET_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|phone.*number|panic.*code|seed|mnemonic|private[_-]?key)/i;
-const BOOTSTRAP_SECRET_VALUE_PATTERN = /(^\s*\d{4,8}\s*$)|(\b(otp|sms|verification|code|kod|has[lł]o|password|seed|mnemonic|private[_ -]?key)\b\s*[:=]?\s*[A-Za-z0-9+/_=-]{4,})|(\b(phone|telefon|numer)\b\s*[:=]\s*\+?\d[\d\s().-]{7,}\d)|(\+?\d[\d\s().-]{7,}\d)/i;
+const BOOTSTRAP_SECRET_FIELD_PATTERN =
+  /(password|secret|token|api[_-]?key|otp|sms.*code|verification.*code|phone.*number|panic.*code|seed|mnemonic|private[_-]?key)/i;
+const BOOTSTRAP_SECRET_VALUE_PATTERN =
+  /(^\s*\d{4,8}\s*$)|(\b(otp|sms|verification|code|kod|has[lł]o|password|seed|mnemonic|private[_ -]?key)\b\s*[:=]?\s*[A-Za-z0-9+/_=-]{4,})|(\b(phone|telefon|numer)\b\s*[:=]\s*\+?\d[\d\s().-]{7,}\d)|(\+?\d[\d\s().-]{7,}\d)/i;
 const LIVE_RECREATE_APP_MAP = Object.freeze({
   whatsapp: "whatsapp",
   signal: "signal",
@@ -108,7 +186,16 @@ const BLIND_E2EE_RUNNER_APPS = new Set([
   "threema",
   "simplex"
 ]);
-const NATIVE_FIRECRACKER_RECREATE_APPS = new Set(["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal", "protonmail", "simplex"]);
+const NATIVE_FIRECRACKER_RECREATE_APPS = new Set([
+  "duckduckgo",
+  "libreoffice",
+  "whatsapp",
+  "telegram",
+  "threema",
+  "signal",
+  "protonmail",
+  "simplex"
+]);
 const TRAFFIC_MONITOR_SEGMENTS = Object.freeze([
   {
     id: "pixel_router",
@@ -126,7 +213,11 @@ const TRAFFIC_MONITOR_SEGMENTS = Object.freeze([
     to: "G1 ingress gateway",
     zone: "ACCESS_ROUTER_TO_G1",
     transport: "ipsec_ikev2_mutual_certificate",
-    expectedControls: ["ikev2_sa_established", "terminal_default_route_to_g1_only", "internal_dns_only"]
+    expectedControls: [
+      "ikev2_sa_established",
+      "terminal_default_route_to_g1_only",
+      "internal_dns_only"
+    ]
   },
   {
     id: "g1_g2",
@@ -158,7 +249,8 @@ const TRAFFIC_MONITOR_SEGMENTS = Object.freeze([
 ]);
 const TRAFFIC_SEGMENT_IDS = new Set(TRAFFIC_MONITOR_SEGMENTS.map((segment) => segment.id));
 const TRAFFIC_STATUSES = new Set(["healthy", "degraded", "blocked", "missing", "observed"]);
-const TRAFFIC_FORBIDDEN_FIELD_PATTERN = /(password|secret|token|api[_-]?key|otp|sms|seed|mnemonic|private[_-]?key|payload|message|chat|packet[_-]?capture|pcap|capture[_-]?file|file[_-]?content|wallet[_-]?secret|cookie|body)/i;
+const TRAFFIC_FORBIDDEN_FIELD_PATTERN =
+  /(password|secret|token|api[_-]?key|otp|sms|seed|mnemonic|private[_-]?key|payload|message|chat|packet[_-]?capture|pcap|capture[_-]?file|file[_-]?content|wallet[_-]?secret|cookie|body)/i;
 const GUACAMOLE_HANDOFF_APPS = new Set([
   "duckduckgo_browser",
   "libreoffice",
@@ -198,7 +290,8 @@ const WORKLOAD_INPUT_SPECIAL_KEYS = new Set([
   "select_all"
 ]);
 const BLIND_E2EE_MAX_FRAME_BYTES = 16 * 1024 * 1024;
-const BLIND_E2EE_FORBIDDEN_FIELD_PATTERN = /(plain[_-]?text|plaintext|raw[_-]?frame|framebuffer|pixel[_-]?buffer|decoded|decrypted|message|chat|wallet|seed|mnemonic|private[_-]?key|session[_-]?key|sframe[_-]?key|aes[_-]?key|decryption[_-]?key|password|secret|token|cookie|request[_-]?body|response[_-]?body)/i;
+const BLIND_E2EE_FORBIDDEN_FIELD_PATTERN =
+  /(plain[_-]?text|plaintext|raw[_-]?frame|framebuffer|pixel[_-]?buffer|decoded|decrypted|message|chat|wallet|seed|mnemonic|private[_-]?key|session[_-]?key|sframe[_-]?key|aes[_-]?key|decryption[_-]?key|password|secret|token|cookie|request[_-]?body|response[_-]?body)/i;
 const BLIND_E2EE_ALLOWED_NONSECRET_FIELDS = new Set([
   "sessionId",
   "frameId",
@@ -283,14 +376,23 @@ function publicSessionMetadata(session) {
 }
 
 async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
-  const nativeFirecracker = process.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE === "native_firecracker";
+  const nativeFirecracker =
+    process.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE === "native_firecracker";
   // Blind-E2EE workloads stream through the broker, not the Guacamole G2 gateway, so the
   // readyThroughG2/--require-ready guacamole gate does not apply: readiness is the workload's
   // own evidence (app running, visible window, RFB banner) captured by the launcher.
   const isBlindE2ee = nativeFirecracker && BLIND_E2EE_RUNNER_APPS.has(app);
-  const command = nativeFirecracker ? process.execPath : process.platform === "win32" ? "npm.cmd" : "npm";
+  const command = nativeFirecracker
+    ? process.execPath
+    : process.platform === "win32"
+      ? "npm.cmd"
+      : "npm";
   const args = nativeFirecracker
-    ? ["scripts/launch-native-firecracker-gui-workload.mjs", "--apply", ...(isBlindE2ee ? [] : ["--require-ready"])]
+    ? [
+        "scripts/launch-native-firecracker-gui-workload.mjs",
+        "--apply",
+        ...(isBlindE2ee ? [] : ["--require-ready"])
+      ]
     : ["run", "live:workload-recreate", "--", `--app=${app}`];
   if (!nativeFirecracker && wipeVolume) args.push("--wipe-volume");
   const result = await execFileAsync(command, args, {
@@ -299,10 +401,12 @@ async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      ...(nativeFirecracker ? {
-        SYLION_GUI_APP: app,
-        SYLION_GUI_VNC_BACKEND: process.env.SYLION_GUI_VNC_BACKEND || "tigervnc"
-      } : {})
+      ...(nativeFirecracker
+        ? {
+            SYLION_GUI_APP: app,
+            SYLION_GUI_VNC_BACKEND: process.env.SYLION_GUI_VNC_BACKEND || "tigervnc"
+          }
+        : {})
     }
   });
   const stdout = result.stdout.trim();
@@ -322,38 +426,56 @@ async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
     };
   }
 
-  const forwardResult = await execFileAsync(process.execPath, ["scripts/install-workload-guacamole-vnc-forwards.mjs", "--apply"], {
-    timeout: 420_000,
-    windowsHide: true,
-    cwd: process.cwd(),
-    env: { ...process.env }
-  });
+  const forwardResult = await execFileAsync(
+    process.execPath,
+    ["scripts/install-workload-guacamole-vnc-forwards.mjs", "--apply"],
+    {
+      timeout: 420_000,
+      windowsHide: true,
+      cwd: process.cwd(),
+      env: { ...process.env }
+    }
+  );
   const forwardStdout = forwardResult.stdout.trim();
-  const forwardJson = forwardStdout.slice(forwardStdout.indexOf("{"), forwardStdout.lastIndexOf("}") + 1);
+  const forwardJson = forwardStdout.slice(
+    forwardStdout.indexOf("{"),
+    forwardStdout.lastIndexOf("}") + 1
+  );
   const forwards = JSON.parse(forwardJson);
   const forwardKey = app === "duckduckgo" ? "duckduckgo_browser" : app;
-  const workloadForward = (forwards.workloadEvidence?.forwards || []).find((item) => item.key === forwardKey);
-  const g2Forward = (forwards.g2Verification?.results || []).find((item) => item.key === forwardKey);
+  const workloadForward = (forwards.workloadEvidence?.forwards || []).find(
+    (item) => item.key === forwardKey
+  );
+  const g2Forward = (forwards.g2Verification?.results || []).find(
+    (item) => item.key === forwardKey
+  );
   return {
-    applied: parsed.readyThroughG2 === true && workloadForward?.bindReady === true && g2Forward?.reachable === true,
+    applied:
+      parsed.readyThroughG2 === true &&
+      workloadForward?.bindReady === true &&
+      g2Forward?.reachable === true,
     app,
     mode: "native_firecracker",
     evidence: parsed.evidence,
     g2: parsed.g2,
-    guacamoleVncForward: workloadForward ? {
-      key: workloadForward.key,
-      bindReady: workloadForward.bindReady === true,
-      targetReachable: workloadForward.targetReachable === true,
-      transport: workloadForward.g2ToWorkloadTransport,
-      publicInternetExposure: workloadForward.publicInternetExposure === true,
-      blocker: workloadForward.blocker || null
-    } : null,
-    g2VncVerification: g2Forward ? {
-      key: g2Forward.key,
-      reachable: g2Forward.reachable === true,
-      transport: g2Forward.transport,
-      rfbBannerReady: /^RFB/.test(String(g2Forward.rfbBanner || ""))
-    } : null,
+    guacamoleVncForward: workloadForward
+      ? {
+          key: workloadForward.key,
+          bindReady: workloadForward.bindReady === true,
+          targetReachable: workloadForward.targetReachable === true,
+          transport: workloadForward.g2ToWorkloadTransport,
+          publicInternetExposure: workloadForward.publicInternetExposure === true,
+          blocker: workloadForward.blocker || null
+        }
+      : null,
+    g2VncVerification: g2Forward
+      ? {
+          key: g2Forward.key,
+          reachable: g2Forward.reachable === true,
+          transport: g2Forward.transport,
+          rfbBannerReady: /^RFB/.test(String(g2Forward.rfbBanner || ""))
+        }
+      : null,
     forwardBlockers: forwards.workloadEvidence?.blockers || forwards.g2Verification?.blockers || [],
     secretPrinted: false,
     productionExecutionAllowed: false
@@ -361,16 +483,20 @@ async function defaultLiveWorkloadRunner({ app, wipeVolume = false }) {
 }
 
 async function defaultLiveWorkloadStatusProvider({ env = process.env } = {}) {
-  const result = await execFileAsync(process.execPath, ["scripts/live-workload-status-snapshot.mjs"], {
-    timeout: Number(env.SYLION_LIVE_WORKLOAD_STATUS_TIMEOUT_MS || 180_000),
-    windowsHide: true,
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      ...env
-    },
-    maxBuffer: 4 * 1024 * 1024
-  });
+  const result = await execFileAsync(
+    process.execPath,
+    ["scripts/live-workload-status-snapshot.mjs"],
+    {
+      timeout: Number(env.SYLION_LIVE_WORKLOAD_STATUS_TIMEOUT_MS || 180_000),
+      windowsHide: true,
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        ...env
+      },
+      maxBuffer: 4 * 1024 * 1024
+    }
+  );
   const stdout = result.stdout.trim();
   const start = stdout.indexOf("{");
   const end = stdout.lastIndexOf("}");
@@ -436,16 +562,28 @@ function spawnJsonWithStdin(command, args, { input, timeout, env, cwd } = {}) {
   });
 }
 
-async function defaultWorkloadInputRunner({ app, text, submit = false, preKeys = [], postKeys = [], pointer = null, env = process.env }) {
-  return spawnJsonWithStdin(process.execPath, ["scripts/workload-input-bridge.mjs", `--app=${app}`], {
-    input: JSON.stringify({ text, submit, preKeys, postKeys, pointer }),
-    timeout: Number(env.SYLION_WORKLOAD_INPUT_TIMEOUT_MS || 30_000),
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      ...env
+async function defaultWorkloadInputRunner({
+  app,
+  text,
+  submit = false,
+  preKeys = [],
+  postKeys = [],
+  pointer = null,
+  env = process.env
+}) {
+  return spawnJsonWithStdin(
+    process.execPath,
+    ["scripts/workload-input-bridge.mjs", `--app=${app}`],
+    {
+      input: JSON.stringify({ text, submit, preKeys, postKeys, pointer }),
+      timeout: Number(env.SYLION_WORKLOAD_INPUT_TIMEOUT_MS || 30_000),
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        ...env
+      }
     }
-  });
+  );
 }
 
 async function defaultBlindE2eeFrameCaptureRunner({ session, env = process.env }) {
@@ -460,17 +598,29 @@ async function defaultBlindE2eeFrameCaptureRunner({ session, env = process.env }
   if (!terminalPublicKeyJwk) {
     throw new Error("blind_e2ee_terminal_public_key_missing");
   }
-  const sshKey = env.SYLION_BLIND_E2EE_ENCODER_SSH_KEY || env.SYLION_ADMIN_SSH_KEY || (process.platform === "win32"
-    ? ".deploy\\sylion_hetzner_admin_ed25519"
-    : ".deploy/sylion_hetzner_admin_ed25519");
-  const sshHost = env.SYLION_BLIND_E2EE_ENCODER_SSH_HOST || env.SYLION_WORKLOAD_NATIVE_SSH || "root@65.109.123.72";
-  const remoteScript = env.SYLION_BLIND_E2EE_ENCODER_REMOTE_SCRIPT || "/opt/sylion-secure/scripts/blind-e2ee-workload-frame-encoder.mjs";
+  const sshKey =
+    env.SYLION_BLIND_E2EE_ENCODER_SSH_KEY ||
+    env.SYLION_ADMIN_SSH_KEY ||
+    (process.platform === "win32"
+      ? ".deploy\\sylion_hetzner_admin_ed25519"
+      : ".deploy/sylion_hetzner_admin_ed25519");
+  const sshHost =
+    env.SYLION_BLIND_E2EE_ENCODER_SSH_HOST ||
+    env.SYLION_WORKLOAD_NATIVE_SSH ||
+    "root@65.109.123.72";
+  const remoteScript =
+    env.SYLION_BLIND_E2EE_ENCODER_REMOTE_SCRIPT ||
+    "/opt/sylion-secure/scripts/blind-e2ee-workload-frame-encoder.mjs";
   const publicKeyB64 = Buffer.from(JSON.stringify(terminalPublicKeyJwk), "utf8").toString("base64");
   const args = [
-    "-i", sshKey,
-    "-o", "BatchMode=yes",
-    "-o", "StrictHostKeyChecking=accept-new",
-    "-o", `ConnectTimeout=${Number(env.SYLION_BLIND_E2EE_ENCODER_SSH_CONNECT_TIMEOUT_SECONDS || 8)}`,
+    "-i",
+    sshKey,
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "-o",
+    `ConnectTimeout=${Number(env.SYLION_BLIND_E2EE_ENCODER_SSH_CONNECT_TIMEOUT_SECONDS || 8)}`,
     sshHost,
     "node",
     remoteScript,
@@ -533,22 +683,58 @@ export class OperatorPortalService {
     this.providers = providers;
     this.env = env;
     this.sessions = new PersistentMap({ store, collection: "operator_portal_sessions" });
-    this.workloadControlRequests = new PersistentMap({ store, collection: "operator_workload_control_requests" });
+    this.workloadControlRequests = new PersistentMap({
+      store,
+      collection: "operator_workload_control_requests"
+    });
     this.unlockPolicies = new PersistentMap({ store, collection: "operator_unlock_policies" });
     this.safetyPolicies = new PersistentMap({ store, collection: "operator_safety_policies" });
-    this.jurisdictionPolicies = new PersistentMap({ store, collection: "operator_jurisdiction_policies" });
-    this.matrixRequests = new PersistentMap({ store, collection: "operator_matrix_server_requests" });
-    this.subscriptionRequests = new PersistentMap({ store, collection: "operator_subscription_change_requests" });
+    this.jurisdictionPolicies = new PersistentMap({
+      store,
+      collection: "operator_jurisdiction_policies"
+    });
+    this.matrixRequests = new PersistentMap({
+      store,
+      collection: "operator_matrix_server_requests"
+    });
+    this.subscriptionRequests = new PersistentMap({
+      store,
+      collection: "operator_subscription_change_requests"
+    });
     this.vpnEvidence = new PersistentMap({ store, collection: "operator_vpn_evidence" });
-    this.streamingSessions = new PersistentMap({ store, collection: "operator_streaming_sessions" });
-    this.streamingReadinessEvidence = new PersistentMap({ store, collection: "operator_streaming_readiness_evidence" });
-    this.streamingRuntimeManifests = new PersistentMap({ store, collection: "operator_streaming_runtime_manifests" });
-    this.blindE2eeSessions = new PersistentMap({ store, collection: "operator_blind_e2ee_sessions" });
-    this.blindE2eeFrameProofs = new PersistentMap({ store, collection: "operator_blind_e2ee_frame_proofs" });
+    this.streamingSessions = new PersistentMap({
+      store,
+      collection: "operator_streaming_sessions"
+    });
+    this.streamingReadinessEvidence = new PersistentMap({
+      store,
+      collection: "operator_streaming_readiness_evidence"
+    });
+    this.streamingRuntimeManifests = new PersistentMap({
+      store,
+      collection: "operator_streaming_runtime_manifests"
+    });
+    this.blindE2eeSessions = new PersistentMap({
+      store,
+      collection: "operator_blind_e2ee_sessions"
+    });
+    this.blindE2eeFrameProofs = new PersistentMap({
+      store,
+      collection: "operator_blind_e2ee_frame_proofs"
+    });
     this.blindE2eeFrameRelay = new Map();
-    this.trafficEvidence = new PersistentMap({ store, collection: "operator_traffic_monitoring_evidence" });
-    this.workloadControlJobs = new PersistentMap({ store, collection: "operator_workload_control_jobs" });
-    this.accountBootstrapSessions = new PersistentMap({ store, collection: "operator_account_bootstrap_sessions" });
+    this.trafficEvidence = new PersistentMap({
+      store,
+      collection: "operator_traffic_monitoring_evidence"
+    });
+    this.workloadControlJobs = new PersistentMap({
+      store,
+      collection: "operator_workload_control_jobs"
+    });
+    this.accountBootstrapSessions = new PersistentMap({
+      store,
+      collection: "operator_account_bootstrap_sessions"
+    });
     this.liveWorkloadRunner = liveWorkloadRunner;
     this.liveWorkloadStatusProvider = liveWorkloadStatusProvider;
     this.workloadInputRunner = workloadInputRunner;
@@ -566,7 +752,9 @@ export class OperatorPortalService {
     });
     const operator = this.#requireOperator(operatorId);
     const mode = normalizeTerminalMode(terminalMode);
-    const device = deviceId ? this.#requireAssignedTerminalDevice({ deviceId, operatorId, terminalMode: mode }) : null;
+    const device = deviceId
+      ? this.#requireAssignedTerminalDevice({ deviceId, operatorId, terminalMode: mode })
+      : null;
     const token = `op_${randomBytes(32).toString("hex")}`;
     const sessionHours = this.#sessionHoursForOperator(operatorId, operator.tier);
     const session = {
@@ -656,15 +844,17 @@ export class OperatorPortalService {
 
   workloads({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
-    const allocations = this.subscriptions.listAllocationsForOperatorScoped(operatorActor.operatorId).map((allocation) => ({
-      id: allocation.id,
-      name: allocation.appName,
-      state: allocation.status,
-      count: allocation.count,
-      targetLayer: "WORKLOAD",
-      cdrRequired: true,
-      executionPlanned: false
-    }));
+    const allocations = this.subscriptions
+      .listAllocationsForOperatorScoped(operatorActor.operatorId)
+      .map((allocation) => ({
+        id: allocation.id,
+        name: allocation.appName,
+        state: allocation.status,
+        count: allocation.count,
+        targetLayer: "WORKLOAD",
+        cdrRequired: true,
+        executionPlanned: false
+      }));
     if (allocations.length) return allocations;
     return this.#latestMicroVmSlots(operatorActor.operatorId).map((slot) => ({
       id: slot.id,
@@ -684,15 +874,18 @@ export class OperatorPortalService {
     const subscription = this.subscription({ operatorActor, correlationId });
     const currentCounts = this.#currentWorkloadCounts(operatorActor.operatorId);
     const androidRuntime = this.#androidRuntimeSubstrate();
-    const latestRequest = [...this.workloadControlRequests.values()]
-      .filter((request) => request.operatorId === operatorActor.operatorId)
-      .at(-1) || null;
+    const latestRequest =
+      [...this.workloadControlRequests.values()]
+        .filter((request) => request.operatorId === operatorActor.operatorId)
+        .at(-1) || null;
     return {
       operatorId: operatorActor.operatorId,
       tenantId: operatorActor.tenantId,
       catalog: WORKLOAD_CONTROL_APPS.map((app) => ({
         ...app,
-        runtimeGate: ANDROID_WORKLOAD_APPS.has(app.key) ? androidRuntime : { required: false, ready: true, blockers: [] }
+        runtimeGate: ANDROID_WORKLOAD_APPS.has(app.key)
+          ? androidRuntime
+          : { required: false, ready: true, blockers: [] }
       })),
       quota: {
         maxWorkloadEnvironments: subscription.quota.maxWorkloadEnvironments,
@@ -714,7 +907,8 @@ export class OperatorPortalService {
         quotaEnforced: true,
         destructiveCleanupAllowed: false,
         controlPlaneOnly: true,
-        productionExecutionAllowed: this.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED === "true",
+        productionExecutionAllowed:
+          this.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED === "true",
         androidNativeWorkloadGate: androidRuntime
       }
     };
@@ -733,7 +927,9 @@ export class OperatorPortalService {
       };
     }
     try {
-      const snapshot = this.#publicLiveWorkloadStatus(await this.liveWorkloadStatusProvider({ env: this.env }));
+      const snapshot = this.#publicLiveWorkloadStatus(
+        await this.liveWorkloadStatusProvider({ env: this.env })
+      );
       this.liveWorkloadStatusCache = { loadedAt: now, snapshot };
       return {
         ...snapshot,
@@ -757,9 +953,20 @@ export class OperatorPortalService {
           workloadUiReady: 0,
           functionalReady: 0,
           accountTestRequired: [],
-          blocked: WORKLOAD_CONTROL_APPS
-            .filter((app) => ["whatsapp", "signal", "telegram", "threema", "zangi", "simplex", "duckduckgo_browser", "libreoffice", "exodus", "protonmail"].includes(app.key))
-            .map((app) => app.key),
+          blocked: WORKLOAD_CONTROL_APPS.filter((app) =>
+            [
+              "whatsapp",
+              "signal",
+              "telegram",
+              "threema",
+              "zangi",
+              "simplex",
+              "duckduckgo_browser",
+              "libreoffice",
+              "exodus",
+              "protonmail"
+            ].includes(app.key)
+          ).map((app) => app.key),
           productionExecutionAllowed: false
         },
         safety: {
@@ -782,19 +989,27 @@ export class OperatorPortalService {
     const completedLiveRecreate = jobs.filter((job) => {
       const publicJob = this.#publicWorkloadControlJob(job);
       const result = job.result || {};
-      const nativeReady = result.nativeFirecracker?.readyThroughG2 === true
-        || result.applied === true
-        || result.workloadEvidence?.privateBindOnly === true;
-      return publicJob.state === "completed_live_workload_recreate"
-        && publicJob.cdrRequired === true
-        && publicJob.terminalDataStored === false
-        && publicJob.privateBindOnlyRequired === true
-        && nativeReady;
+      const nativeReady =
+        result.nativeFirecracker?.readyThroughG2 === true ||
+        result.applied === true ||
+        result.workloadEvidence?.privateBindOnly === true;
+      return (
+        publicJob.state === "completed_live_workload_recreate" &&
+        publicJob.cdrRequired === true &&
+        publicJob.terminalDataStored === false &&
+        publicJob.privateBindOnlyRequired === true &&
+        nativeReady
+      );
     });
     const blockedBeforeRunner = jobs.filter((job) => job.state === "blocked_before_live_runner");
     const failedLiveRecreate = jobs.filter((job) => job.state === "failed_live_workload_recreate");
-    const destructiveRequests = requests.filter((request) => request.action === "rotate_app" || request.action === "recreate_all");
-    const ready = completedLiveRecreate.length > 0 && blockedBeforeRunner.length > 0 && failedLiveRecreate.length === 0;
+    const destructiveRequests = requests.filter(
+      (request) => request.action === "rotate_app" || request.action === "recreate_all"
+    );
+    const ready =
+      completedLiveRecreate.length > 0 &&
+      blockedBeforeRunner.length > 0 &&
+      failedLiveRecreate.length === 0;
     return {
       requests: requests.length,
       destructiveRequests: destructiveRequests.length,
@@ -803,8 +1018,12 @@ export class OperatorPortalService {
       blockedBeforeRunner: blockedBeforeRunner.length,
       failedLiveRecreate: failedLiveRecreate.length,
       cdrRequiredObserved: completedLiveRecreate.some((job) => job.cdrRequired === true),
-      terminalDataStoredFalseObserved: completedLiveRecreate.some((job) => job.terminalDataStored === false),
-      privateBindOnlyObserved: completedLiveRecreate.some((job) => job.privateBindOnlyRequired === true),
+      terminalDataStoredFalseObserved: completedLiveRecreate.some(
+        (job) => job.terminalDataStored === false
+      ),
+      privateBindOnlyObserved: completedLiveRecreate.some(
+        (job) => job.privateBindOnlyRequired === true
+      ),
       ready,
       productionExecutionAllowed: false
     };
@@ -840,7 +1059,10 @@ export class OperatorPortalService {
       desiredCounts,
       totalRequested,
       quota: subscription.quota,
-      state: action === "scale_to_counts" ? "queued_control_plane_update" : "queued_destructive_recreate_control_plane",
+      state:
+        action === "scale_to_counts"
+          ? "queued_control_plane_update"
+          : "queued_destructive_recreate_control_plane",
       deleteRecreateMode: action === "scale_to_counts" ? "not_requested" : "queued_control_plane",
       cdrRequired: true,
       terminalDataStored: false,
@@ -887,11 +1109,14 @@ export class OperatorPortalService {
     }
     const runnerApp = this.#runnerAppForRequest(request);
     if (!runnerApp) {
-      throw validationError("This workload request is not supported by the live recreate runner yet", {
-        requestId,
-        rotateApp: request.rotateApp,
-        supported: Object.keys(LIVE_RECREATE_APP_MAP)
-      });
+      throw validationError(
+        "This workload request is not supported by the live recreate runner yet",
+        {
+          requestId,
+          rotateApp: request.rotateApp,
+          supported: Object.keys(LIVE_RECREATE_APP_MAP)
+        }
+      );
     }
     const liveRunnerEnabled = this.env.SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED === "true";
     const confirmation = String(body.confirmation || "").trim();
@@ -924,12 +1149,18 @@ export class OperatorPortalService {
       return this.#publicWorkloadControlJob(blocked);
     }
     const wipeVolume = body.wipeVolume === true;
-    if (wipeVolume && (this.env.SYLION_ALLOW_WORKLOAD_WIPE !== "true" || !body.fourEyesApprovalRef)) {
-      throw validationError("Volume wipe requires four-eyes approval and explicit server-side unlock", {
-        requestId,
-        fourEyesApprovalRequired: true,
-        envGate: "SYLION_ALLOW_WORKLOAD_WIPE"
-      });
+    if (
+      wipeVolume &&
+      (this.env.SYLION_ALLOW_WORKLOAD_WIPE !== "true" || !body.fourEyesApprovalRef)
+    ) {
+      throw validationError(
+        "Volume wipe requires four-eyes approval and explicit server-side unlock",
+        {
+          requestId,
+          fourEyesApprovalRequired: true,
+          envGate: "SYLION_ALLOW_WORKLOAD_WIPE"
+        }
+      );
     }
 
     const started = this.#workloadJob({
@@ -959,7 +1190,9 @@ export class OperatorPortalService {
       const result = await this.liveWorkloadRunner({ app: runnerApp, wipeVolume });
       const completed = {
         ...started,
-        state: result?.applied ? "completed_live_workload_recreate" : "failed_live_workload_recreate",
+        state: result?.applied
+          ? "completed_live_workload_recreate"
+          : "failed_live_workload_recreate",
         completedAt: isoNow(),
         result: this.#sanitizeLiveRunnerResult(result),
         productionExecutionAllowed: false,
@@ -1094,7 +1327,11 @@ export class OperatorPortalService {
     const ready = this.#latestReadyEnvironment(operatorActor.operatorId);
     const evidence = this.#latestVpnEvidenceForOperator(operatorActor.operatorId);
     const evidenceReady = this.#vpnEvidenceReady(evidence);
-    const state = evidenceReady ? "live_ipsec_connected" : ready ? "local_lab_connected" : "configuration_pending";
+    const state = evidenceReady
+      ? "live_ipsec_connected"
+      : ready
+        ? "local_lab_connected"
+        : "configuration_pending";
     const path = this.#connectionPathForOperator({
       operatorId: operatorActor.operatorId,
       terminalMode: operatorActor.terminalMode,
@@ -1132,9 +1369,9 @@ export class OperatorPortalService {
     const reachableHosts = Array.isArray(body.reachableHosts)
       ? body.reachableHosts.map((host) => String(host).trim()).filter(Boolean)
       : Object.entries(body.reachableHosts || {})
-        .filter(([, reachable]) => Boolean(reachable))
-        .map(([host]) => String(host).trim())
-        .filter(Boolean);
+          .filter(([, reachable]) => Boolean(reachable))
+          .map(([host]) => String(host).trim())
+          .filter(Boolean);
     const evidence = {
       id: newId("vpn_evidence"),
       operatorId: operatorActor.operatorId,
@@ -1146,7 +1383,12 @@ export class OperatorPortalService {
       vpnInterface: String(body.vpnInterface || "").slice(0, 32) || null,
       dnsThroughTunnel: body.dnsThroughTunnel === true,
       reachableHosts,
-      requiredHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "10.42.0.12"],
+      requiredHosts: [
+        "admin.sylion.internal",
+        "operator.sylion.internal",
+        "signal.sylion.internal",
+        "10.42.0.12"
+      ],
       certificateTrusted: body.certificateTrusted === true,
       observedAt: isoNow(),
       source: "operator_terminal_live_evidence",
@@ -1180,17 +1422,21 @@ export class OperatorPortalService {
     });
     const vpnEvidence = this.#latestVpnEvidenceForOperator(operatorActor.operatorId);
     const streamingReadiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
-    const streamingRuntime = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const streamingRuntime = this.#latestStreamingRuntimeManifestForOperator(
+      operatorActor.operatorId
+    );
     const latestEvidence = this.#latestTrafficEvidenceBySegment(operatorActor.operatorId);
-    const segments = TRAFFIC_MONITOR_SEGMENTS.map((definition) => this.#trafficSegmentView({
-      definition,
-      operatorActor,
-      path,
-      vpnEvidence,
-      streamingReadiness,
-      streamingRuntime,
-      evidence: latestEvidence.get(definition.id) || null
-    }));
+    const segments = TRAFFIC_MONITOR_SEGMENTS.map((definition) =>
+      this.#trafficSegmentView({
+        definition,
+        operatorActor,
+        path,
+        vpnEvidence,
+        streamingReadiness,
+        streamingRuntime,
+        evidence: latestEvidence.get(definition.id) || null
+      })
+    );
     const alerts = this.#trafficAlerts({
       segments,
       path,
@@ -1255,22 +1501,27 @@ export class OperatorPortalService {
     });
     const vpnEvidence = this.#latestVpnEvidenceForOperator(operatorActor.operatorId);
     const streamingReadiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
-    const streamingRuntime = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const streamingRuntime = this.#latestStreamingRuntimeManifestForOperator(
+      operatorActor.operatorId
+    );
     const latestTrafficEvidence = this.#latestTrafficEvidenceBySegment(operatorActor.operatorId);
-    const trafficById = Object.fromEntries(TRAFFIC_MONITOR_SEGMENTS.map((definition) => {
-      const view = this.#trafficSegmentView({
-        definition,
-        operatorActor,
-        path,
-        vpnEvidence,
-        streamingReadiness,
-        streamingRuntime,
-        evidence: latestTrafficEvidence.get(definition.id) || null
-      });
-      return [definition.id, view];
-    }));
-    const publicStreamExposure = streamingReadiness?.gateway?.publicInternetExposure === true
-      || streamingRuntime?.gateway?.publicInternetExposure === true;
+    const trafficById = Object.fromEntries(
+      TRAFFIC_MONITOR_SEGMENTS.map((definition) => {
+        const view = this.#trafficSegmentView({
+          definition,
+          operatorActor,
+          path,
+          vpnEvidence,
+          streamingReadiness,
+          streamingRuntime,
+          evidence: latestTrafficEvidence.get(definition.id) || null
+        });
+        return [definition.id, view];
+      })
+    );
+    const publicStreamExposure =
+      streamingReadiness?.gateway?.publicInternetExposure === true ||
+      streamingRuntime?.gateway?.publicInternetExposure === true;
     const workloadDnsLeakTestPassed = this.env?.SYLION_WORKLOAD_DNS_LEAK_TEST_PASSED === "true";
     const controls = [
       this.#terminalAttributionControl({
@@ -1283,12 +1534,18 @@ export class OperatorPortalService {
       this.#terminalAttributionControl({
         id: "g1_g2_workload_path",
         label: "Terminal traffic stays behind G1/G2 before workload",
-        passed: trafficById.g1_g2?.status === "healthy" && trafficById.g2_workload?.status === "healthy",
+        passed:
+          trafficById.g1_g2?.status === "healthy" && trafficById.g2_workload?.status === "healthy",
         blockers: [
           ...(trafficById.g1_g2?.status === "healthy" ? [] : ["g1_g2_policy_path_not_healthy"]),
-          ...(trafficById.g2_workload?.status === "healthy" ? [] : ["g2_workload_private_path_not_healthy"])
+          ...(trafficById.g2_workload?.status === "healthy"
+            ? []
+            : ["g2_workload_private_path_not_healthy"])
         ],
-        requiredEvidence: ["operator traffic monitor g1_g2=healthy", "operator traffic monitor g2_workload=healthy"]
+        requiredEvidence: [
+          "operator traffic monitor g1_g2=healthy",
+          "operator traffic monitor g2_workload=healthy"
+        ]
       }),
       this.#terminalAttributionControl({
         id: "matrix_source_ip_canary",
@@ -1307,20 +1564,27 @@ export class OperatorPortalService {
       this.#terminalAttributionControl({
         id: "stream_private_exposure",
         label: "Workload stream is private and not Internet-bound",
-        passed: publicStreamExposure === false && (
-          streamingReadiness?.ready === true
-          || streamingRuntime?.ready === true
-          || this.env?.SYLION_G2_WORKLOAD_GATEWAY_READY === "true"
-        ),
-        blockers: publicStreamExposure ? ["public_stream_exposure_forbidden"] : ["private_stream_gateway_evidence_required"],
-        requiredEvidence: ["G2 broker bind/private exposure scan", "streaming runtime manifest publicInternetExposure=false"]
+        passed:
+          publicStreamExposure === false &&
+          (streamingReadiness?.ready === true ||
+            streamingRuntime?.ready === true ||
+            this.env?.SYLION_G2_WORKLOAD_GATEWAY_READY === "true"),
+        blockers: publicStreamExposure
+          ? ["public_stream_exposure_forbidden"]
+          : ["private_stream_gateway_evidence_required"],
+        requiredEvidence: [
+          "G2 broker bind/private exposure scan",
+          "streaming runtime manifest publicInternetExposure=false"
+        ]
       }),
       this.#terminalAttributionControl({
         id: "dns_leak_prevention",
         label: "DNS does not reveal terminal path",
         passed: vpnEvidence?.dnsThroughTunnel === true && workloadDnsLeakTestPassed,
         blockers: [
-          ...(vpnEvidence?.dnsThroughTunnel === true ? [] : ["terminal_dns_tunnel_evidence_required"]),
+          ...(vpnEvidence?.dnsThroughTunnel === true
+            ? []
+            : ["terminal_dns_tunnel_evidence_required"]),
           ...(workloadDnsLeakTestPassed ? [] : ["workload_dns_leak_test_required"])
         ],
         requiredEvidence: ["Pixel/laptop DNS through tunnel", "workload DNS leak probe"]
@@ -1347,49 +1611,70 @@ export class OperatorPortalService {
         requiredEvidence: ["Matrix client device name/user-agent/profile metadata review"]
       })
     ];
-    const blockers = controls.flatMap((control) => control.status === "passed" ? [] : control.blockers);
+    const blockers = controls.flatMap((control) =>
+      control.status === "passed" ? [] : control.blockers
+    );
     const residualRisks = [
       {
         id: "provider_logs",
         severity: "medium",
-        description: "A provider controlling G1/G2/workload or Matrix infrastructure can correlate account, server, billing, timing, or support logs.",
-        mitigation: "Minimize provider scope per tier, use jurisdiction policy, separate billing identities lawfully, and record provider-log risk acceptance."
+        description:
+          "A provider controlling G1/G2/workload or Matrix infrastructure can correlate account, server, billing, timing, or support logs.",
+        mitigation:
+          "Minimize provider scope per tier, use jurisdiction policy, separate billing identities lawfully, and record provider-log risk acceptance."
       },
       {
         id: "timing_correlation",
         severity: "medium",
-        description: "A global observer may correlate operator session timing, traffic volume, Matrix activity timing, and workload egress.",
-        mitigation: "Add route padding/cover-traffic only after legal review; do not claim anonymity from current baseline."
+        description:
+          "A global observer may correlate operator session timing, traffic volume, Matrix activity timing, and workload egress.",
+        mitigation:
+          "Add route padding/cover-traffic only after legal review; do not claim anonymity from current baseline."
       },
       {
         id: "terminal_compromise",
         severity: "high",
-        description: "If the Pixel/laptop is actively compromised, live screen/input and local network state can expose the operator despite the thin-client design.",
-        mitigation: "GrapheneOS posture checks, locked-down terminal profile, session timeout, FIDO2/HSM unlock, and incident response."
+        description:
+          "If the Pixel/laptop is actively compromised, live screen/input and local network state can expose the operator despite the thin-client design.",
+        mitigation:
+          "GrapheneOS posture checks, locked-down terminal profile, session timeout, FIDO2/HSM unlock, and incident response."
       },
       {
         id: "account_bootstrap_metadata",
         severity: "medium",
-        description: "Phone-number, payment, contact discovery, or Matrix account bootstrap metadata can identify the operator even when the IP path does not.",
-        mitigation: "Use approved bootstrap workflow, no contact discovery by default, metadata-only audit, and operator risk gates."
+        description:
+          "Phone-number, payment, contact discovery, or Matrix account bootstrap metadata can identify the operator even when the IP path does not.",
+        mitigation:
+          "Use approved bootstrap workflow, no contact discovery by default, metadata-only audit, and operator risk gates."
       }
     ];
-    const canaryReady = controls.find((control) => control.id === "matrix_source_ip_canary")?.status === "passed"
-      && controls.find((control) => control.id === "forwarded_headers_stripped")?.status === "passed";
+    const canaryReady =
+      controls.find((control) => control.id === "matrix_source_ip_canary")?.status === "passed" &&
+      controls.find((control) => control.id === "forwarded_headers_stripped")?.status === "passed";
     return {
       operatorId: operatorActor.operatorId,
       tenantId: operatorActor.tenantId,
       terminalMode: operatorActor.terminalMode,
       mode: "metadata_only_terminal_attribution_risk_assessment",
-      question: "Can someone identify the Pixel/operator location from only a Firecracker/workload IP or Matrix server observation?",
-      decision: blockers.length === 0
-        ? "direct_terminal_attribution_blocked_residual_correlation_risk_remains"
-        : "not_proven_until_required_evidence_passes",
+      question:
+        "Can someone identify the Pixel/operator location from only a Firecracker/workload IP or Matrix server observation?",
+      decision:
+        blockers.length === 0
+          ? "direct_terminal_attribution_blocked_residual_correlation_risk_remains"
+          : "not_proven_until_required_evidence_passes",
       shortAnswer: canaryReady
         ? "A Matrix server should see only workload egress or a configured routing exit, not the Pixel location; residual correlation risks remain."
         : "From the workload IP alone direct Pixel attribution should be blocked by design, but the required canary/header/DNS/WebRTC evidence is not complete yet.",
       observerStartingPoint: "firecracker_or_workload_ip_only",
-      route: ["Pixel/laptop", "Puli AX", "G1", "G2", "WORKLOAD", "microVM/container", "Matrix server"],
+      route: [
+        "Pixel/laptop",
+        "Puli AX",
+        "G1",
+        "G2",
+        "WORKLOAD",
+        "microVM/container",
+        "Matrix server"
+      ],
       matrixServerObservation: {
         shouldSee: [
           "workload_egress_ip_or_tor_exit_if_operator_policy_enabled",
@@ -1417,7 +1702,8 @@ export class OperatorPortalService {
       humanGate: {
         required: true,
         owner: "security_architect",
-        reason: "Provider logs, account bootstrap metadata, and timing correlation cannot be eliminated by IP routing controls alone."
+        reason:
+          "Provider logs, account bootstrap metadata, and timing correlation cannot be eliminated by IP routing controls alone."
       },
       requiredLiveTests: [
         "Run Matrix/HTTP canary from each communicator microVM and confirm observed source class is workload/route exit only.",
@@ -1453,7 +1739,9 @@ export class OperatorPortalService {
         supported: [...TRAFFIC_SEGMENT_IDS]
       });
     }
-    const status = this.#normalizeTrafficStatus(body.status || (body.healthy === true ? "healthy" : "observed"));
+    const status = this.#normalizeTrafficStatus(
+      body.status || (body.healthy === true ? "healthy" : "observed")
+    );
     const encrypted = body.encrypted === undefined ? status !== "blocked" : body.encrypted === true;
     const evidence = {
       id: newId("traffic_evidence"),
@@ -1464,13 +1752,17 @@ export class OperatorPortalService {
       segmentId,
       status,
       encrypted,
-      transport: String(body.transport || this.#trafficSegmentDefinition(segmentId).transport).slice(0, 96),
+      transport: String(
+        body.transport || this.#trafficSegmentDefinition(segmentId).transport
+      ).slice(0, 96),
       latencyMs: this.#optionalNumber(body.latencyMs, "latencyMs", 0, 600000),
       jitterMs: this.#optionalNumber(body.jitterMs, "jitterMs", 0, 600000),
       packetLossPct: this.#optionalNumber(body.packetLossPct, "packetLossPct", 0, 100),
       bytesIn: this.#optionalNumber(body.bytesIn, "bytesIn", 0, Number.MAX_SAFE_INTEGER),
       bytesOut: this.#optionalNumber(body.bytesOut, "bytesOut", 0, Number.MAX_SAFE_INTEGER),
-      policyDecision: String(body.policyDecision || (status === "healthy" ? "allow" : "review")).slice(0, 48),
+      policyDecision: String(
+        body.policyDecision || (status === "healthy" ? "allow" : "review")
+      ).slice(0, 48),
       evidenceRefs: this.#safeTrafficEvidenceRefs(body.evidenceRefs || []),
       source: "operator_blue_team_metadata_evidence",
       contentInspected: false,
@@ -1491,7 +1783,9 @@ export class OperatorPortalService {
       operatorId: operatorActor.operatorId,
       correlationId: corr,
       policyDecision: evidence.blockers.length ? "deny" : "allow",
-      result: evidence.blockers.length ? "traffic_evidence_incomplete" : "traffic_evidence_recorded",
+      result: evidence.blockers.length
+        ? "traffic_evidence_incomplete"
+        : "traffic_evidence_recorded",
       newValue: this.#publicTrafficEvidence(evidence)
     });
     return this.#publicTrafficEvidence(evidence);
@@ -1508,14 +1802,18 @@ export class OperatorPortalService {
       transport: "ipsec_ikev2_certificate_auth",
       installState: readyForRealInstall ? "active_live_evidence" : "blocked_human_gate",
       readyForRealInstall,
-      profileDelivery: readyForRealInstall ? "installed_and_verified_on_pixel" : "adb_lab_preview_only",
+      profileDelivery: readyForRealInstall
+        ? "installed_and_verified_on_pixel"
+        : "adb_lab_preview_only",
       androidPackageInstallAllowed: false,
-      requires: readyForRealInstall ? [] : [
-        "pixel_live_vpn_evidence",
-        "dns_leak_and_kill_switch_tests",
-        "internal_ca_trusted",
-        "g1_g2_workload_reachability"
-      ],
+      requires: readyForRealInstall
+        ? []
+        : [
+            "pixel_live_vpn_evidence",
+            "dns_leak_and_kill_switch_tests",
+            "internal_ca_trusted",
+            "g1_g2_workload_reachability"
+          ],
       plannedProfile: {
         server: vpn.endpoints.g1,
         authentication: "mutual_certificate",
@@ -1539,7 +1837,9 @@ export class OperatorPortalService {
       operatorId: operatorActor.operatorId,
       terminalMode: operatorActor.terminalMode,
       packageType: "grapheneos_internal_ca_profile",
-      caCertificateRef: caPem ? "env://SYLION_INTERNAL_CA_CERT_PEM" : "pki://sylion/internal-ca/current",
+      caCertificateRef: caPem
+        ? "env://SYLION_INTERNAL_CA_CERT_PEM"
+        : "pki://sylion/internal-ca/current",
       caCertificatePem: caPem,
       caFingerprintSha256: fingerprint,
       trustScope: ["operator.sylion.internal", "*.sylion.internal"],
@@ -1645,7 +1945,10 @@ export class OperatorPortalService {
       tenantId: operatorActor.tenantId,
       templateKey: execution.templateKey,
       appName: execution.appName,
-      state: execution.launchAllowed || routeStatus.ready ? "session_ready" : "session_prepared_with_blockers",
+      state:
+        execution.launchAllowed || routeStatus.ready
+          ? "session_ready"
+          : "session_prepared_with_blockers",
       url: this.#workloadLaunchUrl(normalizedTemplate, host),
       routeStatus,
       authMode: normalizedTemplate === "signal" ? "g2_session_broker_required" : "g2_internal_tls",
@@ -1661,7 +1964,9 @@ export class OperatorPortalService {
       blockers: [
         ...execution.blockers.filter((blocker) => !routeStatus.satisfiedBlockers.includes(blocker)),
         ...routeStatus.blockers,
-        ...(this.env.SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL === "true" ? [] : ["pixel_internal_ca_not_trusted"])
+        ...(this.env.SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL === "true"
+          ? []
+          : ["pixel_internal_ca_not_trusted"])
       ],
       warnings: execution.warnings,
       productionExecutionAllowed: execution.productionExecutionAllowed,
@@ -1718,7 +2023,9 @@ export class OperatorPortalService {
     });
     return [...this.accountBootstrapSessions.values()]
       .filter((session) => !operatorId || session.operatorId === operatorId)
-      .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))
+      .sort(
+        (a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt)
+      )
       .map((session) => this.#publicAccountBootstrapSession(session));
   }
 
@@ -1774,11 +2081,15 @@ export class OperatorPortalService {
     this.#assertNoBootstrapSecrets(body);
     const appKey = this.#normalizeWorkloadTemplate(body.appKey || body.templateKey || "signal");
     const mode = this.#normalizeBootstrapMode(body.mode || this.#defaultBootstrapMode(appKey));
-    const runtimeMode = this.#normalizeBootstrapRuntime(body.runtimeMode || this.#defaultBootstrapRuntime(appKey));
+    const runtimeMode = this.#normalizeBootstrapRuntime(
+      body.runtimeMode || this.#defaultBootstrapRuntime(appKey)
+    );
     const app = this.#appDefinition(appKey);
     const requiredChecks = this.#accountBootstrapRequiredChecks(appKey);
     const routeStatus = this.#workloadRouteStatus(appKey);
-    const androidRuntime = ANDROID_WORKLOAD_APPS.has(appKey) ? this.#androidRuntimeSubstrate() : null;
+    const androidRuntime = ANDROID_WORKLOAD_APPS.has(appKey)
+      ? this.#androidRuntimeSubstrate()
+      : null;
     const session = {
       id: newId("acct_bootstrap"),
       operatorId: operatorActor.operatorId,
@@ -1794,10 +2105,24 @@ export class OperatorPortalService {
       routeStatus,
       runtimeGate: androidRuntime,
       launchUrl: this.#workloadLaunchUrl(appKey),
-      approvedPhoneProviderRef: body.approvedPhoneProviderRef ? String(body.approvedPhoneProviderRef).trim().slice(0, 160) : null,
+      approvedPhoneProviderRef: body.approvedPhoneProviderRef
+        ? String(body.approvedPhoneProviderRef).trim().slice(0, 160)
+        : null,
       evidencePolicy: {
-        allowedEvidence: ["artifact_ref", "manual_note_without_secrets", "latency_ms", "pass_fail_checks"],
-        forbiddenEvidence: ["phone_number", "otp_or_sms_code", "password", "seed", "message_content", "wallet_secret"],
+        allowedEvidence: [
+          "artifact_ref",
+          "manual_note_without_secrets",
+          "latency_ms",
+          "pass_fail_checks"
+        ],
+        forbiddenEvidence: [
+          "phone_number",
+          "otp_or_sms_code",
+          "password",
+          "seed",
+          "message_content",
+          "wallet_secret"
+        ],
         accountCreationResponsibility: "operator_human_step",
         adminQaReviewRequired: true
       },
@@ -1809,7 +2134,9 @@ export class OperatorPortalService {
       }),
       blockers: [
         ...(routeStatus.ready ? [] : routeStatus.blockers),
-        ...(androidRuntime && !androidRuntime.ready ? androidRuntime.blockers.map((blocker) => `android_runtime:${blocker}`) : []),
+        ...(androidRuntime && !androidRuntime.ready
+          ? androidRuntime.blockers.map((blocker) => `android_runtime:${blocker}`)
+          : []),
         ...(appKey === "exodus" ? ["operator_wallet_risk_acceptance_required"] : []),
         "human_account_bootstrap_not_recorded",
         "send_receive_not_verified"
@@ -1848,7 +2175,9 @@ export class OperatorPortalService {
     }
     const result = this.#normalizeBootstrapResult(body.result || "in_progress");
     const checks = this.#normalizeBootstrapChecks(previous.requiredChecks, body.checks || {});
-    const missingRequired = previous.requiredChecks.filter((check) => checks[check]?.status !== "passed");
+    const missingRequired = previous.requiredChecks.filter(
+      (check) => checks[check]?.status !== "passed"
+    );
     if (result === "passed" && missingRequired.length) {
       throw validationError("Account bootstrap PASS requires every required check to pass", {
         appKey: previous.appKey,
@@ -1859,12 +2188,22 @@ export class OperatorPortalService {
     const factualCandidate = result === "passed" && missingRequired.length === 0;
     const next = {
       ...previous,
-      state: factualCandidate ? "evidence_passed_pending_admin_qa_review" : result === "blocked" ? "blocked_pending_fix" : "evidence_incomplete",
+      state: factualCandidate
+        ? "evidence_passed_pending_admin_qa_review"
+        : result === "blocked"
+          ? "blocked_pending_fix"
+          : "evidence_incomplete",
       checks,
       result,
       blockers: factualCandidate ? [] : missingRequired.map((check) => `${check}_not_passed`),
-      evidenceArtifactIds: this.#safeBootstrapArray(body.evidenceArtifactIds || [], "evidenceArtifactIds"),
-      latencyMs: body.latencyMs === undefined || body.latencyMs === null || body.latencyMs === "" ? null : Number(body.latencyMs),
+      evidenceArtifactIds: this.#safeBootstrapArray(
+        body.evidenceArtifactIds || [],
+        "evidenceArtifactIds"
+      ),
+      latencyMs:
+        body.latencyMs === undefined || body.latencyMs === null || body.latencyMs === ""
+          ? null
+          : Number(body.latencyMs),
       note: body.note ? String(body.note).trim().slice(0, 500) : null,
       factualCandidate,
       adminQaReviewRequired: true,
@@ -1899,36 +2238,102 @@ export class OperatorPortalService {
     const caPackage = this.pixelCaProvisioning({ operatorActor, correlationId });
     const evidence = vpn.liveEvidence;
     const env = this.env || {};
-    const caTrusted = evidence?.certificateTrusted === true || env.SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL === "true";
+    const caTrusted =
+      evidence?.certificateTrusted === true || env.SYLION_INTERNAL_CA_TRUSTED_ON_PIXEL === "true";
     const liveVpnReady = evidence?.ready === true;
     const g1ToG2Ready = env.SYLION_G1_G2_POLICY_READY === "true" || liveVpnReady;
     const g2ToWorkloadReady = env.SYLION_G2_WORKLOAD_POLICY_READY === "true" || liveVpnReady;
-    const gatewayReady = env.SYLION_G2_WORKLOAD_GATEWAY_READY === "true" || evidence?.reachableHosts?.some((host) => host === "signal.sylion.internal");
+    const gatewayReady =
+      env.SYLION_G2_WORKLOAD_GATEWAY_READY === "true" ||
+      evidence?.reachableHosts?.some((host) => host === "signal.sylion.internal");
     const hsmFidoDeferred = env.SYLION_DEFER_PHYSICAL_HSM_FIDO2 === "true";
     const routerDeferred = env.SYLION_PULI_AX_PHYSICAL_READY !== "true";
     const checks = [
-      this.#liveAccessCheck("scoped_operator_session", true, "Operator session is scoped to one operator and terminal."),
-      this.#liveAccessCheck("thin_terminal_boundary", true, "Pixel/laptop remains display and input only."),
-      this.#liveAccessCheck("pixel_internal_ca_trust", caTrusted, "Pixel trusts SYLION Internal CA for *.sylion.internal."),
-      this.#liveAccessCheck("t0_pixel_to_g1_ipsec", liveVpnReady, "Pixel direct strongSwan or Puli AX IKEv2 tunnel to G1 is established and evidenced."),
-      this.#liveAccessCheck("dns_through_tunnel", evidence?.dnsThroughTunnel === true, "Internal DNS is resolved through the tunnel only."),
-      this.#liveAccessCheck("g1_to_g2_policy_path", g1ToG2Ready, "G1 forwards only the authorized policy path to G2."),
-      this.#liveAccessCheck("g2_to_workload_policy_path", g2ToWorkloadReady, "G2 reaches WORKLOAD only through the workload policy path."),
-      this.#liveAccessCheck("g2_workload_gateway_tls", gatewayReady, "Internal workload names terminate through G2 TLS gateway."),
-      this.#liveAccessCheck("cdr_file_gate", true, "File ingress and egress stay blocked without CDR decision."),
-      this.#liveAccessCheck("puli_ax_physical_router", !routerDeferred, "Puli AX physical router package and posture are validated.", routerDeferred ? "deferred" : "passed"),
-      this.#liveAccessCheck("hsm_fido2_physical_enforcement", !hsmFidoDeferred, "Physical HSM/FIDO2 enforcement is configured.", hsmFidoDeferred ? "deferred" : "passed")
+      this.#liveAccessCheck(
+        "scoped_operator_session",
+        true,
+        "Operator session is scoped to one operator and terminal."
+      ),
+      this.#liveAccessCheck(
+        "thin_terminal_boundary",
+        true,
+        "Pixel/laptop remains display and input only."
+      ),
+      this.#liveAccessCheck(
+        "pixel_internal_ca_trust",
+        caTrusted,
+        "Pixel trusts SYLION Internal CA for *.sylion.internal."
+      ),
+      this.#liveAccessCheck(
+        "t0_pixel_to_g1_ipsec",
+        liveVpnReady,
+        "Pixel direct strongSwan or Puli AX IKEv2 tunnel to G1 is established and evidenced."
+      ),
+      this.#liveAccessCheck(
+        "dns_through_tunnel",
+        evidence?.dnsThroughTunnel === true,
+        "Internal DNS is resolved through the tunnel only."
+      ),
+      this.#liveAccessCheck(
+        "g1_to_g2_policy_path",
+        g1ToG2Ready,
+        "G1 forwards only the authorized policy path to G2."
+      ),
+      this.#liveAccessCheck(
+        "g2_to_workload_policy_path",
+        g2ToWorkloadReady,
+        "G2 reaches WORKLOAD only through the workload policy path."
+      ),
+      this.#liveAccessCheck(
+        "g2_workload_gateway_tls",
+        gatewayReady,
+        "Internal workload names terminate through G2 TLS gateway."
+      ),
+      this.#liveAccessCheck(
+        "cdr_file_gate",
+        true,
+        "File ingress and egress stay blocked without CDR decision."
+      ),
+      this.#liveAccessCheck(
+        "puli_ax_physical_router",
+        !routerDeferred,
+        "Puli AX physical router package and posture are validated.",
+        routerDeferred ? "deferred" : "passed"
+      ),
+      this.#liveAccessCheck(
+        "hsm_fido2_physical_enforcement",
+        !hsmFidoDeferred,
+        "Physical HSM/FIDO2 enforcement is configured.",
+        hsmFidoDeferred ? "deferred" : "passed"
+      )
     ];
-    const requiredBlockers = checks.filter((check) => check.required && check.status !== "passed").map((check) => check.key);
-    const appGateways = ["signal", "whatsapp", "telegram", "threema", "zangi", "simplex", "duckduckgo_browser", "libreoffice", "exodus", "protonmail"].map((templateKey) => {
+    const requiredBlockers = checks
+      .filter((check) => check.required && check.status !== "passed")
+      .map((check) => check.key);
+    const appGateways = [
+      "signal",
+      "whatsapp",
+      "telegram",
+      "threema",
+      "zangi",
+      "simplex",
+      "duckduckgo_browser",
+      "libreoffice",
+      "exodus",
+      "protonmail"
+    ].map((templateKey) => {
       const host = `${templateKey === "duckduckgo_browser" ? "duckduckgo" : templateKey}.sylion.internal`;
       const browserOnly = !ANDROID_WORKLOAD_APPS.has(templateKey);
       return {
         templateKey,
         host,
         route: `terminal -> G1 -> G2 -> WORKLOAD -> ${templateKey}`,
-        brokerState: requiredBlockers.length ? "blocked_until_live_access_ready" : "ready_for_session_broker",
-        runtimeClass: browserOnly ? "firecracker_or_container_workload" : "android_workload_required",
+        brokerState: requiredBlockers.length
+          ? "blocked_until_live_access_ready"
+          : "ready_for_session_broker",
+        runtimeClass: browserOnly
+          ? "firecracker_or_container_workload"
+          : "android_workload_required",
         terminalDataStored: false,
         cdrRequired: true,
         productionExecutionAllowed: false
@@ -1938,10 +2343,17 @@ export class OperatorPortalService {
       operatorId: operatorActor.operatorId,
       tenantId: operatorActor.tenantId,
       terminalMode: operatorActor.terminalMode,
-      state: requiredBlockers.length ? "blocked_before_live_access" : "live_access_ready_for_workload_broker",
+      state: requiredBlockers.length
+        ? "blocked_before_live_access"
+        : "live_access_ready_for_workload_broker",
       phase: "stage_a_b_pixel_vpn_g1_g2_workload",
       path: {
-        nodes: path.nodes.map((node) => ({ id: node.id, role: node.role, label: node.label, status: node.status })),
+        nodes: path.nodes.map((node) => ({
+          id: node.id,
+          role: node.role,
+          label: node.label,
+          status: node.status
+        })),
         segments: path.segments.map((segment) => ({
           id: segment.id,
           from: segment.from,
@@ -1968,7 +2380,11 @@ export class OperatorPortalService {
       checks,
       blockers: requiredBlockers,
       appGateways,
-      nextActions: this.#liveAccessNextActions({ requiredBlockers, hsmFidoDeferred, routerDeferred }),
+      nextActions: this.#liveAccessNextActions({
+        requiredBlockers,
+        hsmFidoDeferred,
+        routerDeferred
+      }),
       guardrails: {
         noTerminalOperationalData: true,
         g1G2BypassAllowed: false,
@@ -2000,7 +2416,12 @@ export class OperatorPortalService {
     return {
       operatorId: operatorActor.operatorId,
       terminalMode: operatorActor.terminalMode,
-      viewport: { width: w, height: h, dpr: ratio, orientation: portrait ? "portrait" : "landscape" },
+      viewport: {
+        width: w,
+        height: h,
+        dpr: ratio,
+        orientation: portrait ? "portrait" : "landscape"
+      },
       stream: {
         protocol: this.#selectedSessionBrokerProtocol(),
         source: "G2 pixel stream gateway",
@@ -2048,18 +2469,27 @@ export class OperatorPortalService {
     });
     const env = this.env || {};
     const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
-    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(
+      operatorActor.operatorId
+    );
     const brokerPolicy = this.#sessionBrokerPolicy({
-      protocol: body.protocol || runtimeManifest?.gateway?.protocol || readiness?.gateway?.protocol || env.SYLION_G2_SESSION_BROKER,
+      protocol:
+        body.protocol ||
+        runtimeManifest?.gateway?.protocol ||
+        readiness?.gateway?.protocol ||
+        env.SYLION_G2_SESSION_BROKER,
       readiness,
       runtimeManifest
     });
-    const streamGatewayReady = this.#streamGatewayReady(readiness, env) && brokerPolicy.gatewayReady;
+    const streamGatewayReady =
+      this.#streamGatewayReady(readiness, env) && brokerPolicy.gatewayReady;
     const appStreamHost = this.#streamHostForTemplate(templateKey);
     const streamSourceBlockers = this.#streamSourceBlockers({ templateKey, env, readiness });
     const appSpecificBlockers = [
       ...(ANDROID_WORKLOAD_APPS.has(templateKey) ? ["android_native_stream_runner_required"] : []),
-      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
+      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true"
+        ? ["operator_wallet_risk_acceptance_required"]
+        : [])
     ];
     const blockers = [
       ...foundation.blockers.map((blocker) => `live_access:${blocker}`),
@@ -2107,7 +2537,13 @@ export class OperatorPortalService {
         renderingMode: "server_side_pixels_only",
         sourceWorkload: `workload://${operatorActor.operatorId}/${templateKey}`,
         terminalReceives: ["video_pixels", "audio_optional", "input_events"],
-        terminalForbidden: ["workload_files", "app_secrets", "message_database", "wallet_seed", "session_cookies"],
+        terminalForbidden: [
+          "workload_files",
+          "app_secrets",
+          "message_database",
+          "wallet_seed",
+          "session_cookies"
+        ],
         fileTransfer: "cdr_required"
       },
       security: {
@@ -2148,7 +2584,9 @@ export class OperatorPortalService {
 
   createGuacamoleHandoff({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    const templateKey = this.#normalizeStreamingTemplate(body.templateKey || body.app || "duckduckgo_browser");
+    const templateKey = this.#normalizeStreamingTemplate(
+      body.templateKey || body.app || "duckduckgo_browser"
+    );
     const appDefinition = this.#appDefinition(templateKey);
     const viewport = {
       width: body.width,
@@ -2165,7 +2603,9 @@ export class OperatorPortalService {
     const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
     const env = this.env || {};
     const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
-    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(
+      operatorActor.operatorId
+    );
     const brokerPolicy = this.#sessionBrokerPolicy({
       protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
       readiness,
@@ -2181,8 +2621,12 @@ export class OperatorPortalService {
       ...(brokerPolicy.gatewayReady ? [] : ["guacamole_broker_poc_not_ready"]),
       ...brokerPolicy.blockers,
       ...sourceBlockers,
-      ...(templateKey === "zangi" && env.SYLION_ZANGI_ANDROID_NATIVE_APPROVED !== "true" ? ["zangi_android_native_provenance_required"] : []),
-      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
+      ...(templateKey === "zangi" && env.SYLION_ZANGI_ANDROID_NATIVE_APPROVED !== "true"
+        ? ["zangi_android_native_provenance_required"]
+        : []),
+      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true"
+        ? ["operator_wallet_risk_acceptance_required"]
+        : [])
     ];
     const ready = blockers.length === 0;
     const expiresAt = new Date(Date.now() + this.#guacamoleHandoffTtlMs()).toISOString();
@@ -2214,7 +2658,13 @@ export class OperatorPortalService {
         targetHeight: profile.stream.targetHeight,
         resizeMethod: "display-update",
         terminalReceives: ["video_pixels", "audio_optional", "input_events"],
-        terminalForbidden: ["workload_files", "app_secrets", "message_database", "wallet_seed", "session_cookies"],
+        terminalForbidden: [
+          "workload_files",
+          "app_secrets",
+          "message_database",
+          "wallet_seed",
+          "session_cookies"
+        ],
         terminalDataStored: false
       },
       security: {
@@ -2276,7 +2726,9 @@ export class OperatorPortalService {
 
   createBlindE2eeSession({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    const templateKey = this.#normalizeStreamingTemplate(body.templateKey || body.app || "duckduckgo_browser");
+    const templateKey = this.#normalizeStreamingTemplate(
+      body.templateKey || body.app || "duckduckgo_browser"
+    );
     const appDefinition = this.#appDefinition(templateKey);
     const viewport = {
       width: body.width,
@@ -2293,7 +2745,9 @@ export class OperatorPortalService {
     const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
     const env = this.env || {};
     const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
-    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(
+      operatorActor.operatorId
+    );
     const brokerPolicy = this.#sessionBrokerPolicy({
       protocol: SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
       readiness,
@@ -2301,16 +2755,26 @@ export class OperatorPortalService {
     });
     const sourceBlockers = this.#streamSourceBlockers({ templateKey, env, readiness });
     const runtimeSource = runtimeManifest?.sources?.[templateKey] || null;
-    const frameSourceReady = sourceBlockers.length === 0 && Boolean(runtimeSource || env.SYLION_BLIND_E2EE_STREAM_READY === "true");
-    const terminalPublicKey = this.#safeBlindE2eePublicKeyJwk(body.terminalPublicKeyJwk, "terminalPublicKeyJwk", { required: false });
+    const frameSourceReady =
+      sourceBlockers.length === 0 &&
+      Boolean(runtimeSource || env.SYLION_BLIND_E2EE_STREAM_READY === "true");
+    const terminalPublicKey = this.#safeBlindE2eePublicKeyJwk(
+      body.terminalPublicKeyJwk,
+      "terminalPublicKeyJwk",
+      { required: false }
+    );
     const blockers = [
       ...foundation.blockers.map((blocker) => `live_access:${blocker}`),
       ...sourceBlockers,
       ...(brokerPolicy.gatewayReady ? [] : ["blind_e2ee_gateway_not_ready"]),
       ...brokerPolicy.blockers,
       ...(frameSourceReady ? [] : [`${templateKey}_blind_e2ee_frame_source_not_connected`]),
-      ...(templateKey === "zangi" && env.SYLION_ZANGI_ANDROID_NATIVE_APPROVED !== "true" ? ["zangi_android_native_provenance_required"] : []),
-      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
+      ...(templateKey === "zangi" && env.SYLION_ZANGI_ANDROID_NATIVE_APPROVED !== "true"
+        ? ["zangi_android_native_provenance_required"]
+        : []),
+      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true"
+        ? ["operator_wallet_risk_acceptance_required"]
+        : [])
     ];
     const ready = blockers.length === 0;
     const session = {
@@ -2338,7 +2802,8 @@ export class OperatorPortalService {
         port: runtimeSource?.port || null,
         healthPath: runtimeSource?.healthPath || null,
         frameSourceReady,
-        workloadMicroVmLink: runtimeManifest?.gateway?.workloadMicroVmLink || "host_local_tap_or_vsock",
+        workloadMicroVmLink:
+          runtimeManifest?.gateway?.workloadMicroVmLink || "host_local_tap_or_vsock",
         terminalDataStored: false,
         cdrRequired: true
       },
@@ -2349,14 +2814,29 @@ export class OperatorPortalService {
         targetWidth: profile.stream.targetWidth,
         targetHeight: profile.stream.targetHeight,
         sourceWorkload: `workload://${operatorActor.operatorId}/${templateKey}`,
-        terminalReceives: ["sframe_encrypted_video_frames", "audio_optional_when_e2ee", "input_events"],
-        terminalForbidden: ["workload_files", "app_secrets", "message_database", "wallet_seed", "session_cookies", "plaintext_frames"],
+        terminalReceives: [
+          "sframe_encrypted_video_frames",
+          "audio_optional_when_e2ee",
+          "input_events"
+        ],
+        terminalForbidden: [
+          "workload_files",
+          "app_secrets",
+          "message_database",
+          "wallet_seed",
+          "session_cookies",
+          "plaintext_frames"
+        ],
         fileTransfer: "cdr_required"
       },
       keyManagement: {
         keyId: `sframe_${randomBytes(16).toString("hex")}`,
-        profile: terminalPublicKey ? "ecdh_p384_aes256gcm_frame_relay_v1" : "sframe_rfc9605_compatible_metadata_contract",
-        keyAgreement: terminalPublicKey ? "terminal_ephemeral_ecdh_p384_to_workload_ephemeral_ecdh_p384" : "terminal_to_workload_or_hsm_bound_key_agreement_required",
+        profile: terminalPublicKey
+          ? "ecdh_p384_aes256gcm_frame_relay_v1"
+          : "sframe_rfc9605_compatible_metadata_contract",
+        keyAgreement: terminalPublicKey
+          ? "terminal_ephemeral_ecdh_p384_to_workload_ephemeral_ecdh_p384"
+          : "terminal_to_workload_or_hsm_bound_key_agreement_required",
         terminalPublicKeyJwk: terminalPublicKey?.publicJwk || null,
         terminalPublicKeyThumbprintSha256: terminalPublicKey?.thumbprintSha256 || null,
         brokerStoresKeyMaterial: false,
@@ -2370,11 +2850,43 @@ export class OperatorPortalService {
         ingestEndpoint: `/operator-api/blind-e2ee/sessions/{sessionId}/frames`,
         latestFrameEndpoint: `/operator-api/blind-e2ee/sessions/{sessionId}/frames/latest`,
         eventStreamEndpoint: `/operator-api/blind-e2ee/sessions/{sessionId}/events`,
-        acceptedAlgorithms: ["SFRAME_RFC9605_COMPAT", "AES_256_GCM_SFRAME_COMPAT", "ECDH_P384_AES_256_GCM_FRAME_V1"],
-        storedFields: ["frameId", "keyId", "algorithm", "ciphertextSha256", "ciphertextLength", "authTagLength", "sframeHeaderSha256", "sframeHeaderLength"],
-        volatileRelayFields: ["frameId", "sequence", "keyId", "algorithm", "contentType", "ivB64", "ciphertextB64", "sframeHeaderB64", "workloadPublicKeyJwk", "width", "height"],
+        acceptedAlgorithms: [
+          "SFRAME_RFC9605_COMPAT",
+          "AES_256_GCM_SFRAME_COMPAT",
+          "ECDH_P384_AES_256_GCM_FRAME_V1"
+        ],
+        storedFields: [
+          "frameId",
+          "keyId",
+          "algorithm",
+          "ciphertextSha256",
+          "ciphertextLength",
+          "authTagLength",
+          "sframeHeaderSha256",
+          "sframeHeaderLength"
+        ],
+        volatileRelayFields: [
+          "frameId",
+          "sequence",
+          "keyId",
+          "algorithm",
+          "contentType",
+          "ivB64",
+          "ciphertextB64",
+          "sframeHeaderB64",
+          "workloadPublicKeyJwk",
+          "width",
+          "height"
+        ],
         volatileRelayTtlMs: BLIND_E2EE_RELAY_FRAME_TTL_MS,
-        rejectedFields: ["plaintext", "rawFrame", "pixels", "messageContent", "walletData", "sessionKey"],
+        rejectedFields: [
+          "plaintext",
+          "rawFrame",
+          "pixels",
+          "messageContent",
+          "walletData",
+          "sessionKey"
+        ],
         brokerDecryptionAllowed: false
       },
       proof: {
@@ -2436,29 +2948,56 @@ export class OperatorPortalService {
     const session = this.#requireBlindE2eeSession({ operatorActor, sessionId });
     this.#assertBlindE2eeEnvelopeSafe(body);
     const algorithm = this.#normalizeBlindE2eeAlgorithm(body.algorithm || "SFRAME_RFC9605_COMPAT");
-    const frameId = this.#safeBlindE2eeId(body.frameId || `frame_${randomBytes(12).toString("hex")}`, "frameId");
+    const frameId = this.#safeBlindE2eeId(
+      body.frameId || `frame_${randomBytes(12).toString("hex")}`,
+      "frameId"
+    );
     const keyId = this.#safeBlindE2eeId(body.keyId, "keyId");
     if (keyId !== session.keyManagement.keyId) {
-      throw validationError("Blind E2EE frame proof keyId does not match the active session key id", {
-        expected: session.keyManagement.keyId,
-        received: keyId || null
-      });
+      throw validationError(
+        "Blind E2EE frame proof keyId does not match the active session key id",
+        {
+          expected: session.keyManagement.keyId,
+          received: keyId || null
+        }
+      );
     }
     const ciphertext = this.#blindE2eeCiphertextMetadata(body);
     const header = this.#blindE2eeHeaderMetadata(body);
     const authTagLength = this.#normalizeInteger(body.authTagLength, "authTagLength", 12, 16, 16);
-    const sequence = this.#normalizeInteger(body.sequence, "sequence", 0, Number.MAX_SAFE_INTEGER, session.proof.frameProofCount + 1);
+    const sequence = this.#normalizeInteger(
+      body.sequence,
+      "sequence",
+      0,
+      Number.MAX_SAFE_INTEGER,
+      session.proof.frameProofCount + 1
+    );
     const width = this.#normalizeInteger(body.width, "width", 1, 8192, session.stream.targetWidth);
-    const height = this.#normalizeInteger(body.height, "height", 1, 8192, session.stream.targetHeight);
-    const contentType = this.#safeBlindE2eeContentType(body.contentType || "application/octet-stream");
+    const height = this.#normalizeInteger(
+      body.height,
+      "height",
+      1,
+      8192,
+      session.stream.targetHeight
+    );
+    const contentType = this.#safeBlindE2eeContentType(
+      body.contentType || "application/octet-stream"
+    );
     const iv = this.#blindE2eeOptionalBase64Payload(body.ivB64, "ivB64", 32);
-    const workloadPublicKey = this.#safeBlindE2eePublicKeyJwk(body.workloadPublicKeyJwk, "workloadPublicKeyJwk", {
-      required: algorithm === "ECDH_P384_AES_256_GCM_FRAME_V1"
-    });
+    const workloadPublicKey = this.#safeBlindE2eePublicKeyJwk(
+      body.workloadPublicKeyJwk,
+      "workloadPublicKeyJwk",
+      {
+        required: algorithm === "ECDH_P384_AES_256_GCM_FRAME_V1"
+      }
+    );
     if (algorithm === "ECDH_P384_AES_256_GCM_FRAME_V1" && (!body.ciphertextB64 || !iv)) {
-      throw validationError("ECDH_P384_AES_256_GCM_FRAME_V1 requires ciphertextB64, ivB64, and workloadPublicKeyJwk", {
-        required: ["ciphertextB64", "ivB64", "workloadPublicKeyJwk"]
-      });
+      throw validationError(
+        "ECDH_P384_AES_256_GCM_FRAME_V1 requires ciphertextB64, ivB64, and workloadPublicKeyJwk",
+        {
+          required: ["ciphertextB64", "ivB64", "workloadPublicKeyJwk"]
+        }
+      );
     }
     const proof = {
       id: newId("blind_frame"),
@@ -2670,7 +3209,9 @@ export class OperatorPortalService {
 
   async sendWorkloadInput({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    const templateKey = this.#normalizeStreamingTemplate(body.templateKey || body.app || "duckduckgo_browser");
+    const templateKey = this.#normalizeStreamingTemplate(
+      body.templateKey || body.app || "duckduckgo_browser"
+    );
     const appDefinition = this.#appDefinition(templateKey);
     const text = this.#safeWorkloadInputText(body.text);
     const submit = body.submit === true;
@@ -2679,15 +3220,20 @@ export class OperatorPortalService {
     const pointer = this.#safeWorkloadInputPointer(body.pointer);
     const specialKeyCount = preKeys.length + postKeys.length;
     if (!text && !submit && specialKeyCount === 0 && !pointer) {
-      throw validationError("Workload input requires text, submit=true, a pointer click, or an allowed special key", {
-        templateKey,
-        allowed: "printable_ascii_text_or_allowed_special_key_or_pointer"
-      });
+      throw validationError(
+        "Workload input requires text, submit=true, a pointer click, or an allowed special key",
+        {
+          templateKey,
+          allowed: "printable_ascii_text_or_allowed_special_key_or_pointer"
+        }
+      );
     }
     const foundation = this.liveAccessFoundation({ operatorActor, correlationId: corr });
     const env = this.env || {};
     const readiness = this.#latestStreamingReadinessForOperator(operatorActor.operatorId);
-    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(operatorActor.operatorId);
+    const runtimeManifest = this.#latestStreamingRuntimeManifestForOperator(
+      operatorActor.operatorId
+    );
     const brokerPolicy = this.#sessionBrokerPolicy({
       protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
       readiness,
@@ -2698,12 +3244,18 @@ export class OperatorPortalService {
     const blockers = [
       ...foundation.blockers.map((blocker) => `live_access:${blocker}`),
       ...(supported ? [] : [`${templateKey}_workload_input_not_supported`]),
-      ...(env.SYLION_WORKLOAD_INPUT_BRIDGE_ENABLED === "true" ? [] : ["workload_input_bridge_not_enabled"]),
+      ...(env.SYLION_WORKLOAD_INPUT_BRIDGE_ENABLED === "true"
+        ? []
+        : ["workload_input_bridge_not_enabled"]),
       ...(brokerPolicy.gatewayReady ? [] : ["guacamole_broker_poc_not_ready"]),
       ...brokerPolicy.blockers,
       ...sourceBlockers,
-      ...(templateKey === "zangi" && env.SYLION_ZANGI_ANDROID_NATIVE_APPROVED !== "true" ? ["zangi_android_native_provenance_required"] : []),
-      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true" ? ["operator_wallet_risk_acceptance_required"] : [])
+      ...(templateKey === "zangi" && env.SYLION_ZANGI_ANDROID_NATIVE_APPROVED !== "true"
+        ? ["zangi_android_native_provenance_required"]
+        : []),
+      ...(templateKey === "exodus" && env.SYLION_EXODUS_RISK_ACCEPTED !== "true"
+        ? ["operator_wallet_risk_acceptance_required"]
+        : [])
     ];
     const input = {
       id: newId("workload_input"),
@@ -2747,7 +3299,15 @@ export class OperatorPortalService {
 
     if (!blockers.length) {
       try {
-        const result = await this.workloadInputRunner({ app: templateKey, text, submit, preKeys, postKeys, pointer, env });
+        const result = await this.workloadInputRunner({
+          app: templateKey,
+          text,
+          submit,
+          preKeys,
+          postKeys,
+          pointer,
+          env
+        });
         input.state = "workload_input_sent";
         input.result = this.#publicWorkloadInputRunnerResult(result);
       } catch (error) {
@@ -2783,7 +3343,8 @@ export class OperatorPortalService {
     const sourcesInput = body.sources && typeof body.sources === "object" ? body.sources : {};
     const sources = {};
     for (const app of WORKLOAD_CONTROL_APPS) {
-      const value = sourcesInput[app.key] ?? sourcesInput[this.#streamHostForTemplate(app.key)] ?? false;
+      const value =
+        sourcesInput[app.key] ?? sourcesInput[this.#streamHostForTemplate(app.key)] ?? false;
       sources[app.key] = value === true || value === "true";
     }
     const evidence = {
@@ -2794,7 +3355,9 @@ export class OperatorPortalService {
       deviceId: operatorActor.deviceId,
       gateway: {
         g2StreamGatewayReady: body.g2StreamGatewayReady === true,
-        protocol: this.#normalizeSessionBrokerProtocol(body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES),
+        protocol: this.#normalizeSessionBrokerProtocol(
+          body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+        ),
         publicInternetExposure: body.publicInternetExposure === true,
         tlsInternalOnly: body.tlsInternalOnly === true,
         inputProxyReady: body.inputProxyReady === true,
@@ -2804,18 +3367,24 @@ export class OperatorPortalService {
         sframeValidated: body.sframeValidated === true,
         keysHeldByBroker: body.keysHeldByBroker === true,
         keySeparationVerified: body.keySeparationVerified === true,
-        workloadMicroVmLink: String(body.workloadMicroVmLink || "host_local_tap_or_vsock").slice(0, 64),
+        workloadMicroVmLink: String(body.workloadMicroVmLink || "host_local_tap_or_vsock").slice(
+          0,
+          64
+        ),
         brokerLayer: "G2"
       },
       broker: this.#sessionBrokerPolicy({
         protocol: body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES,
         readiness: {
-          ready: body.g2StreamGatewayReady === true
-            && body.publicInternetExposure !== true
-            && body.tlsInternalOnly === true
-            && body.inputProxyReady === true,
+          ready:
+            body.g2StreamGatewayReady === true &&
+            body.publicInternetExposure !== true &&
+            body.tlsInternalOnly === true &&
+            body.inputProxyReady === true,
           gateway: {
-            protocol: this.#normalizeSessionBrokerProtocol(body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES),
+            protocol: this.#normalizeSessionBrokerProtocol(
+              body.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+            ),
             e2eeStream: body.e2eeStream === true || body.sframeE2ee === true,
             sframeValidated: body.sframeValidated === true,
             keySeparationVerified: body.keySeparationVerified === true,
@@ -2841,7 +3410,9 @@ export class OperatorPortalService {
       operatorId: operatorActor.operatorId,
       correlationId: corr,
       policyDecision: evidence.ready ? "allow" : "deny",
-      result: evidence.ready ? "streaming_readiness_evidence_ready" : "streaming_readiness_incomplete",
+      result: evidence.ready
+        ? "streaming_readiness_evidence_ready"
+        : "streaming_readiness_incomplete",
       newValue: this.#publicStreamingReadiness(evidence)
     });
     return this.#publicStreamingReadiness(evidence);
@@ -2850,15 +3421,25 @@ export class OperatorPortalService {
   recordStreamingRuntimeManifest({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const gatewayBind = String(body.gateway?.bindAddress || body.gatewayBindAddress || "").trim();
-    const gatewayPort = this.#normalizeInteger(body.gateway?.port ?? body.gatewayPort, "gatewayPort", 1, 65535, 8443);
-    const gatewayProtocol = this.#normalizeSessionBrokerProtocol(body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
+    const gatewayPort = this.#normalizeInteger(
+      body.gateway?.port ?? body.gatewayPort,
+      "gatewayPort",
+      1,
+      65535,
+      8443
+    );
+    const gatewayProtocol = this.#normalizeSessionBrokerProtocol(
+      body.gateway?.protocol || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+    );
     const guacdTls = body.gateway?.guacdTls === true || body.gateway?.guacdSsl === true;
     const g2ToWorkloadEncrypted = body.gateway?.g2ToWorkloadEncrypted === true;
     const e2eeStream = body.gateway?.e2eeStream === true || body.gateway?.sframeE2ee === true;
     const sframeValidated = body.gateway?.sframeValidated === true;
     const keysHeldByBroker = body.gateway?.keysHeldByBroker === true;
     const keySeparationVerified = body.gateway?.keySeparationVerified === true;
-    const workloadMicroVmLink = String(body.gateway?.workloadMicroVmLink || "host_local_tap_or_vsock").slice(0, 64);
+    const workloadMicroVmLink = String(
+      body.gateway?.workloadMicroVmLink || "host_local_tap_or_vsock"
+    ).slice(0, 64);
     const sourcesInput = body.sources && typeof body.sources === "object" ? body.sources : {};
     const sources = {};
     for (const app of WORKLOAD_CONTROL_APPS) {
@@ -2874,18 +3455,15 @@ export class OperatorPortalService {
         terminalDataStored: false
       };
     }
-    const runtimeBrokerReady = this.#privateBindAllowed(gatewayBind)
-      && body.gateway?.publicInternetExposure !== true
-      && body.publicInternetExposure !== true
-      && String(body.gateway?.tlsMode || "internal_tls_only") === "internal_tls_only"
-      && (
-        gatewayProtocol !== SESSION_BROKER_PROTOCOLS.GUACAMOLE
-        || (guacdTls && g2ToWorkloadEncrypted)
-      )
-      && (
-        gatewayProtocol !== SESSION_BROKER_PROTOCOLS.BLIND_E2EE
-        || (e2eeStream && sframeValidated && keySeparationVerified && keysHeldByBroker !== true)
-      );
+    const runtimeBrokerReady =
+      this.#privateBindAllowed(gatewayBind) &&
+      body.gateway?.publicInternetExposure !== true &&
+      body.publicInternetExposure !== true &&
+      String(body.gateway?.tlsMode || "internal_tls_only") === "internal_tls_only" &&
+      (gatewayProtocol !== SESSION_BROKER_PROTOCOLS.GUACAMOLE ||
+        (guacdTls && g2ToWorkloadEncrypted)) &&
+      (gatewayProtocol !== SESSION_BROKER_PROTOCOLS.BLIND_E2EE ||
+        (e2eeStream && sframeValidated && keySeparationVerified && keysHeldByBroker !== true));
     const manifest = {
       id: newId("stream_runtime"),
       operatorId: operatorActor.operatorId,
@@ -2905,7 +3483,8 @@ export class OperatorPortalService {
         keysHeldByBroker,
         keySeparationVerified,
         workloadMicroVmLink,
-        publicInternetExposure: body.gateway?.publicInternetExposure === true || body.publicInternetExposure === true,
+        publicInternetExposure:
+          body.gateway?.publicInternetExposure === true || body.publicInternetExposure === true,
         inputProxy: "server_side_input_events_only"
       },
       broker: this.#sessionBrokerPolicy({
@@ -2924,14 +3503,20 @@ export class OperatorPortalService {
       sources,
       healthChecks: {
         gateway: `https://${gatewayBind}:${gatewayPort}/healthz`,
-        sources: Object.fromEntries(Object.entries(sources).map(([key, source]) => [key, `http://${source.bindAddress}:${source.port}${source.healthPath}`]))
+        sources: Object.fromEntries(
+          Object.entries(sources).map(([key, source]) => [
+            key,
+            `http://${source.bindAddress}:${source.port}${source.healthPath}`
+          ])
+        )
       },
       guardrails: {
         terminalReceivesOnlyPixels: true,
         terminalDataStored: false,
         cdrRequired: true,
         g1G2BypassAllowed: false,
-        brokerToGuacdEncrypted: gatewayProtocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE ? guacdTls : null,
+        brokerToGuacdEncrypted:
+          gatewayProtocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE ? guacdTls : null,
         g2ToWorkloadEncrypted,
         workloadMicroVmLink,
         publicInternetExposureAllowed: false,
@@ -2953,7 +3538,9 @@ export class OperatorPortalService {
       operatorId: operatorActor.operatorId,
       correlationId: corr,
       policyDecision: manifest.ready ? "allow" : "deny",
-      result: manifest.ready ? "streaming_runtime_manifest_ready" : "streaming_runtime_manifest_blocked",
+      result: manifest.ready
+        ? "streaming_runtime_manifest_ready"
+        : "streaming_runtime_manifest_blocked",
       newValue: this.#publicStreamingRuntimeManifest(manifest)
     });
     return this.#publicStreamingRuntimeManifest(manifest);
@@ -2979,7 +3566,9 @@ export class OperatorPortalService {
 
   requestSubscriptionChange({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    const targetTier = String(body.targetTier || "").trim().toUpperCase();
+    const targetTier = String(body.targetTier || "")
+      .trim()
+      .toUpperCase();
     const action = String(body.action || "upgrade").trim();
     if (!["renew", "upgrade", "downgrade"].includes(action)) {
       throw validationError("Unsupported subscription action", { action });
@@ -3019,7 +3608,8 @@ export class OperatorPortalService {
 
   auditEvents({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
-    return this.audit.list()
+    return this.audit
+      .list()
       .filter((event) => event.operatorId === operatorActor.operatorId)
       .slice(-30)
       .map((event) => ({
@@ -3042,7 +3632,10 @@ export class OperatorPortalService {
   }
 
   updateFido2Policy({ operatorActor, body, correlationId }) {
-    const adminLikeActor = { id: `operator:${operatorActor.operatorId}`, role: "Global Super Admin" };
+    const adminLikeActor = {
+      id: `operator:${operatorActor.operatorId}`,
+      role: "Global Super Admin"
+    };
     return this.securityProfiles.updateFido2Policy({
       actor: adminLikeActor,
       scope: "operator",
@@ -3063,7 +3656,10 @@ export class OperatorPortalService {
   }
 
   updateHsmProfile({ operatorActor, body, correlationId }) {
-    const adminLikeActor = { id: `operator:${operatorActor.operatorId}`, role: "Global Super Admin" };
+    const adminLikeActor = {
+      id: `operator:${operatorActor.operatorId}`,
+      role: "Global Super Admin"
+    };
     return this.securityProfiles.updateHsmProfile({
       actor: adminLikeActor,
       scope: "operator",
@@ -3076,7 +3672,9 @@ export class OperatorPortalService {
   unlockPolicy({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
     const operator = this.#requireOperator(operatorActor.operatorId);
-    return this.#publicUnlockPolicy(this.#unlockPolicyForOperator(operatorActor.operatorId, operator.tier));
+    return this.#publicUnlockPolicy(
+      this.#unlockPolicyForOperator(operatorActor.operatorId, operator.tier)
+    );
   }
 
   updateUnlockPolicy({ operatorActor, body = {}, correlationId }) {
@@ -3145,9 +3743,21 @@ export class OperatorPortalService {
   updateSafetyPolicy({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
     const previous = this.#safetyPolicyForOperator(operatorActor.operatorId);
-    const inactivityWipeDays = this.#normalizeInteger(body.inactivityWipeDays, "inactivityWipeDays", 1, 365, previous.inactivityWipeDays);
+    const inactivityWipeDays = this.#normalizeInteger(
+      body.inactivityWipeDays,
+      "inactivityWipeDays",
+      1,
+      365,
+      previous.inactivityWipeDays
+    );
     const backupEnabled = body.backupEnabled === true;
-    const backupCadenceHours = this.#normalizeInteger(body.backupCadenceHours, "backupCadenceHours", 1, 168, previous.backupCadenceHours);
+    const backupCadenceHours = this.#normalizeInteger(
+      body.backupCadenceHours,
+      "backupCadenceHours",
+      1,
+      168,
+      previous.backupCadenceHours
+    );
     const now = isoNow();
     const nextPanic = { ...previous.panicCodes };
     for (const level of PANIC_LEVELS) {
@@ -3201,7 +3811,9 @@ export class OperatorPortalService {
 
   jurisdictionPolicy({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
-    return this.#publicJurisdictionPolicy(this.#jurisdictionPolicyForOperator({ operatorActor, correlationId }));
+    return this.#publicJurisdictionPolicy(
+      this.#jurisdictionPolicyForOperator({ operatorActor, correlationId })
+    );
   }
 
   jurisdictionOptions({ operatorActor, correlationId }) {
@@ -3215,7 +3827,8 @@ export class OperatorPortalService {
       subscriptionMode: subscription.quota.jurisdictionRotationMode,
       allowedModes: this.#allowedJurisdictionModes(subscription.quota.jurisdictionRotationMode),
       minFrequencyHours: subscription.quota.jurisdictionPolicy?.minFrequencyHours || 168,
-      maxCountries: subscription.quota.jurisdictionPolicy?.maxCountries || subscription.quota.regionCount || 1,
+      maxCountries:
+        subscription.quota.jurisdictionPolicy?.maxCountries || subscription.quota.regionCount || 1,
       requiredRuntime: options.requiredRuntime,
       providerCatalogConfigured: options.providerCatalogConfigured,
       providers: options.providers,
@@ -3231,13 +3844,33 @@ export class OperatorPortalService {
     const subscription = this.subscription({ operatorActor, correlationId: corr });
     const mode = String(body.mode || "disabled").trim();
     if (!JURISDICTION_MODES.includes(mode)) {
-      throw validationError("Unsupported jurisdiction mode", { mode, supported: JURISDICTION_MODES });
+      throw validationError("Unsupported jurisdiction mode", {
+        mode,
+        supported: JURISDICTION_MODES
+      });
     }
     this.#assertJurisdictionModeAllowed(mode, subscription.quota.jurisdictionRotationMode);
-    const regions = Array.isArray(body.regions) ? body.regions.map((item) => String(item).trim()).filter(Boolean) : [];
-    const countries = Array.isArray(body.countries) ? [...new Set(body.countries.map((item) => String(item).trim().toUpperCase()).filter(Boolean))] : [];
-    const providers = Array.isArray(body.providers) ? [...new Set(body.providers.map((item) => String(item).trim().toLowerCase()).filter(Boolean))] : [];
-    const frequencyHours = this.#normalizeJurisdictionFrequency(body.frequencyHours, subscription.quota);
+    const regions = Array.isArray(body.regions)
+      ? body.regions.map((item) => String(item).trim()).filter(Boolean)
+      : [];
+    const countries = Array.isArray(body.countries)
+      ? [
+          ...new Set(
+            body.countries.map((item) => String(item).trim().toUpperCase()).filter(Boolean)
+          )
+        ]
+      : [];
+    const providers = Array.isArray(body.providers)
+      ? [
+          ...new Set(
+            body.providers.map((item) => String(item).trim().toLowerCase()).filter(Boolean)
+          )
+        ]
+      : [];
+    const frequencyHours = this.#normalizeJurisdictionFrequency(
+      body.frequencyHours,
+      subscription.quota
+    );
     this.#assertJurisdictionSelectionsAvailable({
       subscription,
       mode,
@@ -3246,13 +3879,19 @@ export class OperatorPortalService {
       providers
     });
     const maxCountries = subscription.quota.jurisdictionPolicy?.maxCountries;
-    if (maxCountries !== "custom" && countries.length > Number(maxCountries || subscription.quota.regionCount || 1)) {
+    if (
+      maxCountries !== "custom" &&
+      countries.length > Number(maxCountries || subscription.quota.regionCount || 1)
+    ) {
       throw validationError("Jurisdiction country count exceeds subscription tier", {
         countries: countries.length,
         maxCountries
       });
     }
-    if (providers.length > 1 && subscription.quota.jurisdictionPolicy?.providerRotationAllowed !== true) {
+    if (
+      providers.length > 1 &&
+      subscription.quota.jurisdictionPolicy?.providerRotationAllowed !== true
+    ) {
       throw validationError("Provider rotation is not available in this subscription tier", {
         providers,
         subscriptionMode: subscription.quota.jurisdictionRotationMode
@@ -3293,9 +3932,10 @@ export class OperatorPortalService {
 
   matrixServer({ operatorActor, correlationId }) {
     requireCorrelationId(correlationId);
-    const latestRequest = [...this.matrixRequests.values()]
-      .filter((request) => request.operatorId === operatorActor.operatorId)
-      .at(-1) || null;
+    const latestRequest =
+      [...this.matrixRequests.values()]
+        .filter((request) => request.operatorId === operatorActor.operatorId)
+        .at(-1) || null;
     return {
       operatorId: operatorActor.operatorId,
       latestRequest,
@@ -3308,7 +3948,9 @@ export class OperatorPortalService {
 
   requestMatrixServer({ operatorActor, body = {}, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    const hostname = String(body.hostname || "").trim().toLowerCase();
+    const hostname = String(body.hostname || "")
+      .trim()
+      .toLowerCase();
     if (!/^[a-z0-9.-]{3,253}$/.test(hostname)) {
       throw validationError("Valid Matrix hostname is required", { hostname });
     }
@@ -3378,10 +4020,14 @@ export class OperatorPortalService {
     const vpnReady = this.#vpnEvidenceReady(vpnEvidence);
     const streamingReadiness = this.#latestStreamingReadinessForOperator(operatorId);
     const streamingRuntime = this.#latestStreamingRuntimeManifestForOperator(operatorId);
-    const streamGatewayReady = streamingReadiness?.ready === true || streamingRuntime?.ready === true;
-    const routeState = vpnReady && streamGatewayReady
-      ? "live_private_path_ready"
-      : ready ? "local_lab_connected" : "configuration_pending";
+    const streamGatewayReady =
+      streamingReadiness?.ready === true || streamingRuntime?.ready === true;
+    const routeState =
+      vpnReady && streamGatewayReady
+        ? "live_private_path_ready"
+        : ready
+          ? "local_lab_connected"
+          : "configuration_pending";
     const routerReadiness = this.routerReadiness?.readinessForOperator(operatorId) || {
       packageStatus: "not_generated",
       postureStatus: "not_validated",
@@ -3395,18 +4041,31 @@ export class OperatorPortalService {
     const liveFirecrackerReady = streamGatewayReady || streamingRuntime?.ready === true;
     const blockers = [
       ...(vpnReady ? [] : ["real_ipsec_profile_not_deployed"]),
-      ...(terminalCertReady || hsmFidoDeferred ? [] : ["hsm_or_secure_element_client_certificate_required"]),
+      ...(terminalCertReady || hsmFidoDeferred
+        ? []
+        : ["hsm_or_secure_element_client_certificate_required"]),
       ...(dnsReady ? [] : ["dns_leak_and_kill_switch_tests_required"]),
       ...(liveFirecrackerReady ? [] : ["firecracker_host_qualification_required_for_real_launch"]),
       ...(hsmFidoDeferred ? [] : ["fido2_operator_unlock_required"]),
-      ...(routerDeferred || routerReadiness.readyForPhysicalSmoke ? [] : ["puli_ax_physical_package_validation_pending"]),
+      ...(routerDeferred || routerReadiness.readyForPhysicalSmoke
+        ? []
+        : ["puli_ax_physical_package_validation_pending"]),
       ...(routerReadiness.readyForPhysicalSmoke ? [] : routerReadiness.blockers)
     ];
     const deferredBlockers = [
-      ...(hsmFidoDeferred ? ["hsm_or_secure_element_client_certificate_required", "fido2_operator_unlock_required"] : []),
-      ...(routerDeferred ? ["puli_ax_physical_package_validation_pending", "router_package_required", "router_posture_validation_required"] : [])
+      ...(hsmFidoDeferred
+        ? ["hsm_or_secure_element_client_certificate_required", "fido2_operator_unlock_required"]
+        : []),
+      ...(routerDeferred
+        ? [
+            "puli_ax_physical_package_validation_pending",
+            "router_package_required",
+            "router_posture_validation_required"
+          ]
+        : [])
     ];
-    const terminalLabel = mode === TERMINAL_MODES.PIXEL ? "Pixel GrapheneOS terminal" : "Laptop web terminal";
+    const terminalLabel =
+      mode === TERMINAL_MODES.PIXEL ? "Pixel GrapheneOS terminal" : "Laptop web terminal";
     const nodes = [
       {
         id: "terminal",
@@ -3440,7 +4099,11 @@ export class OperatorPortalService {
         label: "WORKLOAD Firecracker host",
         zone: "WORKLOAD",
         providerResourceId: this.#resourceRef(latestEnvironment, "WORKLOAD", operatorId),
-        status: streamGatewayReady ? "reachable_live_stream_gateway" : ready ? "reachable_local_lab" : "planned"
+        status: streamGatewayReady
+          ? "reachable_live_stream_gateway"
+          : ready
+            ? "reachable_local_lab"
+            : "planned"
       }
     ];
     const segments = [
@@ -3458,7 +4121,11 @@ export class OperatorPortalService {
         id: "T1",
         from: "g1",
         to: "g2",
-        state: vpnReady ? "live_ipsec_linked" : ready ? "local_lab_linked" : "configuration_pending",
+        state: vpnReady
+          ? "live_ipsec_linked"
+          : ready
+            ? "local_lab_linked"
+            : "configuration_pending",
         routePolicy: "g1_allows_only_g2_broker_routes",
         dnsPolicy: "no_terminal_dns_visibility",
         killSwitch: "g1_default_drop_until_ipsec_up",
@@ -3468,14 +4135,21 @@ export class OperatorPortalService {
         id: "T2",
         from: "g2",
         to: "workload",
-        state: streamGatewayReady ? "live_private_workload_stream_linked" : ready ? "local_lab_linked" : "configuration_pending",
+        state: streamGatewayReady
+          ? "live_private_workload_stream_linked"
+          : ready
+            ? "local_lab_linked"
+            : "configuration_pending",
         routePolicy: "g2_broker_to_workload_microvm_only",
         dnsPolicy: "workload_dns_policy_cdr_aware",
         killSwitch: "g2_default_drop_until_workload_path_up",
         certRef: `cert-ref://${operatorId}/g2-to-workload`
       })
     ];
-    const microVmSlots = this.#microVmSlotsForEnvironment({ environment: latestEnvironment, operatorId });
+    const microVmSlots = this.#microVmSlotsForEnvironment({
+      environment: latestEnvironment,
+      operatorId
+    });
     return {
       operatorId,
       tenantId: operator.tenantId,
@@ -3549,11 +4223,17 @@ export class OperatorPortalService {
 
   #latestMicroVmSlots(operatorId) {
     const environment = this.#latestEnvironment(operatorId);
-    return (environment?.mockFirecracker?.runtimes || []).map((runtime, index) => this.#microVmSlot({ runtime, operatorId, index }));
+    return (environment?.mockFirecracker?.runtimes || []).map((runtime, index) =>
+      this.#microVmSlot({ runtime, operatorId, index })
+    );
   }
 
   #microVmSlot({ runtime, operatorId, index }) {
-    const templateKey = runtime.templateKey || String(runtime.appName || `communicator_${index + 1}`).toLowerCase().replaceAll(" ", "_");
+    const templateKey =
+      runtime.templateKey ||
+      String(runtime.appName || `communicator_${index + 1}`)
+        .toLowerCase()
+        .replaceAll(" ", "_");
     return {
       id: runtime.id || newId("microvm_slot"),
       microVmId: runtime.id || `microvm://${operatorId}/${templateKey}/${index + 1}`,
@@ -3598,7 +4278,9 @@ export class OperatorPortalService {
   }
 
   #normalizeWorkloadApp(value) {
-    const key = String(value || "").trim().toLowerCase();
+    const key = String(value || "")
+      .trim()
+      .toLowerCase();
     if (!WORKLOAD_CONTROL_APPS.some((app) => app.key === key)) {
       throw validationError("Unknown workload app", {
         app: value,
@@ -3632,15 +4314,19 @@ export class OperatorPortalService {
       sideEffectAllowed: false,
       destructiveCleanupAllowed: false,
       liveJobId: request.liveJobId || null,
-      liveJob: request.liveJobId ? this.#publicWorkloadControlJob(this.workloadControlJobs.get(request.liveJobId)) : null,
+      liveJob: request.liveJobId
+        ? this.#publicWorkloadControlJob(this.workloadControlJobs.get(request.liveJobId))
+        : null,
       requestedAt: request.requestedAt
     };
   }
 
   #runnerAppForRequest(request) {
-    if (request.action === "recreate_all") return this.#nativeFirecrackerRunnerEnabled() ? null : "all";
+    if (request.action === "recreate_all")
+      return this.#nativeFirecrackerRunnerEnabled() ? null : "all";
     const app = LIVE_RECREATE_APP_MAP[request.rotateApp] || null;
-    if (this.#nativeFirecrackerRunnerEnabled() && !NATIVE_FIRECRACKER_RECREATE_APPS.has(app)) return null;
+    if (this.#nativeFirecrackerRunnerEnabled() && !NATIVE_FIRECRACKER_RECREATE_APPS.has(app))
+      return null;
     return app;
   }
 
@@ -3670,9 +4356,10 @@ export class OperatorPortalService {
   }
 
   #latestWorkloadControlJob(operatorId) {
-    const job = [...this.workloadControlJobs.values()]
-      .filter((item) => item.operatorId === operatorId)
-      .at(-1) || null;
+    const job =
+      [...this.workloadControlJobs.values()]
+        .filter((item) => item.operatorId === operatorId)
+        .at(-1) || null;
     return job ? this.#publicWorkloadControlJob(job) : null;
   }
 
@@ -3681,56 +4368,72 @@ export class OperatorPortalService {
     return {
       applied: result.applied === true,
       secretPrinted: false,
-      workloadEvidence: result.workloadEvidence ? {
-        component: result.workloadEvidence.component,
-        app: result.workloadEvidence.app,
-        wipeVolume: result.workloadEvidence.wipeVolume === true,
-        cdrRequired: result.workloadEvidence.cdrRequired === true,
-        terminalDataStored: result.workloadEvidence.terminalDataStored === true,
-        privateBindOnly: result.workloadEvidence.privateBindOnly === true,
-        checkedAt: result.workloadEvidence.checkedAt || null
-      } : null,
-      signalHandoff: result.signalHandoff ? {
-        applied: result.signalHandoff.applied === true,
-        secretPrinted: false,
-        signalStatus: result.signalHandoff.signalStatus || null,
-        terminalDataStored: result.signalHandoff.terminalDataStored === true,
-        g1G2BypassAllowed: result.signalHandoff.g1G2BypassAllowed === true,
-        cdrRequired: result.signalHandoff.cdrRequired === true
-      } : null,
+      workloadEvidence: result.workloadEvidence
+        ? {
+            component: result.workloadEvidence.component,
+            app: result.workloadEvidence.app,
+            wipeVolume: result.workloadEvidence.wipeVolume === true,
+            cdrRequired: result.workloadEvidence.cdrRequired === true,
+            terminalDataStored: result.workloadEvidence.terminalDataStored === true,
+            privateBindOnly: result.workloadEvidence.privateBindOnly === true,
+            checkedAt: result.workloadEvidence.checkedAt || null
+          }
+        : null,
+      signalHandoff: result.signalHandoff
+        ? {
+            applied: result.signalHandoff.applied === true,
+            secretPrinted: false,
+            signalStatus: result.signalHandoff.signalStatus || null,
+            terminalDataStored: result.signalHandoff.terminalDataStored === true,
+            g1G2BypassAllowed: result.signalHandoff.g1G2BypassAllowed === true,
+            cdrRequired: result.signalHandoff.cdrRequired === true
+          }
+        : null,
       smoke: result.smoke || {},
-      nativeFirecracker: result.mode === "native_firecracker" ? {
-        app: result.app,
-        readyThroughG2: result.applied === true,
-        g2: result.g2 || {},
-        evidence: result.evidence ? {
-          component: result.evidence.component,
-          appKey: result.evidence.appKey,
-          hostHttpCode: result.evidence.hostHttpCode,
-          noVncMarker: result.evidence.noVncMarker === true,
-          appRunning: result.evidence.appRunning === true,
-          appCrashed: result.evidence.appCrashed === true,
-          visibleWindow: result.evidence.visibleWindow === true,
-          vncBannerReady: result.evidence.vncBannerReady === true,
-          terminalDataStored: result.evidence.terminalDataStored === true,
-          productionExecutionAllowed: result.evidence.productionExecutionAllowed === true
-        } : null,
-        guacamoleVncForward: result.guacamoleVncForward ? {
-          key: result.guacamoleVncForward.key,
-          bindReady: result.guacamoleVncForward.bindReady === true,
-          targetReachable: result.guacamoleVncForward.targetReachable === true,
-          transport: result.guacamoleVncForward.transport || "tls_stunnel_private_bind",
-          publicInternetExposure: result.guacamoleVncForward.publicInternetExposure === true,
-          blocker: result.guacamoleVncForward.blocker || null
-        } : null,
-        g2VncVerification: result.g2VncVerification ? {
-          key: result.g2VncVerification.key,
-          reachable: result.g2VncVerification.reachable === true,
-          transport: result.g2VncVerification.transport || "tls_stunnel_private_bind",
-          rfbBannerReady: result.g2VncVerification.rfbBannerReady === true
-        } : null,
-        forwardBlockers: Array.isArray(result.forwardBlockers) ? result.forwardBlockers.map(String).slice(0, 16) : []
-      } : null,
+      nativeFirecracker:
+        result.mode === "native_firecracker"
+          ? {
+              app: result.app,
+              readyThroughG2: result.applied === true,
+              g2: result.g2 || {},
+              evidence: result.evidence
+                ? {
+                    component: result.evidence.component,
+                    appKey: result.evidence.appKey,
+                    hostHttpCode: result.evidence.hostHttpCode,
+                    noVncMarker: result.evidence.noVncMarker === true,
+                    appRunning: result.evidence.appRunning === true,
+                    appCrashed: result.evidence.appCrashed === true,
+                    visibleWindow: result.evidence.visibleWindow === true,
+                    vncBannerReady: result.evidence.vncBannerReady === true,
+                    terminalDataStored: result.evidence.terminalDataStored === true,
+                    productionExecutionAllowed: result.evidence.productionExecutionAllowed === true
+                  }
+                : null,
+              guacamoleVncForward: result.guacamoleVncForward
+                ? {
+                    key: result.guacamoleVncForward.key,
+                    bindReady: result.guacamoleVncForward.bindReady === true,
+                    targetReachable: result.guacamoleVncForward.targetReachable === true,
+                    transport: result.guacamoleVncForward.transport || "tls_stunnel_private_bind",
+                    publicInternetExposure:
+                      result.guacamoleVncForward.publicInternetExposure === true,
+                    blocker: result.guacamoleVncForward.blocker || null
+                  }
+                : null,
+              g2VncVerification: result.g2VncVerification
+                ? {
+                    key: result.g2VncVerification.key,
+                    reachable: result.g2VncVerification.reachable === true,
+                    transport: result.g2VncVerification.transport || "tls_stunnel_private_bind",
+                    rfbBannerReady: result.g2VncVerification.rfbBannerReady === true
+                  }
+                : null,
+              forwardBlockers: Array.isArray(result.forwardBlockers)
+                ? result.forwardBlockers.map(String).slice(0, 16)
+                : []
+            }
+          : null,
       productionExecutionAllowed: false
     };
   }
@@ -3774,10 +4477,14 @@ export class OperatorPortalService {
         functionalState: app.functionalState || "blocked",
         operatorAction: app.operatorAction || "repair_route_or_workload",
         blockers: Array.isArray(app.blockers)
-          ? app.blockers.map((blocker) => {
-            const value = String(blocker);
-            return BOOTSTRAP_SECRET_FIELD_PATTERN.test(value) ? "redacted_sensitive_blocker" : value;
-          }).slice(0, 16)
+          ? app.blockers
+              .map((blocker) => {
+                const value = String(blocker);
+                return BOOTSTRAP_SECRET_FIELD_PATTERN.test(value)
+                  ? "redacted_sensitive_blocker"
+                  : value;
+              })
+              .slice(0, 16)
           : [],
         cdrRequired: true,
         terminalDataStored: false,
@@ -3789,9 +4496,15 @@ export class OperatorPortalService {
         transportReady: Number(snapshot.summary?.transportReady || 0),
         workloadUiReady: Number(snapshot.summary?.workloadUiReady || 0),
         functionalReady: Number(snapshot.summary?.functionalReady || 0),
-        accountTestRequired: Array.isArray(snapshot.summary?.accountTestRequired) ? snapshot.summary.accountTestRequired.map(String) : [],
-        blocked: Array.isArray(snapshot.summary?.blocked) ? snapshot.summary.blocked.map(String) : [],
-        pixelFitReviewRequired: Array.isArray(snapshot.summary?.pixelFitReviewRequired) ? snapshot.summary.pixelFitReviewRequired.map(String) : [],
+        accountTestRequired: Array.isArray(snapshot.summary?.accountTestRequired)
+          ? snapshot.summary.accountTestRequired.map(String)
+          : [],
+        blocked: Array.isArray(snapshot.summary?.blocked)
+          ? snapshot.summary.blocked.map(String)
+          : [],
+        pixelFitReviewRequired: Array.isArray(snapshot.summary?.pixelFitReviewRequired)
+          ? snapshot.summary.pixelFitReviewRequired.map(String)
+          : [],
         productionExecutionAllowed: false
       },
       safety: {
@@ -3831,9 +4544,11 @@ export class OperatorPortalService {
   }
 
   #latestVpnEvidenceForOperator(operatorId) {
-    return [...this.vpnEvidence.values()]
-      .filter((evidence) => evidence.operatorId === operatorId)
-      .at(-1) || null;
+    return (
+      [...this.vpnEvidence.values()]
+        .filter((evidence) => evidence.operatorId === operatorId)
+        .at(-1) || null
+    );
   }
 
   #vpnEvidenceReady(evidence) {
@@ -3846,7 +4561,9 @@ export class OperatorPortalService {
     const missingHosts = (evidence.requiredHosts || []).filter((host) => !reachable.has(host));
     return [
       ...(evidence.vpnConnected ? [] : ["vpn_not_connected"]),
-      ...(this.#vpnTransportInterfaceReady(evidence.vpnInterface) ? [] : ["ipsec_transport_interface_missing"]),
+      ...(this.#vpnTransportInterfaceReady(evidence.vpnInterface)
+        ? []
+        : ["ipsec_transport_interface_missing"]),
       ...(evidence.dnsThroughTunnel ? [] : ["dns_not_through_tunnel"]),
       ...(evidence.certificateTrusted ? [] : ["internal_ca_not_trusted"]),
       ...missingHosts.map((host) => `host_unreachable:${host}`)
@@ -3854,13 +4571,12 @@ export class OperatorPortalService {
   }
 
   #vpnTransportInterfaceReady(value) {
-    const iface = String(value || "").trim().toLowerCase();
-    return [
-      "tun1",
-      "puli_ax_ipsec_gateway",
-      "router_ipsec_gateway",
-      "ipsec_policy_route"
-    ].includes(iface);
+    const iface = String(value || "")
+      .trim()
+      .toLowerCase();
+    return ["tun1", "puli_ax_ipsec_gateway", "router_ipsec_gateway", "ipsec_policy_route"].includes(
+      iface
+    );
   }
 
   #publicVpnEvidence(evidence) {
@@ -3886,7 +4602,9 @@ export class OperatorPortalService {
 
   #latestTrafficEvidenceBySegment(operatorId) {
     const latest = new Map();
-    for (const evidence of [...this.trafficEvidence.values()].filter((item) => item.operatorId === operatorId)) {
+    for (const evidence of [...this.trafficEvidence.values()].filter(
+      (item) => item.operatorId === operatorId
+    )) {
       const previous = latest.get(evidence.segmentId);
       if (!previous || Date.parse(evidence.observedAt) >= Date.parse(previous.observedAt)) {
         latest.set(evidence.segmentId, evidence);
@@ -3899,7 +4617,15 @@ export class OperatorPortalService {
     return TRAFFIC_MONITOR_SEGMENTS.find((segment) => segment.id === segmentId);
   }
 
-  #trafficSegmentView({ definition, operatorActor, path, vpnEvidence, streamingReadiness, streamingRuntime, evidence }) {
+  #trafficSegmentView({
+    definition,
+    operatorActor,
+    path,
+    vpnEvidence,
+    streamingReadiness,
+    streamingRuntime,
+    evidence
+  }) {
     const inferred = this.#inferredTrafficSegment({
       definition,
       path,
@@ -3910,7 +4636,9 @@ export class OperatorPortalService {
     const status = evidence ? this.#normalizeTrafficStatus(evidence.status) : inferred.status;
     const blockers = [
       ...(evidence ? evidence.blockers || [] : inferred.blockers),
-      ...(evidence?.encrypted === false && definition.id !== "pixel_router" ? ["encryption_not_evidenced"] : [])
+      ...(evidence?.encrypted === false && definition.id !== "pixel_router"
+        ? ["encryption_not_evidenced"]
+        : [])
     ];
     const finalStatus = blockers.length && status === "healthy" ? "degraded" : status;
     return {
@@ -3943,32 +4671,43 @@ export class OperatorPortalService {
 
   #inferredTrafficSegment({ definition, path, vpnEvidence, streamingReadiness, streamingRuntime }) {
     const vpnReady = vpnEvidence?.ready === true || this.#vpnEvidenceReady(vpnEvidence);
-    const routerReady = path.router?.readyForPhysicalSmoke === true || this.env?.SYLION_PULI_AX_PHYSICAL_READY === "true";
-    const g1G2Ready = this.env?.SYLION_G1_G2_POLICY_READY === "true"
-      || vpnEvidence?.reachableHosts?.includes("10.42.0.12") === true;
-    const g2WorkloadReady = this.env?.SYLION_G2_WORKLOAD_POLICY_READY === "true"
-      || this.env?.SYLION_G2_WORKLOAD_GATEWAY_READY === "true"
-      || streamingReadiness?.gateway?.g2StreamGatewayReady === true
-      || streamingRuntime?.ready === true;
-    const streamSourcesReady = streamingReadiness?.ready === true
-      || streamingRuntime?.ready === true
-      || this.env?.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true";
+    const routerReady =
+      path.router?.readyForPhysicalSmoke === true ||
+      this.env?.SYLION_PULI_AX_PHYSICAL_READY === "true";
+    const g1G2Ready =
+      this.env?.SYLION_G1_G2_POLICY_READY === "true" ||
+      vpnEvidence?.reachableHosts?.includes("10.42.0.12") === true;
+    const g2WorkloadReady =
+      this.env?.SYLION_G2_WORKLOAD_POLICY_READY === "true" ||
+      this.env?.SYLION_G2_WORKLOAD_GATEWAY_READY === "true" ||
+      streamingReadiness?.gateway?.g2StreamGatewayReady === true ||
+      streamingRuntime?.ready === true;
+    const streamSourcesReady =
+      streamingReadiness?.ready === true ||
+      streamingRuntime?.ready === true ||
+      this.env?.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true";
     if (definition.id === "pixel_router") {
       return {
         status: routerReady ? "degraded" : "blocked",
         encrypted: false,
-        observedTransport: routerReady ? "puli_ax_local_link_posture_pending" : "router_physical_gate_pending",
+        observedTransport: routerReady
+          ? "puli_ax_local_link_posture_pending"
+          : "router_physical_gate_pending",
         policyDecision: routerReady ? "review" : "deny",
-        blockers: routerReady ? ["router_packet_metadata_agent_not_reporting_yet"] : ["puli_ax_physical_router_pending"],
+        blockers: routerReady
+          ? ["router_packet_metadata_agent_not_reporting_yet"]
+          : ["puli_ax_physical_router_pending"],
         lastObservedAt: null,
         latencyMs: null
       };
     }
     if (definition.id === "router_g1") {
       return {
-        status: vpnReady ? routerReady ? "healthy" : "degraded" : "blocked",
+        status: vpnReady ? (routerReady ? "healthy" : "degraded") : "blocked",
         encrypted: vpnReady,
-        observedTransport: vpnReady ? "pixel_direct_or_router_ipsec_ikev2_evidenced" : "ipsec_ikev2_not_evidenced",
+        observedTransport: vpnReady
+          ? "pixel_direct_or_router_ipsec_ikev2_evidenced"
+          : "ipsec_ikev2_not_evidenced",
         policyDecision: vpnReady ? "allow" : "deny",
         blockers: [
           ...(vpnReady ? [] : ["vpn_evidence_missing_or_incomplete"]),
@@ -3993,7 +4732,9 @@ export class OperatorPortalService {
       return {
         status: g2WorkloadReady ? "healthy" : "blocked",
         encrypted: g2WorkloadReady,
-        observedTransport: g2WorkloadReady ? "g2_workload_private_gateway_evidenced" : "g2_workload_gateway_missing",
+        observedTransport: g2WorkloadReady
+          ? "g2_workload_private_gateway_evidenced"
+          : "g2_workload_gateway_missing",
         policyDecision: g2WorkloadReady ? "allow" : "deny",
         blockers: g2WorkloadReady ? [] : ["g2_to_workload_evidence_missing"],
         lastObservedAt: streamingRuntime?.createdAt || streamingReadiness?.observedAt || null,
@@ -4003,9 +4744,13 @@ export class OperatorPortalService {
     return {
       status: streamSourcesReady ? "degraded" : "blocked",
       encrypted: streamSourcesReady,
-      observedTransport: streamSourcesReady ? "workload_stream_source_evidenced" : "microvm_stream_source_missing",
+      observedTransport: streamSourcesReady
+        ? "workload_stream_source_evidenced"
+        : "microvm_stream_source_missing",
       policyDecision: streamSourcesReady ? "review" : "deny",
-      blockers: streamSourcesReady ? ["per_app_firecracker_runtime_factual_test_required"] : ["workload_microvm_evidence_missing"],
+      blockers: streamSourcesReady
+        ? ["per_app_firecracker_runtime_factual_test_required"]
+        : ["workload_microvm_evidence_missing"],
       lastObservedAt: streamingRuntime?.createdAt || streamingReadiness?.observedAt || null,
       latencyMs: null
     };
@@ -4026,22 +4771,76 @@ export class OperatorPortalService {
       });
     };
     for (const segment of segments) {
-      if (segment.status === "blocked") add("critical", "segment_blocked", `${segment.from} -> ${segment.to} is blocked: ${(segment.blockers || []).join(", ") || "no evidence"}`, segment.id);
-      if (segment.status === "missing") add("warning", "segment_missing", `${segment.from} -> ${segment.to} has no fresh metadata evidence.`, segment.id);
-      if (segment.status === "degraded") add("warning", "segment_degraded", `${segment.from} -> ${segment.to} is degraded: ${(segment.blockers || []).join(", ") || "review required"}`, segment.id);
-      if (segment.encrypted === false && segment.id !== "pixel_router") add("critical", "encryption_not_evidenced", `${segment.from} -> ${segment.to} lacks encryption evidence.`, segment.id);
+      if (segment.status === "blocked")
+        add(
+          "critical",
+          "segment_blocked",
+          `${segment.from} -> ${segment.to} is blocked: ${(segment.blockers || []).join(", ") || "no evidence"}`,
+          segment.id
+        );
+      if (segment.status === "missing")
+        add(
+          "warning",
+          "segment_missing",
+          `${segment.from} -> ${segment.to} has no fresh metadata evidence.`,
+          segment.id
+        );
+      if (segment.status === "degraded")
+        add(
+          "warning",
+          "segment_degraded",
+          `${segment.from} -> ${segment.to} is degraded: ${(segment.blockers || []).join(", ") || "review required"}`,
+          segment.id
+        );
+      if (segment.encrypted === false && segment.id !== "pixel_router")
+        add(
+          "critical",
+          "encryption_not_evidenced",
+          `${segment.from} -> ${segment.to} lacks encryption evidence.`,
+          segment.id
+        );
     }
     if (path.router?.readyForPhysicalSmoke !== true) {
-      add("warning", "puli_ax_pending", "Puli AX physical router package/posture is still pending, so router telemetry is not factual yet.", "pixel_router");
+      add(
+        "warning",
+        "puli_ax_pending",
+        "Puli AX physical router package/posture is still pending, so router telemetry is not factual yet.",
+        "pixel_router"
+      );
     }
     if (!vpnEvidence) {
-      add("critical", "vpn_evidence_missing", "No operator-scoped VPN/IPsec evidence has been recorded for this terminal session.", "router_g1");
+      add(
+        "critical",
+        "vpn_evidence_missing",
+        "No operator-scoped VPN/IPsec evidence has been recorded for this terminal session.",
+        "router_g1"
+      );
     } else {
-      if (vpnEvidence.dnsThroughTunnel !== true) add("critical", "dns_leak_risk", "DNS-through-tunnel evidence is missing or false.", "router_g1");
-      if (vpnEvidence.certificateTrusted !== true) add("warning", "internal_ca_not_trusted", "SYLION Internal CA trust is not evidenced on the terminal.", "router_g1");
+      if (vpnEvidence.dnsThroughTunnel !== true)
+        add(
+          "critical",
+          "dns_leak_risk",
+          "DNS-through-tunnel evidence is missing or false.",
+          "router_g1"
+        );
+      if (vpnEvidence.certificateTrusted !== true)
+        add(
+          "warning",
+          "internal_ca_not_trusted",
+          "SYLION Internal CA trust is not evidenced on the terminal.",
+          "router_g1"
+        );
     }
-    if (streamingReadiness?.gateway?.publicInternetExposure === true || streamingRuntime?.gateway?.publicInternetExposure === true) {
-      add("critical", "public_stream_exposure", "G2 stream gateway evidence reports public exposure, which is forbidden.", "g2_workload");
+    if (
+      streamingReadiness?.gateway?.publicInternetExposure === true ||
+      streamingRuntime?.gateway?.publicInternetExposure === true
+    ) {
+      add(
+        "critical",
+        "public_stream_exposure",
+        "G2 stream gateway evidence reports public exposure, which is forbidden.",
+        "g2_workload"
+      );
     }
     return alerts;
   }
@@ -4050,7 +4849,11 @@ export class OperatorPortalService {
     return [
       ...(evidence.status === "blocked" ? ["segment_reported_blocked"] : []),
       ...(evidence.status === "missing" ? ["segment_reported_missing"] : []),
-      ...(evidence.encrypted ? [] : evidence.segmentId === "pixel_router" ? [] : ["encryption_not_evidenced"]),
+      ...(evidence.encrypted
+        ? []
+        : evidence.segmentId === "pixel_router"
+          ? []
+          : ["encryption_not_evidenced"]),
       ...(evidence.packetCaptureStored === false ? [] : ["packet_capture_storage_forbidden"]),
       ...(evidence.contentInspected === false ? [] : ["content_inspection_forbidden"]),
       ...(evidence.terminalDataStored === false ? [] : ["terminal_data_storage_forbidden"])
@@ -4100,7 +4903,9 @@ export class OperatorPortalService {
   }
 
   #normalizeTrafficStatus(value) {
-    const status = String(value || "observed").trim().toLowerCase();
+    const status = String(value || "observed")
+      .trim()
+      .toLowerCase();
     if (!TRAFFIC_STATUSES.has(status)) {
       throw validationError("Unsupported traffic evidence status", {
         status: value,
@@ -4114,14 +4919,22 @@ export class OperatorPortalService {
     if (value === undefined || value === null || value === "") return null;
     const number = Number(value);
     if (!Number.isFinite(number) || number < min || number > max) {
-      throw validationError(`${field} must be a finite number in range`, { field, value, min, max });
+      throw validationError(`${field} must be a finite number in range`, {
+        field,
+        value,
+        min,
+        max
+      });
     }
     return number;
   }
 
   #safeTrafficEvidenceRefs(value) {
     const items = Array.isArray(value) ? value : String(value || "").split(",");
-    return items.map((item) => String(item).trim().slice(0, 160)).filter(Boolean).slice(0, 12);
+    return items
+      .map((item) => String(item).trim().slice(0, 160))
+      .filter(Boolean)
+      .slice(0, 12);
   }
 
   #assertNoTrafficSecrets(value, path = "body") {
@@ -4156,25 +4969,36 @@ export class OperatorPortalService {
   #liveAccessNextActions({ requiredBlockers, hsmFidoDeferred, routerDeferred }) {
     const actions = [];
     if (requiredBlockers.includes("pixel_internal_ca_trust")) {
-      actions.push("Install SYLION Internal CA on Pixel through GrapheneOS user-present certificate flow.");
+      actions.push(
+        "Install SYLION Internal CA on Pixel through GrapheneOS user-present certificate flow."
+      );
     }
     if (requiredBlockers.includes("t0_pixel_to_g1_ipsec")) {
       actions.push("Establish Pixel strongSwan IKEv2 tunnel to G1 and record live VPN evidence.");
     }
     if (requiredBlockers.includes("dns_through_tunnel")) {
-      actions.push("Verify DNS leak prevention and internal DNS resolution through the VPN tunnel.");
+      actions.push(
+        "Verify DNS leak prevention and internal DNS resolution through the VPN tunnel."
+      );
     }
-    if (requiredBlockers.includes("g1_to_g2_policy_path") || requiredBlockers.includes("g2_to_workload_policy_path")) {
+    if (
+      requiredBlockers.includes("g1_to_g2_policy_path") ||
+      requiredBlockers.includes("g2_to_workload_policy_path")
+    ) {
       actions.push("Apply G1/G2 policy routing and default-deny firewall rules for T1/T2.");
     }
     if (requiredBlockers.includes("g2_workload_gateway_tls")) {
-      actions.push("Enable G2 TLS workload gateway for signal/whatsapp/telegram/threema/zangi/simplex/protonmail/duckduckgo/libreoffice/exodus hostnames.");
+      actions.push(
+        "Enable G2 TLS workload gateway for signal/whatsapp/telegram/threema/zangi/simplex/protonmail/duckduckgo/libreoffice/exodus hostnames."
+      );
     }
     if (routerDeferred) {
       actions.push("Complete Puli AX physical package and posture smoke when router is available.");
     }
     if (hsmFidoDeferred) {
-      actions.push("Enroll physical HSM/FIDO2 after hardware arrives; keep panel refs write-only until then.");
+      actions.push(
+        "Enroll physical HSM/FIDO2 after hardware arrives; keep panel refs write-only until then."
+      );
     }
     return actions;
   }
@@ -4216,7 +5040,10 @@ export class OperatorPortalService {
       });
     }
     return keys.map((key) => {
-      const normalized = String(key || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+      const normalized = String(key || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_");
       if (!WORKLOAD_INPUT_SPECIAL_KEYS.has(normalized)) {
         throw validationError("Unsupported workload input special key", {
           fieldName,
@@ -4261,7 +5088,9 @@ export class OperatorPortalService {
   }
 
   #normalizeWorkloadTemplate(value) {
-    const key = String(value || "").trim().toLowerCase();
+    const key = String(value || "")
+      .trim()
+      .toLowerCase();
     const normalized = key === "duckduckgo" ? "duckduckgo_browser" : key;
     if (!WORKLOAD_CONTROL_APPS.some((app) => app.key === normalized)) {
       throw validationError("Unknown streaming app", {
@@ -4273,22 +5102,22 @@ export class OperatorPortalService {
   }
 
   #accountBootstrapCatalog() {
-    return WORKLOAD_CONTROL_APPS
-      .filter((app) => ["messenger", "mail", "wallet"].includes(app.category))
-      .map((app) => ({
-        key: app.key,
-        name: app.name,
-        category: app.category,
-        requiredChecks: this.#accountBootstrapRequiredChecks(app.key),
-        defaultMode: this.#defaultBootstrapMode(app.key),
-        supportedModes: this.#supportedBootstrapModes(app.key),
-        defaultRuntimeMode: this.#defaultBootstrapRuntime(app.key),
-        requiresAdminQaReview: true,
-        humanHandoffRequired: this.#bootstrapNeedsPrivateHumanInput(app.key),
-        terminalDataStored: false,
-        cdrRequired: true,
-        productionExecutionAllowed: false
-      }));
+    return WORKLOAD_CONTROL_APPS.filter((app) =>
+      ["messenger", "mail", "wallet"].includes(app.category)
+    ).map((app) => ({
+      key: app.key,
+      name: app.name,
+      category: app.category,
+      requiredChecks: this.#accountBootstrapRequiredChecks(app.key),
+      defaultMode: this.#defaultBootstrapMode(app.key),
+      supportedModes: this.#supportedBootstrapModes(app.key),
+      defaultRuntimeMode: this.#defaultBootstrapRuntime(app.key),
+      requiresAdminQaReview: true,
+      humanHandoffRequired: this.#bootstrapNeedsPrivateHumanInput(app.key),
+      terminalDataStored: false,
+      cdrRequired: true,
+      productionExecutionAllowed: false
+    }));
   }
 
   #accountBootstrapRequiredChecks(appKey) {
@@ -4315,39 +5144,55 @@ export class OperatorPortalService {
 
   #supportedBootstrapModes(appKey) {
     if (appKey === "zangi") return ["android_native_workload", "approved_test_number_provider"];
-    if (appKey === "signal" || appKey === "whatsapp") return ["physical_mobile_companion", "android_native_workload"];
+    if (appKey === "signal" || appKey === "whatsapp")
+      return ["physical_mobile_companion", "android_native_workload"];
     if (appKey === "exodus") return ["manual_operator_account"];
     if (appKey === "protonmail") return ["manual_operator_account"];
-    if (appKey === "simplex") return ["desktop_linked_account", "android_native_workload", "manual_operator_account"];
+    if (appKey === "simplex")
+      return ["desktop_linked_account", "android_native_workload", "manual_operator_account"];
     return ["approved_test_number_provider", "desktop_linked_account", "android_native_workload"];
   }
 
   #bootstrapNeedsPrivateHumanInput(appKey) {
-    return ["signal", "whatsapp", "telegram", "threema", "zangi", "simplex", "matrix_client", "protonmail", "exodus"].includes(appKey);
+    return [
+      "signal",
+      "whatsapp",
+      "telegram",
+      "threema",
+      "zangi",
+      "simplex",
+      "matrix_client",
+      "protonmail",
+      "exodus"
+    ].includes(appKey);
   }
 
   #bootstrapHumanHandoffPlan({ appKey, mode, runtimeMode, launchUrl }) {
     const mail = appKey === "protonmail";
     const wallet = appKey === "exodus";
     const communicator = !mail && !wallet;
-    const orderedSteps = communicator ? [
-      "Open application stream from the operator app switcher.",
-      "Operator enters phone/account credentials and SMS/2FA code directly in the workload UI.",
-      "Verify account is created or linked without storing the phone number, OTP, password or message content.",
-      "Send and receive a harmless test message with QA contact; store only metadata that the check passed.",
-      "Return to this panel and record evidence refs, latency and pass/fail checks."
-    ] : mail ? [
-      "Open the mail workload stream from the operator app switcher.",
-      "Operator enters mailbox credentials directly inside the workload UI.",
-      "Verify mailbox UI is visible without storing address, password, subject, sender, recipient or message content.",
-      "Optionally run a harmless send/receive check with QA mailbox; store only metadata that the check passed.",
-      "Return to this panel and record evidence refs, latency and pass/fail checks."
-    ] : [
-      "Open the wallet workload stream.",
-      "Operator performs approved test workflow without exposing seed, private key, wallet address or balance.",
-      "Confirm viewport fit and input behavior on Pixel or laptop.",
-      "Return to this panel and record metadata-only evidence plus explicit risk acceptance."
-    ];
+    const orderedSteps = communicator
+      ? [
+          "Open application stream from the operator app switcher.",
+          "Operator enters phone/account credentials and SMS/2FA code directly in the workload UI.",
+          "Verify account is created or linked without storing the phone number, OTP, password or message content.",
+          "Send and receive a harmless test message with QA contact; store only metadata that the check passed.",
+          "Return to this panel and record evidence refs, latency and pass/fail checks."
+        ]
+      : mail
+        ? [
+            "Open the mail workload stream from the operator app switcher.",
+            "Operator enters mailbox credentials directly inside the workload UI.",
+            "Verify mailbox UI is visible without storing address, password, subject, sender, recipient or message content.",
+            "Optionally run a harmless send/receive check with QA mailbox; store only metadata that the check passed.",
+            "Return to this panel and record evidence refs, latency and pass/fail checks."
+          ]
+        : [
+            "Open the wallet workload stream.",
+            "Operator performs approved test workflow without exposing seed, private key, wallet address or balance.",
+            "Confirm viewport fit and input behavior on Pixel or laptop.",
+            "Return to this panel and record metadata-only evidence plus explicit risk acceptance."
+          ];
     return {
       state: "awaiting_operator_private_input",
       privateInputEntry: "directly_inside_workload_ui_only",
@@ -4400,7 +5245,11 @@ export class OperatorPortalService {
 
   #normalizeBootstrapRuntime(value) {
     const mode = String(value || "").trim();
-    if (!["desktop", "web", "android_native", "firecracker_gui", "container", "unknown"].includes(mode)) {
+    if (
+      !["desktop", "web", "android_native", "firecracker_gui", "container", "unknown"].includes(
+        mode
+      )
+    ) {
       throw validationError("Unsupported account bootstrap runtime mode", { mode });
     }
     return mode;
@@ -4422,24 +5271,29 @@ export class OperatorPortalService {
       throw validationError("Account bootstrap checks must be an object", { field: "checks" });
     }
     const keys = [...new Set([...requiredChecks, ...Object.keys(checks)])];
-    return Object.fromEntries(keys.map((key) => {
-      const input = checks[key] || {};
-      const asObject = typeof input === "string" ? { status: input } : input;
-      const status = String(asObject.status || "not_run").trim();
-      if (!ACCOUNT_BOOTSTRAP_CHECK_STATUSES.has(status)) {
-        throw validationError("Unsupported account bootstrap check status", {
-          check: key,
-          status,
-          supported: [...ACCOUNT_BOOTSTRAP_CHECK_STATUSES]
-        });
-      }
-      return [key, {
-        status,
-        evidence: asObject.evidence ? String(asObject.evidence).trim().slice(0, 240) : null,
-        mode: asObject.mode ? String(asObject.mode).trim().slice(0, 96) : null,
-        note: asObject.note ? String(asObject.note).trim().slice(0, 240) : null
-      }];
-    }));
+    return Object.fromEntries(
+      keys.map((key) => {
+        const input = checks[key] || {};
+        const asObject = typeof input === "string" ? { status: input } : input;
+        const status = String(asObject.status || "not_run").trim();
+        if (!ACCOUNT_BOOTSTRAP_CHECK_STATUSES.has(status)) {
+          throw validationError("Unsupported account bootstrap check status", {
+            check: key,
+            status,
+            supported: [...ACCOUNT_BOOTSTRAP_CHECK_STATUSES]
+          });
+        }
+        return [
+          key,
+          {
+            status,
+            evidence: asObject.evidence ? String(asObject.evidence).trim().slice(0, 240) : null,
+            mode: asObject.mode ? String(asObject.mode).trim().slice(0, 96) : null,
+            note: asObject.note ? String(asObject.note).trim().slice(0, 240) : null
+          }
+        ];
+      })
+    );
   }
 
   #assertNoBootstrapSecrets(value, path = []) {
@@ -4447,16 +5301,22 @@ export class OperatorPortalService {
     for (const [key, nested] of Object.entries(value)) {
       const currentPath = [...path, key];
       if (BOOTSTRAP_SECRET_FIELD_PATTERN.test(key)) {
-        throw validationError("Account bootstrap must not store phone numbers, OTPs, passwords, seeds or token material", {
-          field: currentPath.join("."),
-          allowed: "Use provider refs, artifact refs and pass/fail evidence only."
-        });
+        throw validationError(
+          "Account bootstrap must not store phone numbers, OTPs, passwords, seeds or token material",
+          {
+            field: currentPath.join("."),
+            allowed: "Use provider refs, artifact refs and pass/fail evidence only."
+          }
+        );
       }
       if (typeof nested === "string" && BOOTSTRAP_SECRET_VALUE_PATTERN.test(nested)) {
-        throw validationError("Account bootstrap evidence must not contain phone numbers, OTPs, passwords, seeds or token material", {
-          field: currentPath.join("."),
-          allowed: "Record only pass/fail metadata, artifact refs and short non-secret notes."
-        });
+        throw validationError(
+          "Account bootstrap evidence must not contain phone numbers, OTPs, passwords, seeds or token material",
+          {
+            field: currentPath.join("."),
+            allowed: "Record only pass/fail metadata, artifact refs and short non-secret notes."
+          }
+        );
       }
       if (nested && typeof nested === "object") this.#assertNoBootstrapSecrets(nested, currentPath);
     }
@@ -4464,7 +5324,12 @@ export class OperatorPortalService {
 
   #safeBootstrapArray(value, field) {
     if (!Array.isArray(value)) throw validationError(`${field} must be an array`, { field });
-    return value.map((item, index) => String(item || "").trim().slice(0, 200) || `empty_${index}`);
+    return value.map(
+      (item, index) =>
+        String(item || "")
+          .trim()
+          .slice(0, 200) || `empty_${index}`
+    );
   }
 
   #publicAccountBootstrapSession(session) {
@@ -4530,7 +5395,9 @@ export class OperatorPortalService {
   }
 
   #guacamoleBaseUrl() {
-    const raw = String(this.env?.SYLION_GUACAMOLE_BASE_URL || "https://session.sylion.internal/guacamole/").trim();
+    const raw = String(
+      this.env?.SYLION_GUACAMOLE_BASE_URL || "https://session.sylion.internal/guacamole/"
+    ).trim();
     try {
       const url = new URL(raw);
       if (url.protocol !== "https:") {
@@ -4558,7 +5425,9 @@ export class OperatorPortalService {
   }
 
   #guacamoleJsonSecretKey() {
-    const raw = String(this.env?.SYLION_GUACAMOLE_JSON_SECRET_KEY || this.env?.GUACAMOLE_JSON_SECRET_KEY || "").trim();
+    const raw = String(
+      this.env?.SYLION_GUACAMOLE_JSON_SECRET_KEY || this.env?.GUACAMOLE_JSON_SECRET_KEY || ""
+    ).trim();
     const hex = raw.replace(/^0x/i, "");
     if (!/^[0-9a-f]{32}$/i.test(hex)) return null;
     return Buffer.from(hex, "hex");
@@ -4571,7 +5440,9 @@ export class OperatorPortalService {
   }
 
   #guacamoleJsonAuthPayload({ operatorActor, templateKey, connectionName, expiresAt }) {
-    const username = `sylion-${String(operatorActor.operatorId).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48)}`;
+    const username = `sylion-${String(operatorActor.operatorId)
+      .replace(/[^a-zA-Z0-9_-]/g, "")
+      .slice(0, 48)}`;
     return {
       username,
       expires: Date.parse(expiresAt),
@@ -4598,7 +5469,7 @@ export class OperatorPortalService {
       "disable-copy": "true",
       "disable-paste": "true",
       "enable-sftp": "false",
-      "autoretry": "3",
+      autoretry: "3",
       "resize-method": "display-update"
     };
   }
@@ -4608,7 +5479,10 @@ export class OperatorPortalService {
     const signature = createHmac("sha256", key).update(json).digest();
     const iv = Buffer.alloc(16, 0);
     const cipher = createCipheriv("aes-128-cbc", key, iv);
-    const ciphertext = Buffer.concat([cipher.update(Buffer.concat([signature, json])), cipher.final()]);
+    const ciphertext = Buffer.concat([
+      cipher.update(Buffer.concat([signature, json])),
+      cipher.final()
+    ]);
     return ciphertext.toString("base64");
   }
 
@@ -4648,18 +5522,23 @@ export class OperatorPortalService {
   }
 
   #workloadLaunchUrl(templateKey, host = this.#streamHostForTemplate(templateKey)) {
-    if (templateKey === "duckduckgo_browser") return `https://${host}/vnc.html?autoconnect=true&resize=remote&path=websockify`;
+    if (templateKey === "duckduckgo_browser")
+      return `https://${host}/vnc.html?autoconnect=true&resize=remote&path=websockify`;
     return `https://${host}/`;
   }
 
   #workloadRouteStatus(templateKey) {
     const normalized = this.#normalizeWorkloadTemplate(templateKey);
     const envKey = `SYLION_${normalized.toUpperCase().replaceAll("-", "_")}_LIVE_HTTP_STATUS`;
-    const rawStatus = this.env?.[envKey] || (normalized === "duckduckgo_browser" ? this.env?.SYLION_DUCKDUCKGO_LIVE_HTTP_STATUS : null);
+    const rawStatus =
+      this.env?.[envKey] ||
+      (normalized === "duckduckgo_browser" ? this.env?.SYLION_DUCKDUCKGO_LIVE_HTTP_STATUS : null);
     const httpStatus = rawStatus ? Number(rawStatus) : null;
     const evidenceReadyKey = `SYLION_${normalized.toUpperCase().replaceAll("-", "_")}_NATIVE_EVIDENCE_READY`;
-    const evidenceReady = this.env?.[evidenceReadyKey] === "true"
-      || (normalized === "duckduckgo_browser" && this.env?.SYLION_DUCKDUCKGO_NATIVE_EVIDENCE_READY === "true");
+    const evidenceReady =
+      this.env?.[evidenceReadyKey] === "true" ||
+      (normalized === "duckduckgo_browser" &&
+        this.env?.SYLION_DUCKDUCKGO_NATIVE_EVIDENCE_READY === "true");
     const ready = httpStatus === 200 || evidenceReady;
     const notBuilt = httpStatus === 502 || this.env?.[evidenceReadyKey] === "false";
     return {
@@ -4670,19 +5549,27 @@ export class OperatorPortalService {
       evidenceReady,
       ready,
       state: ready ? "ready" : notBuilt ? "not_built" : "unknown_or_blocked",
-      blockers: ready ? [] : [notBuilt ? `${normalized}_native_workload_not_built` : `${normalized}_live_route_not_verified`],
-      satisfiedBlockers: ready ? [
-        `${normalized}_workload_slot_missing`,
-        "g1_g2_workload_path_not_ready",
-        "real_firecracker_binary_not_configured",
-        "kvm_device_not_verified",
-        "firecracker_kernel_image_not_configured",
-        `${normalized}_rootfs_image_not_configured`,
-        `approved_${normalized}_workload_image_missing`,
-        "real_ipsec_profile_required",
-        "dns_leak_and_kill_switch_tests_required",
-        "human_production_execution_approval_required"
-      ] : [],
+      blockers: ready
+        ? []
+        : [
+            notBuilt
+              ? `${normalized}_native_workload_not_built`
+              : `${normalized}_live_route_not_verified`
+          ],
+      satisfiedBlockers: ready
+        ? [
+            `${normalized}_workload_slot_missing`,
+            "g1_g2_workload_path_not_ready",
+            "real_firecracker_binary_not_configured",
+            "kvm_device_not_verified",
+            "firecracker_kernel_image_not_configured",
+            `${normalized}_rootfs_image_not_configured`,
+            `approved_${normalized}_workload_image_missing`,
+            "real_ipsec_profile_required",
+            "dns_leak_and_kill_switch_tests_required",
+            "human_production_execution_approval_required"
+          ]
+        : [],
       privateOnly: true,
       terminalDataStored: false,
       cdrRequired: true,
@@ -4691,19 +5578,25 @@ export class OperatorPortalService {
   }
 
   #latestStreamingReadinessForOperator(operatorId) {
-    return [...this.streamingReadinessEvidence.values()]
-      .filter((evidence) => evidence.operatorId === operatorId)
-      .at(-1) || null;
+    return (
+      [...this.streamingReadinessEvidence.values()]
+        .filter((evidence) => evidence.operatorId === operatorId)
+        .at(-1) || null
+    );
   }
 
   #latestStreamingRuntimeManifestForOperator(operatorId) {
-    return [...this.streamingRuntimeManifests.values()]
-      .filter((manifest) => manifest.operatorId === operatorId)
-      .at(-1) || null;
+    return (
+      [...this.streamingRuntimeManifests.values()]
+        .filter((manifest) => manifest.operatorId === operatorId)
+        .at(-1) || null
+    );
   }
 
   #selectedSessionBrokerProtocol() {
-    return this.#normalizeSessionBrokerProtocol(this.env?.SYLION_G2_SESSION_BROKER || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
+    return this.#normalizeSessionBrokerProtocol(
+      this.env?.SYLION_G2_SESSION_BROKER || SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+    );
   }
 
   #sessionBrokerCatalog() {
@@ -4715,13 +5608,15 @@ export class OperatorPortalService {
         {
           protocol: SESSION_BROKER_PROTOCOLS.GUACAMOLE,
           name: "Apache Guacamole",
-          status: this.env?.SYLION_GUACAMOLE_BROKER_READY === "true" ? "interim_ready" : "poc_required",
+          status:
+            this.env?.SYLION_GUACAMOLE_BROKER_READY === "true" ? "interim_ready" : "poc_required",
           productionCandidate: false,
           baselineUsable: true,
           interimOnly: true,
           phantomReady: false,
           brokerVisibility: "broker_can_access_plaintext_pixel_stream",
-          residualRisk: "g2_broker_compromise_can_expose_active_stream_until_blind_e2ee_replacement",
+          residualRisk:
+            "g2_broker_compromise_can_expose_active_stream_until_blind_e2ee_replacement",
           ksiegaRef: "KSIEGA_4_0_SYLION_PHANTOM.md#11-streaming-pikseli-i-cienki-klient",
           labOnly: false,
           strengths: ["mature_vnc_rdp_ssh_broker", "central_policy_point", "audit_metadata_point"]
@@ -4729,7 +5624,8 @@ export class OperatorPortalService {
         {
           protocol: SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES,
           name: "Selkies/WebRTC",
-          status: this.env?.SYLION_SELKIES_GATEWAY_READY === "true" ? "interim_ready" : "poc_required",
+          status:
+            this.env?.SYLION_SELKIES_GATEWAY_READY === "true" ? "interim_ready" : "poc_required",
           productionCandidate: false,
           baselineUsable: true,
           interimOnly: true,
@@ -4737,12 +5633,19 @@ export class OperatorPortalService {
           brokerVisibility: "broker_visibility_unproven_without_e2ee_key_separation",
           residualRisk: "must_prove_keys_are_not_available_to_g2_before_phantom_use",
           labOnly: false,
-          strengths: ["mobile_latency_candidate", "dynamic_resize_candidate", "touch_input_candidate"]
+          strengths: [
+            "mobile_latency_candidate",
+            "dynamic_resize_candidate",
+            "touch_input_candidate"
+          ]
         },
         {
           protocol: SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
           name: "PHANTOM Blind E2EE Pixel Stream",
-          status: this.env?.SYLION_BLIND_E2EE_STREAM_READY === "true" ? "target_ready_for_human_gate" : "target_not_implemented",
+          status:
+            this.env?.SYLION_BLIND_E2EE_STREAM_READY === "true"
+              ? "target_ready_for_human_gate"
+              : "target_not_implemented",
           productionCandidate: true,
           baselineUsable: false,
           interimOnly: false,
@@ -4750,7 +5653,11 @@ export class OperatorPortalService {
           brokerVisibility: "broker_relays_encrypted_frames_only",
           residualRisk: "requires_adr_key_lifecycle_negative_visibility_tests_and_human_gate",
           labOnly: false,
-          strengths: ["g2_blind_to_pixel_frames", "keys_outside_broker", "phantom_target_architecture"]
+          strengths: [
+            "g2_blind_to_pixel_frames",
+            "keys_outside_broker",
+            "phantom_target_architecture"
+          ]
         },
         {
           protocol: SESSION_BROKER_PROTOCOLS.NOVNC_LAB,
@@ -4772,10 +5679,23 @@ export class OperatorPortalService {
   }
 
   #normalizeSessionBrokerProtocol(value) {
-    const raw = String(value || "").trim().toLowerCase();
-    if (raw === "selkies" || raw === "webrtc" || raw === "selkies_webrtc") return SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES;
+    const raw = String(value || "")
+      .trim()
+      .toLowerCase();
+    if (raw === "selkies" || raw === "webrtc" || raw === "selkies_webrtc")
+      return SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES;
     if (raw === "guac" || raw === "apache_guacamole") return SESSION_BROKER_PROTOCOLS.GUACAMOLE;
-    if (["blind", "blind_e2ee", "sframe", "sframe_e2ee", "e2ee", "e2ee_stream", "phantom_blind"].includes(raw)) {
+    if (
+      [
+        "blind",
+        "blind_e2ee",
+        "sframe",
+        "sframe_e2ee",
+        "e2ee",
+        "e2ee_stream",
+        "phantom_blind"
+      ].includes(raw)
+    ) {
       return SESSION_BROKER_PROTOCOLS.BLIND_E2EE;
     }
     if (LAB_SESSION_BROKER_PROTOCOLS.has(raw)) return SESSION_BROKER_PROTOCOLS.NOVNC_LAB;
@@ -4784,76 +5704,96 @@ export class OperatorPortalService {
   }
 
   #sessionBrokerPolicy({ protocol = null, readiness = null, runtimeManifest = null } = {}) {
-    const selected = this.#normalizeSessionBrokerProtocol(protocol || this.#selectedSessionBrokerProtocol());
+    const selected = this.#normalizeSessionBrokerProtocol(
+      protocol || this.#selectedSessionBrokerProtocol()
+    );
     const labOnly = selected === SESSION_BROKER_PROTOCOLS.NOVNC_LAB;
-    const guacamoleReady = this.env?.SYLION_GUACAMOLE_BROKER_READY === "true"
-      || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE)
-      || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE);
-    const blindE2eeReady = this.env?.SYLION_BLIND_E2EE_STREAM_READY === "true"
-      || (
-        readiness?.ready === true
-        && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
-        && readiness.gateway.e2eeStream === true
-        && readiness.gateway.sframeValidated === true
-        && readiness.gateway.keySeparationVerified === true
-        && readiness.gateway.keysHeldByBroker !== true
-      )
-      || (
-        runtimeManifest?.ready === true
-        && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
-        && runtimeManifest.gateway.e2eeStream === true
-        && runtimeManifest.gateway.sframeValidated === true
-        && runtimeManifest.gateway.keySeparationVerified === true
-        && runtimeManifest.gateway.keysHeldByBroker !== true
-      );
-    const webrtcReady = this.env?.SYLION_SELKIES_GATEWAY_READY === "true"
-      || this.env?.SYLION_G2_STREAM_GATEWAY_READY === "true"
-      || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES)
-      || (readiness?.ready === true && readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES)
-      || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES)
-      || (runtimeManifest?.ready === true && runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
-    const gatewayReady = selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
-      ? guacamoleReady
-      : selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
-        ? blindE2eeReady
-      : selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
-        ? webrtcReady
-        : false;
+    const guacamoleReady =
+      this.env?.SYLION_GUACAMOLE_BROKER_READY === "true" ||
+      (readiness?.ready === true &&
+        readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE) ||
+      (runtimeManifest?.ready === true &&
+        runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE);
+    const blindE2eeReady =
+      this.env?.SYLION_BLIND_E2EE_STREAM_READY === "true" ||
+      (readiness?.ready === true &&
+        readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+        readiness.gateway.e2eeStream === true &&
+        readiness.gateway.sframeValidated === true &&
+        readiness.gateway.keySeparationVerified === true &&
+        readiness.gateway.keysHeldByBroker !== true) ||
+      (runtimeManifest?.ready === true &&
+        runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+        runtimeManifest.gateway.e2eeStream === true &&
+        runtimeManifest.gateway.sframeValidated === true &&
+        runtimeManifest.gateway.keySeparationVerified === true &&
+        runtimeManifest.gateway.keysHeldByBroker !== true);
+    const webrtcReady =
+      this.env?.SYLION_SELKIES_GATEWAY_READY === "true" ||
+      this.env?.SYLION_G2_STREAM_GATEWAY_READY === "true" ||
+      (readiness?.ready === true &&
+        readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES) ||
+      (readiness?.ready === true &&
+        readiness?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES) ||
+      (runtimeManifest?.ready === true &&
+        runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES) ||
+      (runtimeManifest?.ready === true &&
+        runtimeManifest?.gateway?.protocol === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES);
+    const gatewayReady =
+      selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
+        ? guacamoleReady
+        : selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
+          ? blindE2eeReady
+          : selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES ||
+              selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
+            ? webrtcReady
+            : false;
     const blockers = [
       ...(labOnly ? ["novnc_lab_only_not_approved_for_production_broker"] : []),
-      ...(selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE && !guacamoleReady ? ["guacamole_broker_poc_not_ready"] : []),
-      ...(selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && !blindE2eeReady
-        ? ["blind_e2ee_stream_poc_not_ready", "frame_encryption_proof_required", "broker_visibility_negative_test_required"]
+      ...(selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE && !guacamoleReady
+        ? ["guacamole_broker_poc_not_ready"]
         : []),
-      ...((selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES) && !webrtcReady
+      ...(selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && !blindE2eeReady
+        ? [
+            "blind_e2ee_stream_poc_not_ready",
+            "frame_encryption_proof_required",
+            "broker_visibility_negative_test_required"
+          ]
+        : []),
+      ...((selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES ||
+        selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES) &&
+      !webrtcReady
         ? ["webrtc_selkies_broker_poc_not_ready"]
         : [])
     ];
-    const brokerVisibility = selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
-      ? "broker_relays_encrypted_frames_only"
-      : selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
-        ? "broker_can_access_plaintext_pixel_stream"
-        : labOnly
-          ? "lab_adapter_not_phantom_ready"
-          : "broker_visibility_unproven_without_e2ee_key_separation";
-    const phantomBlockers = selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && blindE2eeReady
-      ? []
-      : [
-        "phantom_blind_broker_e2ee_required",
-        selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
-          ? "guacamole_is_interim_broker_visible_to_plaintext"
-          : "broker_visibility_negative_test_required",
-        "adr_human_gate_required_for_streaming_replacement"
-      ];
+    const brokerVisibility =
+      selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
+        ? "broker_relays_encrypted_frames_only"
+        : selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
+          ? "broker_can_access_plaintext_pixel_stream"
+          : labOnly
+            ? "lab_adapter_not_phantom_ready"
+            : "broker_visibility_unproven_without_e2ee_key_separation";
+    const phantomBlockers =
+      selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && blindE2eeReady
+        ? []
+        : [
+            "phantom_blind_broker_e2ee_required",
+            selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
+              ? "guacamole_is_interim_broker_visible_to_plaintext"
+              : "broker_visibility_negative_test_required",
+            "adr_human_gate_required_for_streaming_replacement"
+          ];
     return {
       protocol: selected,
       requiredLayer: "G2",
       gatewayReady,
       labOnly,
-      baselineUsable: selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
-        || selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES
-        || selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES
-        || selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
+      baselineUsable:
+        selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE ||
+        selected === SESSION_BROKER_PROTOCOLS.WEBRTC_SELKIES ||
+        selected === SESSION_BROKER_PROTOCOLS.LEGACY_WEBRTC_OR_SELKIES ||
+        selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
       interimOnly: selected !== SESSION_BROKER_PROTOCOLS.BLIND_E2EE && !labOnly,
       productionCandidate: selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE,
       productionApproved: false,
@@ -4875,23 +5815,28 @@ export class OperatorPortalService {
         ],
         blockers: phantomBlockers
       },
-      encryption: selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE ? {
-        terminalToG2: "tls_over_ipsec_required",
-        guacamoleWebappToGuacd: "tls_required",
-        g2ToWorkload: "tls_stunnel_or_ipsec_required",
-        workloadToMicroVm: "host_local_tap_or_vsock_only",
-        brokerCanInspectPlaintext: true
-      } : selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE ? {
-        terminalToG2: "tls_over_ipsec_required",
-        frameEncryption: "sframe_or_approved_e2ee_required",
-        keyAgreement: "terminal_to_microvm_or_hsm_bound_session_key_required",
-        keysAvailableToG2: false,
-        g2Role: "relay_auth_limit_audit_no_plaintext"
-      } : {
-        terminalToG2: "tls_over_ipsec_required",
-        g2ToWorkload: "approved_broker_transport_required",
-        brokerCanInspectPlaintext: "unproven"
-      },
+      encryption:
+        selected === SESSION_BROKER_PROTOCOLS.GUACAMOLE
+          ? {
+              terminalToG2: "tls_over_ipsec_required",
+              guacamoleWebappToGuacd: "tls_required",
+              g2ToWorkload: "tls_stunnel_or_ipsec_required",
+              workloadToMicroVm: "host_local_tap_or_vsock_only",
+              brokerCanInspectPlaintext: true
+            }
+          : selected === SESSION_BROKER_PROTOCOLS.BLIND_E2EE
+            ? {
+                terminalToG2: "tls_over_ipsec_required",
+                frameEncryption: "sframe_or_approved_e2ee_required",
+                keyAgreement: "terminal_to_microvm_or_hsm_bound_session_key_required",
+                keysAvailableToG2: false,
+                g2Role: "relay_auth_limit_audit_no_plaintext"
+              }
+            : {
+                terminalToG2: "tls_over_ipsec_required",
+                g2ToWorkload: "approved_broker_transport_required",
+                brokerCanInspectPlaintext: "unproven"
+              },
       blockers,
       candidates: this.#sessionBrokerCatalog().candidates.map((candidate) => ({
         protocol: candidate.protocol,
@@ -4907,35 +5852,64 @@ export class OperatorPortalService {
   }
 
   #streamGatewayReady(readiness, env) {
-    if (readiness?.gateway?.g2StreamGatewayReady === true
-      && readiness.gateway.publicInternetExposure === false
-      && readiness.gateway.tlsInternalOnly === true
-      && readiness.gateway.inputProxyReady === true) {
+    if (
+      readiness?.gateway?.g2StreamGatewayReady === true &&
+      readiness.gateway.publicInternetExposure === false &&
+      readiness.gateway.tlsInternalOnly === true &&
+      readiness.gateway.inputProxyReady === true
+    ) {
       return true;
     }
-    return env.SYLION_G2_STREAM_GATEWAY_READY === "true"
-      || env.SYLION_SELKIES_GATEWAY_READY === "true"
-      || env.SYLION_GUACAMOLE_BROKER_READY === "true";
+    return (
+      env.SYLION_G2_STREAM_GATEWAY_READY === "true" ||
+      env.SYLION_SELKIES_GATEWAY_READY === "true" ||
+      env.SYLION_GUACAMOLE_BROKER_READY === "true"
+    );
   }
 
   #streamSourceBlockers({ templateKey, env, readiness = null }) {
     const envKey = `SYLION_${templateKey.toUpperCase().replaceAll("-", "_")}_STREAM_SOURCE_READY`;
-    const sourceReady = readiness?.sources?.[templateKey] === true || env.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true" || env[envKey] === "true";
+    const sourceReady =
+      readiness?.sources?.[templateKey] === true ||
+      env.SYLION_WORKLOAD_STREAM_SOURCE_READY === "true" ||
+      env[envKey] === "true";
     return sourceReady ? [] : [`${templateKey}_stream_source_not_ready`];
   }
 
   #streamingReadinessBlockers(evidence) {
-    const sourceReady = Object.entries(evidence.sources || {}).filter(([, ready]) => ready === true).map(([key]) => key);
+    const sourceReady = Object.entries(evidence.sources || {})
+      .filter(([, ready]) => ready === true)
+      .map(([key]) => key);
     return [
       ...(evidence.gateway.g2StreamGatewayReady ? [] : ["g2_stream_gateway_not_ready"]),
-      ...(evidence.gateway.publicInternetExposure ? ["g2_stream_gateway_public_exposure_forbidden"] : []),
+      ...(evidence.gateway.publicInternetExposure
+        ? ["g2_stream_gateway_public_exposure_forbidden"]
+        : []),
       ...(evidence.gateway.tlsInternalOnly ? [] : ["g2_stream_gateway_internal_tls_required"]),
-      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && evidence.gateway.guacdTls !== true ? ["guacamole_guacd_tls_required"] : []),
-      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && evidence.gateway.g2ToWorkloadEncrypted !== true ? ["g2_workload_stream_transport_encryption_required"] : []),
-      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && evidence.gateway.e2eeStream !== true ? ["blind_e2ee_frame_encryption_required"] : []),
-      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && evidence.gateway.sframeValidated !== true ? ["sframe_validation_required"] : []),
-      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && evidence.gateway.keySeparationVerified !== true ? ["stream_key_separation_required"] : []),
-      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && evidence.gateway.keysHeldByBroker === true ? ["g2_must_not_hold_stream_keys"] : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE &&
+      evidence.gateway.guacdTls !== true
+        ? ["guacamole_guacd_tls_required"]
+        : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE &&
+      evidence.gateway.g2ToWorkloadEncrypted !== true
+        ? ["g2_workload_stream_transport_encryption_required"]
+        : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+      evidence.gateway.e2eeStream !== true
+        ? ["blind_e2ee_frame_encryption_required"]
+        : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+      evidence.gateway.sframeValidated !== true
+        ? ["sframe_validation_required"]
+        : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+      evidence.gateway.keySeparationVerified !== true
+        ? ["stream_key_separation_required"]
+        : []),
+      ...(evidence.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+      evidence.gateway.keysHeldByBroker === true
+        ? ["g2_must_not_hold_stream_keys"]
+        : []),
       ...(evidence.gateway.inputProxyReady ? [] : ["g2_input_proxy_not_ready"]),
       ...(evidence.broker?.blockers || []),
       ...(sourceReady.length ? [] : ["at_least_one_workload_stream_source_required"])
@@ -4945,19 +5919,43 @@ export class OperatorPortalService {
   #streamingRuntimeManifestBlockers(manifest) {
     const sourceEntries = Object.entries(manifest.sources || {});
     return [
-      ...(this.#privateBindAllowed(manifest.gateway.bindAddress) ? [] : ["g2_gateway_private_bind_required"]),
+      ...(this.#privateBindAllowed(manifest.gateway.bindAddress)
+        ? []
+        : ["g2_gateway_private_bind_required"]),
       ...(manifest.gateway.publicInternetExposure ? ["g2_gateway_public_exposure_forbidden"] : []),
-      ...(manifest.gateway.tlsMode === "internal_tls_only" ? [] : ["g2_gateway_internal_tls_required"]),
-      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && manifest.gateway.guacdTls !== true ? ["guacamole_guacd_tls_required"] : []),
-      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE && manifest.gateway.g2ToWorkloadEncrypted !== true ? ["g2_workload_stream_transport_encryption_required"] : []),
-      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && manifest.gateway.e2eeStream !== true ? ["blind_e2ee_frame_encryption_required"] : []),
-      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && manifest.gateway.sframeValidated !== true ? ["sframe_validation_required"] : []),
-      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && manifest.gateway.keySeparationVerified !== true ? ["stream_key_separation_required"] : []),
-      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE && manifest.gateway.keysHeldByBroker === true ? ["g2_must_not_hold_stream_keys"] : []),
+      ...(manifest.gateway.tlsMode === "internal_tls_only"
+        ? []
+        : ["g2_gateway_internal_tls_required"]),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE &&
+      manifest.gateway.guacdTls !== true
+        ? ["guacamole_guacd_tls_required"]
+        : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.GUACAMOLE &&
+      manifest.gateway.g2ToWorkloadEncrypted !== true
+        ? ["g2_workload_stream_transport_encryption_required"]
+        : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+      manifest.gateway.e2eeStream !== true
+        ? ["blind_e2ee_frame_encryption_required"]
+        : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+      manifest.gateway.sframeValidated !== true
+        ? ["sframe_validation_required"]
+        : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+      manifest.gateway.keySeparationVerified !== true
+        ? ["stream_key_separation_required"]
+        : []),
+      ...(manifest.gateway.protocol === SESSION_BROKER_PROTOCOLS.BLIND_E2EE &&
+      manifest.gateway.keysHeldByBroker === true
+        ? ["g2_must_not_hold_stream_keys"]
+        : []),
       ...(manifest.broker?.blockers || []),
       ...(sourceEntries.length ? [] : ["at_least_one_stream_source_manifest_required"]),
       ...sourceEntries.flatMap(([key, source]) => [
-        ...(this.#privateBindAllowed(source.bindAddress) ? [] : [`${key}_source_private_bind_required`]),
+        ...(this.#privateBindAllowed(source.bindAddress)
+          ? []
+          : [`${key}_source_private_bind_required`]),
         ...(source.cdrRequired ? [] : [`${key}_source_cdr_required`]),
         ...(source.terminalDataStored === false ? [] : [`${key}_terminal_data_storage_forbidden`])
       ])
@@ -5002,8 +6000,14 @@ export class OperatorPortalService {
       frameEnvelope: {
         ...session.frameEnvelope,
         ingestEndpoint: session.frameEnvelope.ingestEndpoint.replace("{sessionId}", session.id),
-        latestFrameEndpoint: session.frameEnvelope.latestFrameEndpoint.replace("{sessionId}", session.id),
-        eventStreamEndpoint: session.frameEnvelope.eventStreamEndpoint.replace("{sessionId}", session.id)
+        latestFrameEndpoint: session.frameEnvelope.latestFrameEndpoint.replace(
+          "{sessionId}",
+          session.id
+        ),
+        eventStreamEndpoint: session.frameEnvelope.eventStreamEndpoint.replace(
+          "{sessionId}",
+          session.id
+        )
       },
       proof: session.proof,
       security: session.security,
@@ -5078,13 +6082,25 @@ export class OperatorPortalService {
   }
 
   #normalizeBlindE2eeAlgorithm(value) {
-    const algorithm = String(value || "").trim().toUpperCase();
-    if (["SFRAME_RFC9605_COMPAT", "AES_256_GCM_SFRAME_COMPAT", "ECDH_P384_AES_256_GCM_FRAME_V1"].includes(algorithm)) {
+    const algorithm = String(value || "")
+      .trim()
+      .toUpperCase();
+    if (
+      [
+        "SFRAME_RFC9605_COMPAT",
+        "AES_256_GCM_SFRAME_COMPAT",
+        "ECDH_P384_AES_256_GCM_FRAME_V1"
+      ].includes(algorithm)
+    ) {
       return algorithm;
     }
     throw validationError("Unsupported Blind E2EE frame algorithm", {
       algorithm,
-      supported: ["SFRAME_RFC9605_COMPAT", "AES_256_GCM_SFRAME_COMPAT", "ECDH_P384_AES_256_GCM_FRAME_V1"]
+      supported: [
+        "SFRAME_RFC9605_COMPAT",
+        "AES_256_GCM_SFRAME_COMPAT",
+        "ECDH_P384_AES_256_GCM_FRAME_V1"
+      ]
     });
   }
 
@@ -5098,7 +6114,9 @@ export class OperatorPortalService {
   }
 
   #safeBlindE2eeContentType(value) {
-    const contentType = String(value || "application/octet-stream").trim().toLowerCase();
+    const contentType = String(value || "application/octet-stream")
+      .trim()
+      .toLowerCase();
     if (!BLIND_E2EE_ALLOWED_CONTENT_TYPES.has(contentType)) {
       throw validationError("Unsupported Blind E2EE frame content type", {
         contentType,
@@ -5148,7 +6166,9 @@ export class OperatorPortalService {
       x: String(value.x || "").trim(),
       y: String(value.y || "").trim(),
       ext: value.ext === true,
-      key_ops: Array.isArray(value.key_ops) ? value.key_ops.filter((op) => typeof op === "string").slice(0, 4) : []
+      key_ops: Array.isArray(value.key_ops)
+        ? value.key_ops.filter((op) => typeof op === "string").slice(0, 4)
+        : []
     };
     if (publicJwk.kty !== "EC" || publicJwk.crv !== "P-384") {
       throw validationError(`Blind E2EE ${field} must use EC P-384`, {
@@ -5156,7 +6176,10 @@ export class OperatorPortalService {
         supported: "EC/P-384"
       });
     }
-    if (!/^[A-Za-z0-9_-]{60,96}$/.test(publicJwk.x) || !/^[A-Za-z0-9_-]{60,96}$/.test(publicJwk.y)) {
+    if (
+      !/^[A-Za-z0-9_-]{60,96}$/.test(publicJwk.x) ||
+      !/^[A-Za-z0-9_-]{60,96}$/.test(publicJwk.y)
+    ) {
       throw validationError(`Blind E2EE ${field} has invalid EC coordinates`, {
         field,
         coordinateEncoding: "base64url"
@@ -5171,7 +6194,10 @@ export class OperatorPortalService {
       return `[${value.map((entry) => this.#stableJson(entry)).join(",")}]`;
     }
     if (value && typeof value === "object") {
-      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${this.#stableJson(value[key])}`).join(",")}}`;
+      return `{${Object.keys(value)
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${this.#stableJson(value[key])}`)
+        .join(",")}}`;
     }
     return JSON.stringify(value);
   }
@@ -5191,13 +6217,21 @@ export class OperatorPortalService {
     if (!value || typeof value !== "object") return;
     for (const [key, nested] of Object.entries(value)) {
       const currentPath = [...path, key];
-      if (!BLIND_E2EE_ALLOWED_NONSECRET_FIELDS.has(key) && BLIND_E2EE_FORBIDDEN_FIELD_PATTERN.test(key)) {
+      if (
+        !BLIND_E2EE_ALLOWED_NONSECRET_FIELDS.has(key) &&
+        BLIND_E2EE_FORBIDDEN_FIELD_PATTERN.test(key)
+      ) {
         throw validationError("Blind E2EE broker rejected plaintext, key, or content-like field", {
           field: currentPath.join("."),
           allowed: "encrypted_frame_metadata_only"
         });
       }
-      if (!BLIND_E2EE_ALLOWED_NONSECRET_FIELDS.has(key) && typeof nested === "string" && BLIND_E2EE_FORBIDDEN_FIELD_PATTERN.test(nested) && /plain|secret|private|seed|mnemonic|password|message|wallet/i.test(nested)) {
+      if (
+        !BLIND_E2EE_ALLOWED_NONSECRET_FIELDS.has(key) &&
+        typeof nested === "string" &&
+        BLIND_E2EE_FORBIDDEN_FIELD_PATTERN.test(nested) &&
+        /plain|secret|private|seed|mnemonic|password|message|wallet/i.test(nested)
+      ) {
         throw validationError("Blind E2EE broker rejected content-like field value", {
           field: currentPath.join("."),
           allowed: "encrypted_frame_metadata_only"
@@ -5210,7 +6244,9 @@ export class OperatorPortalService {
   }
 
   #blindE2eeCiphertextMetadata(body) {
-    const providedHash = String(body.ciphertextSha256 || "").trim().toLowerCase();
+    const providedHash = String(body.ciphertextSha256 || "")
+      .trim()
+      .toLowerCase();
     const providedLength = body.ciphertextLength;
     const ciphertextB64 = String(body.ciphertextB64 || "").trim();
     if (ciphertextB64) {
@@ -5234,16 +6270,27 @@ export class OperatorPortalService {
       };
     }
     if (!/^[0-9a-f]{64}$/.test(providedHash)) {
-      throw validationError("ciphertextSha256 must be a SHA-256 hex digest when ciphertextB64 is not provided", {
-        field: "ciphertextSha256"
-      });
+      throw validationError(
+        "ciphertextSha256 must be a SHA-256 hex digest when ciphertextB64 is not provided",
+        {
+          field: "ciphertextSha256"
+        }
+      );
     }
-    const length = this.#normalizeInteger(providedLength, "ciphertextLength", 1, BLIND_E2EE_MAX_FRAME_BYTES, 1);
+    const length = this.#normalizeInteger(
+      providedLength,
+      "ciphertextLength",
+      1,
+      BLIND_E2EE_MAX_FRAME_BYTES,
+      1
+    );
     return { sha256: providedHash, length };
   }
 
   #blindE2eeHeaderMetadata(body) {
-    const providedHash = String(body.sframeHeaderSha256 || "").trim().toLowerCase();
+    const providedHash = String(body.sframeHeaderSha256 || "")
+      .trim()
+      .toLowerCase();
     const providedLength = body.sframeHeaderLength;
     const headerB64 = String(body.sframeHeaderB64 || "").trim();
     if (headerB64) {
@@ -5270,7 +6317,13 @@ export class OperatorPortalService {
         field: "sframeHeaderSha256"
       });
     }
-    const length = this.#normalizeInteger(providedLength, "sframeHeaderLength", 0, 4096, providedHash ? 1 : 0);
+    const length = this.#normalizeInteger(
+      providedLength,
+      "sframeHeaderLength",
+      0,
+      4096,
+      providedHash ? 1 : 0
+    );
     return {
       sha256: providedHash || null,
       length
@@ -5343,15 +6396,19 @@ export class OperatorPortalService {
     const destructive = action !== "scale_to_counts";
     const nativeFirecracker = this.#nativeFirecrackerRunnerEnabled();
     const mappedRunnerApp = LIVE_RECREATE_APP_MAP[rotateApp] || "unsupported";
-    const supportedByLiveRunner = destructive && (nativeFirecracker
-      ? action === "rotate_app" && NATIVE_FIRECRACKER_RECREATE_APPS.has(mappedRunnerApp)
-      : action === "recreate_all" || Boolean(LIVE_RECREATE_APP_MAP[rotateApp]));
+    const supportedByLiveRunner =
+      destructive &&
+      (nativeFirecracker
+        ? action === "rotate_app" && NATIVE_FIRECRACKER_RECREATE_APPS.has(mappedRunnerApp)
+        : action === "recreate_all" || Boolean(LIVE_RECREATE_APP_MAP[rotateApp]));
     return {
       mode: action,
       targetApp: rotateApp,
       totalRequested,
       runner: destructive
-        ? nativeFirecracker ? "native_firecracker_gui_runner_pending_gate" : "workload_recreate_runner_pending_gate"
+        ? nativeFirecracker
+          ? "native_firecracker_gui_runner_pending_gate"
+          : "workload_recreate_runner_pending_gate"
         : "workload_count_reconcile_runner_pending_gate",
       stages: [
         "quota_check_passed",
@@ -5369,29 +6426,36 @@ export class OperatorPortalService {
         checked: true,
         destructiveActionRequiresSessionUnlock: true
       },
-      liveRunner: destructive ? {
-        command: action === "rotate_app"
-          ? nativeFirecracker
-            ? `SYLION_GUI_APP=${mappedRunnerApp} node scripts/launch-native-firecracker-gui-workload.mjs --apply`
-            : `npm run live:workload-recreate -- --app=${mappedRunnerApp}`
-          : nativeFirecracker ? "unsupported_in_native_firecracker_mode" : "npm run live:workload-recreate -- --app=all",
-        wipeVolumeDefault: false,
-        wipeVolumeRequiresPanicOrFourEyes: true,
-        signalAuthHandoffRequired: action === "recreate_all" || rotateApp === "signal",
-        backendEndpoint: "/operator-api/workload-control/requests/:id/execute",
-        confirmationPhrase: "RUN_LIVE_WORKLOAD_RECREATE",
-        supportedByLiveRunner,
-        expectedEvidence: [
-          nativeFirecracker ? "native_firecracker_gui_workload" : "live_workload_recreate",
-          "cdrRequired=true",
-          "terminalDataStored=false",
-          "privateBindOnly=true",
-          "signalStatus=200 when signal is recreated"
-        ]
-      } : null,
+      liveRunner: destructive
+        ? {
+            command:
+              action === "rotate_app"
+                ? nativeFirecracker
+                  ? `SYLION_GUI_APP=${mappedRunnerApp} node scripts/launch-native-firecracker-gui-workload.mjs --apply`
+                  : `npm run live:workload-recreate -- --app=${mappedRunnerApp}`
+                : nativeFirecracker
+                  ? "unsupported_in_native_firecracker_mode"
+                  : "npm run live:workload-recreate -- --app=all",
+            wipeVolumeDefault: false,
+            wipeVolumeRequiresPanicOrFourEyes: true,
+            signalAuthHandoffRequired: action === "recreate_all" || rotateApp === "signal",
+            backendEndpoint: "/operator-api/workload-control/requests/:id/execute",
+            confirmationPhrase: "RUN_LIVE_WORKLOAD_RECREATE",
+            supportedByLiveRunner,
+            expectedEvidence: [
+              nativeFirecracker ? "native_firecracker_gui_workload" : "live_workload_recreate",
+              "cdrRequired=true",
+              "terminalDataStored=false",
+              "privateBindOnly=true",
+              "signalStatus=200 when signal is recreated"
+            ]
+          }
+        : null,
       targetRefs: destructive
         ? [`workload-slot://${operatorId}/${action === "rotate_app" ? rotateApp : "all"}`]
-        : Object.entries(desiredCounts).filter(([, count]) => count > 0).map(([app, count]) => `workload-desired://${operatorId}/${app}/${count}`),
+        : Object.entries(desiredCounts)
+            .filter(([, count]) => count > 0)
+            .map(([app, count]) => `workload-desired://${operatorId}/${app}/${count}`),
       productionExecutionAllowed: false,
       sideEffectAllowed: false
     };
@@ -5403,7 +6467,8 @@ export class OperatorPortalService {
 
   #sessionHoursForOperator(operatorId, tier) {
     const policy = this.unlockPolicies.get(operatorId);
-    if (policy?.sessionHours) return this.#normalizeSessionHours(policy.sessionHours, this.#tierSessionMax(tier));
+    if (policy?.sessionHours)
+      return this.#normalizeSessionHours(policy.sessionHours, this.#tierSessionMax(tier));
     return Math.min(12, this.#tierSessionMax(tier));
   }
 
@@ -5416,7 +6481,10 @@ export class OperatorPortalService {
   }
 
   #normalizeSessionHours(value, maxHours) {
-    const hours = value === undefined || value === null || value === "" ? Math.min(12, maxHours) : Number(value);
+    const hours =
+      value === undefined || value === null || value === ""
+        ? Math.min(12, maxHours)
+        : Number(value);
     if (!Number.isInteger(hours) || hours < 1 || hours > maxHours) {
       throw validationError("Session duration exceeds tier policy", {
         sessionHours: value,
@@ -5430,7 +6498,12 @@ export class OperatorPortalService {
   #normalizeInteger(value, field, min, max, fallback) {
     const number = value === undefined || value === null || value === "" ? fallback : Number(value);
     if (!Number.isInteger(number) || number < min || number > max) {
-      throw validationError(`${field} must be between ${min} and ${max}`, { field, value, min, max });
+      throw validationError(`${field} must be between ${min} and ${max}`, {
+        field,
+        value,
+        min,
+        max
+      });
     }
     return number;
   }
@@ -5444,13 +6517,18 @@ export class OperatorPortalService {
       operatorId,
       sessionHours: Math.min(12, this.#tierSessionMax(tier)),
       sessionExpiresAfterHours: Math.min(12, this.#tierSessionMax(tier)),
-      layers: Object.fromEntries(UNLOCK_LAYERS.map((layer) => [layer, {
-        layer,
-        passwordSet: false,
-        passwordVerifierRef: null,
-        rotatedAt: null,
-        passwordMaterialStored: false
-      }])),
+      layers: Object.fromEntries(
+        UNLOCK_LAYERS.map((layer) => [
+          layer,
+          {
+            layer,
+            passwordSet: false,
+            passwordVerifierRef: null,
+            rotatedAt: null,
+            passwordMaterialStored: false
+          }
+        ])
+      ),
       fido2: {
         requiredAtSessionEnd: true,
         deferred: true,
@@ -5481,16 +6559,21 @@ export class OperatorPortalService {
       sessionHours: policy.sessionHours,
       sessionExpiresAfterHours: policy.sessionExpiresAfterHours,
       maxSessionHoursByTier: this.#tierSessionMax(this.#requireOperator(policy.operatorId).tier),
-      layers: Object.fromEntries(UNLOCK_LAYERS.map((layer) => {
-        const entry = policy.layers[layer];
-        return [layer, {
-          layer,
-          passwordSet: entry?.passwordSet === true,
-          passwordVerifierRef: entry?.passwordVerifierRef || null,
-          rotatedAt: entry?.rotatedAt || null,
-          passwordMaterialStored: false
-        }];
-      })),
+      layers: Object.fromEntries(
+        UNLOCK_LAYERS.map((layer) => {
+          const entry = policy.layers[layer];
+          return [
+            layer,
+            {
+              layer,
+              passwordSet: entry?.passwordSet === true,
+              passwordVerifierRef: entry?.passwordVerifierRef || null,
+              rotatedAt: entry?.rotatedAt || null,
+              passwordMaterialStored: false
+            }
+          ];
+        })
+      ),
       fido2: policy.fido2,
       unlockDuringActiveSession: true,
       productionExecutionAllowed: false,
@@ -5519,13 +6602,18 @@ export class OperatorPortalService {
         lastSessionAt: this.#latestSessionForOperator(operatorId)?.createdAt || null,
         state: "armed_control_plane"
       },
-      panicCodes: Object.fromEntries(PANIC_LEVELS.map((level) => [level, {
-        level,
-        codeSet: false,
-        verifierRef: null,
-        rotatedAt: null,
-        codeMaterialStored: false
-      }])),
+      panicCodes: Object.fromEntries(
+        PANIC_LEVELS.map((level) => [
+          level,
+          {
+            level,
+            codeSet: false,
+            verifierRef: null,
+            rotatedAt: null,
+            codeMaterialStored: false
+          }
+        ])
+      ),
       createdAt: now,
       updatedAt: now,
       productionExecutionAllowed: false,
@@ -5539,16 +6627,21 @@ export class OperatorPortalService {
       operatorId: policy.operatorId,
       backup: policy.backup,
       inactivityWipe: policy.inactivityWipe,
-      panicCodes: Object.fromEntries(PANIC_LEVELS.map((level) => {
-        const entry = policy.panicCodes[level];
-        return [level, {
-          level,
-          codeSet: entry?.codeSet === true,
-          verifierRef: entry?.verifierRef || null,
-          rotatedAt: entry?.rotatedAt || null,
-          codeMaterialStored: false
-        }];
-      })),
+      panicCodes: Object.fromEntries(
+        PANIC_LEVELS.map((level) => {
+          const entry = policy.panicCodes[level];
+          return [
+            level,
+            {
+              level,
+              codeSet: entry?.codeSet === true,
+              verifierRef: entry?.verifierRef || null,
+              rotatedAt: entry?.rotatedAt || null,
+              codeMaterialStored: false
+            }
+          ];
+        })
+      ),
       destructiveExecutionAllowed: false,
       productionExecutionAllowed: false,
       sideEffectAllowed: false,
@@ -5557,9 +6650,10 @@ export class OperatorPortalService {
   }
 
   #latestSessionForOperator(operatorId) {
-    return [...this.sessions.values()]
-      .filter((session) => session.operatorId === operatorId)
-      .at(-1) || null;
+    return (
+      [...this.sessions.values()].filter((session) => session.operatorId === operatorId).at(-1) ||
+      null
+    );
   }
 
   #jurisdictionPolicyForOperator({ operatorActor, correlationId }) {
@@ -5614,7 +6708,9 @@ export class OperatorPortalService {
       tier: subscription.plan,
       requiredRuntime: subscription.quota.providerPolicy?.confidentialComputeRequired
         ? "confidential"
-        : subscription.quota.providerPolicy?.firecrackerRequired ? "firecracker" : "containers",
+        : subscription.quota.providerPolicy?.firecrackerRequired
+          ? "firecracker"
+          : "containers",
       providers: [],
       countries: [],
       regions: [],
@@ -5628,10 +6724,13 @@ export class OperatorPortalService {
     const options = this.#jurisdictionOptionsForSubscription(subscription);
     if (!options.providerCatalogConfigured) return;
     if (!options.providers.length) {
-      throw validationError("No provider locations are available for this subscription runtime policy", {
-        tier: subscription.plan,
-        requiredRuntime: options.requiredRuntime
-      });
+      throw validationError(
+        "No provider locations are available for this subscription runtime policy",
+        {
+          tier: subscription.plan,
+          requiredRuntime: options.requiredRuntime
+        }
+      );
     }
     const availableProviders = new Set(options.providers.map((provider) => provider.providerKey));
     const availableCountries = new Set(options.countries);
@@ -5639,39 +6738,57 @@ export class OperatorPortalService {
     const unknownProviders = providers.filter((provider) => !availableProviders.has(provider));
     const unknownCountries = countries.filter((country) => !availableCountries.has(country));
     const unknownRegions = regions.filter((region) => !availableRegions.has(region));
-    const regionsByProvider = new Map(options.providers.map((provider) => [
-      provider.providerKey,
-      new Set(provider.regions.map((region) => region.region))
-    ]));
-    const countriesByProvider = new Map(options.providers.map((provider) => [
-      provider.providerKey,
-      new Set(provider.countries)
-    ]));
-    const incompatibleRegions = providers.length && regions.length
-      ? regions.filter((region) => !providers.some((provider) => regionsByProvider.get(provider)?.has(region)))
-      : [];
-    const incompatibleCountries = providers.length && countries.length
-      ? countries.filter((country) => !providers.some((provider) => countriesByProvider.get(provider)?.has(country)))
-      : [];
-    if (unknownProviders.length || unknownCountries.length || unknownRegions.length || incompatibleRegions.length || incompatibleCountries.length) {
-      throw validationError("Jurisdiction selection is not available from configured providers for this tier", {
-        tier: subscription.plan,
-        requiredRuntime: options.requiredRuntime,
-        unknownProviders,
-        unknownCountries,
-        unknownRegions,
-        incompatibleRegions,
-        incompatibleCountries,
-        availableProviders: [...availableProviders],
-        availableCountries: [...availableCountries],
-        availableRegions: [...availableRegions]
-      });
+    const regionsByProvider = new Map(
+      options.providers.map((provider) => [
+        provider.providerKey,
+        new Set(provider.regions.map((region) => region.region))
+      ])
+    );
+    const countriesByProvider = new Map(
+      options.providers.map((provider) => [provider.providerKey, new Set(provider.countries)])
+    );
+    const incompatibleRegions =
+      providers.length && regions.length
+        ? regions.filter(
+            (region) => !providers.some((provider) => regionsByProvider.get(provider)?.has(region))
+          )
+        : [];
+    const incompatibleCountries =
+      providers.length && countries.length
+        ? countries.filter(
+            (country) =>
+              !providers.some((provider) => countriesByProvider.get(provider)?.has(country))
+          )
+        : [];
+    if (
+      unknownProviders.length ||
+      unknownCountries.length ||
+      unknownRegions.length ||
+      incompatibleRegions.length ||
+      incompatibleCountries.length
+    ) {
+      throw validationError(
+        "Jurisdiction selection is not available from configured providers for this tier",
+        {
+          tier: subscription.plan,
+          requiredRuntime: options.requiredRuntime,
+          unknownProviders,
+          unknownCountries,
+          unknownRegions,
+          incompatibleRegions,
+          incompatibleCountries,
+          availableProviders: [...availableProviders],
+          availableCountries: [...availableCountries],
+          availableRegions: [...availableRegions]
+        }
+      );
     }
   }
 
   #normalizeJurisdictionFrequency(value, quota) {
     const min = Number(quota.jurisdictionPolicy?.minFrequencyHours || 168);
-    const frequencyHours = value === undefined || value === null || value === "" ? min : Number(value);
+    const frequencyHours =
+      value === undefined || value === null || value === "" ? min : Number(value);
     if (!Number.isInteger(frequencyHours) || frequencyHours < min || frequencyHours > 8760) {
       throw validationError("Jurisdiction rotation frequency is outside subscription tier policy", {
         frequencyHours: value,
@@ -5685,11 +6802,22 @@ export class OperatorPortalService {
   #rotationScopesForJurisdictionMode(mode, quota) {
     if (mode === "disabled") return [];
     if (mode === "manual") return ["session", "ip_route", "region"];
-    if (mode === "scheduled") return quota.jurisdictionPolicy?.providerRotationAllowed
-      ? ["session", "ip_route", "region", "provider", "workload_vps"]
-      : ["session", "ip_route", "region"];
+    if (mode === "scheduled")
+      return quota.jurisdictionPolicy?.providerRotationAllowed
+        ? ["session", "ip_route", "region", "provider", "workload_vps"]
+        : ["session", "ip_route", "region"];
     return quota.jurisdictionPolicy?.allVpsRotationAllowed
-      ? ["session", "ip_route", "region", "provider", "workload_vps", "g1", "g2", "all_3_vps", "certificates"]
+      ? [
+          "session",
+          "ip_route",
+          "region",
+          "provider",
+          "workload_vps",
+          "g1",
+          "g2",
+          "all_3_vps",
+          "certificates"
+        ]
       : ["session", "ip_route", "region", "provider", "workload_vps"];
   }
 
@@ -5718,12 +6846,14 @@ export class OperatorPortalService {
     const checkStatus = (key) => manifest?.checks?.find((check) => check.key === key)?.status;
     const androidImageRef = env.SYLION_ANDROID_WORKLOAD_IMAGE_REF || manifest?.imageRef || null;
     const zangiApkRef = env.SYLION_ZANGI_APK_REF || manifest?.packageRef || null;
-    const kvmReady = env.SYLION_ANDROID_KVM_READY === "true"
-      || env.SYLION_KVM_READY === "true"
-      || checkStatus("host_lab_ready") === "passed";
-    const binderReady = env.SYLION_ANDROID_BINDER_READY === "true"
-      || env.SYLION_ANDROID_BINDERFS_READY === "true"
-      || checkStatus("android_binderfs_evidence") === "passed";
+    const kvmReady =
+      env.SYLION_ANDROID_KVM_READY === "true" ||
+      env.SYLION_KVM_READY === "true" ||
+      checkStatus("host_lab_ready") === "passed";
+    const binderReady =
+      env.SYLION_ANDROID_BINDER_READY === "true" ||
+      env.SYLION_ANDROID_BINDERFS_READY === "true" ||
+      checkStatus("android_binderfs_evidence") === "passed";
     const checks = [
       {
         key: "kvm_device",
@@ -5751,7 +6881,9 @@ export class OperatorPortalService {
       required: true,
       runtimeClass: "android_workload",
       hostRequirement: "kvm_or_bare_metal_with_binderfs",
-      currentProviderFit: blockers.length ? "blocked_on_current_host" : "ready_for_android_runner_review",
+      currentProviderFit: blockers.length
+        ? "blocked_on_current_host"
+        : "ready_for_android_runner_review",
       evidenceSource: manifest ? "workload_image_manifest" : "environment_gate",
       manifestId: manifest?.id || null,
       refs: {
@@ -5768,8 +6900,9 @@ export class OperatorPortalService {
     const path = this.#connectionPathForOperator({ operatorId, terminalMode, deviceId });
     const normalizedTemplate = this.#normalizeWorkloadTemplate(templateKey || "signal");
     const appDefinition = this.#appDefinition(normalizedTemplate);
-    const slot = path.microVmSlots.find((item) => item.templateKey === normalizedTemplate)
-      || path.microVmSlots.find((item) => item.appName?.toLowerCase() === normalizedTemplate);
+    const slot =
+      path.microVmSlots.find((item) => item.templateKey === normalizedTemplate) ||
+      path.microVmSlots.find((item) => item.appName?.toLowerCase() === normalizedTemplate);
     const androidRuntimeRequired = ANDROID_WORKLOAD_APPS.has(normalizedTemplate);
     const androidRuntime = this.#androidRuntimeSubstrate();
     const env = this.env || {};
@@ -5786,23 +6919,41 @@ export class OperatorPortalService {
       hsmCertificateRef: env.SYLION_OPERATOR_HSM_CERT_REF || null
     };
     const hsmFidoDeferred = env.SYLION_DEFER_PHYSICAL_HSM_FIDO2 === "true";
-    const vpnReady = env.SYLION_REAL_IPSEC_READY === "true" || env.SYLION_IPSEC_PROFILE_STATUS === "established";
+    const vpnReady =
+      env.SYLION_REAL_IPSEC_READY === "true" || env.SYLION_IPSEC_PROFILE_STATUS === "established";
     const kvmReady = env.SYLION_KVM_READY === "true";
-    const firecrackerReady = Boolean(runtimeRefs.firecrackerBinary && runtimeRefs.kernelImageRef && runtimeRefs.rootfsImageRef && kvmReady);
+    const firecrackerReady = Boolean(
+      runtimeRefs.firecrackerBinary &&
+      runtimeRefs.kernelImageRef &&
+      runtimeRefs.rootfsImageRef &&
+      kvmReady
+    );
     const cdrReady = true;
     const blockers = [
       ...(slot ? [] : [`${normalizedTemplate}_workload_slot_missing`]),
       ...(path.state === "local_lab_connected" ? [] : ["g1_g2_workload_path_not_ready"]),
-      ...(androidRuntimeRequired ? androidRuntime.blockers.map((blocker) => `android_${blocker}_not_ready`) : [
-        ...(runtimeRefs.firecrackerBinary ? [] : ["real_firecracker_binary_not_configured"]),
-        ...(kvmReady ? [] : ["kvm_device_not_verified"]),
-        ...(runtimeRefs.kernelImageRef ? [] : ["firecracker_kernel_image_not_configured"]),
-        ...(runtimeRefs.rootfsImageRef ? [] : [`${normalizedTemplate}_rootfs_image_not_configured`]),
-        ...(runtimeRefs.workloadImageRef ? [] : [`approved_${normalizedTemplate}_workload_image_missing`])
-      ]),
-      ...(normalizedTemplate === "signal" && !runtimeRefs.signalPackageRef ? ["signal_application_package_not_bound"] : []),
-      ...(normalizedTemplate === "signal" && !runtimeRefs.signalAccountEnrollmentRef ? ["signal_account_enrollment_not_configured"] : []),
-      ...(runtimeRefs.hsmCertificateRef || hsmFidoDeferred ? [] : ["hsm_backed_operator_certificate_required"]),
+      ...(androidRuntimeRequired
+        ? androidRuntime.blockers.map((blocker) => `android_${blocker}_not_ready`)
+        : [
+            ...(runtimeRefs.firecrackerBinary ? [] : ["real_firecracker_binary_not_configured"]),
+            ...(kvmReady ? [] : ["kvm_device_not_verified"]),
+            ...(runtimeRefs.kernelImageRef ? [] : ["firecracker_kernel_image_not_configured"]),
+            ...(runtimeRefs.rootfsImageRef
+              ? []
+              : [`${normalizedTemplate}_rootfs_image_not_configured`]),
+            ...(runtimeRefs.workloadImageRef
+              ? []
+              : [`approved_${normalizedTemplate}_workload_image_missing`])
+          ]),
+      ...(normalizedTemplate === "signal" && !runtimeRefs.signalPackageRef
+        ? ["signal_application_package_not_bound"]
+        : []),
+      ...(normalizedTemplate === "signal" && !runtimeRefs.signalAccountEnrollmentRef
+        ? ["signal_account_enrollment_not_configured"]
+        : []),
+      ...(runtimeRefs.hsmCertificateRef || hsmFidoDeferred
+        ? []
+        : ["hsm_backed_operator_certificate_required"]),
       ...(hsmFidoDeferred ? [] : ["fresh_fido2_operator_unlock_required"]),
       ...(vpnReady ? [] : ["real_ipsec_profile_required"]),
       "dns_leak_and_kill_switch_tests_required",
@@ -5811,8 +6962,12 @@ export class OperatorPortalService {
     const warnings = [
       "puli_ax_router_physical_gate_temporarily_out_of_scope_for_this_sprint",
       `terminal_remains_thin_client_no_${normalizedTemplate}_data_on_pixel`,
-      ...(androidRuntimeRequired ? ["native_zangi_requires_android_workload_not_chromium_download_page"] : []),
-      ...(hsmFidoDeferred ? ["physical_hsm_fido2_configuration_deferred_but_visible_in_panels"] : [])
+      ...(androidRuntimeRequired
+        ? ["native_zangi_requires_android_workload_not_chromium_download_page"]
+        : []),
+      ...(hsmFidoDeferred
+        ? ["physical_hsm_fido2_configuration_deferred_but_visible_in_panels"]
+        : [])
     ];
     const productionFlag = androidRuntimeRequired
       ? env.SYLION_ENABLE_ANDROID_WORKLOAD_PRODUCTION_EXECUTION === "true"
@@ -5826,14 +6981,27 @@ export class OperatorPortalService {
       slot: slot || null,
       route: {
         terminalMode,
-        nodes: path.nodes.map((node) => ({ id: node.id, role: node.role, label: node.label, status: node.status })),
-        segments: path.segments.map((segment) => ({ id: segment.id, from: segment.from, to: segment.to, protocol: segment.protocol, state: segment.state }))
+        nodes: path.nodes.map((node) => ({
+          id: node.id,
+          role: node.role,
+          label: node.label,
+          status: node.status
+        })),
+        segments: path.segments.map((segment) => ({
+          id: segment.id,
+          from: segment.from,
+          to: segment.to,
+          protocol: segment.protocol,
+          state: segment.state
+        }))
       },
       runtime: {
         kind: androidRuntimeRequired ? "android_workload" : "firecracker_microvm",
         targetVpsRole: "WORKLOAD",
         hostMode: "production_contract",
-        runner: androidRuntimeRequired ? "real_android_workload_runner_required" : "real_firecracker_runner_required",
+        runner: androidRuntimeRequired
+          ? "real_android_workload_runner_required"
+          : "real_firecracker_runner_required",
         runtimeRefs,
         substrate: {
           vpn: {
@@ -5850,7 +7018,9 @@ export class OperatorPortalService {
             kernelConfigured: Boolean(runtimeRefs.kernelImageRef),
             rootfsConfigured: Boolean(runtimeRefs.rootfsImageRef)
           },
-          androidRuntime: androidRuntimeRequired ? androidRuntime : { required: false, ready: true, blockers: [] },
+          androidRuntime: androidRuntimeRequired
+            ? androidRuntime
+            : { required: false, ready: true, blockers: [] },
           cdr: {
             required: true,
             ready: cdrReady,
@@ -5870,7 +7040,9 @@ export class OperatorPortalService {
         terminalDataStored: false
       },
       readinessState: launchAllowed
-        ? (androidRuntimeRequired ? "ready_for_android_workload_runner" : "ready_for_firecracker_runner")
+        ? androidRuntimeRequired
+          ? "ready_for_android_workload_runner"
+          : "ready_for_firecracker_runner"
         : "blocked_before_execution",
       blockers,
       warnings,
@@ -5882,9 +7054,12 @@ export class OperatorPortalService {
   }
 
   #latestReadyEnvironment(operatorId) {
-    return this.operatorEnvironments.listForOperatorScoped(operatorId)
-      .filter((environment) => environment.status === "environment_ready")
-      .at(-1) || null;
+    return (
+      this.operatorEnvironments
+        .listForOperatorScoped(operatorId)
+        .filter((environment) => environment.status === "environment_ready")
+        .at(-1) || null
+    );
   }
 
   #latestEnvironment(operatorId) {
@@ -5892,7 +7067,10 @@ export class OperatorPortalService {
   }
 
   #resourceRef(environment, role, operatorId) {
-    return environment?.localProvider?.resources?.find((resource) => resource.role === role)?.providerResourceId || `planned://${operatorId}/${role.toLowerCase()}`;
+    return (
+      environment?.localProvider?.resources?.find((resource) => resource.role === role)
+        ?.providerResourceId || `planned://${operatorId}/${role.toLowerCase()}`
+    );
   }
 
   #requireOperator(operatorId) {

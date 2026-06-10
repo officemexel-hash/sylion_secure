@@ -66,16 +66,18 @@ test("M09 tracks exactly three isolated VPS per operator and rejects shared infr
   assert.equal(alphaSet.operatorId, operatorA.id);
   assert.equal(alphaSet.lifecycleState, "active");
   assert.equal(alphaSet.isolatedPerOperator, true);
-  assert.deepEqual(alphaSet.vps.map((item) => item.role), ["G1", "G2", "WORKLOAD"]);
+  assert.deepEqual(
+    alphaSet.vps.map((item) => item.role),
+    ["G1", "G2", "WORKLOAD"]
+  );
   assert.ok(alphaSet.vps.every((item) => item.shared === false));
   assert.ok(alphaSet.vps.every((item) => item.provider === "provider-a"));
   assert.ok(alphaSet.vps.every((item) => item.region === "eu-central-1"));
   assert.ok(alphaSet.vps.every((item) => item.imageRef === "image/workload/2026.05.20"));
-  assert.deepEqual(alphaSet.vps.map((item) => item.certRef), [
-    "certref/g1/alpha",
-    "certref/g2/alpha",
-    "certref/workload/alpha"
-  ]);
+  assert.deepEqual(
+    alphaSet.vps.map((item) => item.certRef),
+    ["certref/g1/alpha", "certref/g2/alpha", "certref/workload/alpha"]
+  );
 
   assert.throws(
     () =>
@@ -123,8 +125,16 @@ test("M09 tracks exactly three isolated VPS per operator and rejects shared infr
   });
 
   assert.equal(betaSet.vps.length, 3);
-  assert.equal(inventory.listForOperator({ actor, operatorId: operatorA.id, correlationId: "corr_list_alpha" }).length, 1);
-  assert.equal(inventory.listForOperator({ actor, operatorId: operatorB.id, correlationId: "corr_list_beta" }).length, 1);
+  assert.equal(
+    inventory.listForOperator({ actor, operatorId: operatorA.id, correlationId: "corr_list_alpha" })
+      .length,
+    1
+  );
+  assert.equal(
+    inventory.listForOperator({ actor, operatorId: operatorB.id, correlationId: "corr_list_beta" })
+      .length,
+    1
+  );
 });
 
 test("M14 issues, rotates, and revokes certificate references without private keys and emits audit", () => {
@@ -212,7 +222,20 @@ test("M14 issues, rotates, and revokes certificate references without private ke
   assert.equal(revoked.revocationReason, "operator rotation complete");
 
   const events = app.services.audit.list();
-  assert.ok(events.some((event) => event.action === "pki.certificate.issued" && event.resourceId === issued.id));
-  assert.ok(events.some((event) => event.action === "pki.certificate.rotated" && event.resourceId === issued.id));
-  assert.ok(events.some((event) => event.action === "pki.certificate.revoked" && event.resourceId === rotation.replacement.id));
+  assert.ok(
+    events.some(
+      (event) => event.action === "pki.certificate.issued" && event.resourceId === issued.id
+    )
+  );
+  assert.ok(
+    events.some(
+      (event) => event.action === "pki.certificate.rotated" && event.resourceId === issued.id
+    )
+  );
+  assert.ok(
+    events.some(
+      (event) =>
+        event.action === "pki.certificate.revoked" && event.resourceId === rotation.replacement.id
+    )
+  );
 });

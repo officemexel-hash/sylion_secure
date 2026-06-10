@@ -10,10 +10,14 @@ function arg(name, fallback = null) {
   return found ? found.slice(prefix.length) : fallback;
 }
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
-const sshKey = arg("key", process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey);
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
+const sshKey = arg(
+  "key",
+  process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey
+);
 const host = arg("host", process.env.SYLION_WORKLOAD_SSH_HOST);
 const user = arg("user", process.env.SYLION_WORKLOAD_SSH_USER || "root");
 const target = arg("target", process.env.SYLION_WORKLOAD_SSH || (host ? `${user}@${host}` : null));
@@ -82,47 +86,60 @@ async function sha256File(path) {
 
 function parseFacts(stdout) {
   const allowed = new Set(["waydroid", "waydroid_container", "package_installed", "remote_sha256"]);
-  return Object.fromEntries(stdout.split(/\r?\n/).filter(Boolean).flatMap((line) => {
-    const [key, ...rest] = line.split("=");
-    if (!allowed.has(key)) return [];
-    const value = rest.join("=");
-    if (value === "true") return [[key, true]];
-    if (value === "false") return [[key, false]];
-    return [[key, value]];
-  }));
+  return Object.fromEntries(
+    stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .flatMap((line) => {
+        const [key, ...rest] = line.split("=");
+        if (!allowed.has(key)) return [];
+        const value = rest.join("=");
+        if (value === "true") return [[key, true]];
+        if (value === "false") return [[key, false]];
+        return [[key, value]];
+      })
+  );
 }
 
 async function ssh(script, timeout = 120_000) {
   if (!target) throw new Error("Missing target. Provide --target=user@host or --host=host");
-  return run("ssh", [
-    "-i",
-    sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "ConnectTimeout=10",
-    "-o",
-    "ServerAliveInterval=10",
-    "-o",
-    "ServerAliveCountMax=2",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    target,
-    "bash -s"
-  ], { input: script, timeout });
+  return run(
+    "ssh",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "ConnectTimeout=10",
+      "-o",
+      "ServerAliveInterval=10",
+      "-o",
+      "ServerAliveCountMax=2",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      target,
+      "bash -s"
+    ],
+    { input: script, timeout }
+  );
 }
 
 async function scp(local, remote) {
-  return run("scp", [
-    "-i",
-    sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    local,
-    `${target}:${remote}`
-  ], { timeout: 300_000 });
+  return run(
+    "scp",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      local,
+      `${target}:${remote}`
+    ],
+    { timeout: 300_000 }
+  );
 }
 
 async function plan() {
@@ -152,10 +169,12 @@ printf 'package_installed=%s\\n' "$(waydroid app list 2>/dev/null | grep -q '^${
     app,
     packageName,
     facts,
-    approvedApk: localApkReady ? {
-      fileName: basename(apkLocalPath),
-      sha256: localSha256
-    } : null,
+    approvedApk: localApkReady
+      ? {
+          fileName: basename(apkLocalPath),
+          sha256: localSha256
+        }
+      : null,
     readyForApply: blockers.length === 0,
     blockers,
     terminalDataStored: false,
@@ -184,7 +203,8 @@ async function applyInstall(planResult) {
   const remotePath = `${remoteDir}/${app}-${planResult.approvedApk.sha256}.apk`;
   await ssh(`set -euo pipefail; install -d -m 0700 ${remoteDir}`);
   await scp(apkLocalPath, remotePath);
-  const { stdout } = await ssh(`
+  const { stdout } = await ssh(
+    `
 set -euo pipefail
 remote_sha="$(sha256sum ${remotePath} | awk '{print $1}')"
 if [ "$remote_sha" != "${planResult.approvedApk.sha256}" ]; then
@@ -194,7 +214,9 @@ fi
 waydroid app install ${remotePath}
 printf 'remote_sha256=%s\\n' "$remote_sha"
 printf 'package_installed=%s\\n' "$(waydroid app list 2>/dev/null | grep -q '^${packageName}[[:space:]]' && echo true || echo false)"
-`, 600_000);
+`,
+    600_000
+  );
   const facts = parseFacts(stdout);
   return {
     ...planResult,
@@ -209,12 +231,21 @@ printf 'package_installed=%s\\n' "$(waydroid app list 2>/dev/null | grep -q '^${
 
 const planResult = await plan();
 const result = await applyInstall(planResult);
-console.log(JSON.stringify({
-  component: "android_apk_workload_installer",
-  ...result,
-  checkedAt: new Date().toISOString()
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      component: "android_apk_workload_installer",
+      ...result,
+      checkedAt: new Date().toISOString()
+    },
+    null,
+    2
+  )
+);
 
-if ((apply && result.applied !== true) || (!result.readyForApply && process.argv.includes("--require-ready"))) {
+if (
+  (apply && result.applied !== true) ||
+  (!result.readyForApply && process.argv.includes("--require-ready"))
+) {
   process.exitCode = 1;
 }

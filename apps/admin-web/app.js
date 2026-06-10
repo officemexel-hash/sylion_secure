@@ -143,18 +143,22 @@ function splitCsv(value) {
 }
 
 function parseRegionCatalog(value) {
-  return splitCsv(value).map((item) => {
-    const [region, country, ...cityParts] = item.split(":").map((part) => part.trim());
-    return {
-      region,
-      country: String(country || "").toUpperCase(),
-      city: cityParts.join(":") || null
-    };
-  }).filter((entry) => entry.region && entry.country);
+  return splitCsv(value)
+    .map((item) => {
+      const [region, country, ...cityParts] = item.split(":").map((part) => part.trim());
+      return {
+        region,
+        country: String(country || "").toUpperCase(),
+        city: cityParts.join(":") || null
+      };
+    })
+    .filter((entry) => entry.region && entry.country);
 }
 
 function supportsBrowserWebAuthn() {
-  return Boolean(window.PublicKeyCredential && navigator.credentials?.create && navigator.credentials?.get);
+  return Boolean(
+    window.PublicKeyCredential && navigator.credentials?.create && navigator.credentials?.get
+  );
 }
 
 function base64UrlToBuffer(value) {
@@ -203,9 +207,10 @@ async function login(event) {
   if (!credentialId) {
     throw new Error("Enroll a FIDO2 credential before signing in");
   }
-  const assertion = state.webAuthnMode === "browser"
-    ? await browserAssertion(options.challenge, credentialId)
-    : simulatedAssertion(options.challenge.id, credentialId);
+  const assertion =
+    state.webAuthnMode === "browser"
+      ? await browserAssertion(options.challenge, credentialId)
+      : simulatedAssertion(options.challenge.id, credentialId);
   const result = await api("/auth/webauthn/login/verify", {
     method: "POST",
     body: {
@@ -433,9 +438,11 @@ async function refreshAll() {
   state.cpuConfidentialQualifications = cpuConfidentialQualifications.qualifications;
   state.phantomExecutionRequests = phantomExecutionRequests.requests;
   state.phantomCoverage = await Promise.all(
-    state.phantomPackages.map((pkg) => api(`/phantom/packages/${pkg.id}/evidence-coverage`)
-      .then((result) => result.coverage)
-      .catch(() => null))
+    state.phantomPackages.map((pkg) =>
+      api(`/phantom/packages/${pkg.id}/evidence-coverage`)
+        .then((result) => result.coverage)
+        .catch(() => null)
+    )
   ).then((rows) => rows.filter(Boolean));
   state.subscriptionPlans = subscriptionPlans.plans;
   state.quotaDecisions = quotaDecisions.decisions;
@@ -446,21 +453,29 @@ async function refreshAll() {
   state.routerPackages = routerPackages.packages;
   state.routerPostures = routerPostures.postures;
   state.tenantSubscriptions = await Promise.all(
-    state.tenants.map((tenant) => api(`/tenants/${tenant.id}/subscription`)
-      .then((result) => result.subscription)
-      .catch(() => null))
+    state.tenants.map((tenant) =>
+      api(`/tenants/${tenant.id}/subscription`)
+        .then((result) => result.subscription)
+        .catch(() => null)
+    )
   ).then((rows) => rows.filter(Boolean));
   const allocationGroups = await Promise.all(
-    state.operators.map((operator) => api(`/operators/${operator.id}/workload-allocations`)
-      .then((result) => result.allocations)
-      .catch(() => []))
+    state.operators.map((operator) =>
+      api(`/operators/${operator.id}/workload-allocations`)
+        .then((result) => result.allocations)
+        .catch(() => [])
+    )
   );
   state.workloadAllocations = allocationGroups.flat();
   state.operatorSecurityProfiles = await Promise.all(
     state.operators.map(async (operator) => {
       const [fido2, hsm] = await Promise.all([
-        api(`/operators/${operator.id}/security/fido2-policy`).then((result) => result.policy).catch(() => null),
-        api(`/operators/${operator.id}/security/hsm-profile`).then((result) => result.profile).catch(() => null)
+        api(`/operators/${operator.id}/security/fido2-policy`)
+          .then((result) => result.policy)
+          .catch(() => null),
+        api(`/operators/${operator.id}/security/hsm-profile`)
+          .then((result) => result.profile)
+          .catch(() => null)
       ]);
       return { operator, fido2, hsm };
     })
@@ -476,659 +491,1224 @@ function render() {
   renderOperatorCommercialSummary();
   $("#session-state").textContent = state.session?.authMethod || "Unknown";
   $("#phantom-boundary-state").textContent = state.phantomBoundary?.status || "Unavailable";
-  $("#webauthn-capability").textContent = state.webAuthnSupported ? "Browser WebAuthn available" : "Dev/test simulator only";
+  $("#webauthn-capability").textContent = state.webAuthnSupported
+    ? "Browser WebAuthn available"
+    : "Dev/test simulator only";
   $("#webauthn-capability-security").textContent = state.webAuthnSupported
     ? "Browser WebAuthn capability available"
     : "Dev/test simulator boundary active";
   $("#webauthn-mode").value = state.webAuthnMode;
 
   renderSelect("#operator-tenant-select", state.tenants, "No tenants");
-  renderSelect("#operator-live-provider-select", state.providers.filter((provider) => provider.providerKey === "hetzner"), "No Hetzner provider", "displayName");
+  renderSelect(
+    "#operator-live-provider-select",
+    state.providers.filter((provider) => provider.providerKey === "hetzner"),
+    "No Hetzner provider",
+    "displayName"
+  );
   renderSelect("#operator-manage-select", state.operators, "No operators", "displayName");
   renderSelect("#operator-delete-select", state.operators, "No operators", "displayName");
-  renderSelect("#disposable-teardown-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#disposable-teardown-execute-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#disposable-teardown-plan-select", state.disposableTeardownPlans, "No teardown plans", "requestedAction");
+  renderSelect(
+    "#disposable-teardown-operator-select",
+    state.operators,
+    "No operators",
+    "displayName"
+  );
+  renderSelect(
+    "#disposable-teardown-execute-operator-select",
+    state.operators,
+    "No operators",
+    "displayName"
+  );
+  renderSelect(
+    "#disposable-teardown-plan-select",
+    state.disposableTeardownPlans,
+    "No teardown plans",
+    "requestedAction"
+  );
   renderSelect("#pipeline-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#local-lab-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
-  renderSelect("#local-environment-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
-  renderSelect("#environment-start-select", state.operatorEnvironments, "No environments", "status");
-  renderSelect("#environment-failure-select", state.operatorEnvironments, "No environments", "status");
-  renderSelect("#environment-rollback-select", state.operatorEnvironments, "No environments", "status");
-  renderSelect("#environment-secrets-select", state.operatorEnvironments, "No environments", "status");
+  renderSelect(
+    "#local-lab-pipeline-select",
+    state.operatorProvisioningPipelines,
+    "No pipelines",
+    "operatorId"
+  );
+  renderSelect(
+    "#local-environment-pipeline-select",
+    state.operatorProvisioningPipelines,
+    "No pipelines",
+    "operatorId"
+  );
+  renderSelect(
+    "#environment-start-select",
+    state.operatorEnvironments,
+    "No environments",
+    "status"
+  );
+  renderSelect(
+    "#environment-failure-select",
+    state.operatorEnvironments,
+    "No environments",
+    "status"
+  );
+  renderSelect(
+    "#environment-rollback-select",
+    state.operatorEnvironments,
+    "No environments",
+    "status"
+  );
+  renderSelect(
+    "#environment-secrets-select",
+    state.operatorEnvironments,
+    "No environments",
+    "status"
+  );
   renderSelect("#operator-connection-path-select", state.operators, "No operators", "displayName");
   renderSelect("#router-package-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#router-package-device-select", state.devices.filter((device) => device.type === "puli_ax_router"), "No Puli AX routers", "serial");
+  renderSelect(
+    "#router-package-device-select",
+    state.devices.filter((device) => device.type === "puli_ax_router"),
+    "No Puli AX routers",
+    "serial"
+  );
   renderSelect("#router-posture-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#router-posture-package-select", state.routerPackages, "No router packages", "status");
-  renderSelect("#router-posture-device-select", state.devices.filter((device) => device.type === "puli_ax_router"), "No Puli AX routers", "serial");
-  renderSelect("#secrets-check-pipeline-select", state.operatorProvisioningPipelines, "No pipelines", "operatorId");
+  renderSelect(
+    "#router-posture-package-select",
+    state.routerPackages,
+    "No router packages",
+    "status"
+  );
+  renderSelect(
+    "#router-posture-device-select",
+    state.devices.filter((device) => device.type === "puli_ax_router"),
+    "No Puli AX routers",
+    "serial"
+  );
+  renderSelect(
+    "#secrets-check-pipeline-select",
+    state.operatorProvisioningPipelines,
+    "No pipelines",
+    "operatorId"
+  );
   renderSelect("#device-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#plan-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#job-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#readiness-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#approval-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#approval-status-select", state.provisioningApprovals, "No approvals", "reasonCode");
-  renderSelect("#workload-lifecycle-allocation-select", state.workloadAllocations, "No allocations", "appName");
-  renderSelect("#workload-lifecycle-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
+  renderSelect(
+    "#approval-status-select",
+    state.provisioningApprovals,
+    "No approvals",
+    "reasonCode"
+  );
+  renderSelect(
+    "#workload-lifecycle-allocation-select",
+    state.workloadAllocations,
+    "No allocations",
+    "appName"
+  );
+  renderSelect(
+    "#workload-lifecycle-approval-select",
+    state.provisioningApprovals,
+    "No approvals",
+    "reasonCode"
+  );
   renderSelect("#provider-dry-run-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#provider-dry-run-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#live-cloud-provider-select", state.providers, "No providers", "displayName");
   renderSelect("#live-cloud-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#live-cloud-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
-  renderSelect("#baseline-promotion-provider-select", state.providers, "No providers", "displayName");
-  renderSelect("#baseline-promotion-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#baseline-promotion-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
-  renderSelect("#provider-rehearsal-provider-select", state.providers, "No providers", "displayName");
-  renderSelect("#provider-rehearsal-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#provider-rehearsal-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
-  renderSelect("#dedicated-order-provider-select", state.providers.filter((provider) => provider.providerKey === "hetzner_robot"), "No Hetzner Robot provider", "displayName");
+  renderSelect(
+    "#live-cloud-approval-select",
+    state.provisioningApprovals,
+    "No approvals",
+    "reasonCode"
+  );
+  renderSelect(
+    "#baseline-promotion-provider-select",
+    state.providers,
+    "No providers",
+    "displayName"
+  );
+  renderSelect(
+    "#baseline-promotion-operator-select",
+    state.operators,
+    "No operators",
+    "displayName"
+  );
+  renderSelect(
+    "#baseline-promotion-approval-select",
+    state.provisioningApprovals,
+    "No approvals",
+    "reasonCode"
+  );
+  renderSelect(
+    "#provider-rehearsal-provider-select",
+    state.providers,
+    "No providers",
+    "displayName"
+  );
+  renderSelect(
+    "#provider-rehearsal-operator-select",
+    state.operators,
+    "No operators",
+    "displayName"
+  );
+  renderSelect(
+    "#provider-rehearsal-approval-select",
+    state.provisioningApprovals,
+    "No approvals",
+    "reasonCode"
+  );
+  renderSelect(
+    "#dedicated-order-provider-select",
+    state.providers.filter((provider) => provider.providerKey === "hetzner_robot"),
+    "No Hetzner Robot provider",
+    "displayName"
+  );
   renderSelect("#dedicated-order-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#dedicated-order-approval-select", state.provisioningApprovals, "No approvals", "reasonCode");
-  renderSelect("#workload-image-host-select", state.workloadNativeHosts, "No native hosts", "hostId");
+  renderSelect(
+    "#dedicated-order-approval-select",
+    state.provisioningApprovals,
+    "No approvals",
+    "reasonCode"
+  );
+  renderSelect(
+    "#workload-image-host-select",
+    state.workloadNativeHosts,
+    "No native hosts",
+    "hostId"
+  );
   renderSelect("#blue-team-signal-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#firecracker-rehearsal-host-select", state.firecrackerQualifications, "No qualified hosts", "hostId");
-  renderSelect("#firecracker-rehearsal-operator-select", state.operators, "No operators", "displayName");
+  renderSelect(
+    "#firecracker-rehearsal-host-select",
+    state.firecrackerQualifications,
+    "No qualified hosts",
+    "hostId"
+  );
+  renderSelect(
+    "#firecracker-rehearsal-operator-select",
+    state.operators,
+    "No operators",
+    "displayName"
+  );
   renderSelect("#subscription-tenant-select", state.tenants, "No tenants");
   renderSelect("#subscription-plan-select", state.subscriptionPlans, "No plans", "name");
   renderSelect("#billing-tenant-select", state.tenants, "No tenants");
   renderSelect("#workload-quote-operator-select", state.operators, "No operators", "displayName");
   renderSelect("#workload-quote-app-select", approvedApps(), "No approved apps", "name");
-  renderSelect("#workload-allocation-operator-select", state.operators, "No operators", "displayName");
+  renderSelect(
+    "#workload-allocation-operator-select",
+    state.operators,
+    "No operators",
+    "displayName"
+  );
   renderSelect("#workload-allocation-app-select", approvedApps(), "No approved apps", "name");
   renderSelect("#placement-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#placement-allocation-select", state.workloadAllocations, "No allocations", "appName");
+  renderSelect(
+    "#placement-allocation-select",
+    state.workloadAllocations,
+    "No allocations",
+    "appName"
+  );
   renderSelect("#operator-security-fido2-select", state.operators, "No operators", "displayName");
   renderSelect("#operator-security-hsm-select", state.operators, "No operators", "displayName");
-  renderSelect("#phantom-package-template-select", state.phantomPolicyTemplates, "No templates", "name");
-  renderSelect("#phantom-package-capability-select", state.phantomCapabilities, "No capabilities", "displayName");
+  renderSelect(
+    "#phantom-package-template-select",
+    state.phantomPolicyTemplates,
+    "No templates",
+    "name"
+  );
+  renderSelect(
+    "#phantom-package-capability-select",
+    state.phantomCapabilities,
+    "No capabilities",
+    "displayName"
+  );
   renderSelect("#phantom-evidence-package-select", state.phantomPackages, "No packages", "name");
-  renderSelect("#phantom-approval-pack-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect(
+    "#phantom-approval-pack-package-select",
+    state.phantomPackages,
+    "No packages",
+    "name"
+  );
   renderSelect("#phantom-readiness-package-select", state.phantomPackages, "No packages", "name");
-  renderSelect("#phantom-readiness-approval-pack-select", state.phantomApprovalPacks, "No approval packs", "summary");
-  renderSelect("#phantom-readiness-evidence-select", state.phantomEvidenceBundles, "No evidence bundles", "summary");
-  renderSelect("#phantom-readiness-operator-select", state.operators, "No operators", "displayName");
+  renderSelect(
+    "#phantom-readiness-approval-pack-select",
+    state.phantomApprovalPacks,
+    "No approval packs",
+    "summary"
+  );
+  renderSelect(
+    "#phantom-readiness-evidence-select",
+    state.phantomEvidenceBundles,
+    "No evidence bundles",
+    "summary"
+  );
+  renderSelect(
+    "#phantom-readiness-operator-select",
+    state.operators,
+    "No operators",
+    "displayName"
+  );
   renderSelect("#phantom-simulation-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#phantom-assignment-package-select", state.phantomPackages, "No packages", "name");
-  renderSelect("#phantom-assignment-operator-select", state.operators, "No operators", "displayName");
-  renderSelect("#phantom-review-board-package-select", state.phantomPackages, "No packages", "name");
-  renderSelect("#phantom-policy-simulation-package-select", state.phantomPackages, "No packages", "name");
+  renderSelect(
+    "#phantom-assignment-operator-select",
+    state.operators,
+    "No operators",
+    "displayName"
+  );
+  renderSelect(
+    "#phantom-review-board-package-select",
+    state.phantomPackages,
+    "No packages",
+    "name"
+  );
+  renderSelect(
+    "#phantom-policy-simulation-package-select",
+    state.phantomPackages,
+    "No packages",
+    "name"
+  );
   renderSelect("#phantom-exception-package-select", state.phantomPackages, "No packages", "name");
-  renderSelect("#phantom-exception-review-select", state.phantomReviewBoardItems, "No review items", "title");
-  renderSelect("#phantom-exception-evidence-select", state.phantomEvidenceBundles, "No evidence bundles", "summary");
-  renderSelect("#phantom-review-ack-select", state.phantomReviewBoardItems, "No review items", "title");
+  renderSelect(
+    "#phantom-exception-review-select",
+    state.phantomReviewBoardItems,
+    "No review items",
+    "title"
+  );
+  renderSelect(
+    "#phantom-exception-evidence-select",
+    state.phantomEvidenceBundles,
+    "No evidence bundles",
+    "summary"
+  );
+  renderSelect(
+    "#phantom-review-ack-select",
+    state.phantomReviewBoardItems,
+    "No review items",
+    "title"
+  );
   renderSelect("#phantom-coverage-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#phantom-execution-package-select", state.phantomPackages, "No packages", "name");
   renderSelect("#human-test-select", state.humanTests, "No test scenarios", "title");
   renderSelect("#factual-test-operator-select", state.operators, "No operators", "displayName");
 
-  $("#ksiega-status-cards").innerHTML = (state.systemStatus?.ksiega34 || []).map((item) => card(item.label, [
-    ["Status", item.status],
-    ["Next", item.nextAction || "-"]
-  ])).join("") || empty("Status matrix unavailable.");
-  $("#phantom-status-cards").innerHTML = (state.systemStatus?.phantom || []).map((item) => card(item.label, [
-    ["Status", item.status],
-    ["Execution", String(item.executionAllowed)]
-  ])).join("") || empty("PHANTOM status unavailable.");
+  $("#ksiega-status-cards").innerHTML =
+    (state.systemStatus?.ksiega34 || [])
+      .map((item) =>
+        card(item.label, [
+          ["Status", item.status],
+          ["Next", item.nextAction || "-"]
+        ])
+      )
+      .join("") || empty("Status matrix unavailable.");
+  $("#phantom-status-cards").innerHTML =
+    (state.systemStatus?.phantom || [])
+      .map((item) =>
+        card(item.label, [
+          ["Status", item.status],
+          ["Execution", String(item.executionAllowed)]
+        ])
+      )
+      .join("") || empty("PHANTOM status unavailable.");
 
-  $("#operator-cards").innerHTML = state.operators.map((operator) => card(operator.displayName, [
-    ["Tier", operator.tier],
-    ["Status", operator.status],
-    ["Tenant", operator.tenantId],
-    ["Router", operator.baseline?.router],
-    ["Disposable", String(operator.disposable === true)],
-    ["Deletion protection", String(operator.destructiveTest?.deletionProtection !== false)],
-    ["Teardown", operator.teardown?.state || "-"],
-    ["Delete confirm", `DELETE_OPERATOR:${operator.id}`]
-  ])).join("") || empty("No operators yet.");
+  $("#operator-cards").innerHTML =
+    state.operators
+      .map((operator) =>
+        card(operator.displayName, [
+          ["Tier", operator.tier],
+          ["Status", operator.status],
+          ["Tenant", operator.tenantId],
+          ["Router", operator.baseline?.router],
+          ["Disposable", String(operator.disposable === true)],
+          ["Deletion protection", String(operator.destructiveTest?.deletionProtection !== false)],
+          ["Teardown", operator.teardown?.state || "-"],
+          ["Delete confirm", `DELETE_OPERATOR:${operator.id}`]
+        ])
+      )
+      .join("") || empty("No operators yet.");
 
-  $("#disposable-teardown-plan-cards").innerHTML = state.disposableTeardownPlans.map((plan) => card(plan.requestedAction, [
-    ["Plan", plan.id],
-    ["Operator", plan.operatorId],
-    ["State", plan.state],
-    ["Expires", plan.expiresAt],
-    ["Provider mutation", String(plan.guardrails?.providerMutationAllowed)],
-    ["Prod exec", String(plan.guardrails?.productionExecutionAllowed)],
-    ["Audit retention", String(plan.guardrails?.auditRetentionRequired)],
-    ["Resources", String(plan.resourceDiff?.length || 0)]
-  ])).join("") || empty("No disposable teardown plans yet.");
+  $("#disposable-teardown-plan-cards").innerHTML =
+    state.disposableTeardownPlans
+      .map((plan) =>
+        card(plan.requestedAction, [
+          ["Plan", plan.id],
+          ["Operator", plan.operatorId],
+          ["State", plan.state],
+          ["Expires", plan.expiresAt],
+          ["Provider mutation", String(plan.guardrails?.providerMutationAllowed)],
+          ["Prod exec", String(plan.guardrails?.productionExecutionAllowed)],
+          ["Audit retention", String(plan.guardrails?.auditRetentionRequired)],
+          ["Resources", String(plan.resourceDiff?.length || 0)]
+        ])
+      )
+      .join("") || empty("No disposable teardown plans yet.");
 
-  $("#operator-connection-path-cards").innerHTML = state.operatorConnectionPath ? [
-    card("Terminal path", [
-      ["Operator", state.operatorConnectionPath.operatorId],
-      ["State", state.operatorConnectionPath.state],
-      ["Terminal", state.operatorConnectionPath.terminalMode],
-      ["Router", state.operatorConnectionPath.router?.model],
-      ["Transport", state.operatorConnectionPath.baseline?.transport],
-      ["Prod exec", String(state.operatorConnectionPath.productionExecutionAllowed)]
-    ]),
-    ...state.operatorConnectionPath.segments.map((segment) => card(segment.id, [
-      ["Route", `${segment.from} -> ${segment.to}`],
-      ["Protocol", segment.protocol],
-      ["State", segment.state],
-      ["Kill switch", segment.killSwitch],
-      ["Cert", segment.certRef]
-    ])),
-    ...state.operatorConnectionPath.microVmSlots.map((slot) => card(slot.appName, [
-      ["Template", slot.templateKey],
-      ["Status", slot.status],
-      ["Isolation", slot.isolation],
-      ["Namespace", slot.networkNamespace],
-      ["CDR", String(slot.cdrRequired)],
-      ["Secrets", String(slot.secretsReleaseAllowed)]
-    ]))
-  ].join("") : empty("Load an operator connection path to inspect Pixel/Laptop -> G1 -> G2 -> WORKLOAD -> microVM chain.");
+  $("#operator-connection-path-cards").innerHTML = state.operatorConnectionPath
+    ? [
+        card("Terminal path", [
+          ["Operator", state.operatorConnectionPath.operatorId],
+          ["State", state.operatorConnectionPath.state],
+          ["Terminal", state.operatorConnectionPath.terminalMode],
+          ["Router", state.operatorConnectionPath.router?.model],
+          ["Transport", state.operatorConnectionPath.baseline?.transport],
+          ["Prod exec", String(state.operatorConnectionPath.productionExecutionAllowed)]
+        ]),
+        ...state.operatorConnectionPath.segments.map((segment) =>
+          card(segment.id, [
+            ["Route", `${segment.from} -> ${segment.to}`],
+            ["Protocol", segment.protocol],
+            ["State", segment.state],
+            ["Kill switch", segment.killSwitch],
+            ["Cert", segment.certRef]
+          ])
+        ),
+        ...state.operatorConnectionPath.microVmSlots.map((slot) =>
+          card(slot.appName, [
+            ["Template", slot.templateKey],
+            ["Status", slot.status],
+            ["Isolation", slot.isolation],
+            ["Namespace", slot.networkNamespace],
+            ["CDR", String(slot.cdrRequired)],
+            ["Secrets", String(slot.secretsReleaseAllowed)]
+          ])
+        )
+      ].join("")
+    : empty(
+        "Load an operator connection path to inspect Pixel/Laptop -> G1 -> G2 -> WORKLOAD -> microVM chain."
+      );
 
-  $("#router-package-cards").innerHTML = state.routerPackages.map((item) => card(item.model, [
-    ["Operator", item.operatorId],
-    ["Device", item.routerDeviceId || "-"],
-    ["Status", item.status],
-    ["Install", item.installState],
-    ["IPsec", item.manifest?.ipsecProfiles?.map((profile) => profile.id).join(", ")],
-    ["Kill switch", item.manifest?.controls?.killSwitch],
-    ["DNS", item.manifest?.controls?.dnsPolicy],
-    ["Secrets", String(item.manifest?.secretsIncluded)]
-  ])).join("") || empty("No Puli AX router package generated yet.");
+  $("#router-package-cards").innerHTML =
+    state.routerPackages
+      .map((item) =>
+        card(item.model, [
+          ["Operator", item.operatorId],
+          ["Device", item.routerDeviceId || "-"],
+          ["Status", item.status],
+          ["Install", item.installState],
+          ["IPsec", item.manifest?.ipsecProfiles?.map((profile) => profile.id).join(", ")],
+          ["Kill switch", item.manifest?.controls?.killSwitch],
+          ["DNS", item.manifest?.controls?.dnsPolicy],
+          ["Secrets", String(item.manifest?.secretsIncluded)]
+        ])
+      )
+      .join("") || empty("No Puli AX router package generated yet.");
 
-  $("#router-posture-cards").innerHTML = state.routerPostures.map((item) => card(item.status, [
-    ["Operator", item.operatorId],
-    ["Package", item.packageId || "-"],
-    ["Router", item.routerDeviceId || "-"],
-    ["Passed", `${item.checks?.filter((check) => check.status === "passed").length || 0}/${item.checks?.length || 0}`],
-    ["Blockers", item.blockers?.join(", ") || "none"],
-    ["Prod exec", String(item.productionExecutionAllowed)]
-  ])).join("") || empty("No router posture validation recorded yet.");
+  $("#router-posture-cards").innerHTML =
+    state.routerPostures
+      .map((item) =>
+        card(item.status, [
+          ["Operator", item.operatorId],
+          ["Package", item.packageId || "-"],
+          ["Router", item.routerDeviceId || "-"],
+          [
+            "Passed",
+            `${item.checks?.filter((check) => check.status === "passed").length || 0}/${item.checks?.length || 0}`
+          ],
+          ["Blockers", item.blockers?.join(", ") || "none"],
+          ["Prod exec", String(item.productionExecutionAllowed)]
+        ])
+      )
+      .join("") || empty("No router posture validation recorded yet.");
 
-  $("#pipeline-template-cards").innerHTML = state.operatorProvisioningTemplates.map((template) => card(template.name, [
-    ["Key", template.key],
-    ["Isolation", template.isolation],
-    ["vCPU", String(template.defaults?.vcpu)],
-    ["Memory", `${template.defaults?.memoryMiB} MiB`],
-    ["CDR", String(template.cdrRequired)]
-  ])).join("") || empty("No communicator templates available.");
+  $("#pipeline-template-cards").innerHTML =
+    state.operatorProvisioningTemplates
+      .map((template) =>
+        card(template.name, [
+          ["Key", template.key],
+          ["Isolation", template.isolation],
+          ["vCPU", String(template.defaults?.vcpu)],
+          ["Memory", `${template.defaults?.memoryMiB} MiB`],
+          ["CDR", String(template.cdrRequired)]
+        ])
+      )
+      .join("") || empty("No communicator templates available.");
 
-  $("#operator-pipeline-cards").innerHTML = state.operatorProvisioningPipelines.map((pipeline) => card(pipeline.id, [
-    ["Operator", pipeline.operatorId],
-    ["Status", pipeline.status],
-    ["Workloads", String(pipeline.workloads?.length || 0)],
-    ["Lab VPS", String(pipeline.localLab?.vps?.length || 0)],
-    ["Firecracker", String(pipeline.firecrackerPlan?.workloads?.length || 0)],
-    ["Secrets", String(pipeline.secretsRelease?.allowed)]
-  ])).join("") || empty("No operator provisioning pipelines yet.");
+  $("#operator-pipeline-cards").innerHTML =
+    state.operatorProvisioningPipelines
+      .map((pipeline) =>
+        card(pipeline.id, [
+          ["Operator", pipeline.operatorId],
+          ["Status", pipeline.status],
+          ["Workloads", String(pipeline.workloads?.length || 0)],
+          ["Lab VPS", String(pipeline.localLab?.vps?.length || 0)],
+          ["Firecracker", String(pipeline.firecrackerPlan?.workloads?.length || 0)],
+          ["Secrets", String(pipeline.secretsRelease?.allowed)]
+        ])
+      )
+      .join("") || empty("No operator provisioning pipelines yet.");
 
-  $("#operator-environment-cards").innerHTML = state.operatorEnvironments.map((environment) => card(environment.id, [
-    ["Operator", environment.operatorId],
-    ["Status", environment.status],
-    ["Mode", environment.mode],
-    ["VPS", String(environment.localProvider?.resources?.length || 0)],
-    ["Runtimes", String(environment.mockFirecracker?.runtimes?.length || 0)],
-    ["Failure", environment.failure?.type || "-"],
-    ["Secrets", String(environment.secretsReleaseAllowed)]
-  ])).join("") || empty("No operator environments yet.");
+  $("#operator-environment-cards").innerHTML =
+    state.operatorEnvironments
+      .map((environment) =>
+        card(environment.id, [
+          ["Operator", environment.operatorId],
+          ["Status", environment.status],
+          ["Mode", environment.mode],
+          ["VPS", String(environment.localProvider?.resources?.length || 0)],
+          ["Runtimes", String(environment.mockFirecracker?.runtimes?.length || 0)],
+          ["Failure", environment.failure?.type || "-"],
+          ["Secrets", String(environment.secretsReleaseAllowed)]
+        ])
+      )
+      .join("") || empty("No operator environments yet.");
 
-  $("#provider-cards").innerHTML = state.providers.map((provider) => card(provider.displayName, [
-    ["Provider", provider.providerKey],
-    ["Countries", provider.countries?.join(", ") || "-"],
-    ["Regions", provider.regions?.join(", ")],
-    ["Region catalog", provider.regionCatalog?.map((item) => `${item.region}:${item.country}`).join(", ") || "-"],
-    ["Containers", String(provider.runtimeCapabilities?.containers)],
-    ["Firecracker", String(provider.runtimeCapabilities?.firecracker)],
-    ["Android workloads", String(provider.runtimeCapabilities?.androidWorkloads)],
-    ["TDX", String(provider.runtimeCapabilities?.intelTdx)],
-    ["SEV-SNP", String(provider.runtimeCapabilities?.amdSevSnp)],
-    ["Tier fit", provider.runtimeCapabilities?.recommendedTier || "-"],
-    ["Secret", provider.apiSecretReference?.secretReference],
-    ["Connection", provider.connection?.status]
-  ])).join("") || empty("No providers yet.");
+  $("#provider-cards").innerHTML =
+    state.providers
+      .map((provider) =>
+        card(provider.displayName, [
+          ["Provider", provider.providerKey],
+          ["Countries", provider.countries?.join(", ") || "-"],
+          ["Regions", provider.regions?.join(", ")],
+          [
+            "Region catalog",
+            provider.regionCatalog?.map((item) => `${item.region}:${item.country}`).join(", ") ||
+              "-"
+          ],
+          ["Containers", String(provider.runtimeCapabilities?.containers)],
+          ["Firecracker", String(provider.runtimeCapabilities?.firecracker)],
+          ["Android workloads", String(provider.runtimeCapabilities?.androidWorkloads)],
+          ["TDX", String(provider.runtimeCapabilities?.intelTdx)],
+          ["SEV-SNP", String(provider.runtimeCapabilities?.amdSevSnp)],
+          ["Tier fit", provider.runtimeCapabilities?.recommendedTier || "-"],
+          ["Secret", provider.apiSecretReference?.secretReference],
+          ["Connection", provider.connection?.status]
+        ])
+      )
+      .join("") || empty("No providers yet.");
 
-  $("#provider-dry-run-cards").innerHTML = state.providerDryRunPlans.map((plan) => card(plan.providerKey, [
-    ["Operator", plan.operatorId],
-    ["Region", plan.region],
-    ["Actions", String(plan.plannedActions?.length || 0)],
-    ["Side effect", String(plan.sideEffectAllowed)]
-  ])).join("") || empty("No dry-run plans yet.");
+  $("#provider-dry-run-cards").innerHTML =
+    state.providerDryRunPlans
+      .map((plan) =>
+        card(plan.providerKey, [
+          ["Operator", plan.operatorId],
+          ["Region", plan.region],
+          ["Actions", String(plan.plannedActions?.length || 0)],
+          ["Side effect", String(plan.sideEffectAllowed)]
+        ])
+      )
+      .join("") || empty("No dry-run plans yet.");
 
-  $("#live-cloud-status-cards").innerHTML = state.liveExecutionSummary ? card("Live execution gate", [
-    ["Provider mode", state.liveExecutionSummary.providerMode],
-    ["Live allowed", String(state.liveExecutionSummary.liveAllowed)],
-    ["Token configured", String(state.liveExecutionSummary.tokenConfigured)],
-    ["Secret source", state.liveExecutionSummary.secretProvider?.source || "-"],
-    ["Unlock", state.liveExecutionSummary.baselineUnlockState],
-    ["Adapters", state.liveExecutionSummary.providerAdapters?.map((adapter) => `${adapter.providerKey}:${adapter.status}`).join(", ") || "-"],
-    ["Rollback plans", String(state.liveExecutionSummary.rollbackPlans || 0)],
-    ["Prod exec", String(state.liveExecutionSummary.productionExecutionAllowed)]
-  ]) : empty("Live execution gate unavailable.");
+  $("#live-cloud-status-cards").innerHTML = state.liveExecutionSummary
+    ? card("Live execution gate", [
+        ["Provider mode", state.liveExecutionSummary.providerMode],
+        ["Live allowed", String(state.liveExecutionSummary.liveAllowed)],
+        ["Token configured", String(state.liveExecutionSummary.tokenConfigured)],
+        ["Secret source", state.liveExecutionSummary.secretProvider?.source || "-"],
+        ["Unlock", state.liveExecutionSummary.baselineUnlockState],
+        [
+          "Adapters",
+          state.liveExecutionSummary.providerAdapters
+            ?.map((adapter) => `${adapter.providerKey}:${adapter.status}`)
+            .join(", ") || "-"
+        ],
+        ["Rollback plans", String(state.liveExecutionSummary.rollbackPlans || 0)],
+        ["Prod exec", String(state.liveExecutionSummary.productionExecutionAllowed)]
+      ])
+    : empty("Live execution gate unavailable.");
 
-  $("#secret-backend-status-cards").innerHTML = state.secretBackendStatus ? card("Secret backend contract", [
-    ["Default runtime", state.secretBackendStatus.defaultRuntimeSource],
-    ["Backends", String(state.secretBackendStatus.backendCount)],
-    ["External refs", String(state.secretBackendStatus.externalReferenceCount)],
-    ["Plaintext retrieval", String(state.secretBackendStatus.plaintextRetrievalAllowed)],
-    ["Prod release", String(state.secretBackendStatus.productionSecretReleaseAllowed)],
-    ["Human gate", String(state.secretBackendStatus.humanGateRequired)]
-  ]) : empty("Secret backend status unavailable.");
+  $("#secret-backend-status-cards").innerHTML = state.secretBackendStatus
+    ? card("Secret backend contract", [
+        ["Default runtime", state.secretBackendStatus.defaultRuntimeSource],
+        ["Backends", String(state.secretBackendStatus.backendCount)],
+        ["External refs", String(state.secretBackendStatus.externalReferenceCount)],
+        ["Plaintext retrieval", String(state.secretBackendStatus.plaintextRetrievalAllowed)],
+        ["Prod release", String(state.secretBackendStatus.productionSecretReleaseAllowed)],
+        ["Human gate", String(state.secretBackendStatus.humanGateRequired)]
+      ])
+    : empty("Secret backend status unavailable.");
 
-  $("#secret-backend-cards").innerHTML = state.secretBackends.map((backend) => card(backend.displayName, [
-    ["Type", backend.backendType],
-    ["Mode", backend.mode],
-    ["Runtime", String(backend.runtimeResolutionAllowed)],
-    ["Plaintext", String(backend.plaintextRetrievalAllowed)],
-    ["Prod ready", String(backend.productionReady)],
-    ["Gate", String(backend.humanGateRequired)]
-  ])).join("") || empty("No secret backends configured.");
+  $("#secret-backend-cards").innerHTML =
+    state.secretBackends
+      .map((backend) =>
+        card(backend.displayName, [
+          ["Type", backend.backendType],
+          ["Mode", backend.mode],
+          ["Runtime", String(backend.runtimeResolutionAllowed)],
+          ["Plaintext", String(backend.plaintextRetrievalAllowed)],
+          ["Prod ready", String(backend.productionReady)],
+          ["Gate", String(backend.humanGateRequired)]
+        ])
+      )
+      .join("") || empty("No secret backends configured.");
 
-  $("#live-cloud-request-cards").innerHTML = state.liveCloudRequests.map((request) => card(request.id, [
-    ["Status", request.status],
-    ["Provider", request.providerKey],
-    ["Operator", request.operatorId],
-    ["Region", request.region],
-    ["Gate", request.gate?.baselineUnlockState],
-    ["Rollback", request.rollbackPlanId || "-"],
-    ["Rollback ready", String(request.rollbackReady)],
-    ["Side effect", String(request.sideEffectAllowed)],
-    ["Blockers", request.gate?.blockers?.join(", ") || "-"]
-  ])).join("") || empty("No live cloud requests recorded.");
+  $("#live-cloud-request-cards").innerHTML =
+    state.liveCloudRequests
+      .map((request) =>
+        card(request.id, [
+          ["Status", request.status],
+          ["Provider", request.providerKey],
+          ["Operator", request.operatorId],
+          ["Region", request.region],
+          ["Gate", request.gate?.baselineUnlockState],
+          ["Rollback", request.rollbackPlanId || "-"],
+          ["Rollback ready", String(request.rollbackReady)],
+          ["Side effect", String(request.sideEffectAllowed)],
+          ["Blockers", request.gate?.blockers?.join(", ") || "-"]
+        ])
+      )
+      .join("") || empty("No live cloud requests recorded.");
 
-  $("#provider-rehearsal-cards").innerHTML = state.liveProviderRehearsals.map((rehearsal) => card(rehearsal.id, [
-    ["Status", rehearsal.status],
-    ["Mode", rehearsal.rehearsalMode],
-    ["Provider", rehearsal.providerKey],
-    ["Operator", rehearsal.operatorId],
-    ["Resources", String(rehearsal.resources?.length || 0)],
-    ["Phases", rehearsal.phases?.map((phase) => `${phase.name}:${phase.status}`).join(", ") || "-"],
-    ["Side effect", String(rehearsal.sideEffectAllowed)],
-    ["Blockers", rehearsal.gate?.blockers?.join(", ") || "-"]
-  ])).join("") || empty("No provider rehearsals recorded.");
+  $("#provider-rehearsal-cards").innerHTML =
+    state.liveProviderRehearsals
+      .map((rehearsal) =>
+        card(rehearsal.id, [
+          ["Status", rehearsal.status],
+          ["Mode", rehearsal.rehearsalMode],
+          ["Provider", rehearsal.providerKey],
+          ["Operator", rehearsal.operatorId],
+          ["Resources", String(rehearsal.resources?.length || 0)],
+          [
+            "Phases",
+            rehearsal.phases?.map((phase) => `${phase.name}:${phase.status}`).join(", ") || "-"
+          ],
+          ["Side effect", String(rehearsal.sideEffectAllowed)],
+          ["Blockers", rehearsal.gate?.blockers?.join(", ") || "-"]
+        ])
+      )
+      .join("") || empty("No provider rehearsals recorded.");
 
-  $("#dedicated-order-cards").innerHTML = state.dedicatedWorkloadOrders.map((order) => card(order.id, [
-    ["Status", order.status],
-    ["Provider", order.providerKey],
-    ["Operator", order.operatorId],
-    ["Product", order.productId],
-    ["Region", order.region],
-    ["Mode", order.orderMode],
-    ["Tenancy", order.workloadTenancyMode || "-"],
-    ["PHANTOM sensitive", String(order.phantomSensitive)],
-    ["Side effect", String(order.sideEffectAllowed)],
-    ["Resource", order.providerResource?.providerResourceId || "-"],
-    ["Blockers", order.gate?.blockers?.join(", ") || "-"]
-  ])).join("") || empty("No dedicated workload orders recorded.");
+  $("#dedicated-order-cards").innerHTML =
+    state.dedicatedWorkloadOrders
+      .map((order) =>
+        card(order.id, [
+          ["Status", order.status],
+          ["Provider", order.providerKey],
+          ["Operator", order.operatorId],
+          ["Product", order.productId],
+          ["Region", order.region],
+          ["Mode", order.orderMode],
+          ["Tenancy", order.workloadTenancyMode || "-"],
+          ["PHANTOM sensitive", String(order.phantomSensitive)],
+          ["Side effect", String(order.sideEffectAllowed)],
+          ["Resource", order.providerResource?.providerResourceId || "-"],
+          ["Blockers", order.gate?.blockers?.join(", ") || "-"]
+        ])
+      )
+      .join("") || empty("No dedicated workload orders recorded.");
 
-  $("#workload-native-host-cards").innerHTML = state.workloadNativeHosts.map((host) => card(host.hostId, [
-    ["State", host.lifecycleState],
-    ["Server", host.serverNumber],
-    ["Product", host.productId],
-    ["Region", host.region],
-    ["Lab ready", String(host.readyForLabWorkloads)],
-    ["Production", String(host.productionExecutionAllowed)],
-    ["Checks", host.checks?.map((check) => `${check.key}:${check.status}`).join(", ") || "-"],
-    ["Blockers", host.productionBlockers?.join(", ") || "-"],
-    ["Next", host.nextActions?.join(", ") || "-"]
-  ])).join("") || empty("No workload-native hosts registered.");
+  $("#workload-native-host-cards").innerHTML =
+    state.workloadNativeHosts
+      .map((host) =>
+        card(host.hostId, [
+          ["State", host.lifecycleState],
+          ["Server", host.serverNumber],
+          ["Product", host.productId],
+          ["Region", host.region],
+          ["Lab ready", String(host.readyForLabWorkloads)],
+          ["Production", String(host.productionExecutionAllowed)],
+          ["Checks", host.checks?.map((check) => `${check.key}:${check.status}`).join(", ") || "-"],
+          ["Blockers", host.productionBlockers?.join(", ") || "-"],
+          ["Next", host.nextActions?.join(", ") || "-"]
+        ])
+      )
+      .join("") || empty("No workload-native hosts registered.");
 
-  $("#workload-image-manifest-cards").innerHTML = state.workloadImageManifests.map((manifest) => card(`${manifest.appName} / ${manifest.runtimeKind}`, [
-    ["Host", manifest.hostId],
-    ["Ready", String(manifest.readyForLabLaunch)],
-    ["Production", String(manifest.productionExecutionAllowed)],
-    ["Image", manifest.imageRef],
-    ["Stream", `${manifest.streamGateway?.bindAddress || "-"}:${manifest.streamGateway?.sourcePort || "-"}`],
-    ["CDR", manifest.cdrPolicyRef],
-    ["Checks", manifest.checks?.map((check) => `${check.key}:${check.status}`).join(", ") || "-"],
-    ["Blockers", manifest.productionBlockers?.join(", ") || "-"],
-    ["Next", manifest.nextActions?.join(", ") || "-"]
-  ])).join("") || empty("No workload image manifests registered.");
+  $("#workload-image-manifest-cards").innerHTML =
+    state.workloadImageManifests
+      .map((manifest) =>
+        card(`${manifest.appName} / ${manifest.runtimeKind}`, [
+          ["Host", manifest.hostId],
+          ["Ready", String(manifest.readyForLabLaunch)],
+          ["Production", String(manifest.productionExecutionAllowed)],
+          ["Image", manifest.imageRef],
+          [
+            "Stream",
+            `${manifest.streamGateway?.bindAddress || "-"}:${manifest.streamGateway?.sourcePort || "-"}`
+          ],
+          ["CDR", manifest.cdrPolicyRef],
+          [
+            "Checks",
+            manifest.checks?.map((check) => `${check.key}:${check.status}`).join(", ") || "-"
+          ],
+          ["Blockers", manifest.productionBlockers?.join(", ") || "-"],
+          ["Next", manifest.nextActions?.join(", ") || "-"]
+        ])
+      )
+      .join("") || empty("No workload image manifests registered.");
 
   renderProductionReadiness();
 
-  $("#live-rollback-plan-cards").innerHTML = state.liveRollbackPlans.map((plan) => card(plan.id, [
-    ["Provider", plan.providerKey],
-    ["Request", plan.requestId],
-    ["Operator", plan.operatorId],
-    ["Status", plan.status],
-    ["Actions", String(plan.actions?.length || 0)],
-    ["Side effect", String(plan.sideEffectAllowed)]
-  ])).join("") || empty("No live rollback plans recorded.");
+  $("#live-rollback-plan-cards").innerHTML =
+    state.liveRollbackPlans
+      .map((plan) =>
+        card(plan.id, [
+          ["Provider", plan.providerKey],
+          ["Request", plan.requestId],
+          ["Operator", plan.operatorId],
+          ["Status", plan.status],
+          ["Actions", String(plan.actions?.length || 0)],
+          ["Side effect", String(plan.sideEffectAllowed)]
+        ])
+      )
+      .join("") || empty("No live rollback plans recorded.");
 
-  $("#firecracker-qualification-cards").innerHTML = state.firecrackerQualifications.map((item) => card(item.hostId, [
-    ["Mode", item.mode],
-    ["Ready", String(item.readyForFirecrackerLaunch)],
-    ["Exec", String(item.executionAllowed)],
-    ["Checks", item.checks?.map((check) => `${check.key}:${check.status}`).join(", ")]
-  ])).join("") || empty("No Firecracker host qualifications recorded.");
+  $("#firecracker-qualification-cards").innerHTML =
+    state.firecrackerQualifications
+      .map((item) =>
+        card(item.hostId, [
+          ["Mode", item.mode],
+          ["Ready", String(item.readyForFirecrackerLaunch)],
+          ["Exec", String(item.executionAllowed)],
+          ["Checks", item.checks?.map((check) => `${check.key}:${check.status}`).join(", ")]
+        ])
+      )
+      .join("") || empty("No Firecracker host qualifications recorded.");
 
-  $("#firecracker-rehearsal-cards").innerHTML = state.firecrackerLaunchRehearsals.map((item) => card(item.id, [
-    ["Status", item.status],
-    ["Host", item.hostId],
-    ["Operator", item.operatorId],
-    ["Runtimes", String(item.runtimes?.length || 0)],
-    ["Real kernel", String(item.realKernelExecuted)],
-    ["Secrets", String(item.secretsReleaseAllowed)],
-    ["Blockers", item.blockers?.join(", ") || "-"]
-  ])).join("") || empty("No Firecracker launch rehearsals recorded.");
+  $("#firecracker-rehearsal-cards").innerHTML =
+    state.firecrackerLaunchRehearsals
+      .map((item) =>
+        card(item.id, [
+          ["Status", item.status],
+          ["Host", item.hostId],
+          ["Operator", item.operatorId],
+          ["Runtimes", String(item.runtimes?.length || 0)],
+          ["Real kernel", String(item.realKernelExecuted)],
+          ["Secrets", String(item.secretsReleaseAllowed)],
+          ["Blockers", item.blockers?.join(", ") || "-"]
+        ])
+      )
+      .join("") || empty("No Firecracker launch rehearsals recorded.");
 
-  $("#cpu-confidential-qualification-cards").innerHTML = state.cpuConfidentialQualifications.map((item) => card(item.hostId, [
-    ["CPU", `${item.cpuVendor} ${item.cpuModel}`],
-    ["Mode", item.confidentialMode],
-    ["Firecracker host", String(item.firecrackerHostApproved)],
-    ["Attestation", String(item.attestation?.verified)],
-    ["Secrets", String(item.secretsReleaseAllowed)]
-  ])).join("") || empty("No CPU confidential-computing qualifications recorded.");
+  $("#cpu-confidential-qualification-cards").innerHTML =
+    state.cpuConfidentialQualifications
+      .map((item) =>
+        card(item.hostId, [
+          ["CPU", `${item.cpuVendor} ${item.cpuModel}`],
+          ["Mode", item.confidentialMode],
+          ["Firecracker host", String(item.firecrackerHostApproved)],
+          ["Attestation", String(item.attestation?.verified)],
+          ["Secrets", String(item.secretsReleaseAllowed)]
+        ])
+      )
+      .join("") || empty("No CPU confidential-computing qualifications recorded.");
 
   const blue = state.blueTeamDashboard;
   setText("#blue-team-status", blue ? `Status: ${blue.status}` : "Status unavailable");
-  setText("#blue-team-cdr", blue ? `CDR mandatory: ${blue.cdrMandatoryForAllOperators}` : "CDR unavailable");
-  setText("#blue-team-content", blue ? `Content stored: ${blue.communicationContentStored}` : "No communication content");
-  $("#blue-team-metadata-cards").innerHTML = (blue?.metadataSignals || []).map((item) => card(item.key, [
-    ["Value", String(item.value)]
-  ])).join("") || empty("No blue-team metadata yet.");
-  $("#blue-team-alert-cards").innerHTML = (blue?.alerts || []).map((alert) => card(alert.summary || alert.signal, [
-    ["Signal", alert.signal],
-    ["Severity", alert.severity],
-    ["Operator", alert.operatorId || "-"],
-    ["Resource", alert.resource?.id || "-"],
-    ["Content stored", String(alert.contentStored)]
-  ])).join("") || empty("No alerts or anomalies.");
-  $("#blue-team-cdr-cards").innerHTML = (blue?.cdrCoverage || []).map((row) => card(row.displayName || row.operatorId, [
-    ["Status", row.status],
-    ["Mandatory", String(row.cdrMandatory)],
-    ["Decisions", String(row.decisions)],
-    ["Allowed", String(row.allowed)],
-    ["Quarantined", String(row.quarantined)],
-    ["Blocked", String(row.blocked)],
-    ["Content stored", String(row.contentStored)]
-  ])).join("") || empty("No operator CDR coverage.");
-  $("#blue-team-incident-cards").innerHTML = state.incidents.map((incident) => card(incident.sourceSignal, [
-    ["Severity", incident.severity],
-    ["Status", incident.status],
-    ["Operator", incident.operatorId || "-"],
-    ["Runbook", String(incident.runbookTasks?.length || 0)]
-  ])).join("") || empty("No incidents.");
+  setText(
+    "#blue-team-cdr",
+    blue ? `CDR mandatory: ${blue.cdrMandatoryForAllOperators}` : "CDR unavailable"
+  );
+  setText(
+    "#blue-team-content",
+    blue ? `Content stored: ${blue.communicationContentStored}` : "No communication content"
+  );
+  $("#blue-team-metadata-cards").innerHTML =
+    (blue?.metadataSignals || [])
+      .map((item) => card(item.key, [["Value", String(item.value)]]))
+      .join("") || empty("No blue-team metadata yet.");
+  $("#blue-team-alert-cards").innerHTML =
+    (blue?.alerts || [])
+      .map((alert) =>
+        card(alert.summary || alert.signal, [
+          ["Signal", alert.signal],
+          ["Severity", alert.severity],
+          ["Operator", alert.operatorId || "-"],
+          ["Resource", alert.resource?.id || "-"],
+          ["Content stored", String(alert.contentStored)]
+        ])
+      )
+      .join("") || empty("No alerts or anomalies.");
+  $("#blue-team-cdr-cards").innerHTML =
+    (blue?.cdrCoverage || [])
+      .map((row) =>
+        card(row.displayName || row.operatorId, [
+          ["Status", row.status],
+          ["Mandatory", String(row.cdrMandatory)],
+          ["Decisions", String(row.decisions)],
+          ["Allowed", String(row.allowed)],
+          ["Quarantined", String(row.quarantined)],
+          ["Blocked", String(row.blocked)],
+          ["Content stored", String(row.contentStored)]
+        ])
+      )
+      .join("") || empty("No operator CDR coverage.");
+  $("#blue-team-incident-cards").innerHTML =
+    state.incidents
+      .map((incident) =>
+        card(incident.sourceSignal, [
+          ["Severity", incident.severity],
+          ["Status", incident.status],
+          ["Operator", incident.operatorId || "-"],
+          ["Runbook", String(incident.runbookTasks?.length || 0)]
+        ])
+      )
+      .join("") || empty("No incidents.");
 
-  $("#phantom-execution-request-cards").innerHTML = state.phantomExecutionRequests.map((item) => card(item.packageId, [
-    ["Status", item.status],
-    ["Lab exec", String(item.labExecutionAllowed)],
-    ["Prod exec", String(item.productionExecutionAllowed)],
-    ["Baseline unlock", String(item.baselineUnlockAllowed)],
-    ["Blockers", item.blockers?.join(", ") || "-"]
-  ])).join("") || empty("No PHANTOM execution requests recorded.");
+  $("#phantom-execution-request-cards").innerHTML =
+    state.phantomExecutionRequests
+      .map((item) =>
+        card(item.packageId, [
+          ["Status", item.status],
+          ["Lab exec", String(item.labExecutionAllowed)],
+          ["Prod exec", String(item.productionExecutionAllowed)],
+          ["Baseline unlock", String(item.baselineUnlockAllowed)],
+          ["Blockers", item.blockers?.join(", ") || "-"]
+        ])
+      )
+      .join("") || empty("No PHANTOM execution requests recorded.");
 
-  $("#device-cards").innerHTML = state.devices.map((device) => card(`${device.model}`, [
-    ["Type", device.type],
-    ["Serial", device.serial],
-    ["Status", device.status],
-    ["Operator", device.assignedOperatorId]
-  ])).join("") || empty("No devices yet.");
+  $("#device-cards").innerHTML =
+    state.devices
+      .map((device) =>
+        card(`${device.model}`, [
+          ["Type", device.type],
+          ["Serial", device.serial],
+          ["Status", device.status],
+          ["Operator", device.assignedOperatorId]
+        ])
+      )
+      .join("") || empty("No devices yet.");
 
-  $("#job-cards").innerHTML = state.jobs.map((job) => card(job.id, [
-    ["Status", job.status],
-    ["Operator", job.operatorId],
-    ["Steps", String(job.steps?.length || 0)],
-    ["Rollback", String(job.rollbackPlan?.length || 0)]
-  ])).join("") || empty("No jobs yet.");
+  $("#job-cards").innerHTML =
+    state.jobs
+      .map((job) =>
+        card(job.id, [
+          ["Status", job.status],
+          ["Operator", job.operatorId],
+          ["Steps", String(job.steps?.length || 0)],
+          ["Rollback", String(job.rollbackPlan?.length || 0)]
+        ])
+      )
+      .join("") || empty("No jobs yet.");
 
-  $("#app-cards").innerHTML = state.authorizedApps.map((app) => card(app.name, [
-    ["Status", app.status],
-    ["Type", app.type],
-    ["Risk", app.riskClass],
-    ["CDR", String(app.cdrRequired)]
-  ])).join("") || empty("No authorized apps yet.");
+  $("#app-cards").innerHTML =
+    state.authorizedApps
+      .map((app) =>
+        card(app.name, [
+          ["Status", app.status],
+          ["Type", app.type],
+          ["Risk", app.riskClass],
+          ["CDR", String(app.cdrRequired)]
+        ])
+      )
+      .join("") || empty("No authorized apps yet.");
 
-  $("#subscription-plan-cards").innerHTML = state.subscriptionPlans.map((plan) => card(plan.name, [
-    ["Tier", plan.tier],
-    ["Max envs", String(plan.maxWorkloadEnvironments)],
-    ["Per app", String(plan.maxAppsPerOperator)],
-    ["Jurisdiction", `${plan.jurisdictionRotationMode} / min ${plan.jurisdictionPolicy?.minFrequencyHours || "-"}h`],
-    ["Countries", String(plan.jurisdictionPolicy?.maxCountries || plan.regionCount)],
-    ["Runtime classes", plan.providerPolicy?.allowedRuntimeClasses?.join(", ") || "-"],
-    ["Confidential req", String(plan.providerPolicy?.confidentialComputeRequired)],
-    ["Max session", `${plan.sessionPolicy?.maxHours || "-"}h`],
-    ["PHANTOM exec", String(plan.phantomExecutionAllowed)]
-  ])).join("") || empty("No subscription plans visible.");
+  $("#subscription-plan-cards").innerHTML =
+    state.subscriptionPlans
+      .map((plan) =>
+        card(plan.name, [
+          ["Tier", plan.tier],
+          ["Max envs", String(plan.maxWorkloadEnvironments)],
+          ["Per app", String(plan.maxAppsPerOperator)],
+          [
+            "Jurisdiction",
+            `${plan.jurisdictionRotationMode} / min ${plan.jurisdictionPolicy?.minFrequencyHours || "-"}h`
+          ],
+          ["Countries", String(plan.jurisdictionPolicy?.maxCountries || plan.regionCount)],
+          ["Runtime classes", plan.providerPolicy?.allowedRuntimeClasses?.join(", ") || "-"],
+          ["Confidential req", String(plan.providerPolicy?.confidentialComputeRequired)],
+          ["Max session", `${plan.sessionPolicy?.maxHours || "-"}h`],
+          ["PHANTOM exec", String(plan.phantomExecutionAllowed)]
+        ])
+      )
+      .join("") || empty("No subscription plans visible.");
 
-  $("#tenant-subscription-cards").innerHTML = state.tenantSubscriptions.map((subscription) => card(subscription.tenantId, [
-    ["Tier", subscription.tier],
-    ["Billing", subscription.billingStatus],
-    ["Add-ons", subscription.addons?.join(", ") || "-"],
-    ["Max envs", String(subscription.effectiveLimits?.maxWorkloadEnvironments)]
-  ])).join("") || empty("No tenant subscriptions yet.");
+  $("#tenant-subscription-cards").innerHTML =
+    state.tenantSubscriptions
+      .map((subscription) =>
+        card(subscription.tenantId, [
+          ["Tier", subscription.tier],
+          ["Billing", subscription.billingStatus],
+          ["Add-ons", subscription.addons?.join(", ") || "-"],
+          ["Max envs", String(subscription.effectiveLimits?.maxWorkloadEnvironments)]
+        ])
+      )
+      .join("") || empty("No tenant subscriptions yet.");
 
-  $("#workload-allocation-cards").innerHTML = state.workloadAllocations.map((allocation) => card(allocation.appName, [
-    ["Count", String(allocation.count)],
-    ["Operator", allocation.operatorId],
-    ["Layer", allocation.targetLayer],
-    ["Execution", String(allocation.executionPlanned)]
-  ])).join("") || empty("No workload allocations yet.");
+  $("#workload-allocation-cards").innerHTML =
+    state.workloadAllocations
+      .map((allocation) =>
+        card(allocation.appName, [
+          ["Count", String(allocation.count)],
+          ["Operator", allocation.operatorId],
+          ["Layer", allocation.targetLayer],
+          ["Execution", String(allocation.executionPlanned)]
+        ])
+      )
+      .join("") || empty("No workload allocations yet.");
 
-  $("#quota-decision-cards").innerHTML = state.quotaDecisions.slice(-8).reverse().map((decision) => card(decision.decision, [
-    ["Operator", decision.operatorId],
-    ["Requested", String(decision.requestedCount)],
-    ["Total after", String(decision.totalAfterChange)],
-    ["Blockers", decision.blockers?.join(", ") || "-"]
-  ])).join("") || empty("No quota decisions yet.");
+  $("#quota-decision-cards").innerHTML =
+    state.quotaDecisions
+      .slice(-8)
+      .reverse()
+      .map((decision) =>
+        card(decision.decision, [
+          ["Operator", decision.operatorId],
+          ["Requested", String(decision.requestedCount)],
+          ["Total after", String(decision.totalAfterChange)],
+          ["Blockers", decision.blockers?.join(", ") || "-"]
+        ])
+      )
+      .join("") || empty("No quota decisions yet.");
 
-  $("#readiness-cards").innerHTML = state.readinessResults.slice(-8).reverse().map((item) => card(item.operatorId, [
-    ["Ready", String(item.readyForApproval)],
-    ["Blockers", item.blockers?.join(", ") || "-"],
-    ["Warnings", item.warnings?.join(", ") || "-"],
-    ["Side effect", String(item.sideEffectAllowed)]
-  ])).join("") || empty("Run an operator readiness check.");
+  $("#readiness-cards").innerHTML =
+    state.readinessResults
+      .slice(-8)
+      .reverse()
+      .map((item) =>
+        card(item.operatorId, [
+          ["Ready", String(item.readyForApproval)],
+          ["Blockers", item.blockers?.join(", ") || "-"],
+          ["Warnings", item.warnings?.join(", ") || "-"],
+          ["Side effect", String(item.sideEffectAllowed)]
+        ])
+      )
+      .join("") || empty("Run an operator readiness check.");
 
-  $("#approval-cards").innerHTML = state.provisioningApprovals.map((approval) => card(approval.reasonCode, [
-    ["Status", approval.status],
-    ["Operator", approval.operatorId],
-    ["Plan", approval.planId],
-    ["Execution", String(approval.executionAllowed)]
-  ])).join("") || empty("No provisioning approvals yet.");
+  $("#approval-cards").innerHTML =
+    state.provisioningApprovals
+      .map((approval) =>
+        card(approval.reasonCode, [
+          ["Status", approval.status],
+          ["Operator", approval.operatorId],
+          ["Plan", approval.planId],
+          ["Execution", String(approval.executionAllowed)]
+        ])
+      )
+      .join("") || empty("No provisioning approvals yet.");
 
-  $("#workload-lifecycle-cards").innerHTML = state.workloadLifecycle.map((item) => card(item.status, [
-    ["Allocation", item.allocationId],
-    ["Previous", item.previousStatus],
-    ["Human gate", String(item.humanGateRequired)],
-    ["Side effect", String(item.sideEffectAllowed)]
-  ])).join("") || empty("No workload lifecycle transitions yet.");
+  $("#workload-lifecycle-cards").innerHTML =
+    state.workloadLifecycle
+      .map((item) =>
+        card(item.status, [
+          ["Allocation", item.allocationId],
+          ["Previous", item.previousStatus],
+          ["Human gate", String(item.humanGateRequired)],
+          ["Side effect", String(item.sideEffectAllowed)]
+        ])
+      )
+      .join("") || empty("No workload lifecycle transitions yet.");
 
-  $("#session-cards").innerHTML = state.session ? card(state.session.email, [
-    ["Role", state.session.role],
-    ["Auth", state.session.authMethod],
-    ["Expires", state.session.expiresAt],
-    ["Step-up", state.session.stepUpValidUntil]
-  ]) : empty("No active session.");
+  $("#session-cards").innerHTML = state.session
+    ? card(state.session.email, [
+        ["Role", state.session.role],
+        ["Auth", state.session.authMethod],
+        ["Expires", state.session.expiresAt],
+        ["Step-up", state.session.stepUpValidUntil]
+      ])
+    : empty("No active session.");
 
-  $("#credential-cards").innerHTML = state.credentials.map((credential) => credentialCard(credential)).join("")
-    || empty("No credentials visible.");
+  $("#credential-cards").innerHTML =
+    state.credentials.map((credential) => credentialCard(credential)).join("") ||
+    empty("No credentials visible.");
 
-  $("#auth-policy-cards").innerHTML = state.authPolicy ? card("Auth policy matrix", [
-    ["States", String(state.authPolicy.states?.length || 0)],
-    ["Actions", String(Object.keys(state.authPolicy.actions || {}).length)],
-    ["Recovery auto unlock", String(state.authPolicy.invariants?.recoveryAutoUnlock)],
-    ["Break-glass side effect", String(state.authPolicy.invariants?.breakGlassSideEffectAllowed)]
-  ]) : empty("Policy matrix not loaded.");
+  $("#auth-policy-cards").innerHTML = state.authPolicy
+    ? card("Auth policy matrix", [
+        ["States", String(state.authPolicy.states?.length || 0)],
+        ["Actions", String(Object.keys(state.authPolicy.actions || {}).length)],
+        ["Recovery auto unlock", String(state.authPolicy.invariants?.recoveryAutoUnlock)],
+        [
+          "Break-glass side effect",
+          String(state.authPolicy.invariants?.breakGlassSideEffectAllowed)
+        ]
+      ])
+    : empty("Policy matrix not loaded.");
 
   const profileCards = [];
   if (state.adminFido2Policy) {
-    profileCards.push(card("Admin FIDO2", [
-      ["Mode", state.adminFido2Policy.mode],
-      ["Session", `${state.adminFido2Policy.defaultSessionHours}h`],
-      ["Enrollment", String(state.adminFido2Policy.actualEnrollmentAllowed)]
-    ]));
+    profileCards.push(
+      card("Admin FIDO2", [
+        ["Mode", state.adminFido2Policy.mode],
+        ["Session", `${state.adminFido2Policy.defaultSessionHours}h`],
+        ["Enrollment", String(state.adminFido2Policy.actualEnrollmentAllowed)]
+      ])
+    );
   }
   if (state.adminHsmProfile) {
-    profileCards.push(card("Admin HSM", [
-      ["Mode", state.adminHsmProfile.mode],
-      ["Provider", state.adminHsmProfile.provider],
-      ["Refs", String(state.adminHsmProfile.references?.length || 0)],
-      ["Material", String(state.adminHsmProfile.materialStored)]
-    ]));
+    profileCards.push(
+      card("Admin HSM", [
+        ["Mode", state.adminHsmProfile.mode],
+        ["Provider", state.adminHsmProfile.provider],
+        ["Refs", String(state.adminHsmProfile.references?.length || 0)],
+        ["Material", String(state.adminHsmProfile.materialStored)]
+      ])
+    );
   }
   state.operatorSecurityProfiles.forEach(({ operator, fido2, hsm }) => {
-    profileCards.push(card(operator.displayName, [
-      ["Operator", operator.id],
-      ["FIDO2", fido2 ? `${fido2.mode} / ${fido2.defaultSessionHours}h` : "-"],
-      ["HSM", hsm ? `${hsm.mode} / refs ${hsm.references?.length || 0}` : "-"],
-      ["Material", String(hsm?.materialStored === true)]
-    ]));
+    profileCards.push(
+      card(operator.displayName, [
+        ["Operator", operator.id],
+        ["FIDO2", fido2 ? `${fido2.mode} / ${fido2.defaultSessionHours}h` : "-"],
+        ["HSM", hsm ? `${hsm.mode} / refs ${hsm.references?.length || 0}` : "-"],
+        ["Material", String(hsm?.materialStored === true)]
+      ])
+    );
   });
-  $("#security-profile-cards").innerHTML = profileCards.join("") || empty("No security profiles loaded.");
+  $("#security-profile-cards").innerHTML =
+    profileCards.join("") || empty("No security profiles loaded.");
 
-  $("#recovery-cards").innerHTML = state.recoveryRequests.map((request) => card(request.affectedEmail, [
-    ["Status", request.status],
-    ["Reason", request.reasonCode],
-    ["Auto unlock", String(request.autoUnlock)],
-    ["Updated by", request.updatedBy]
-  ])).join("") || empty("No recovery requests.");
+  $("#recovery-cards").innerHTML =
+    state.recoveryRequests
+      .map((request) =>
+        card(request.affectedEmail, [
+          ["Status", request.status],
+          ["Reason", request.reasonCode],
+          ["Auto unlock", String(request.autoUnlock)],
+          ["Updated by", request.updatedBy]
+        ])
+      )
+      .join("") || empty("No recovery requests.");
 
-  $("#break-glass-cards").innerHTML = state.breakGlassRequests.map((request) => card(request.actionScope, [
-    ["Status", request.status],
-    ["Human gate", String(request.humanGateRequired)],
-    ["Side effect", String(request.sideEffectExecuted)],
-    ["PHANTOM", request.phantomBoundary]
-  ])).join("") || empty("No break-glass requests.");
+  $("#break-glass-cards").innerHTML =
+    state.breakGlassRequests
+      .map((request) =>
+        card(request.actionScope, [
+          ["Status", request.status],
+          ["Human gate", String(request.humanGateRequired)],
+          ["Side effect", String(request.sideEffectExecuted)],
+          ["PHANTOM", request.phantomBoundary]
+        ])
+      )
+      .join("") || empty("No break-glass requests.");
 
-  $("#phantom-boundary-cards").innerHTML = state.phantomBoundary ? card("PHANTOM v3.0", [
-    ["Status", state.phantomBoundary.status],
-    ["Human gate", String(state.phantomBoundary.humanGateRequired)],
-    ["Side effect", String(state.phantomBoundary.sideEffectAllowed)],
-    ["Boundary", state.phantomBoundary.phantomBoundary]
-  ]) : empty("PHANTOM boundary is not available for this role.");
+  $("#phantom-boundary-cards").innerHTML = state.phantomBoundary
+    ? card("PHANTOM v3.0", [
+        ["Status", state.phantomBoundary.status],
+        ["Human gate", String(state.phantomBoundary.humanGateRequired)],
+        ["Side effect", String(state.phantomBoundary.sideEffectAllowed)],
+        ["Boundary", state.phantomBoundary.phantomBoundary]
+      ])
+    : empty("PHANTOM boundary is not available for this role.");
 
-  $("#phantom-capability-cards").innerHTML = state.phantomCapabilities.map((item) => card(item.displayName, [
-    ["Risk", item.riskLevel],
-    ["Legal", item.legalReviewStatus],
-    ["CISO", item.cisoReviewStatus],
-    ["Execution", String(item.executionEnabled)]
-  ])).join("") || empty("No PHANTOM capabilities recorded.");
+  $("#phantom-capability-cards").innerHTML =
+    state.phantomCapabilities
+      .map((item) =>
+        card(item.displayName, [
+          ["Risk", item.riskLevel],
+          ["Legal", item.legalReviewStatus],
+          ["CISO", item.cisoReviewStatus],
+          ["Execution", String(item.executionEnabled)]
+        ])
+      )
+      .join("") || empty("No PHANTOM capabilities recorded.");
 
-  $("#phantom-approval-cards").innerHTML = state.phantomApprovals.map((item) => card(item.reasonCode, [
-    ["Status", item.status],
-    ["Legal", item.legalOwner],
-    ["CISO", item.cisoOwner],
-    ["Side effect", String(item.sideEffectAllowed)]
-  ])).join("") || empty("No PHANTOM approvals recorded.");
+  $("#phantom-approval-cards").innerHTML =
+    state.phantomApprovals
+      .map((item) =>
+        card(item.reasonCode, [
+          ["Status", item.status],
+          ["Legal", item.legalOwner],
+          ["CISO", item.cisoOwner],
+          ["Side effect", String(item.sideEffectAllowed)]
+        ])
+      )
+      .join("") || empty("No PHANTOM approvals recorded.");
 
-  $("#phantom-risk-cards").innerHTML = state.phantomRisks.map((item) => card(item.description, [
-    ["Severity", item.severity],
-    ["Status", item.status],
-    ["Residual", item.residualRisk],
-    ["Gate", String(item.humanGateRequired)]
-  ])).join("") || empty("No PHANTOM risks recorded.");
+  $("#phantom-risk-cards").innerHTML =
+    state.phantomRisks
+      .map((item) =>
+        card(item.description, [
+          ["Severity", item.severity],
+          ["Status", item.status],
+          ["Residual", item.residualRisk],
+          ["Gate", String(item.humanGateRequired)]
+        ])
+      )
+      .join("") || empty("No PHANTOM risks recorded.");
 
-  $("#phantom-template-cards").innerHTML = state.phantomPolicyTemplates.map((item) => card(item.name, [
-    ["Tier", item.tierMinimum],
-    ["Controls", String(item.controlObjectives?.length || 0)],
-    ["Evidence", String(item.requiredEvidenceTypes?.length || 0)],
-    ["Execution", String(item.executionAllowed)]
-  ])).join("") || empty("No PHANTOM policy templates visible.");
+  $("#phantom-template-cards").innerHTML =
+    state.phantomPolicyTemplates
+      .map((item) =>
+        card(item.name, [
+          ["Tier", item.tierMinimum],
+          ["Controls", String(item.controlObjectives?.length || 0)],
+          ["Evidence", String(item.requiredEvidenceTypes?.length || 0)],
+          ["Execution", String(item.executionAllowed)]
+        ])
+      )
+      .join("") || empty("No PHANTOM policy templates visible.");
 
-  $("#phantom-package-cards").innerHTML = state.phantomPackages.map((item) => card(item.name, [
-    ["Stage", item.stage],
-    ["Tier", item.tierMinimum],
-    ["Readiness", item.readinessState],
-    ["Execution", String(item.executionAllowed)]
-  ])).join("") || empty("No PHANTOM packages recorded.");
+  $("#phantom-package-cards").innerHTML =
+    state.phantomPackages
+      .map((item) =>
+        card(item.name, [
+          ["Stage", item.stage],
+          ["Tier", item.tierMinimum],
+          ["Readiness", item.readinessState],
+          ["Execution", String(item.executionAllowed)]
+        ])
+      )
+      .join("") || empty("No PHANTOM packages recorded.");
 
-  $("#phantom-review-matrix-cards").innerHTML = state.phantomPackages.map((pkg) => {
-    const coverage = state.phantomCoverage.find((item) => item.packageId === pkg.id);
-    const reviews = state.phantomReviewBoardItems.filter((item) => item.packageId === pkg.id);
-    const ownerKeys = ["legal", "ciso", "architect", "compliance"];
-    const acknowledged = reviews.flatMap((item) => ownerKeys.filter((owner) => item.ownerAcknowledgements?.[owner]));
-    const exceptions = state.phantomExceptions.filter((item) => item.packageId === pkg.id);
-    const expiredCount = exceptions.filter((item) => item.expired).length;
-    return card(pkg.name, [
-      ["Coverage", coverage ? `${coverage.coveragePercent}% ${coverage.status}` : "not evaluated"],
-      ["Owner ack", `${new Set(acknowledged).size}/4`],
-      ["Exceptions", `${exceptions.length} total / ${expiredCount} expired`],
-      ["Blockers", coverage?.blockers?.join(", ") || (expiredCount ? "expired_exception_requires_review" : "-")],
-      ["Execution", "false"]
-    ]);
-  }).join("") || empty("No PHANTOM packages recorded.");
+  $("#phantom-review-matrix-cards").innerHTML =
+    state.phantomPackages
+      .map((pkg) => {
+        const coverage = state.phantomCoverage.find((item) => item.packageId === pkg.id);
+        const reviews = state.phantomReviewBoardItems.filter((item) => item.packageId === pkg.id);
+        const ownerKeys = ["legal", "ciso", "architect", "compliance"];
+        const acknowledged = reviews.flatMap((item) =>
+          ownerKeys.filter((owner) => item.ownerAcknowledgements?.[owner])
+        );
+        const exceptions = state.phantomExceptions.filter((item) => item.packageId === pkg.id);
+        const expiredCount = exceptions.filter((item) => item.expired).length;
+        return card(pkg.name, [
+          [
+            "Coverage",
+            coverage ? `${coverage.coveragePercent}% ${coverage.status}` : "not evaluated"
+          ],
+          ["Owner ack", `${new Set(acknowledged).size}/4`],
+          ["Exceptions", `${exceptions.length} total / ${expiredCount} expired`],
+          [
+            "Blockers",
+            coverage?.blockers?.join(", ") ||
+              (expiredCount ? "expired_exception_requires_review" : "-")
+          ],
+          ["Execution", "false"]
+        ]);
+      })
+      .join("") || empty("No PHANTOM packages recorded.");
 
-  $("#phantom-evidence-cards").innerHTML = state.phantomEvidenceBundles.map((item) => card(item.summary, [
-    ["Package", item.packageId],
-    ["Retention", item.retentionClass],
-    ["Sealed", String(item.sealed)],
-    ["Hash", String(item.sealedHash || "").slice(0, 14)]
-  ])).join("") || empty("No PHANTOM evidence bundles recorded.");
+  $("#phantom-evidence-cards").innerHTML =
+    state.phantomEvidenceBundles
+      .map((item) =>
+        card(item.summary, [
+          ["Package", item.packageId],
+          ["Retention", item.retentionClass],
+          ["Sealed", String(item.sealed)],
+          ["Hash", String(item.sealedHash || "").slice(0, 14)]
+        ])
+      )
+      .join("") || empty("No PHANTOM evidence bundles recorded.");
 
-  $("#phantom-approval-pack-cards").innerHTML = state.phantomApprovalPacks.map((item) => card(item.summary, [
-    ["Status", item.status],
-    ["Owners", item.requiredOwners?.join(", ")],
-    ["Evidence", String(item.evidenceBundleIds?.length || 0)],
-    ["Execution", String(item.executionAllowed)]
-  ])).join("") || empty("No PHANTOM approval packs recorded.");
+  $("#phantom-approval-pack-cards").innerHTML =
+    state.phantomApprovalPacks
+      .map((item) =>
+        card(item.summary, [
+          ["Status", item.status],
+          ["Owners", item.requiredOwners?.join(", ")],
+          ["Evidence", String(item.evidenceBundleIds?.length || 0)],
+          ["Execution", String(item.executionAllowed)]
+        ])
+      )
+      .join("") || empty("No PHANTOM approval packs recorded.");
 
-  $("#phantom-readiness-cards").innerHTML = state.phantomReadiness.map((item) => card(item.gateState, [
-    ["Package", item.packageId],
-    ["Score", String(item.readinessScore)],
-    ["Blockers", String(item.blockers?.length || 0)],
-    ["Execution", String(item.executionAllowed)]
-  ])).join("") || empty("No PHANTOM readiness evaluations recorded.");
+  $("#phantom-readiness-cards").innerHTML =
+    state.phantomReadiness
+      .map((item) =>
+        card(item.gateState, [
+          ["Package", item.packageId],
+          ["Score", String(item.readinessScore)],
+          ["Blockers", String(item.blockers?.length || 0)],
+          ["Execution", String(item.executionAllowed)]
+        ])
+      )
+      .join("") || empty("No PHANTOM readiness evaluations recorded.");
 
-  $("#phantom-simulation-cards").innerHTML = state.phantomSimulations.map((item) => card(item.scenario, [
-    ["Mode", item.mode],
-    ["Result", item.result],
-    ["Findings", String(item.findings?.length || 0)],
-    ["Side effect", String(item.sideEffectAllowed)]
-  ])).join("") || empty("No PHANTOM simulations recorded.");
+  $("#phantom-simulation-cards").innerHTML =
+    state.phantomSimulations
+      .map((item) =>
+        card(item.scenario, [
+          ["Mode", item.mode],
+          ["Result", item.result],
+          ["Findings", String(item.findings?.length || 0)],
+          ["Side effect", String(item.sideEffectAllowed)]
+        ])
+      )
+      .join("") || empty("No PHANTOM simulations recorded.");
 
-  $("#phantom-assignment-cards").innerHTML = state.phantomAssignmentPlans.map((item) => card(item.status, [
-    ["Package", item.packageId],
-    ["Operators", String(item.operators?.length || 0)],
-    ["Execution", String(item.executionAllowed)],
-    ["Gate", String(item.humanGateRequired)]
-  ])).join("") || empty("No PHANTOM assignment plans recorded.");
+  $("#phantom-assignment-cards").innerHTML =
+    state.phantomAssignmentPlans
+      .map((item) =>
+        card(item.status, [
+          ["Package", item.packageId],
+          ["Operators", String(item.operators?.length || 0)],
+          ["Execution", String(item.executionAllowed)],
+          ["Gate", String(item.humanGateRequired)]
+        ])
+      )
+      .join("") || empty("No PHANTOM assignment plans recorded.");
 
-  $("#phantom-review-board-cards").innerHTML = state.phantomReviewBoardItems.map((item) => card(item.title, [
-    ["Status", item.status],
-    ["Legal", item.legalOwner],
-    ["Compliance", item.complianceOwner],
-    ["Owner ack", ["legal", "ciso", "architect", "compliance"].map((owner) => `${owner}:${item.ownerAcknowledgements?.[owner] ? "yes" : "no"}`).join(" ")],
-    ["Execution", String(item.executionAllowed)]
-  ])).join("") || empty("No PHANTOM review board items recorded.");
+  $("#phantom-review-board-cards").innerHTML =
+    state.phantomReviewBoardItems
+      .map((item) =>
+        card(item.title, [
+          ["Status", item.status],
+          ["Legal", item.legalOwner],
+          ["Compliance", item.complianceOwner],
+          [
+            "Owner ack",
+            ["legal", "ciso", "architect", "compliance"]
+              .map((owner) => `${owner}:${item.ownerAcknowledgements?.[owner] ? "yes" : "no"}`)
+              .join(" ")
+          ],
+          ["Execution", String(item.executionAllowed)]
+        ])
+      )
+      .join("") || empty("No PHANTOM review board items recorded.");
 
-  $("#phantom-policy-simulation-cards").innerHTML = state.phantomPolicySimulations.map((item) => card(item.scenario, [
-    ["Mode", item.mode],
-    ["Findings", String(item.findings?.length || 0)],
-    ["Side effect", String(item.sideEffectAllowed)],
-    ["Execution", String(item.executionAllowed)]
-  ])).join("") || empty("No PHANTOM policy simulations recorded.");
+  $("#phantom-policy-simulation-cards").innerHTML =
+    state.phantomPolicySimulations
+      .map((item) =>
+        card(item.scenario, [
+          ["Mode", item.mode],
+          ["Findings", String(item.findings?.length || 0)],
+          ["Side effect", String(item.sideEffectAllowed)],
+          ["Execution", String(item.executionAllowed)]
+        ])
+      )
+      .join("") || empty("No PHANTOM policy simulations recorded.");
 
-  $("#phantom-exception-cards").innerHTML = state.phantomExceptions.map((item) => card(item.scope, [
-    ["Status", item.status],
-    ["Legal", item.legalOwner],
-    ["Expired", String(item.expired)],
-    ["Revalidation", item.expired ? "required" : "scheduled"],
-    ["Expires", item.expiresAt],
-    ["Compliance", item.complianceOwner],
-    ["Execution", String(item.executionAllowed)]
-  ])).join("") || empty("No PHANTOM exceptions recorded.");
+  $("#phantom-exception-cards").innerHTML =
+    state.phantomExceptions
+      .map((item) =>
+        card(item.scope, [
+          ["Status", item.status],
+          ["Legal", item.legalOwner],
+          ["Expired", String(item.expired)],
+          ["Revalidation", item.expired ? "required" : "scheduled"],
+          ["Expires", item.expiresAt],
+          ["Compliance", item.complianceOwner],
+          ["Execution", String(item.executionAllowed)]
+        ])
+      )
+      .join("") || empty("No PHANTOM exceptions recorded.");
 
-  $("#phantom-coverage-cards").innerHTML = state.phantomCoverage.map((item) => card(item.packageId, [
-    ["Coverage", `${item.coveragePercent}%`],
-    ["Status", item.status],
-    ["Blockers", item.blockers?.join(", ") || "-"],
-    ["Certification", String(item.certificationClaim)]
-  ])).join("") || empty("No PHANTOM coverage evaluations recorded.");
+  $("#phantom-coverage-cards").innerHTML =
+    state.phantomCoverage
+      .map((item) =>
+        card(item.packageId, [
+          ["Coverage", `${item.coveragePercent}%`],
+          ["Status", item.status],
+          ["Blockers", item.blockers?.join(", ") || "-"],
+          ["Certification", String(item.certificationClaim)]
+        ])
+      )
+      .join("") || empty("No PHANTOM coverage evaluations recorded.");
 
-  $("#phantom-audit-correlation-cards").innerHTML = state.phantomAuditCorrelation ? card("PHANTOM audit correlation", [
-    ["Events", String(state.phantomAuditCorrelation.eventCount)],
-    ["Actions", String(state.phantomAuditCorrelation.actions?.length || 0)],
-    ["Latest hash", String(state.phantomAuditCorrelation.latestHash || "").slice(0, 14)],
-    ["Execution", String(state.phantomAuditCorrelation.executionAllowed)]
-  ]) : empty("PHANTOM audit correlation unavailable.");
+  $("#phantom-audit-correlation-cards").innerHTML = state.phantomAuditCorrelation
+    ? card("PHANTOM audit correlation", [
+        ["Events", String(state.phantomAuditCorrelation.eventCount)],
+        ["Actions", String(state.phantomAuditCorrelation.actions?.length || 0)],
+        ["Latest hash", String(state.phantomAuditCorrelation.latestHash || "").slice(0, 14)],
+        ["Execution", String(state.phantomAuditCorrelation.executionAllowed)]
+      ])
+    : empty("PHANTOM audit correlation unavailable.");
 
   renderRelease();
 
   const recent = state.audit.slice(-8).reverse();
-  $("#audit-table").innerHTML = recent.map((event) => `
+  $("#audit-table").innerHTML =
+    recent
+      .map(
+        (event) => `
     <tr>
       <td>${escapeHtml(event.action)}</td>
       <td>${escapeHtml(event.resourceType || "-")}</td>
       <td>${escapeHtml(event.result)}</td>
       <td>${escapeHtml(event.timestamp)}</td>
     </tr>
-  `).join("") || tableEmpty(4, "No audit events yet.");
+  `
+      )
+      .join("") || tableEmpty(4, "No audit events yet.");
 
-  $("#audit-full-table").innerHTML = state.audit.slice().reverse().map((event) => `
+  $("#audit-full-table").innerHTML =
+    state.audit
+      .slice()
+      .reverse()
+      .map(
+        (event) => `
     <tr>
       <td>${escapeHtml(event.actorId)}</td>
       <td>${escapeHtml(event.action)}</td>
@@ -1136,7 +1716,9 @@ function render() {
       <td>${escapeHtml(event.policyDecision)}</td>
       <td><code>${escapeHtml(String(event.hash || "").slice(0, 14))}</code></td>
     </tr>
-  `).join("") || tableEmpty(5, "No audit events yet.");
+  `
+      )
+      .join("") || tableEmpty(5, "No audit events yet.");
 }
 
 function renderProductionReadiness() {
@@ -1176,60 +1758,103 @@ function renderProductionReadiness() {
     card("G2 Session Broker", [
       ["Selected", readiness.sessionBroker?.selectedProtocol || "adr_pending"],
       ["State", readiness.sessionBroker?.state || "blocked"],
-      ["Guacamole", String(readiness.sessionBroker?.candidates?.find((item) => item.protocol === "guacamole")?.ready || false)],
-      ["WebRTC/Selkies", String(readiness.sessionBroker?.candidates?.find((item) => item.protocol === "webrtc_selkies")?.ready || false)],
+      [
+        "Guacamole",
+        String(
+          readiness.sessionBroker?.candidates?.find((item) => item.protocol === "guacamole")
+            ?.ready || false
+        )
+      ],
+      [
+        "WebRTC/Selkies",
+        String(
+          readiness.sessionBroker?.candidates?.find((item) => item.protocol === "webrtc_selkies")
+            ?.ready || false
+        )
+      ],
       ["noVNC", readiness.sessionBroker?.noVncProductionApproved ? "approved" : "lab only"],
       ["Blockers", readiness.sessionBroker?.blockers?.join(", ") || "none"]
     ])
   ].join("");
 
-  operatorTarget.innerHTML = readiness.operators.map((operator) => card(operator.displayName, [
-    ["Tier", operator.tier],
-    ["Status", operator.status],
-    ["Subscription", `${operator.subscription?.billingStatus || "-"} / ${operator.subscription?.minimumMonths || 6} mo min`],
-    ["Token flow", operator.subscription?.tokenState],
-    ["Infra cost", `${operator.cost?.monthlyInfraCostPln || 0} PLN/mo`],
-    ["Customer price", `${operator.cost?.monthlyCustomerPricePln || 0} PLN/mo`],
-    ["Margin", `${operator.cost?.grossMarginPln || 0} PLN/mo`],
-    ["Tenancy", operator.cost?.workloadTenancy],
-    ["G1", operator.infrastructure?.g1],
-    ["G2", operator.infrastructure?.g2],
-    ["Workload", operator.infrastructure?.workloadNative?.serverNumber || "not registered"],
-    ["Pixel", operator.path?.pixel],
-    ["Laptop", operator.path?.laptop],
-    ["G1/G2", operator.path?.g1g2],
-    ["G2/workload", operator.path?.g2Workload],
-    ["Broker", `${operator.sessionBroker?.selectedProtocol || "-"} / ${operator.sessionBroker?.state || "-"}`],
-    ["Blockers", operator.blockers?.slice(0, 6).join(", ") || "none"]
-  ])).join("") || empty("No operators in readiness matrix.");
+  operatorTarget.innerHTML =
+    readiness.operators
+      .map((operator) =>
+        card(operator.displayName, [
+          ["Tier", operator.tier],
+          ["Status", operator.status],
+          [
+            "Subscription",
+            `${operator.subscription?.billingStatus || "-"} / ${operator.subscription?.minimumMonths || 6} mo min`
+          ],
+          ["Token flow", operator.subscription?.tokenState],
+          ["Infra cost", `${operator.cost?.monthlyInfraCostPln || 0} PLN/mo`],
+          ["Customer price", `${operator.cost?.monthlyCustomerPricePln || 0} PLN/mo`],
+          ["Margin", `${operator.cost?.grossMarginPln || 0} PLN/mo`],
+          ["Tenancy", operator.cost?.workloadTenancy],
+          ["G1", operator.infrastructure?.g1],
+          ["G2", operator.infrastructure?.g2],
+          ["Workload", operator.infrastructure?.workloadNative?.serverNumber || "not registered"],
+          ["Pixel", operator.path?.pixel],
+          ["Laptop", operator.path?.laptop],
+          ["G1/G2", operator.path?.g1g2],
+          ["G2/workload", operator.path?.g2Workload],
+          [
+            "Broker",
+            `${operator.sessionBroker?.selectedProtocol || "-"} / ${operator.sessionBroker?.state || "-"}`
+          ],
+          ["Blockers", operator.blockers?.slice(0, 6).join(", ") || "none"]
+        ])
+      )
+      .join("") || empty("No operators in readiness matrix.");
 
-  gateTarget.innerHTML = (readiness.productionGates || []).map((gate) => card(gate.title, [
-    ["State", gate.state],
-    ["Area", gate.area],
-    ["Severity", gate.severity],
-    ["Human gate", String(gate.humanGateRequired)],
-    ["Prod exec", String(gate.productionExecutionAllowed)],
-    ["Evidence", Object.entries(gate.evidence || {})
-      .filter(([key, value]) => key.endsWith("Evidence") && value && typeof value === "object")
-      .map(([key, value]) => `${key}: ready=${String(value.ready)} records=${value.records ?? value.tokens ?? value.androidManifests ?? "-"}`)
-      .join("; ") || "-"],
-    ["Acceptance", gate.acceptance],
-    ["Verify", gate.verifyHow],
-    ["Repair", gate.repairAction],
-    ["Blockers", gate.blockers?.join(", ") || "none"]
-  ])).join("") || empty("No hard production gates recorded.");
+  gateTarget.innerHTML =
+    (readiness.productionGates || [])
+      .map((gate) =>
+        card(gate.title, [
+          ["State", gate.state],
+          ["Area", gate.area],
+          ["Severity", gate.severity],
+          ["Human gate", String(gate.humanGateRequired)],
+          ["Prod exec", String(gate.productionExecutionAllowed)],
+          [
+            "Evidence",
+            Object.entries(gate.evidence || {})
+              .filter(
+                ([key, value]) => key.endsWith("Evidence") && value && typeof value === "object"
+              )
+              .map(
+                ([key, value]) =>
+                  `${key}: ready=${String(value.ready)} records=${value.records ?? value.tokens ?? value.androidManifests ?? "-"}`
+              )
+              .join("; ") || "-"
+          ],
+          ["Acceptance", gate.acceptance],
+          ["Verify", gate.verifyHow],
+          ["Repair", gate.repairAction],
+          ["Blockers", gate.blockers?.join(", ") || "none"]
+        ])
+      )
+      .join("") || empty("No hard production gates recorded.");
 
-  appTarget.innerHTML = readiness.operators.flatMap((operator) => operator.apps.map((app) => card(`${operator.displayName} / ${app.label}`, [
-    ["State", app.state],
-    ["Expected", app.expected],
-    ["HTTP", app.httpStatus ? String(app.httpStatus) : "-"],
-    ["URL", app.url],
-    ["CDR", String(app.cdrRequired)],
-    ["Terminal data", String(app.terminalDataStored)],
-    ["Private route", String(app.privateRouteRequired)],
-    ["Prod exec", String(app.productionExecutionAllowed)],
-    ["Blockers", app.blockers?.join(", ") || "none"]
-  ]))).join("") || empty("No workload app routes in readiness matrix.");
+  appTarget.innerHTML =
+    readiness.operators
+      .flatMap((operator) =>
+        operator.apps.map((app) =>
+          card(`${operator.displayName} / ${app.label}`, [
+            ["State", app.state],
+            ["Expected", app.expected],
+            ["HTTP", app.httpStatus ? String(app.httpStatus) : "-"],
+            ["URL", app.url],
+            ["CDR", String(app.cdrRequired)],
+            ["Terminal data", String(app.terminalDataStored)],
+            ["Private route", String(app.privateRouteRequired)],
+            ["Prod exec", String(app.productionExecutionAllowed)],
+            ["Blockers", app.blockers?.join(", ") || "none"]
+          ])
+        )
+      )
+      .join("") || empty("No workload app routes in readiness matrix.");
 }
 
 function renderRelease() {
@@ -1242,56 +1867,82 @@ function renderRelease() {
     ? "PHANTOM execution=false"
     : "PHANTOM needs review";
 
-  $("#release-gate-cards").innerHTML = state.releaseGates.map((gate) => card(gate.title, [
-    ["Status", gate.status],
-    ["Module", gate.moduleKey],
-    ["Owner", gate.owner],
-    ["Human gate", String(gate.humanGateRequired)],
-    ["Prod exec", String(gate.productionExecutionAllowed)],
-    ["Blockers", gate.blockers?.join(", ") || "-"]
-  ])).join("") || empty("No release gates recorded.");
+  $("#release-gate-cards").innerHTML =
+    state.releaseGates
+      .map((gate) =>
+        card(gate.title, [
+          ["Status", gate.status],
+          ["Module", gate.moduleKey],
+          ["Owner", gate.owner],
+          ["Human gate", String(gate.humanGateRequired)],
+          ["Prod exec", String(gate.productionExecutionAllowed)],
+          ["Blockers", gate.blockers?.join(", ") || "-"]
+        ])
+      )
+      .join("") || empty("No release gates recorded.");
 
-  $("#human-test-cards").innerHTML = state.humanTests.map((scenario) => card(scenario.title, [
-    ["View", scenario.view],
-    ["Status", scenario.status],
-    ["Evidence", String(scenario.evidenceArtifactIds?.length || 0)],
-    ["Last run", scenario.lastRunAt || "-"]
-  ])).join("") || empty("No human test scenarios recorded.");
+  $("#human-test-cards").innerHTML =
+    state.humanTests
+      .map((scenario) =>
+        card(scenario.title, [
+          ["View", scenario.view],
+          ["Status", scenario.status],
+          ["Evidence", String(scenario.evidenceArtifactIds?.length || 0)],
+          ["Last run", scenario.lastRunAt || "-"]
+        ])
+      )
+      .join("") || empty("No human test scenarios recorded.");
 
-  $("#human-test-run-cards").innerHTML = state.humanTestRuns.map((run) => card(run.title, [
-    ["Status", run.status],
-    ["Mode", run.mode],
-    ["Strict", run.humanEvidence?.strictResult || "-"],
-    ["Results", String(run.results?.length || 0)],
-    ["Evidence", String(run.evidenceArtifactIds?.length || 0)],
-    ["Prod exec", String(run.productionExecutionAllowed)],
-    ["Blockers", run.humanEvidence?.blockers?.join(", ") || "-"],
-    ["Retest", run.repairLoop?.exactRetestTestId || "-"],
-    ["Repair", run.repairLoop?.repairCommit || "-"],
-    ["Next", run.repairLoop?.allowedNextAction || run.humanEvidence?.nextRequiredAction || "-"]
-  ])).join("") || empty("No full human test runs recorded.");
+  $("#human-test-run-cards").innerHTML =
+    state.humanTestRuns
+      .map((run) =>
+        card(run.title, [
+          ["Status", run.status],
+          ["Mode", run.mode],
+          ["Strict", run.humanEvidence?.strictResult || "-"],
+          ["Results", String(run.results?.length || 0)],
+          ["Evidence", String(run.evidenceArtifactIds?.length || 0)],
+          ["Prod exec", String(run.productionExecutionAllowed)],
+          ["Blockers", run.humanEvidence?.blockers?.join(", ") || "-"],
+          ["Retest", run.repairLoop?.exactRetestTestId || "-"],
+          ["Repair", run.repairLoop?.repairCommit || "-"],
+          [
+            "Next",
+            run.repairLoop?.allowedNextAction || run.humanEvidence?.nextRequiredAction || "-"
+          ]
+        ])
+      )
+      .join("") || empty("No full human test runs recorded.");
 
-  $("#workload-factual-test-cards").innerHTML = [
-    ...state.workloadFactualMatrix.map((item) => card(`${item.label} factual criteria`, [
-      ["Class", item.appClass],
-      ["Runtime", item.allowedRuntimeModes?.join(", ") || "-"],
-      ["Required", item.mandatoryChecks?.join(", ") || "-"],
-      ["CDR", String(item.cdrRequired)],
-      ["Terminal data", String(item.terminalDataStored)],
-      ["Prompt", item.repairPrompt]
-    ])),
-    ...state.workloadFactualTests.map((item) => card(`${item.appKey} / ${item.result}`, [
-    ["Operator", item.operatorId],
-    ["Terminal", item.terminalMode],
-    ["Runtime", item.runtimeMode],
-    ["Factual", String(item.factualStateVerified)],
-    ["Required", item.requiredChecks?.join(", ") || "-"],
-    ["Blockers", item.blockers?.join(", ") || "none"],
-    ["Problem", item.linkedProblemId || "-"]
-    ]))
-  ].join("") || empty("No factual workload app tests recorded.");
+  $("#workload-factual-test-cards").innerHTML =
+    [
+      ...state.workloadFactualMatrix.map((item) =>
+        card(`${item.label} factual criteria`, [
+          ["Class", item.appClass],
+          ["Runtime", item.allowedRuntimeModes?.join(", ") || "-"],
+          ["Required", item.mandatoryChecks?.join(", ") || "-"],
+          ["CDR", String(item.cdrRequired)],
+          ["Terminal data", String(item.terminalDataStored)],
+          ["Prompt", item.repairPrompt]
+        ])
+      ),
+      ...state.workloadFactualTests.map((item) =>
+        card(`${item.appKey} / ${item.result}`, [
+          ["Operator", item.operatorId],
+          ["Terminal", item.terminalMode],
+          ["Runtime", item.runtimeMode],
+          ["Factual", String(item.factualStateVerified)],
+          ["Required", item.requiredChecks?.join(", ") || "-"],
+          ["Blockers", item.blockers?.join(", ") || "none"],
+          ["Problem", item.linkedProblemId || "-"]
+        ])
+      )
+    ].join("") || empty("No factual workload app tests recorded.");
 
-  $("#account-bootstrap-evidence-cards").innerHTML = state.accountBootstrapEvidence.map((item) => `
+  $("#account-bootstrap-evidence-cards").innerHTML =
+    state.accountBootstrapEvidence
+      .map(
+        (item) => `
     <article class="mini-card" data-account-bootstrap-id="${escapeHtml(item.id)}">
       <strong>${escapeHtml(item.appName)} / ${escapeHtml(item.state)}</strong>
       <p><span>Operator</span>${escapeHtml(item.operatorId)}</p>
@@ -1302,29 +1953,46 @@ function renderRelease() {
       <p><span>Promoted</span>${escapeHtml(item.promotedFactualTestId || "-")}</p>
       <button type="button" data-bootstrap-promote="${escapeHtml(item.id)}" ${item.factualCandidate && !item.promotedFactualTestId ? "" : "disabled"}>Promote to factual test</button>
     </article>
-  `).join("") || empty("No operator bootstrap evidence recorded.");
+  `
+      )
+      .join("") || empty("No operator bootstrap evidence recorded.");
 
-  $("#release-problem-cards").innerHTML = state.releaseProblems.map((problem) => card(problem.title, [
-    ["Severity", problem.severity],
-    ["Category", problem.category],
-    ["Module", problem.moduleKey],
-    ["Status", problem.status],
-    ["Owner", problem.owner],
-    ["Evidence", String(problem.evidenceArtifactIds?.length || 0)]
-  ])).join("") || empty("No release problems recorded.");
+  $("#release-problem-cards").innerHTML =
+    state.releaseProblems
+      .map((problem) =>
+        card(problem.title, [
+          ["Severity", problem.severity],
+          ["Category", problem.category],
+          ["Module", problem.moduleKey],
+          ["Status", problem.status],
+          ["Owner", problem.owner],
+          ["Evidence", String(problem.evidenceArtifactIds?.length || 0)]
+        ])
+      )
+      .join("") || empty("No release problems recorded.");
 
-  $("#evidence-artifact-cards").innerHTML = state.evidenceArtifacts.map((artifact) => card(artifact.path, [
-    ["Type", artifact.type],
-    ["Source", artifact.source],
-    ["Module", artifact.linkedModule],
-    ["Hash", String(artifact.sha256 || "").slice(0, 14)]
-  ])).join("") || empty("No evidence artifacts indexed.");
+  $("#evidence-artifact-cards").innerHTML =
+    state.evidenceArtifacts
+      .map((artifact) =>
+        card(artifact.path, [
+          ["Type", artifact.type],
+          ["Source", artifact.source],
+          ["Module", artifact.linkedModule],
+          ["Hash", String(artifact.sha256 || "").slice(0, 14)]
+        ])
+      )
+      .join("") || empty("No evidence artifacts indexed.");
 
-  $("#release-ksiega-cards").innerHTML = (summary?.księga34?.controls || state.systemStatus?.ksiega34 || []).map((item) => card(item.label, [
-    ["Key", item.key],
-    ["Status", item.status],
-    ["Next", item.nextAction]
-  ])).join("") || empty("Księga 4.0 status unavailable.");
+  $("#release-ksiega-cards").innerHTML =
+    (summary?.księga34?.controls || state.systemStatus?.ksiega34 || [])
+      .map((item) =>
+        card(item.label, [
+          ["Key", item.key],
+          ["Status", item.status],
+          ["Next", item.nextAction]
+        ])
+      )
+      .join("") || empty("Księga 4.0 status unavailable.");
 
   $("#release-phantom-cards").innerHTML = [
     card("PHANTOM release boundary", [
@@ -1332,29 +2000,49 @@ function renderRelease() {
       ["Execution allowed", String(summary?.phantom?.executionAllowed ?? false)],
       ["Certification claim", String(summary?.phantom?.certificationClaim ?? false)]
     ]),
-    ...(summary?.phantom?.controls || state.systemStatus?.phantom || []).map((item) => card(item.label, [
-      ["Key", item.key],
-      ["Status", item.status],
-      ["Execution", String(item.executionAllowed)]
-    ]))
+    ...(summary?.phantom?.controls || state.systemStatus?.phantom || []).map((item) =>
+      card(item.label, [
+        ["Key", item.key],
+        ["Status", item.status],
+        ["Execution", String(item.executionAllowed)]
+      ])
+    )
   ].join("");
 
   $("#release-live-execution-cards").innerHTML = [
-    state.liveExecutionSummary ? card("Live cloud unlock", [
-      ["Mode", state.liveExecutionSummary.providerMode],
-      ["Live flag", String(state.liveExecutionSummary.liveAllowed)],
-      ["Token", String(state.liveExecutionSummary.tokenConfigured)],
-      ["State", state.liveExecutionSummary.baselineUnlockState]
-    ]) : empty("Live execution summary unavailable."),
+    state.liveExecutionSummary
+      ? card("Live cloud unlock", [
+          ["Mode", state.liveExecutionSummary.providerMode],
+          ["Live flag", String(state.liveExecutionSummary.liveAllowed)],
+          ["Token", String(state.liveExecutionSummary.tokenConfigured)],
+          ["State", state.liveExecutionSummary.baselineUnlockState]
+        ])
+      : empty("Live execution summary unavailable."),
     card("Firecracker qualifications", [
       ["Records", String(state.firecrackerQualifications.length)],
-      ["Ready", String(state.firecrackerQualifications.filter((item) => item.readyForFirecrackerLaunch).length)],
+      [
+        "Ready",
+        String(
+          state.firecrackerQualifications.filter((item) => item.readyForFirecrackerLaunch).length
+        )
+      ],
       ["Execution", "false"]
     ]),
     card("CPU confidential gate", [
       ["Records", String(state.cpuConfidentialQualifications.length)],
-      ["TDX/SNP", String(state.cpuConfidentialQualifications.filter((item) => item.confidentialComputingApproved).length)],
-      ["Secrets", String(state.cpuConfidentialQualifications.filter((item) => item.secretsReleaseAllowed).length)]
+      [
+        "TDX/SNP",
+        String(
+          state.cpuConfidentialQualifications.filter((item) => item.confidentialComputingApproved)
+            .length
+        )
+      ],
+      [
+        "Secrets",
+        String(
+          state.cpuConfidentialQualifications.filter((item) => item.secretsReleaseAllowed).length
+        )
+      ]
     ]),
     card("PHANTOM execution requests", [
       ["Records", String(state.phantomExecutionRequests.length)],
@@ -1363,19 +2051,24 @@ function renderRelease() {
     ])
   ].join("");
 
-  $("#release-build-assessment-cards").innerHTML = state.releaseBuildAssessment ? [
-    card("Build assessment", [
-      ["Status", state.releaseBuildAssessment.status],
-      ["Prod exec", String(state.releaseBuildAssessment.productionExecutionAllowed)],
-      ["Księga blocked", String(state.releaseBuildAssessment.księga34?.blocked || 0)],
-      ["Open problems", String(state.releaseBuildAssessment.testing?.openProblems?.length || 0)]
-    ]),
-    card("PHANTOM assessment", [
-      ["Execution", String(state.releaseBuildAssessment.phantom?.executionAllowed)],
-      ["Certification", String(state.releaseBuildAssessment.phantom?.certificationClaim)],
-      ["Review items", String(state.releaseBuildAssessment.phantom?.reviewRequired?.length || 0)]
-    ])
-  ].join("") : empty("Build assessment unavailable.");
+  $("#release-build-assessment-cards").innerHTML = state.releaseBuildAssessment
+    ? [
+        card("Build assessment", [
+          ["Status", state.releaseBuildAssessment.status],
+          ["Prod exec", String(state.releaseBuildAssessment.productionExecutionAllowed)],
+          ["Księga blocked", String(state.releaseBuildAssessment.księga34?.blocked || 0)],
+          ["Open problems", String(state.releaseBuildAssessment.testing?.openProblems?.length || 0)]
+        ]),
+        card("PHANTOM assessment", [
+          ["Execution", String(state.releaseBuildAssessment.phantom?.executionAllowed)],
+          ["Certification", String(state.releaseBuildAssessment.phantom?.certificationClaim)],
+          [
+            "Review items",
+            String(state.releaseBuildAssessment.phantom?.reviewRequired?.length || 0)
+          ]
+        ])
+      ].join("")
+    : empty("Build assessment unavailable.");
 }
 
 function formatDate(value) {
@@ -1401,17 +2094,22 @@ function tierBreakdown(tierCounts = {}) {
 
 function sortCommercialRows(rows, sortMode) {
   const sorted = [...rows];
-  const byText = (key) => (left, right) => String(left[key] || "").localeCompare(String(right[key] || ""));
-  const numeric = (reader, direction = "asc") => (left, right) => {
-    const a = Number(reader(left) ?? Number.MAX_SAFE_INTEGER);
-    const b = Number(reader(right) ?? Number.MAX_SAFE_INTEGER);
-    return direction === "desc" ? b - a : a - b;
-  };
+  const byText = (key) => (left, right) =>
+    String(left[key] || "").localeCompare(String(right[key] || ""));
+  const numeric =
+    (reader, direction = "asc") =>
+    (left, right) => {
+      const a = Number(reader(left) ?? Number.MAX_SAFE_INTEGER);
+      const b = Number(reader(right) ?? Number.MAX_SAFE_INTEGER);
+      return direction === "desc" ? b - a : a - b;
+    };
   const comparators = {
     daysRemainingAsc: numeric((row) => row.subscription?.daysRemaining),
-    activationDesc: (left, right) => (Date.parse(right.activationDate || "") || 0) - (Date.parse(left.activationDate || "") || 0),
+    activationDesc: (left, right) =>
+      (Date.parse(right.activationDate || "") || 0) - (Date.parse(left.activationDate || "") || 0),
     tierAsc: byText("tier"),
-    purchaseAsc: (left, right) => String(left.purchase?.method || "").localeCompare(String(right.purchase?.method || "")),
+    purchaseAsc: (left, right) =>
+      String(left.purchase?.method || "").localeCompare(String(right.purchase?.method || "")),
     infraDesc: numeric((row) => row.cost?.monthlyInfraCostPln, "desc"),
     revenueDesc: numeric((row) => row.commercial?.soldAmountEur, "desc")
   };
@@ -1475,14 +2173,21 @@ function renderOperatorCommercialSummary() {
       row.purchase?.method,
       row.purchase?.accountType,
       row.purchase?.resellerReference
-    ].join(" ").toLowerCase();
-    return (!query || searchable.includes(query))
-      && (!tier || row.tier === tier)
-      && (!purchase || row.purchase?.method === purchase)
-      && (!account || row.purchase?.accountType === account);
+    ]
+      .join(" ")
+      .toLowerCase();
+    return (
+      (!query || searchable.includes(query)) &&
+      (!tier || row.tier === tier) &&
+      (!purchase || row.purchase?.method === purchase) &&
+      (!account || row.purchase?.accountType === account)
+    );
   });
   const rows = sortCommercialRows(filtered, sortMode);
-  tableTarget.innerHTML = rows.map((row) => `
+  tableTarget.innerHTML =
+    rows
+      .map(
+        (row) => `
     <tr>
       <td><strong>${escapeHtml(row.displayName)}</strong><br><code>${escapeHtml(row.operatorId)}</code></td>
       <td>${escapeHtml(row.tier)}</td>
@@ -1494,14 +2199,21 @@ function renderOperatorCommercialSummary() {
       <td>${escapeHtml(formatMoney(row.cost?.monthlyInfraCostPln || 0, "PLN/mo"))}<br><small>${escapeHtml(row.cost?.source || "-")}</small></td>
       <td>${escapeHtml(formatMoney(row.commercial?.soldAmountEur || 0, "EUR"))}<br><small>${escapeHtml(row.commercial?.source || "-")}</small></td>
     </tr>
-  `).join("") || tableEmpty(9, "No operators match current segmentation filters.");
+  `
+      )
+      .join("") || tableEmpty(9, "No operators match current segmentation filters.");
 }
 
 function renderSelect(selector, rows, emptyLabel, labelKey = "name") {
   const select = $(selector);
   if (!select) return;
   select.innerHTML = rows.length
-    ? rows.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row[labelKey] || row.id)}</option>`).join("")
+    ? rows
+        .map(
+          (row) =>
+            `<option value="${escapeHtml(row.id)}">${escapeHtml(row[labelKey] || row.id)}</option>`
+        )
+        .join("")
     : `<option value="">${escapeHtml(emptyLabel)}</option>`;
 }
 
@@ -1571,9 +2283,10 @@ async function completeStepUp() {
     status.textContent = "Verifying";
     status.dataset.tone = "info";
     const options = await api("/auth/step-up/options", { method: "POST" });
-    const assertion = state.webAuthnMode === "browser"
-      ? await browserAssertion(options.challenge, state.credentialId)
-      : simulatedAssertion(options.challenge.id, state.credentialId);
+    const assertion =
+      state.webAuthnMode === "browser"
+        ? await browserAssertion(options.challenge, state.credentialId)
+        : simulatedAssertion(options.challenge.id, state.credentialId);
     const result = await api("/auth/step-up/verify", {
       method: "POST",
       body: {
@@ -1633,7 +2346,10 @@ async function browserEnrollmentCredential(options, credentialId) {
         name: options.user.email,
         displayName: options.user.email
       },
-      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+      pubKeyCredParams: [
+        { type: "public-key", alg: -7 },
+        { type: "public-key", alg: -257 }
+      ],
       authenticatorSelection: { userVerification: "required" },
       timeout: publicKey.timeout,
       attestation: "none"
@@ -1663,10 +2379,12 @@ async function browserAssertion(challenge, credentialId) {
       timeout: challenge.publicKey.timeout,
       rpId: challenge.publicKey.rpId,
       userVerification: "required",
-      allowCredentials: [{
-        id: base64UrlToBuffer(credentialId),
-        type: "public-key"
-      }]
+      allowCredentials: [
+        {
+          id: base64UrlToBuffer(credentialId),
+          type: "public-key"
+        }
+      ]
     }
   });
   return {
@@ -1680,7 +2398,9 @@ async function browserAssertion(challenge, credentialId) {
       clientDataJSON: bufferToBase64Url(assertion.response.clientDataJSON),
       authenticatorData: bufferToBase64Url(assertion.response.authenticatorData),
       signature: bufferToBase64Url(assertion.response.signature),
-      userHandle: assertion.response.userHandle ? bufferToBase64Url(assertion.response.userHandle) : null
+      userHandle: assertion.response.userHandle
+        ? bufferToBase64Url(assertion.response.userHandle)
+        : null
     }
   };
 }
@@ -1696,14 +2416,15 @@ async function enrollSecurityKey() {
     }
   });
   const credentialId = state.credentialId || `cred-ui-${crypto.randomUUID()}`;
-  const credential = state.webAuthnMode === "browser"
-    ? await browserEnrollmentCredential(options, credentialId)
-    : {
-        mode: "local_simulator",
-        id: credentialId,
-        publicKey: `simulated-public-key:${credentialId}`,
-        transports: ["usb", "nfc"]
-      };
+  const credential =
+    state.webAuthnMode === "browser"
+      ? await browserEnrollmentCredential(options, credentialId)
+      : {
+          mode: "local_simulator",
+          id: credentialId,
+          publicKey: `simulated-public-key:${credentialId}`,
+          transports: ["usb", "nfc"]
+        };
   const result = await api("/auth/webauthn/enrollment/verify", {
     method: "POST",
     body: {
@@ -1750,13 +2471,19 @@ async function createOperator(event) {
       evidenceRefs: ["admin-ui://operator-create-live-baseline"]
     };
   }
-  await withStepUpRetry(() => api("/operators", {
-    method: "POST",
-    body
-  }), liveBaselineEnabled ? "Create Operator Live Baseline" : "Create Operator");
-  toast(liveBaselineEnabled
-    ? "Operator created with live baseline gate decision"
-    : "Operator created with automatic G1/G2/WORKLOAD baseline");
+  await withStepUpRetry(
+    () =>
+      api("/operators", {
+        method: "POST",
+        body
+      }),
+    liveBaselineEnabled ? "Create Operator Live Baseline" : "Create Operator"
+  );
+  toast(
+    liveBaselineEnabled
+      ? "Operator created with live baseline gate decision"
+      : "Operator created with automatic G1/G2/WORKLOAD baseline"
+  );
   await refreshAll();
 }
 
@@ -1821,7 +2548,10 @@ async function createDisposableTeardownPlan(event) {
       <p><span>Provider mutation</span>${escapeHtml(String(result.plan.guardrails?.providerMutationAllowed))}</p>
     `;
   }
-  toast("Disposable teardown plan created; confirmation phrase shown once in this browser session", "warn");
+  toast(
+    "Disposable teardown plan created; confirmation phrase shown once in this browser session",
+    "warn"
+  );
   await refreshAll();
   const planSelect = $("#disposable-teardown-plan-select");
   if (planSelect) planSelect.value = result.plan.id;
@@ -1870,7 +2600,9 @@ async function createLocalLabVpsSet(event) {
     toast("Create a pipeline before local VPS set", "warn");
     return;
   }
-  await api(`/operator-provisioning/pipelines/${data.pipelineId}/local-lab-vps`, { method: "POST" });
+  await api(`/operator-provisioning/pipelines/${data.pipelineId}/local-lab-vps`, {
+    method: "POST"
+  });
   toast("Local virtual VPS set created");
   await refreshAll();
 }
@@ -1882,7 +2614,9 @@ async function checkSecretsRelease(event) {
     toast("Create a pipeline before secrets check", "warn");
     return;
   }
-  await api(`/operator-provisioning/pipelines/${data.pipelineId}/secrets-release-check`, { method: "POST" });
+  await api(`/operator-provisioning/pipelines/${data.pipelineId}/secrets-release-check`, {
+    method: "POST"
+  });
   toast("Secrets release remains blocked for local lab");
   await refreshAll();
 }
@@ -1894,7 +2628,9 @@ async function createLocalEnvironment(event) {
     toast("Create a local-lab pipeline before environment", "warn");
     return;
   }
-  await api(`/operator-provisioning/pipelines/${data.pipelineId}/local-environment`, { method: "POST" });
+  await api(`/operator-provisioning/pipelines/${data.pipelineId}/local-environment`, {
+    method: "POST"
+  });
   toast("Local operator environment created");
   await refreshAll();
 }
@@ -1951,7 +2687,9 @@ async function checkEnvironmentSecrets(event) {
     toast("Create an environment before secrets check", "warn");
     return;
   }
-  await api(`/operator-environments/${data.environmentId}/secrets-release-check`, { method: "POST" });
+  await api(`/operator-environments/${data.environmentId}/secrets-release-check`, {
+    method: "POST"
+  });
   toast("Environment secrets remain blocked");
   await refreshAll();
 }
@@ -1963,7 +2701,9 @@ async function loadOperatorConnectionPath(event) {
     toast("Create an operator before loading connection path", "warn");
     return;
   }
-  const result = await api(`/operators/${data.operatorId}/connection-path?terminalMode=${encodeURIComponent(data.terminalMode)}`);
+  const result = await api(
+    `/operators/${data.operatorId}/connection-path?terminalMode=${encodeURIComponent(data.terminalMode)}`
+  );
   state.operatorConnectionPath = result.path;
   toast("Operator connection path loaded");
   render();
@@ -2024,20 +2764,24 @@ async function createProvider(event) {
   event.preventDefault();
   const form = event.currentTarget;
   const data = formData(event.currentTarget);
-  await withStepUpRetry(() => api("/providers", {
-    method: "POST",
-    body: {
-      providerType: data.providerType,
-      apiSecret: data.apiSecret,
-      regions: splitCsv(data.regions),
-      countries: splitCsv(data.countries).map((country) => country.toUpperCase()),
-      regionCatalog: parseRegionCatalog(data.regionCatalog),
-      runtimeCapabilities: runtimeCapabilitiesForClass(data.runtimeClass),
-      metadata: { providerRole: data.providerRole },
-      billingHealth: { status: "healthy" },
-      testConnection: { mode: "mock", status: "passed" }
-    }
-  }), "Save Provider");
+  await withStepUpRetry(
+    () =>
+      api("/providers", {
+        method: "POST",
+        body: {
+          providerType: data.providerType,
+          apiSecret: data.apiSecret,
+          regions: splitCsv(data.regions),
+          countries: splitCsv(data.countries).map((country) => country.toUpperCase()),
+          regionCatalog: parseRegionCatalog(data.regionCatalog),
+          runtimeCapabilities: runtimeCapabilitiesForClass(data.runtimeClass),
+          metadata: { providerRole: data.providerRole },
+          billingHealth: { status: "healthy" },
+          testConnection: { mode: "mock", status: "passed" }
+        }
+      }),
+    "Save Provider"
+  );
   form.elements.namedItem("apiSecret").value = "";
   toast("Provider saved; secret cleared from form");
   await refreshAll();
@@ -2045,12 +2789,39 @@ async function createProvider(event) {
 
 function runtimeCapabilitiesForClass(runtimeClass) {
   if (runtimeClass === "firecracker") {
-    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, androidWorkloads: "kvm_binderfs_review_required", intelTdx: false, amdSevSnp: false, recommendedTier: "PRO" };
+    return {
+      containers: true,
+      nestedKvm: true,
+      bareMetalKvm: true,
+      firecracker: true,
+      androidWorkloads: "kvm_binderfs_review_required",
+      intelTdx: false,
+      amdSevSnp: false,
+      recommendedTier: "PRO"
+    };
   }
   if (runtimeClass === "confidential") {
-    return { containers: true, nestedKvm: true, bareMetalKvm: true, firecracker: true, androidWorkloads: "kvm_binderfs_review_required", intelTdx: true, amdSevSnp: true, recommendedTier: "SOVEREIGN" };
+    return {
+      containers: true,
+      nestedKvm: true,
+      bareMetalKvm: true,
+      firecracker: true,
+      androidWorkloads: "kvm_binderfs_review_required",
+      intelTdx: true,
+      amdSevSnp: true,
+      recommendedTier: "SOVEREIGN"
+    };
   }
-  return { containers: true, nestedKvm: false, bareMetalKvm: false, firecracker: false, androidWorkloads: false, intelTdx: false, amdSevSnp: false, recommendedTier: "STANDARD" };
+  return {
+    containers: true,
+    nestedKvm: false,
+    bareMetalKvm: false,
+    firecracker: false,
+    androidWorkloads: false,
+    intelTdx: false,
+    amdSevSnp: false,
+    recommendedTier: "STANDARD"
+  };
 }
 
 async function createProviderDryRunPlan(event) {
@@ -2073,18 +2844,22 @@ async function createProviderDryRunPlan(event) {
 async function configureSecretBackend(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  await withStepUpRetry(() => api("/secrets/backends", {
-    method: "POST",
-    body: {
-      backendType: data.backendType,
-      displayName: data.displayName,
-      endpointReference: data.endpointReference || null,
-      keyRingReference: data.keyRingReference || null,
-      hsmPartitionReference: data.hsmPartitionReference || null,
-      mode: data.mode,
-      evidenceRefs: splitCsv(data.evidenceRefs)
-    }
-  }), "Secret Backend Configure");
+  await withStepUpRetry(
+    () =>
+      api("/secrets/backends", {
+        method: "POST",
+        body: {
+          backendType: data.backendType,
+          displayName: data.displayName,
+          endpointReference: data.endpointReference || null,
+          keyRingReference: data.keyRingReference || null,
+          hsmPartitionReference: data.hsmPartitionReference || null,
+          mode: data.mode,
+          evidenceRefs: splitCsv(data.evidenceRefs)
+        }
+      }),
+    "Secret Backend Configure"
+  );
   toast("Secret backend contract recorded");
   await refreshAll();
 }
@@ -2092,18 +2867,22 @@ async function configureSecretBackend(event) {
 async function requestLiveCloudVpsSet(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  await withStepUpRetry(() => api("/live-execution/cloud/hetzner/vps-set", {
-    method: "POST",
-    extraHeaders: { "idempotency-key": data.idempotencyKey },
-    body: {
-      providerId: data.providerId,
-      operatorId: data.operatorId,
-      approvalId: data.approvalId,
-      region: data.region,
-      idempotencyKey: data.idempotencyKey,
-      liveConfirmed: event.currentTarget.liveConfirmed.checked
-    }
-  }), "Live Cloud VPS Set");
+  await withStepUpRetry(
+    () =>
+      api("/live-execution/cloud/hetzner/vps-set", {
+        method: "POST",
+        extraHeaders: { "idempotency-key": data.idempotencyKey },
+        body: {
+          providerId: data.providerId,
+          operatorId: data.operatorId,
+          approvalId: data.approvalId,
+          region: data.region,
+          idempotencyKey: data.idempotencyKey,
+          liveConfirmed: event.currentTarget.liveConfirmed.checked
+        }
+      }),
+    "Live Cloud VPS Set"
+  );
   toast("Live cloud request recorded with gate decision");
   await refreshAll();
 }
@@ -2114,19 +2893,23 @@ async function promoteOperatorBaselineToLive(event) {
   const provider = state.providers.find((item) => item.id === data.providerId);
   if (!provider) throw new Error("Select a provider before baseline promotion");
   if (!data.operatorId) throw new Error("Select an operator before baseline promotion");
-  await withStepUpRetry(() => api(`/operators/${data.operatorId}/live-promotions/${provider.providerKey}`, {
-    method: "POST",
-    extraHeaders: { "idempotency-key": data.idempotencyKey },
-    body: {
-      providerId: data.providerId,
-      approvalId: data.approvalId,
-      region: data.region,
-      idempotencyKey: data.idempotencyKey,
-      liveConfirmed: event.currentTarget.liveConfirmed.checked,
-      serverType: data.serverType,
-      image: data.image
-    }
-  }), "Promote Operator Baseline");
+  await withStepUpRetry(
+    () =>
+      api(`/operators/${data.operatorId}/live-promotions/${provider.providerKey}`, {
+        method: "POST",
+        extraHeaders: { "idempotency-key": data.idempotencyKey },
+        body: {
+          providerId: data.providerId,
+          approvalId: data.approvalId,
+          region: data.region,
+          idempotencyKey: data.idempotencyKey,
+          liveConfirmed: event.currentTarget.liveConfirmed.checked,
+          serverType: data.serverType,
+          image: data.image
+        }
+      }),
+    "Promote Operator Baseline"
+  );
   toast("Operator baseline promotion recorded with gate decision");
   await refreshAll();
 }
@@ -2136,20 +2919,24 @@ async function runProviderRehearsal(event) {
   const data = formData(event.currentTarget);
   const provider = state.providers.find((item) => item.id === data.providerId);
   if (!provider) throw new Error("Select a provider before running rehearsal");
-  await withStepUpRetry(() => api(`/live-execution/cloud/${provider.providerKey}/rehearsal`, {
-    method: "POST",
-    extraHeaders: { "idempotency-key": data.idempotencyKey },
-    body: {
-      providerId: data.providerId,
-      operatorId: data.operatorId,
-      approvalId: data.approvalId,
-      region: data.region,
-      idempotencyKey: data.idempotencyKey,
-      rehearsalMode: data.rehearsalMode,
-      liveConfirmed: event.currentTarget.liveConfirmed.checked,
-      cleanupConfirmed: event.currentTarget.cleanupConfirmed.checked
-    }
-  }), "Provider Rehearsal");
+  await withStepUpRetry(
+    () =>
+      api(`/live-execution/cloud/${provider.providerKey}/rehearsal`, {
+        method: "POST",
+        extraHeaders: { "idempotency-key": data.idempotencyKey },
+        body: {
+          providerId: data.providerId,
+          operatorId: data.operatorId,
+          approvalId: data.approvalId,
+          region: data.region,
+          idempotencyKey: data.idempotencyKey,
+          rehearsalMode: data.rehearsalMode,
+          liveConfirmed: event.currentTarget.liveConfirmed.checked,
+          cleanupConfirmed: event.currentTarget.cleanupConfirmed.checked
+        }
+      }),
+    "Provider Rehearsal"
+  );
   toast("Provider rehearsal completed");
   await refreshAll();
 }
@@ -2157,26 +2944,30 @@ async function runProviderRehearsal(event) {
 async function createDedicatedWorkloadOrder(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  await withStepUpRetry(() => api("/live-execution/dedicated-workload/hetzner-robot/order", {
-    method: "POST",
-    body: {
-      providerId: data.providerId,
-      operatorId: data.operatorId,
-      approvalId: data.approvalId,
-      productId: data.productId,
-      region: data.region,
-      dist: data.dist,
-      authorizedKeyRef: data.authorizedKeyRef,
-      addons: splitCsv(data.addons),
-      maxMonthlyPrice: data.maxMonthlyPrice ? Number(data.maxMonthlyPrice) : null,
-      workloadTenancyMode: data.workloadTenancyMode,
-      phantomSensitive: event.currentTarget.phantomSensitive.checked,
-      orderMode: data.orderMode,
-      liveConfirmed: event.currentTarget.liveConfirmed.checked,
-      costConfirmed: event.currentTarget.costConfirmed.checked,
-      hardwareGateConfirmed: event.currentTarget.hardwareGateConfirmed.checked
-    }
-  }), "Dedicated Workload Order");
+  await withStepUpRetry(
+    () =>
+      api("/live-execution/dedicated-workload/hetzner-robot/order", {
+        method: "POST",
+        body: {
+          providerId: data.providerId,
+          operatorId: data.operatorId,
+          approvalId: data.approvalId,
+          productId: data.productId,
+          region: data.region,
+          dist: data.dist,
+          authorizedKeyRef: data.authorizedKeyRef,
+          addons: splitCsv(data.addons),
+          maxMonthlyPrice: data.maxMonthlyPrice ? Number(data.maxMonthlyPrice) : null,
+          workloadTenancyMode: data.workloadTenancyMode,
+          phantomSensitive: event.currentTarget.phantomSensitive.checked,
+          orderMode: data.orderMode,
+          liveConfirmed: event.currentTarget.liveConfirmed.checked,
+          costConfirmed: event.currentTarget.costConfirmed.checked,
+          hardwareGateConfirmed: event.currentTarget.hardwareGateConfirmed.checked
+        }
+      }),
+    "Dedicated Workload Order"
+  );
   toast("Dedicated workload order gate recorded");
   await refreshAll();
 }
@@ -2184,13 +2975,17 @@ async function createDedicatedWorkloadOrder(event) {
 async function qualifyFirecrackerHost(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  await withStepUpRetry(() => api("/live-execution/firecracker/host-qualification", {
-    method: "POST",
-    body: {
-      hostId: data.hostId,
-      approvalId: data.approvalId || null
-    }
-  }), "Firecracker Host Qualification");
+  await withStepUpRetry(
+    () =>
+      api("/live-execution/firecracker/host-qualification", {
+        method: "POST",
+        body: {
+          hostId: data.hostId,
+          approvalId: data.approvalId || null
+        }
+      }),
+    "Firecracker Host Qualification"
+  );
   toast("Firecracker host qualification recorded");
   await refreshAll();
 }
@@ -2199,38 +2994,42 @@ async function createWorkloadImageManifest(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
   const form = event.currentTarget.elements;
-  await withStepUpRetry(() => api("/live-execution/workload-images/manifests", {
-    method: "POST",
-    body: {
-      hostId: data.hostId,
-      appKey: data.appKey,
-      appName: data.appName,
-      runtimeKind: data.runtimeKind,
-      imageRef: data.imageRef,
-      kernelRef: data.kernelRef || null,
-      rootfsRef: data.rootfsRef || null,
-      packageRef: data.packageRef || null,
-      cdrPolicyRef: data.cdrPolicyRef,
-      streamGateway: {
-        bindAddress: data.bindAddress,
-        sourcePort: Number(data.sourcePort),
-        throughG2: form.namedItem("throughG2").checked,
-        pixelOptimized: form.namedItem("pixelOptimized").checked,
-        publicExposureAllowed: false
-      },
-      launchManifest: {
-        networkMode: data.networkMode,
-        storageMode: data.storageMode
-      },
-      buildEvidence: {
-        reproducibleBuild: form.namedItem("reproducibleBuild").checked,
-        cdrHookDeclared: form.namedItem("cdrHookDeclared").checked,
-        binderfs: form.namedItem("binderfs").checked,
-        androidRuntime: form.namedItem("androidRuntime").checked
-      },
-      productionBlockers: splitCsv(data.productionBlockers)
-    }
-  }), "Workload Image Manifest");
+  await withStepUpRetry(
+    () =>
+      api("/live-execution/workload-images/manifests", {
+        method: "POST",
+        body: {
+          hostId: data.hostId,
+          appKey: data.appKey,
+          appName: data.appName,
+          runtimeKind: data.runtimeKind,
+          imageRef: data.imageRef,
+          kernelRef: data.kernelRef || null,
+          rootfsRef: data.rootfsRef || null,
+          packageRef: data.packageRef || null,
+          cdrPolicyRef: data.cdrPolicyRef,
+          streamGateway: {
+            bindAddress: data.bindAddress,
+            sourcePort: Number(data.sourcePort),
+            throughG2: form.namedItem("throughG2").checked,
+            pixelOptimized: form.namedItem("pixelOptimized").checked,
+            publicExposureAllowed: false
+          },
+          launchManifest: {
+            networkMode: data.networkMode,
+            storageMode: data.storageMode
+          },
+          buildEvidence: {
+            reproducibleBuild: form.namedItem("reproducibleBuild").checked,
+            cdrHookDeclared: form.namedItem("cdrHookDeclared").checked,
+            binderfs: form.namedItem("binderfs").checked,
+            androidRuntime: form.namedItem("androidRuntime").checked
+          },
+          productionBlockers: splitCsv(data.productionBlockers)
+        }
+      }),
+    "Workload Image Manifest"
+  );
   toast("Workload image manifest recorded");
   await refreshAll();
 }
@@ -2238,19 +3037,23 @@ async function createWorkloadImageManifest(event) {
 async function runFirecrackerLaunchRehearsal(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  await withStepUpRetry(() => api("/live-execution/firecracker/launch-rehearsal", {
-    method: "POST",
-    body: {
-      hostQualificationId: data.hostQualificationId,
-      operatorId: data.operatorId,
-      workloadNames: splitCsv(data.workloadNames),
-      imageRef: data.imageRef,
-      kernelRef: data.kernelRef,
-      rootfsRef: data.rootfsRef,
-      networkMode: data.networkMode,
-      rehearsalConfirmed: event.currentTarget.rehearsalConfirmed.checked
-    }
-  }), "Firecracker Launch Rehearsal");
+  await withStepUpRetry(
+    () =>
+      api("/live-execution/firecracker/launch-rehearsal", {
+        method: "POST",
+        body: {
+          hostQualificationId: data.hostQualificationId,
+          operatorId: data.operatorId,
+          workloadNames: splitCsv(data.workloadNames),
+          imageRef: data.imageRef,
+          kernelRef: data.kernelRef,
+          rootfsRef: data.rootfsRef,
+          networkMode: data.networkMode,
+          rehearsalConfirmed: event.currentTarget.rehearsalConfirmed.checked
+        }
+      }),
+    "Firecracker Launch Rehearsal"
+  );
   toast("Firecracker launch rehearsal recorded");
   await refreshAll();
 }
@@ -2259,30 +3062,34 @@ async function qualifyCpuConfidentialHost(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
   const form = event.currentTarget.elements;
-  await withStepUpRetry(() => api("/live-execution/cpu-confidential/qualification", {
-    method: "POST",
-    body: {
-      hostId: data.hostId,
-      cpuVendor: data.cpuVendor,
-      cpuModel: data.cpuModel,
-      confidentialMode: data.confidentialMode,
-      tierTarget: data.tierTarget,
-      featureFlags: {
-        virtualization: form.namedItem("virtualization").checked,
-        iommu: form.namedItem("iommu").checked,
-        tpm2: form.namedItem("tpm2").checked,
-        secureBoot: form.namedItem("secureBoot").checked,
-        kernelLockdown: form.namedItem("kernelLockdown").checked,
-        microcodeCurrent: form.namedItem("microcodeCurrent").checked
-      },
-      attestation: {
-        verified: form.namedItem("attestationVerified").checked,
-        measurementRef: data.measurementRef,
-        verifier: data.verifier
-      },
-      evidenceRefs: splitCsv(data.evidenceRefs)
-    }
-  }), "CPU Confidential Qualification");
+  await withStepUpRetry(
+    () =>
+      api("/live-execution/cpu-confidential/qualification", {
+        method: "POST",
+        body: {
+          hostId: data.hostId,
+          cpuVendor: data.cpuVendor,
+          cpuModel: data.cpuModel,
+          confidentialMode: data.confidentialMode,
+          tierTarget: data.tierTarget,
+          featureFlags: {
+            virtualization: form.namedItem("virtualization").checked,
+            iommu: form.namedItem("iommu").checked,
+            tpm2: form.namedItem("tpm2").checked,
+            secureBoot: form.namedItem("secureBoot").checked,
+            kernelLockdown: form.namedItem("kernelLockdown").checked,
+            microcodeCurrent: form.namedItem("microcodeCurrent").checked
+          },
+          attestation: {
+            verified: form.namedItem("attestationVerified").checked,
+            measurementRef: data.measurementRef,
+            verifier: data.verifier
+          },
+          evidenceRefs: splitCsv(data.evidenceRefs)
+        }
+      }),
+    "CPU Confidential Qualification"
+  );
   toast("CPU confidential-computing qualification recorded");
   await refreshAll();
 }
@@ -2387,7 +3194,12 @@ async function evaluateOperatorReadiness(event) {
   const data = formData(event.currentTarget);
   const result = await api(`/operators/${data.operatorId}/readiness`);
   state.readinessResults.push(result.readiness);
-  toast(result.readiness.readyForApproval ? "Operator readiness passed" : "Operator readiness has blockers", result.readiness.readyForApproval ? "info" : "error");
+  toast(
+    result.readiness.readyForApproval
+      ? "Operator readiness passed"
+      : "Operator readiness has blockers",
+    result.readiness.readyForApproval ? "info" : "error"
+  );
   render();
   await refreshAll();
 }
@@ -2766,7 +3578,10 @@ async function evaluatePhantomCoverage(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
   const result = await api(`/phantom/packages/${data.packageId}/evidence-coverage`);
-  state.phantomCoverage = [result.coverage, ...state.phantomCoverage.filter((item) => item.packageId !== result.coverage.packageId)];
+  state.phantomCoverage = [
+    result.coverage,
+    ...state.phantomCoverage.filter((item) => item.packageId !== result.coverage.packageId)
+  ];
   toast("PHANTOM evidence coverage evaluated without execution");
   render();
 }
@@ -2774,17 +3589,21 @@ async function evaluatePhantomCoverage(event) {
 async function createPhantomExecutionRequest(event) {
   event.preventDefault();
   const data = formData(event.currentTarget);
-  await withStepUpRetry(() => api("/live-execution/phantom/request", {
-    method: "POST",
-    body: {
-      packageId: data.packageId,
-      purpose: data.purpose,
-      owners: splitCsv(data.owners),
-      evidenceRefs: splitCsv(data.evidenceRefs),
-      expiresAt: data.expiresAt,
-      labConfirmed: event.currentTarget.labConfirmed.checked
-    }
-  }), "PHANTOM Execution Request");
+  await withStepUpRetry(
+    () =>
+      api("/live-execution/phantom/request", {
+        method: "POST",
+        body: {
+          packageId: data.packageId,
+          purpose: data.purpose,
+          owners: splitCsv(data.owners),
+          evidenceRefs: splitCsv(data.evidenceRefs),
+          expiresAt: data.expiresAt,
+          labConfirmed: event.currentTarget.labConfirmed.checked
+        }
+      }),
+    "PHANTOM Execution Request"
+  );
   toast("PHANTOM execution request gated; baseline remains locked");
   await refreshAll();
 }
@@ -2885,12 +3704,27 @@ async function recordWorkloadFactualTest(event) {
       result: data.result,
       checks: {
         uiVisible: factualCheck(form.uiVisible.checked, "UI visible through selected terminal"),
-        accountBootstrap: factualCheck(form.accountBootstrap.checked, "Account created or linked in workload"),
+        accountBootstrap: factualCheck(
+          form.accountBootstrap.checked,
+          "Account created or linked in workload"
+        ),
         sendReceive: factualCheck(form.sendReceive.checked, "Send/receive test completed"),
-        browsing: factualCheck(form.browsing.checked, "External page opened through workload browser"),
-        documentWorkflow: factualCheck(form.documentWorkflow.checked, "Document create/open/save test completed"),
-        walletWorkflow: factualCheck(form.walletWorkflow.checked, "Test-only wallet workflow completed"),
-        riskAcceptance: factualCheck(form.riskAcceptance.checked, "Operator risk acceptance recorded")
+        browsing: factualCheck(
+          form.browsing.checked,
+          "External page opened through workload browser"
+        ),
+        documentWorkflow: factualCheck(
+          form.documentWorkflow.checked,
+          "Document create/open/save test completed"
+        ),
+        walletWorkflow: factualCheck(
+          form.walletWorkflow.checked,
+          "Test-only wallet workflow completed"
+        ),
+        riskAcceptance: factualCheck(
+          form.riskAcceptance.checked,
+          "Operator risk acceptance recorded"
+        )
       },
       evidenceArtifactIds: splitCsv(data.evidenceArtifactIds),
       note: data.note
@@ -2943,10 +3777,14 @@ async function handleCredentialAction(event) {
   const card = event.target.closest("[data-credential-id]");
   const credentialId = card?.dataset.credentialId;
   if (!credentialId) return;
-  await withStepUpRetry(() => api(`/auth/credentials/${credentialId}/${action}`, {
-    method: "POST",
-    body: { reasonCode: `ui_${action}` }
-  }), `Credential ${action}`);
+  await withStepUpRetry(
+    () =>
+      api(`/auth/credentials/${credentialId}/${action}`, {
+        method: "POST",
+        body: { reasonCode: `ui_${action}` }
+      }),
+    `Credential ${action}`
+  );
   toast(`Credential ${action} recorded`);
   await refreshAll();
 }
@@ -2975,24 +3813,30 @@ async function executeJob(event) {
   if (!operator) {
     throw new Error("Select an operator before executing a plan");
   }
-  const operatorDevices = state.devices.filter((device) => device.assignedOperatorId === operator?.id);
+  const operatorDevices = state.devices.filter(
+    (device) => device.assignedOperatorId === operator?.id
+  );
   const pixel = operatorDevices.find((device) => device.type === "pixel_grapheneos");
   const router = operatorDevices.find((device) => device.type === "puli_ax_router");
-  await withStepUpRetry(() => api("/orchestrator/jobs", {
-    method: "POST",
-    extraHeaders: { "idempotency-key": `ui_${data.planId}` },
-    body: {
-      planId: data.planId,
-      provider: data.provider,
-      region: data.region,
-      imageRef: "image://sylion/base/dev",
-      pixelDeviceId: pixel?.id,
-      routerDeviceId: router?.id,
-      approvalId: data.approvalId || undefined,
-      approvalRequired: data.approvalRequired === "on",
-      idempotencyKey: `ui_${data.planId}`
-    }
-  }), "Execute Plan");
+  await withStepUpRetry(
+    () =>
+      api("/orchestrator/jobs", {
+        method: "POST",
+        extraHeaders: { "idempotency-key": `ui_${data.planId}` },
+        body: {
+          planId: data.planId,
+          provider: data.provider,
+          region: data.region,
+          imageRef: "image://sylion/base/dev",
+          pixelDeviceId: pixel?.id,
+          routerDeviceId: router?.id,
+          approvalId: data.approvalId || undefined,
+          approvalRequired: data.approvalRequired === "on",
+          idempotencyKey: `ui_${data.planId}`
+        }
+      }),
+    "Execute Plan"
+  );
   toast("Orchestrator job completed");
   await refreshAll();
 }
@@ -3012,16 +3856,20 @@ async function runDemoFlow() {
       tier: "PRO"
     }
   });
-  await withStepUpRetry(() => api("/providers", {
-    method: "POST",
-    body: {
-      providerType: "hetzner",
-      apiSecret: `demo-secret-${suffix}`,
-      regions: ["fsn1"],
-      billingHealth: { status: "healthy" },
-      testConnection: { mode: "mock", status: "passed" }
-    }
-  }), "Run Demo Flow provider setup");
+  await withStepUpRetry(
+    () =>
+      api("/providers", {
+        method: "POST",
+        body: {
+          providerType: "hetzner",
+          apiSecret: `demo-secret-${suffix}`,
+          regions: ["fsn1"],
+          billingHealth: { status: "healthy" },
+          testConnection: { mode: "mock", status: "passed" }
+        }
+      }),
+    "Run Demo Flow provider setup"
+  );
   const pixel = await api("/devices", {
     method: "POST",
     body: {
@@ -3090,20 +3938,24 @@ async function runDemoFlow() {
   });
   state.lastPlanId = plan.plan.id;
   state.lastPlanOperatorId = operator.operator.id;
-  await withStepUpRetry(() => api("/orchestrator/jobs", {
-    method: "POST",
-    extraHeaders: { "idempotency-key": `demo_${suffix}` },
-    body: {
-      planId: plan.plan.id,
-      provider: "hetzner",
-      region: "fsn1",
-      imageRef: "image://sylion/base/dev",
-      pixelDeviceId: pixel.device.id,
-      routerDeviceId: router.device.id,
-      approvalId: approval.approval.id,
-      idempotencyKey: `demo_${suffix}`
-    }
-  }), "Run Demo Flow job execution");
+  await withStepUpRetry(
+    () =>
+      api("/orchestrator/jobs", {
+        method: "POST",
+        extraHeaders: { "idempotency-key": `demo_${suffix}` },
+        body: {
+          planId: plan.plan.id,
+          provider: "hetzner",
+          region: "fsn1",
+          imageRef: "image://sylion/base/dev",
+          pixelDeviceId: pixel.device.id,
+          routerDeviceId: router.device.id,
+          approvalId: approval.approval.id,
+          idempotencyKey: `demo_${suffix}`
+        }
+      }),
+    "Run Demo Flow job execution"
+  );
   const phantomCapability = await api("/phantom/capabilities", {
     method: "POST",
     body: {
@@ -3255,7 +4107,10 @@ function setView(name) {
     subscriptions: ["Subscriptions", "Manage tiers, add-ons, workload quotas and billing state."],
     devices: ["Devices", "Register Pixel, Puli AX and FIDO2 assets."],
     providers: ["Providers", "Add provider accounts without retaining plaintext secrets."],
-    "blue-team": ["Blue Team", "Metadata-only defensive monitoring, CDR coverage, alerts and anomalies."],
+    "blue-team": [
+      "Blue Team",
+      "Metadata-only defensive monitoring, CDR coverage, alerts and anomalies."
+    ],
     security: ["Security", "Review core V2 security boundaries."],
     phantom: ["PHANTOM", "Governance-only separate track with HUMAN GATE."],
     release: ["Release", "Production readiness gates, human tests, problem registry and evidence."],
@@ -3270,73 +4125,201 @@ function bind() {
   $("#enroll-button").addEventListener("click", () => enrollSecurityKey().catch(showError));
   $("#tenant-form").addEventListener("submit", (event) => createTenant(event).catch(showError));
   $("#operator-form").addEventListener("submit", (event) => createOperator(event).catch(showError));
-  $("#operator-update-form").addEventListener("submit", (event) => updateOperator(event).catch(showError));
-  $("#operator-delete-form").addEventListener("submit", (event) => deleteOperator(event).catch(showError));
-  $("#disposable-teardown-plan-form").addEventListener("submit", (event) => createDisposableTeardownPlan(event).catch(showError));
-  $("#disposable-teardown-execute-form").addEventListener("submit", (event) => executeDisposableTeardown(event).catch(showError));
-  $("#pipeline-draft-form").addEventListener("submit", (event) => createPipelineDraft(event).catch(showError));
-  $("#local-lab-vps-form").addEventListener("submit", (event) => createLocalLabVpsSet(event).catch(showError));
-  $("#secrets-release-check-form").addEventListener("submit", (event) => checkSecretsRelease(event).catch(showError));
-  $("#local-environment-form").addEventListener("submit", (event) => createLocalEnvironment(event).catch(showError));
-  $("#environment-start-form").addEventListener("submit", (event) => startLocalEnvironment(event).catch(showError));
-  $("#environment-failure-form").addEventListener("submit", (event) => injectEnvironmentFailure(event).catch(showError));
-  $("#environment-rollback-form").addEventListener("submit", (event) => rollbackEnvironment(event).catch(showError));
-  $("#environment-secrets-form").addEventListener("submit", (event) => checkEnvironmentSecrets(event).catch(showError));
-  $("#operator-connection-path-form").addEventListener("submit", (event) => loadOperatorConnectionPath(event).catch(showError));
-  $("#router-package-form").addEventListener("submit", (event) => generateRouterPackage(event).catch(showError));
-  $("#router-posture-form").addEventListener("submit", (event) => validateRouterPosture(event).catch(showError));
+  $("#operator-update-form").addEventListener("submit", (event) =>
+    updateOperator(event).catch(showError)
+  );
+  $("#operator-delete-form").addEventListener("submit", (event) =>
+    deleteOperator(event).catch(showError)
+  );
+  $("#disposable-teardown-plan-form").addEventListener("submit", (event) =>
+    createDisposableTeardownPlan(event).catch(showError)
+  );
+  $("#disposable-teardown-execute-form").addEventListener("submit", (event) =>
+    executeDisposableTeardown(event).catch(showError)
+  );
+  $("#pipeline-draft-form").addEventListener("submit", (event) =>
+    createPipelineDraft(event).catch(showError)
+  );
+  $("#local-lab-vps-form").addEventListener("submit", (event) =>
+    createLocalLabVpsSet(event).catch(showError)
+  );
+  $("#secrets-release-check-form").addEventListener("submit", (event) =>
+    checkSecretsRelease(event).catch(showError)
+  );
+  $("#local-environment-form").addEventListener("submit", (event) =>
+    createLocalEnvironment(event).catch(showError)
+  );
+  $("#environment-start-form").addEventListener("submit", (event) =>
+    startLocalEnvironment(event).catch(showError)
+  );
+  $("#environment-failure-form").addEventListener("submit", (event) =>
+    injectEnvironmentFailure(event).catch(showError)
+  );
+  $("#environment-rollback-form").addEventListener("submit", (event) =>
+    rollbackEnvironment(event).catch(showError)
+  );
+  $("#environment-secrets-form").addEventListener("submit", (event) =>
+    checkEnvironmentSecrets(event).catch(showError)
+  );
+  $("#operator-connection-path-form").addEventListener("submit", (event) =>
+    loadOperatorConnectionPath(event).catch(showError)
+  );
+  $("#router-package-form").addEventListener("submit", (event) =>
+    generateRouterPackage(event).catch(showError)
+  );
+  $("#router-posture-form").addEventListener("submit", (event) =>
+    validateRouterPosture(event).catch(showError)
+  );
   $("#provider-form").addEventListener("submit", (event) => createProvider(event).catch(showError));
-  $("#secret-backend-form").addEventListener("submit", (event) => configureSecretBackend(event).catch(showError));
-  $("#provider-dry-run-form").addEventListener("submit", (event) => createProviderDryRunPlan(event).catch(showError));
-  $("#live-cloud-form").addEventListener("submit", (event) => requestLiveCloudVpsSet(event).catch(showError));
-  $("#baseline-promotion-form").addEventListener("submit", (event) => promoteOperatorBaselineToLive(event).catch(showError));
-  $("#provider-rehearsal-form").addEventListener("submit", (event) => runProviderRehearsal(event).catch(showError));
-  $("#dedicated-order-form").addEventListener("submit", (event) => createDedicatedWorkloadOrder(event).catch(showError));
-  $("#workload-image-manifest-form").addEventListener("submit", (event) => createWorkloadImageManifest(event).catch(showError));
-  $("#firecracker-qualification-form").addEventListener("submit", (event) => qualifyFirecrackerHost(event).catch(showError));
-  $("#firecracker-rehearsal-form").addEventListener("submit", (event) => runFirecrackerLaunchRehearsal(event).catch(showError));
-  $("#cpu-confidential-qualification-form").addEventListener("submit", (event) => qualifyCpuConfidentialHost(event).catch(showError));
-  $("#approved-app-form").addEventListener("submit", (event) => createApprovedWorkloadApp(event).catch(showError));
-  $("#subscription-form").addEventListener("submit", (event) => updateTenantSubscription(event).catch(showError));
-  $("#billing-form").addEventListener("submit", (event) => updateBillingState(event).catch(showError));
-  $("#workload-quote-form").addEventListener("submit", (event) => quoteWorkloadAllocation(event).catch(showError));
-  $("#workload-allocation-form").addEventListener("submit", (event) => createWorkloadAllocation(event).catch(showError));
-  $("#placement-form").addEventListener("submit", (event) => createPlacementPlan(event).catch(showError));
-  $("#readiness-form").addEventListener("submit", (event) => evaluateOperatorReadiness(event).catch(showError));
-  $("#approval-form").addEventListener("submit", (event) => createProvisioningApproval(event).catch(showError));
-  $("#approval-status-form").addEventListener("submit", (event) => updateProvisioningApprovalStatus(event).catch(showError));
-  $("#workload-lifecycle-form").addEventListener("submit", (event) => transitionWorkloadLifecycle(event).catch(showError));
+  $("#secret-backend-form").addEventListener("submit", (event) =>
+    configureSecretBackend(event).catch(showError)
+  );
+  $("#provider-dry-run-form").addEventListener("submit", (event) =>
+    createProviderDryRunPlan(event).catch(showError)
+  );
+  $("#live-cloud-form").addEventListener("submit", (event) =>
+    requestLiveCloudVpsSet(event).catch(showError)
+  );
+  $("#baseline-promotion-form").addEventListener("submit", (event) =>
+    promoteOperatorBaselineToLive(event).catch(showError)
+  );
+  $("#provider-rehearsal-form").addEventListener("submit", (event) =>
+    runProviderRehearsal(event).catch(showError)
+  );
+  $("#dedicated-order-form").addEventListener("submit", (event) =>
+    createDedicatedWorkloadOrder(event).catch(showError)
+  );
+  $("#workload-image-manifest-form").addEventListener("submit", (event) =>
+    createWorkloadImageManifest(event).catch(showError)
+  );
+  $("#firecracker-qualification-form").addEventListener("submit", (event) =>
+    qualifyFirecrackerHost(event).catch(showError)
+  );
+  $("#firecracker-rehearsal-form").addEventListener("submit", (event) =>
+    runFirecrackerLaunchRehearsal(event).catch(showError)
+  );
+  $("#cpu-confidential-qualification-form").addEventListener("submit", (event) =>
+    qualifyCpuConfidentialHost(event).catch(showError)
+  );
+  $("#approved-app-form").addEventListener("submit", (event) =>
+    createApprovedWorkloadApp(event).catch(showError)
+  );
+  $("#subscription-form").addEventListener("submit", (event) =>
+    updateTenantSubscription(event).catch(showError)
+  );
+  $("#billing-form").addEventListener("submit", (event) =>
+    updateBillingState(event).catch(showError)
+  );
+  $("#workload-quote-form").addEventListener("submit", (event) =>
+    quoteWorkloadAllocation(event).catch(showError)
+  );
+  $("#workload-allocation-form").addEventListener("submit", (event) =>
+    createWorkloadAllocation(event).catch(showError)
+  );
+  $("#placement-form").addEventListener("submit", (event) =>
+    createPlacementPlan(event).catch(showError)
+  );
+  $("#readiness-form").addEventListener("submit", (event) =>
+    evaluateOperatorReadiness(event).catch(showError)
+  );
+  $("#approval-form").addEventListener("submit", (event) =>
+    createProvisioningApproval(event).catch(showError)
+  );
+  $("#approval-status-form").addEventListener("submit", (event) =>
+    updateProvisioningApprovalStatus(event).catch(showError)
+  );
+  $("#workload-lifecycle-form").addEventListener("submit", (event) =>
+    transitionWorkloadLifecycle(event).catch(showError)
+  );
   $("#device-form").addEventListener("submit", (event) => registerDevice(event).catch(showError));
-  $("#admin-fido2-policy-form").addEventListener("submit", (event) => updateAdminFido2Policy(event).catch(showError));
-  $("#admin-hsm-profile-form").addEventListener("submit", (event) => updateAdminHsmProfile(event).catch(showError));
-  $("#operator-fido2-policy-form").addEventListener("submit", (event) => updateOperatorFido2Policy(event).catch(showError));
-  $("#operator-hsm-profile-form").addEventListener("submit", (event) => updateOperatorHsmProfile(event).catch(showError));
-  $("#recovery-form").addEventListener("submit", (event) => createRecoveryRequest(event).catch(showError));
-  $("#break-glass-form").addEventListener("submit", (event) => createBreakGlassRequest(event).catch(showError));
-  $("#phantom-capability-form").addEventListener("submit", (event) => createPhantomCapability(event).catch(showError));
-  $("#phantom-approval-form").addEventListener("submit", (event) => createPhantomApproval(event).catch(showError));
-  $("#phantom-risk-form").addEventListener("submit", (event) => createPhantomRisk(event).catch(showError));
-  $("#phantom-package-form").addEventListener("submit", (event) => createPhantomPackage(event).catch(showError));
-  $("#phantom-evidence-form").addEventListener("submit", (event) => createPhantomEvidenceBundle(event).catch(showError));
-  $("#phantom-approval-pack-form").addEventListener("submit", (event) => createPhantomApprovalPack(event).catch(showError));
-  $("#phantom-readiness-form").addEventListener("submit", (event) => evaluatePhantomReadiness(event).catch(showError));
-  $("#phantom-simulation-form").addEventListener("submit", (event) => runPhantomSimulation(event).catch(showError));
-  $("#phantom-assignment-form").addEventListener("submit", (event) => createPhantomAssignmentPlan(event).catch(showError));
-  $("#phantom-review-board-form").addEventListener("submit", (event) => createPhantomReviewBoardItem(event).catch(showError));
-  $("#phantom-policy-simulation-form").addEventListener("submit", (event) => runPhantomPolicySimulation(event).catch(showError));
-  $("#phantom-exception-form").addEventListener("submit", (event) => createPhantomException(event).catch(showError));
-  $("#phantom-review-ack-form").addEventListener("submit", (event) => acknowledgePhantomReviewOwner(event).catch(showError));
-  $("#phantom-coverage-form").addEventListener("submit", (event) => evaluatePhantomCoverage(event).catch(showError));
-  $("#phantom-execution-request-form").addEventListener("submit", (event) => createPhantomExecutionRequest(event).catch(showError));
-  $("#evidence-artifact-form").addEventListener("submit", (event) => createEvidenceArtifact(event).catch(showError));
-  $("#release-problem-form").addEventListener("submit", (event) => createReleaseProblem(event).catch(showError));
-  $("#human-test-status-form").addEventListener("submit", (event) => updateHumanTestStatus(event).catch(showError));
-  $("#human-test-run-form").addEventListener("submit", (event) => recordHumanTestRun(event).catch(showError));
-  $("#workload-factual-test-form").addEventListener("submit", (event) => recordWorkloadFactualTest(event).catch(showError));
-  $("#account-bootstrap-evidence-cards").addEventListener("click", (event) => promoteAccountBootstrapEvidence(event).catch(showError));
-  $("#blue-team-signal-form").addEventListener("submit", (event) => recordBlueTeamSignal(event).catch(showError));
+  $("#admin-fido2-policy-form").addEventListener("submit", (event) =>
+    updateAdminFido2Policy(event).catch(showError)
+  );
+  $("#admin-hsm-profile-form").addEventListener("submit", (event) =>
+    updateAdminHsmProfile(event).catch(showError)
+  );
+  $("#operator-fido2-policy-form").addEventListener("submit", (event) =>
+    updateOperatorFido2Policy(event).catch(showError)
+  );
+  $("#operator-hsm-profile-form").addEventListener("submit", (event) =>
+    updateOperatorHsmProfile(event).catch(showError)
+  );
+  $("#recovery-form").addEventListener("submit", (event) =>
+    createRecoveryRequest(event).catch(showError)
+  );
+  $("#break-glass-form").addEventListener("submit", (event) =>
+    createBreakGlassRequest(event).catch(showError)
+  );
+  $("#phantom-capability-form").addEventListener("submit", (event) =>
+    createPhantomCapability(event).catch(showError)
+  );
+  $("#phantom-approval-form").addEventListener("submit", (event) =>
+    createPhantomApproval(event).catch(showError)
+  );
+  $("#phantom-risk-form").addEventListener("submit", (event) =>
+    createPhantomRisk(event).catch(showError)
+  );
+  $("#phantom-package-form").addEventListener("submit", (event) =>
+    createPhantomPackage(event).catch(showError)
+  );
+  $("#phantom-evidence-form").addEventListener("submit", (event) =>
+    createPhantomEvidenceBundle(event).catch(showError)
+  );
+  $("#phantom-approval-pack-form").addEventListener("submit", (event) =>
+    createPhantomApprovalPack(event).catch(showError)
+  );
+  $("#phantom-readiness-form").addEventListener("submit", (event) =>
+    evaluatePhantomReadiness(event).catch(showError)
+  );
+  $("#phantom-simulation-form").addEventListener("submit", (event) =>
+    runPhantomSimulation(event).catch(showError)
+  );
+  $("#phantom-assignment-form").addEventListener("submit", (event) =>
+    createPhantomAssignmentPlan(event).catch(showError)
+  );
+  $("#phantom-review-board-form").addEventListener("submit", (event) =>
+    createPhantomReviewBoardItem(event).catch(showError)
+  );
+  $("#phantom-policy-simulation-form").addEventListener("submit", (event) =>
+    runPhantomPolicySimulation(event).catch(showError)
+  );
+  $("#phantom-exception-form").addEventListener("submit", (event) =>
+    createPhantomException(event).catch(showError)
+  );
+  $("#phantom-review-ack-form").addEventListener("submit", (event) =>
+    acknowledgePhantomReviewOwner(event).catch(showError)
+  );
+  $("#phantom-coverage-form").addEventListener("submit", (event) =>
+    evaluatePhantomCoverage(event).catch(showError)
+  );
+  $("#phantom-execution-request-form").addEventListener("submit", (event) =>
+    createPhantomExecutionRequest(event).catch(showError)
+  );
+  $("#evidence-artifact-form").addEventListener("submit", (event) =>
+    createEvidenceArtifact(event).catch(showError)
+  );
+  $("#release-problem-form").addEventListener("submit", (event) =>
+    createReleaseProblem(event).catch(showError)
+  );
+  $("#human-test-status-form").addEventListener("submit", (event) =>
+    updateHumanTestStatus(event).catch(showError)
+  );
+  $("#human-test-run-form").addEventListener("submit", (event) =>
+    recordHumanTestRun(event).catch(showError)
+  );
+  $("#workload-factual-test-form").addEventListener("submit", (event) =>
+    recordWorkloadFactualTest(event).catch(showError)
+  );
+  $("#account-bootstrap-evidence-cards").addEventListener("click", (event) =>
+    promoteAccountBootstrapEvidence(event).catch(showError)
+  );
+  $("#blue-team-signal-form").addEventListener("submit", (event) =>
+    recordBlueTeamSignal(event).catch(showError)
+  );
   $("#webauthn-mode").addEventListener("change", setWebAuthnMode);
-  $("#credential-cards").addEventListener("click", (event) => handleCredentialAction(event).catch(showError));
+  $("#credential-cards").addEventListener("click", (event) =>
+    handleCredentialAction(event).catch(showError)
+  );
   $("#plan-form").addEventListener("submit", (event) => generatePlan(event).catch(showError));
   $("#job-form").addEventListener("submit", (event) => executeJob(event).catch(showError));
   $("#refresh-button").addEventListener("click", () => refreshAll().catch(showError));
@@ -3352,7 +4335,10 @@ function bind() {
   ].forEach((selector) => {
     const element = $(selector);
     if (!element) return;
-    element.addEventListener(selector.endsWith("search") ? "input" : "change", renderOperatorCommercialSummary);
+    element.addEventListener(
+      selector.endsWith("search") ? "input" : "change",
+      renderOperatorCommercialSummary
+    );
   });
   $$("nav button").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.view));
@@ -3367,7 +4353,9 @@ function showError(error) {
 async function boot() {
   bind();
   state.webAuthnSupported = supportsBrowserWebAuthn();
-  $("#webauthn-capability").textContent = state.webAuthnSupported ? "Browser WebAuthn available" : "Dev/test simulator only";
+  $("#webauthn-capability").textContent = state.webAuthnSupported
+    ? "Browser WebAuthn available"
+    : "Dev/test simulator only";
   $("#webauthn-capability-security").textContent = state.webAuthnSupported
     ? "Browser WebAuthn capability available"
     : "Dev/test simulator boundary active";

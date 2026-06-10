@@ -4,7 +4,9 @@ import { readFile } from "node:fs/promises";
 import { extname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const CUSTOMER_PORTAL_ROOT = resolve(fileURLToPath(new URL("../../../apps/customer-portal/", import.meta.url)));
+const CUSTOMER_PORTAL_ROOT = resolve(
+  fileURLToPath(new URL("../../../apps/customer-portal/", import.meta.url))
+);
 const STATIC_TYPES = Object.freeze({
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -82,12 +84,17 @@ async function readRaw(req) {
 }
 
 async function servePortalStatic(url, res) {
-  const pathname = url.pathname === "/" || url.pathname === "/portal"
-    ? "/index.html"
-    : url.pathname.replace(/^\/portal/, "");
+  const pathname =
+    url.pathname === "/" || url.pathname === "/portal"
+      ? "/index.html"
+      : url.pathname.replace(/^\/portal/, "");
   const filePath = resolve(CUSTOMER_PORTAL_ROOT, `.${decodeURIComponent(pathname)}`);
   const relativePath = relative(CUSTOMER_PORTAL_ROOT, filePath);
-  if (relativePath.startsWith("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+  if (
+    relativePath.startsWith("..") ||
+    relativePath.startsWith("/") ||
+    relativePath.startsWith("\\")
+  ) {
     return false;
   }
   const ext = extname(filePath);
@@ -152,16 +159,23 @@ export function createPublicPortalApp({
       if (req.method === "GET" && url.pathname === "/health") {
         return sendJson(res, 200, { status: "ok", service: "public-portal" });
       }
-      if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")
-        || url.pathname === "/operator" || url.pathname.startsWith("/operator/")
-        || url.pathname.startsWith("/operator-api/")
-        || url.pathname.startsWith("/auth/")) {
+      if (
+        url.pathname === "/admin" ||
+        url.pathname.startsWith("/admin/") ||
+        url.pathname === "/operator" ||
+        url.pathname.startsWith("/operator/") ||
+        url.pathname.startsWith("/operator-api/") ||
+        url.pathname.startsWith("/auth/")
+      ) {
         return sendJson(res, 404, { error: { code: "not_found", message: "Not found" } });
       }
       if (url.pathname.startsWith("/portal-api/")) {
         return await proxyPublicApi(req, res, url, { controlPlaneBaseUrl, portalSecret, fetcher });
       }
-      if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/portal" || url.pathname.startsWith("/portal/"))) {
+      if (
+        req.method === "GET" &&
+        (url.pathname === "/" || url.pathname === "/portal" || url.pathname.startsWith("/portal/"))
+      ) {
         if (await servePortalStatic(url, res)) return;
       }
       return sendJson(res, 404, { error: { code: "not_found", message: "Not found" } });

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { communicatorDefinition, communicatorEvaluatorPolicy, evaluateCommunicatorFactualState } from "../../../scripts/lib/communicator-factual-evaluator.mjs";
+import {
+  communicatorDefinition,
+  communicatorEvaluatorPolicy,
+  evaluateCommunicatorFactualState
+} from "../../../scripts/lib/communicator-factual-evaluator.mjs";
 
 const readyStream = (appKey) => ({
   state: "stream_session_ready",
@@ -321,9 +325,20 @@ test("Step 3.86 communicator evaluator requires SimpleX approved image provenanc
 });
 
 test("Step 3.86 communicator evaluator policy covers all current communicators", () => {
-  assert.deepEqual(communicatorEvaluatorPolicy.supportedApps.sort(), ["signal", "simplex", "telegram", "threema", "whatsapp", "zangi"]);
+  assert.deepEqual(communicatorEvaluatorPolicy.supportedApps.sort(), [
+    "signal",
+    "simplex",
+    "telegram",
+    "threema",
+    "whatsapp",
+    "zangi"
+  ]);
   assert.ok(communicatorEvaluatorPolicy.passRequires.includes("metadata-only send/receive check"));
-  assert.ok(communicatorEvaluatorPolicy.passRequires.includes("SimpleX image/package provenance when appKey=simplex"));
+  assert.ok(
+    communicatorEvaluatorPolicy.passRequires.includes(
+      "SimpleX image/package provenance when appKey=simplex"
+    )
+  );
   assert.ok(communicatorEvaluatorPolicy.failFast.includes("web-link-only bootstrap"));
   assert.equal(communicatorDefinition("telegram").label, "Telegram");
 });

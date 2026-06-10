@@ -4,9 +4,26 @@ import { validationError, notFound } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
-const BOUNDARY_STATUSES = new Set(["disabled_by_default", "review_only", "approved_placeholder", "blocked"]);
-const CAPABILITY_STATUSES = new Set(["not_enabled", "review_only", "blocked", "approved_placeholder"]);
-const REVIEW_STATUSES = new Set(["not_started", "required", "in_review", "approved_placeholder", "rejected", "blocked"]);
+const BOUNDARY_STATUSES = new Set([
+  "disabled_by_default",
+  "review_only",
+  "approved_placeholder",
+  "blocked"
+]);
+const CAPABILITY_STATUSES = new Set([
+  "not_enabled",
+  "review_only",
+  "blocked",
+  "approved_placeholder"
+]);
+const REVIEW_STATUSES = new Set([
+  "not_started",
+  "required",
+  "in_review",
+  "approved_placeholder",
+  "rejected",
+  "blocked"
+]);
 const APPROVAL_STATUSES = new Set([
   "draft",
   "legal_review_required",
@@ -22,9 +39,20 @@ const SEVERITIES = new Set(["low", "medium", "high", "critical"]);
 const RISK_LEVELS = new Set(["low", "medium", "high", "restricted"]);
 const TIER_ORDER = Object.freeze({ STANDARD: 1, PRO: 2, SOVEREIGN: 3 });
 const TEMPLATE_TIERS = new Set(["STANDARD", "PRO", "SOVEREIGN"]);
-const PACKAGE_STAGES = new Set(["draft", "review_ready", "blocked", "approved_placeholder", "closed"]);
+const PACKAGE_STAGES = new Set([
+  "draft",
+  "review_ready",
+  "blocked",
+  "approved_placeholder",
+  "closed"
+]);
 const EVIDENCE_RETENTION_CLASSES = new Set(["worm_audit", "legal_hold", "short_review"]);
-const SIMULATION_SCENARIOS = new Set(["readiness_review", "tier_fit", "operator_assignment", "audit_correlation"]);
+const SIMULATION_SCENARIOS = new Set([
+  "readiness_review",
+  "tier_fit",
+  "operator_assignment",
+  "audit_correlation"
+]);
 const REVIEW_BOARD_STATUSES = new Set([
   "intake",
   "legal_review",
@@ -35,8 +63,21 @@ const REVIEW_BOARD_STATUSES = new Set([
   "blocked",
   "closed"
 ]);
-const POLICY_SIMULATION_SCENARIOS = new Set(["control_gap", "tier_fit", "evidence_completeness", "review_path"]);
-const EXCEPTION_STATUSES = new Set(["draft", "legal_review", "ciso_review", "compliance_review", "approved_placeholder", "rejected", "closed"]);
+const POLICY_SIMULATION_SCENARIOS = new Set([
+  "control_gap",
+  "tier_fit",
+  "evidence_completeness",
+  "review_path"
+]);
+const EXCEPTION_STATUSES = new Set([
+  "draft",
+  "legal_review",
+  "ciso_review",
+  "compliance_review",
+  "approved_placeholder",
+  "rejected",
+  "closed"
+]);
 const REVIEW_OWNER_KEYS = new Set(["legal", "ciso", "architect", "compliance"]);
 const PROHIBITED_TERMS = [
   "imei",
@@ -68,10 +109,21 @@ const DEFAULT_HARDENING_MILESTONES = Object.freeze([
     title: "G2 streaming broker E2EE replacement track",
     layer: "application",
     decision: "roadmap_human_gate",
-    baselineImpact: "Current broker can remain only with explicit residual-risk visibility until an approved end-to-end frame encryption design is proven.",
-    implementationScope: "Evaluate a native pixel-stream path where G2 forwards encrypted frames and cannot inspect session content.",
-    requiredEvidenceTypes: ["ADR", "threat model", "frame encryption proof", "broker visibility negative test"],
-    blockers: ["architecture_adr_required", "latency_and_input_tests_required", "broker_migration_plan_required"],
+    baselineImpact:
+      "Current broker can remain only with explicit residual-risk visibility until an approved end-to-end frame encryption design is proven.",
+    implementationScope:
+      "Evaluate a native pixel-stream path where G2 forwards encrypted frames and cannot inspect session content.",
+    requiredEvidenceTypes: [
+      "ADR",
+      "threat model",
+      "frame encryption proof",
+      "broker visibility negative test"
+    ],
+    blockers: [
+      "architecture_adr_required",
+      "latency_and_input_tests_required",
+      "broker_migration_plan_required"
+    ],
     allowedInBaseline: false
   },
   {
@@ -79,10 +131,21 @@ const DEFAULT_HARDENING_MILESTONES = Object.freeze([
     title: "Hybrid PQC transport migration roadmap",
     layer: "crypto",
     decision: "roadmap_human_gate",
-    baselineImpact: "IPsec IKEv2 certificate auth remains baseline; PQC is a staged migration topic until algorithm support and compliance targets are approved.",
-    implementationScope: "Create hybrid key-exchange policy, downgrade tests, compatibility matrix and crypto approval records.",
-    requiredEvidenceTypes: ["crypto ADR", "algorithm support matrix", "downgrade test", "HSM impact note"],
-    blockers: ["crypto_board_approval_required", "strongswan_feature_evidence_required", "compliance_target_required"],
+    baselineImpact:
+      "IPsec IKEv2 certificate auth remains baseline; PQC is a staged migration topic until algorithm support and compliance targets are approved.",
+    implementationScope:
+      "Create hybrid key-exchange policy, downgrade tests, compatibility matrix and crypto approval records.",
+    requiredEvidenceTypes: [
+      "crypto ADR",
+      "algorithm support matrix",
+      "downgrade test",
+      "HSM impact note"
+    ],
+    blockers: [
+      "crypto_board_approval_required",
+      "strongswan_feature_evidence_required",
+      "compliance_target_required"
+    ],
     allowedInBaseline: false
   },
   {
@@ -90,10 +153,21 @@ const DEFAULT_HARDENING_MILESTONES = Object.freeze([
     title: "SOVEREIGN autonomous perimeter qualification",
     layer: "hardware",
     decision: "phantom_human_gate",
-    baselineImpact: "SOVEREIGN/PHANTOM perimeter is not a baseline shortcut; dedicated hardware and HSM custody require customer-specific approvals.",
-    implementationScope: "Qualify bare-metal tenancy, data-center class, HSM custody, Shamir ceremony and audit evidence.",
-    requiredEvidenceTypes: ["hardware qualification", "data-center evidence", "HSM ceremony", "customer risk acceptance"],
-    blockers: ["customer_specific_scope_required", "hsm_ceremony_required", "physical_control_evidence_required"],
+    baselineImpact:
+      "SOVEREIGN/PHANTOM perimeter is not a baseline shortcut; dedicated hardware and HSM custody require customer-specific approvals.",
+    implementationScope:
+      "Qualify bare-metal tenancy, data-center class, HSM custody, Shamir ceremony and audit evidence.",
+    requiredEvidenceTypes: [
+      "hardware qualification",
+      "data-center evidence",
+      "HSM ceremony",
+      "customer risk acceptance"
+    ],
+    blockers: [
+      "customer_specific_scope_required",
+      "hsm_ceremony_required",
+      "physical_control_evidence_required"
+    ],
     allowedInBaseline: false
   },
   {
@@ -101,10 +175,21 @@ const DEFAULT_HARDENING_MILESTONES = Object.freeze([
     title: "Pixel and Puli AX terminal admission hardening",
     layer: "terminal",
     decision: "implement_baseline_with_tests",
-    baselineImpact: "Terminal admission must require Pixel posture, router pairing evidence, FIDO2 readiness and no local operational data.",
-    implementationScope: "Extend terminal admission tests for airplane-mode posture, WiFi pairing evidence, router path evidence and session-only thin client use.",
-    requiredEvidenceTypes: ["Pixel posture evidence", "router pairing evidence", "FIDO2 readiness evidence", "path test"],
-    blockers: ["pixel_posture_probe_required", "router_pairing_probe_required", "adb_human_regression_required"],
+    baselineImpact:
+      "Terminal admission must require Pixel posture, router pairing evidence, FIDO2 readiness and no local operational data.",
+    implementationScope:
+      "Extend terminal admission tests for airplane-mode posture, WiFi pairing evidence, router path evidence and session-only thin client use.",
+    requiredEvidenceTypes: [
+      "Pixel posture evidence",
+      "router pairing evidence",
+      "FIDO2 readiness evidence",
+      "path test"
+    ],
+    blockers: [
+      "pixel_posture_probe_required",
+      "router_pairing_probe_required",
+      "adb_human_regression_required"
+    ],
     allowedInBaseline: true
   },
   {
@@ -112,9 +197,16 @@ const DEFAULT_HARDENING_MILESTONES = Object.freeze([
     title: "eSIM exclusion and RF lab telecom identity governance",
     layer: "telecom",
     decision: "lab_only_no_product_executor",
-    baselineImpact: "Product runtime must not execute cellular identity mutation; lab characterization is record-only and approval-gated.",
-    implementationScope: "Keep eSIM exclusion policy, RF lab request workflow, router software preflight and raw identifier redaction.",
-    requiredEvidenceTypes: ["legal memo", "RF lab approval pack", "router software preflight", "Faraday cage evidence"],
+    baselineImpact:
+      "Product runtime must not execute cellular identity mutation; lab characterization is record-only and approval-gated.",
+    implementationScope:
+      "Keep eSIM exclusion policy, RF lab request workflow, router software preflight and raw identifier redaction.",
+    requiredEvidenceTypes: [
+      "legal memo",
+      "RF lab approval pack",
+      "router software preflight",
+      "Faraday cage evidence"
+    ],
     blockers: ["lab_only_boundary_required", "legal_ciso_architect_hardware_approval_required"],
     allowedInBaseline: false
   },
@@ -123,10 +215,21 @@ const DEFAULT_HARDENING_MILESTONES = Object.freeze([
     title: "Transport camouflage and traffic-shaping review",
     layer: "network",
     decision: "legal_review_only",
-    baselineImpact: "Baseline must not claim invisibility or censorship circumvention; any traffic shaping must be legally reviewed and customer-disclosed.",
-    implementationScope: "Record legal review, customer disclosure language, route policy limits and residual metadata risk.",
-    requiredEvidenceTypes: ["legal memo", "network policy ADR", "customer disclosure", "metadata risk note"],
-    blockers: ["legal_review_required", "product_claim_review_required", "metadata_risk_acceptance_required"],
+    baselineImpact:
+      "Baseline must not claim invisibility or censorship circumvention; any traffic shaping must be legally reviewed and customer-disclosed.",
+    implementationScope:
+      "Record legal review, customer disclosure language, route policy limits and residual metadata risk.",
+    requiredEvidenceTypes: [
+      "legal memo",
+      "network policy ADR",
+      "customer disclosure",
+      "metadata risk note"
+    ],
+    blockers: [
+      "legal_review_required",
+      "product_claim_review_required",
+      "metadata_risk_acceptance_required"
+    ],
     allowedInBaseline: false
   },
   {
@@ -134,10 +237,21 @@ const DEFAULT_HARDENING_MILESTONES = Object.freeze([
     title: "eBPF runtime monitoring and incident automation",
     layer: "ops",
     decision: "implement_baseline_with_tests",
-    baselineImpact: "Host and workload monitoring can enter baseline if it emits metadata-only alerts and destructive actions stay approval-gated.",
-    implementationScope: "Add Tetragon/Falco evidence, immutable host checks, SIEM records and incident playbooks.",
-    requiredEvidenceTypes: ["agent install evidence", "kernel event test", "SIEM event", "incident playbook"],
-    blockers: ["host_agent_rollout_required", "metadata_only_alert_schema_required", "destructive_action_gate_required"],
+    baselineImpact:
+      "Host and workload monitoring can enter baseline if it emits metadata-only alerts and destructive actions stay approval-gated.",
+    implementationScope:
+      "Add Tetragon/Falco evidence, immutable host checks, SIEM records and incident playbooks.",
+    requiredEvidenceTypes: [
+      "agent install evidence",
+      "kernel event test",
+      "SIEM event",
+      "incident playbook"
+    ],
+    blockers: [
+      "host_agent_rollout_required",
+      "metadata_only_alert_schema_required",
+      "destructive_action_gate_required"
+    ],
     allowedInBaseline: true
   },
   {
@@ -145,10 +259,21 @@ const DEFAULT_HARDENING_MILESTONES = Object.freeze([
     title: "Safe rotation orchestration policy",
     layer: "orchestration",
     decision: "phantom_human_gate",
-    baselineImpact: "Jurisdiction, certificate and workload placement rotation can be policy-driven; telecom identity changes remain lab-only/no product executor.",
-    implementationScope: "Implement tier-gated provider/location rotation, certificate lifecycle evidence and safe router/Pixel MAC-pair simulation records.",
-    requiredEvidenceTypes: ["provider policy", "certificate rotation evidence", "placement audit", "MAC-pair simulation"],
-    blockers: ["tier_policy_required", "provider_capacity_model_required", "rollback_plan_required"],
+    baselineImpact:
+      "Jurisdiction, certificate and workload placement rotation can be policy-driven; telecom identity changes remain lab-only/no product executor.",
+    implementationScope:
+      "Implement tier-gated provider/location rotation, certificate lifecycle evidence and safe router/Pixel MAC-pair simulation records.",
+    requiredEvidenceTypes: [
+      "provider policy",
+      "certificate rotation evidence",
+      "placement audit",
+      "MAC-pair simulation"
+    ],
+    blockers: [
+      "tier_policy_required",
+      "provider_capacity_model_required",
+      "rollback_plan_required"
+    ],
     allowedInBaseline: false
   },
   {
@@ -156,9 +281,16 @@ const DEFAULT_HARDENING_MILESTONES = Object.freeze([
     title: "OPSEC training and emergency workflow drills",
     layer: "people",
     decision: "implement_baseline_with_tests",
-    baselineImpact: "Training, checklist evidence and emergency workflows are baseline-compatible when they avoid unsafe claims and store no sensitive content.",
-    implementationScope: "Create certification syllabus, quarterly exercise records, panic-code tests and operator acknowledgement evidence.",
-    requiredEvidenceTypes: ["training syllabus", "exercise record", "panic-code negative test", "operator acknowledgement"],
+    baselineImpact:
+      "Training, checklist evidence and emergency workflows are baseline-compatible when they avoid unsafe claims and store no sensitive content.",
+    implementationScope:
+      "Create certification syllabus, quarterly exercise records, panic-code tests and operator acknowledgement evidence.",
+    requiredEvidenceTypes: [
+      "training syllabus",
+      "exercise record",
+      "panic-code negative test",
+      "operator acknowledgement"
+    ],
     blockers: ["syllabus_required", "exercise_evidence_required", "operator_ack_required"],
     allowedInBaseline: true
   }
@@ -169,7 +301,11 @@ const DEFAULT_POLICY_TEMPLATES = Object.freeze([
     id: "phantom_template_legal_ciso_architect",
     name: "Legal/CISO/Architect Review",
     tierMinimum: "PRO",
-    controlObjectives: ["Separate track claim review", "Human gate ownership", "No baseline execution"],
+    controlObjectives: [
+      "Separate track claim review",
+      "Human gate ownership",
+      "No baseline execution"
+    ],
     requiredEvidenceTypes: ["legal memo", "CISO risk note", "architect boundary note"],
     humanGateRequired: true,
     sideEffectAllowed: false,
@@ -189,7 +325,11 @@ const DEFAULT_POLICY_TEMPLATES = Object.freeze([
     id: "phantom_template_sovereign_exception",
     name: "Sovereign Exception Review",
     tierMinimum: "SOVEREIGN",
-    controlObjectives: ["Legal jurisdiction review", "Customer evidence pack", "Residual risk sign-off"],
+    controlObjectives: [
+      "Legal jurisdiction review",
+      "Customer evidence pack",
+      "Residual risk sign-off"
+    ],
     requiredEvidenceTypes: ["jurisdiction memo", "customer approval", "residual risk acceptance"],
     humanGateRequired: true,
     sideEffectAllowed: false,
@@ -226,11 +366,14 @@ function assertSafeGovernanceText(value, field = "text") {
   const text = String(value || "").toLowerCase();
   const matched = PROHIBITED_TERMS.find((term) => text.includes(term));
   if (matched) {
-    throw validationError("PHANTOM governance records must not contain operational or prohibited details", {
-      field,
-      matched,
-      boundary: "PHANTOM_GOVERNANCE_METADATA_ONLY"
-    });
+    throw validationError(
+      "PHANTOM governance records must not contain operational or prohibited details",
+      {
+        field,
+        matched,
+        boundary: "PHANTOM_GOVERNANCE_METADATA_ONLY"
+      }
+    );
   }
 }
 
@@ -252,9 +395,7 @@ function tierRank(tier) {
 }
 
 function sealedReferenceHash(record) {
-  return createHash("sha256")
-    .update(JSON.stringify(record))
-    .digest("hex");
+  return createHash("sha256").update(JSON.stringify(record)).digest("hex");
 }
 
 function boundaryRecord(input = {}) {
@@ -276,7 +417,14 @@ function boundaryRecord(input = {}) {
 }
 
 export class PhantomGovernanceService {
-  constructor({ audit, rbac, entitlements = null, operators = null, monitoring = null, store = null }) {
+  constructor({
+    audit,
+    rbac,
+    entitlements = null,
+    operators = null,
+    monitoring = null,
+    store = null
+  }) {
     this.audit = audit;
     this.rbac = rbac;
     this.entitlements = entitlements;
@@ -290,7 +438,10 @@ export class PhantomGovernanceService {
     this.packages = new PersistentMap({ store, collection: "phantom_packages" });
     this.evidenceBundles = new PersistentMap({ store, collection: "phantom_evidence_bundles" });
     this.approvalPacks = new PersistentMap({ store, collection: "phantom_approval_packs" });
-    this.readinessEvaluations = new PersistentMap({ store, collection: "phantom_readiness_evaluations" });
+    this.readinessEvaluations = new PersistentMap({
+      store,
+      collection: "phantom_readiness_evaluations"
+    });
     this.simulationRuns = new PersistentMap({ store, collection: "phantom_simulation_runs" });
     this.assignmentPlans = new PersistentMap({ store, collection: "phantom_assignment_plans" });
     this.reviewBoardItems = new PersistentMap({ store, collection: "phantom_review_board_items" });
@@ -304,7 +455,10 @@ export class PhantomGovernanceService {
 
   getBoundary({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.boundary.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_BOUNDARY });
+    this.rbac.assert(actor, "phantom.boundary.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_BOUNDARY
+    });
     const record = this.#publicBoundary(this.boundary.get("current"));
     this.audit.record({
       actorId: actor.id,
@@ -319,7 +473,10 @@ export class PhantomGovernanceService {
 
   updateBoundaryStatus({ actor, status, note = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.boundary.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_BOUNDARY });
+    this.rbac.assert(actor, "phantom.boundary.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_BOUNDARY
+    });
     const previous = this.boundary.get("current");
     const next = boundaryRecord({
       ...previous,
@@ -343,13 +500,26 @@ export class PhantomGovernanceService {
 
   listCapabilities({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.capability.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_CAPABILITY });
+    this.rbac.assert(actor, "phantom.capability.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_CAPABILITY
+    });
     return [...this.capabilities.values()].map((item) => this.#publicCapability(item));
   }
 
-  createCapability({ actor, displayName, riskLevel = "restricted", controlsRequired = [], evidenceRefs = [], correlationId }) {
+  createCapability({
+    actor,
+    displayName,
+    riskLevel = "restricted",
+    controlsRequired = [],
+    evidenceRefs = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.capability.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_CAPABILITY });
+    this.rbac.assert(actor, "phantom.capability.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_CAPABILITY
+    });
     const capability = {
       id: newId("phantom_capability"),
       displayName: requireText(displayName, "displayName"),
@@ -380,17 +550,37 @@ export class PhantomGovernanceService {
     return this.#publicCapability(capability);
   }
 
-  updateCapabilityStatus({ actor, capabilityId, implementationStatus, legalReviewStatus, cisoReviewStatus, architectReviewStatus, correlationId }) {
+  updateCapabilityStatus({
+    actor,
+    capabilityId,
+    implementationStatus,
+    legalReviewStatus,
+    cisoReviewStatus,
+    architectReviewStatus,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.capability.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_CAPABILITY, resourceId: capabilityId });
+    this.rbac.assert(actor, "phantom.capability.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_CAPABILITY,
+      resourceId: capabilityId
+    });
     const previous = this.capabilities.get(capabilityId);
     if (!previous) throw notFound("phantom_capability", capabilityId);
     const next = {
       ...previous,
-      implementationStatus: implementationStatus ? requireEnum(implementationStatus, CAPABILITY_STATUSES, "implementationStatus") : previous.implementationStatus,
-      legalReviewStatus: legalReviewStatus ? requireEnum(legalReviewStatus, REVIEW_STATUSES, "legalReviewStatus") : previous.legalReviewStatus,
-      cisoReviewStatus: cisoReviewStatus ? requireEnum(cisoReviewStatus, REVIEW_STATUSES, "cisoReviewStatus") : previous.cisoReviewStatus,
-      architectReviewStatus: architectReviewStatus ? requireEnum(architectReviewStatus, REVIEW_STATUSES, "architectReviewStatus") : previous.architectReviewStatus,
+      implementationStatus: implementationStatus
+        ? requireEnum(implementationStatus, CAPABILITY_STATUSES, "implementationStatus")
+        : previous.implementationStatus,
+      legalReviewStatus: legalReviewStatus
+        ? requireEnum(legalReviewStatus, REVIEW_STATUSES, "legalReviewStatus")
+        : previous.legalReviewStatus,
+      cisoReviewStatus: cisoReviewStatus
+        ? requireEnum(cisoReviewStatus, REVIEW_STATUSES, "cisoReviewStatus")
+        : previous.cisoReviewStatus,
+      architectReviewStatus: architectReviewStatus
+        ? requireEnum(architectReviewStatus, REVIEW_STATUSES, "architectReviewStatus")
+        : previous.architectReviewStatus,
       humanGateRequired: true,
       sideEffectAllowed: false,
       executionEnabled: false,
@@ -412,13 +602,28 @@ export class PhantomGovernanceService {
 
   listApprovals({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.approval.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL });
+    this.rbac.assert(actor, "phantom.approval.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL
+    });
     return [...this.approvals.values()].map((item) => this.#publicApproval(item));
   }
 
-  createApproval({ actor, capabilityId = null, reasonCode, legalOwner, cisoOwner, architectOwner, evidenceRefs = [], correlationId }) {
+  createApproval({
+    actor,
+    capabilityId = null,
+    reasonCode,
+    legalOwner,
+    cisoOwner,
+    architectOwner,
+    evidenceRefs = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.approval.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL });
+    this.rbac.assert(actor, "phantom.approval.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL
+    });
     const approval = {
       id: newId("phantom_approval"),
       capabilityId: optionalText(capabilityId, "capabilityId"),
@@ -450,7 +655,11 @@ export class PhantomGovernanceService {
 
   updateApprovalStatus({ actor, approvalId, status, note = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.approval.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL, resourceId: approvalId });
+    this.rbac.assert(actor, "phantom.approval.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL,
+      resourceId: approvalId
+    });
     const previous = this.approvals.get(approvalId);
     if (!previous) throw notFound("phantom_approval", approvalId);
     const next = {
@@ -478,13 +687,31 @@ export class PhantomGovernanceService {
 
   listRisks({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.risk.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_RISK });
+    this.rbac.assert(actor, "phantom.risk.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_RISK
+    });
     return [...this.risks.values()].map((item) => this.#publicRisk(item));
   }
 
-  createRisk({ actor, capabilityId = null, description, severity = "high", jurisdictionNotes = null, legalOwner, cisoOwner, residualRisk, mitigationPlan, evidenceRefs = [], correlationId }) {
+  createRisk({
+    actor,
+    capabilityId = null,
+    description,
+    severity = "high",
+    jurisdictionNotes = null,
+    legalOwner,
+    cisoOwner,
+    residualRisk,
+    mitigationPlan,
+    evidenceRefs = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.risk.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_RISK });
+    this.rbac.assert(actor, "phantom.risk.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_RISK
+    });
     const risk = {
       id: newId("phantom_risk"),
       capabilityId: optionalText(capabilityId, "capabilityId"),
@@ -517,7 +744,11 @@ export class PhantomGovernanceService {
 
   updateRiskStatus({ actor, riskId, status, note = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.risk.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_RISK, resourceId: riskId });
+    this.rbac.assert(actor, "phantom.risk.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_RISK,
+      resourceId: riskId
+    });
     const previous = this.risks.get(riskId);
     if (!previous) throw notFound("phantom_risk", riskId);
     const next = {
@@ -544,13 +775,26 @@ export class PhantomGovernanceService {
 
   listPolicyTemplates({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_POLICY_TEMPLATE });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_POLICY_TEMPLATE
+    });
     return [...this.policyTemplates.values()].map((item) => this.#publicPolicyTemplate(item));
   }
 
-  createPolicyTemplate({ actor, name, tierMinimum = "PRO", controlObjectives = [], requiredEvidenceTypes = [], correlationId }) {
+  createPolicyTemplate({
+    actor,
+    name,
+    tierMinimum = "PRO",
+    controlObjectives = [],
+    requiredEvidenceTypes = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_POLICY_TEMPLATE });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_POLICY_TEMPLATE
+    });
     const template = {
       id: newId("phantom_template"),
       name: requireText(name, "name"),
@@ -577,13 +821,28 @@ export class PhantomGovernanceService {
 
   listPackages({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_PACKAGE });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_PACKAGE
+    });
     return [...this.packages.values()].map((item) => this.#publicPackage(item));
   }
 
-  createPackage({ actor, name, description, policyTemplateId, capabilityIds = [], tierMinimum = null, owner = null, correlationId }) {
+  createPackage({
+    actor,
+    name,
+    description,
+    policyTemplateId,
+    capabilityIds = [],
+    tierMinimum = null,
+    owner = null,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_PACKAGE });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_PACKAGE
+    });
     const template = this.#requirePolicyTemplate(policyTemplateId);
     const normalizedCapabilityIds = safeArray(capabilityIds, "capabilityIds");
     normalizedCapabilityIds.forEach((capabilityId) => this.#requireCapability(capabilityId));
@@ -593,7 +852,9 @@ export class PhantomGovernanceService {
       description: requireText(description, "description"),
       policyTemplateId: template.id,
       capabilityIds: normalizedCapabilityIds,
-      tierMinimum: tierMinimum ? requireEnum(tierMinimum, TEMPLATE_TIERS, "tierMinimum") : template.tierMinimum,
+      tierMinimum: tierMinimum
+        ? requireEnum(tierMinimum, TEMPLATE_TIERS, "tierMinimum")
+        : template.tierMinimum,
       owner: optionalText(owner, "owner") || actor.id,
       stage: "draft",
       readinessState: "not_evaluated",
@@ -618,7 +879,11 @@ export class PhantomGovernanceService {
 
   updatePackageStage({ actor, packageId, stage, note = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_PACKAGE, resourceId: packageId });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_PACKAGE,
+      resourceId: packageId
+    });
     const previous = this.packages.get(packageId);
     if (!previous) throw notFound("phantom_package", packageId);
     const next = {
@@ -646,13 +911,27 @@ export class PhantomGovernanceService {
 
   listEvidenceBundles({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_EVIDENCE_BUNDLE });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_EVIDENCE_BUNDLE
+    });
     return [...this.evidenceBundles.values()].map((item) => this.#publicEvidenceBundle(item));
   }
 
-  createEvidenceBundle({ actor, packageId, summary, evidenceRefs = [], controlsSatisfied = [], retentionClass = "worm_audit", correlationId }) {
+  createEvidenceBundle({
+    actor,
+    packageId,
+    summary,
+    evidenceRefs = [],
+    controlsSatisfied = [],
+    retentionClass = "worm_audit",
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_EVIDENCE_BUNDLE });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_EVIDENCE_BUNDLE
+    });
     const pkg = this.#requirePackage(packageId);
     const bundle = {
       id: newId("phantom_evidence"),
@@ -668,7 +947,9 @@ export class PhantomGovernanceService {
       createdAt: isoNow(),
       createdBy: actor.id
     };
-    bundle.sealedHash = sealedReferenceHash(this.#publicEvidenceBundle({ ...bundle, sealedHash: null }));
+    bundle.sealedHash = sealedReferenceHash(
+      this.#publicEvidenceBundle({ ...bundle, sealedHash: null })
+    );
     this.evidenceBundles.set(bundle.id, bundle);
     this.audit.record({
       actorId: actor.id,
@@ -683,13 +964,26 @@ export class PhantomGovernanceService {
 
   listApprovalPacks({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL_PACK });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL_PACK
+    });
     return [...this.approvalPacks.values()].map((item) => this.#publicApprovalPack(item));
   }
 
-  createApprovalPack({ actor, packageId, approvalIds = [], evidenceBundleIds = [], summary, correlationId }) {
+  createApprovalPack({
+    actor,
+    packageId,
+    approvalIds = [],
+    evidenceBundleIds = [],
+    summary,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL_PACK });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_APPROVAL_PACK
+    });
     const pkg = this.#requirePackage(packageId);
     const normalizedApprovalIds = safeArray(approvalIds, "approvalIds");
     normalizedApprovalIds.forEach((approvalId) => this.#requireApproval(approvalId));
@@ -721,9 +1015,19 @@ export class PhantomGovernanceService {
     return this.#publicApprovalPack(pack);
   }
 
-  evaluateReadiness({ actor, packageId, approvalPackId = null, evidenceBundleId = null, operatorId = null, correlationId }) {
+  evaluateReadiness({
+    actor,
+    packageId,
+    approvalPackId = null,
+    evidenceBundleId = null,
+    operatorId = null,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_READINESS });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_READINESS
+    });
     const pkg = this.#requirePackage(packageId);
     const approvalPack = approvalPackId ? this.#requireApprovalPack(approvalPackId) : null;
     const evidenceBundle = evidenceBundleId ? this.#requireEvidenceBundle(evidenceBundleId) : null;
@@ -781,7 +1085,12 @@ export class PhantomGovernanceService {
       evaluatedBy: actor.id
     };
     this.readinessEvaluations.set(evaluation.id, evaluation);
-    this.packages.set(pkg.id, { ...pkg, readinessState: evaluation.readinessState, updatedAt: isoNow(), updatedBy: actor.id });
+    this.packages.set(pkg.id, {
+      ...pkg,
+      readinessState: evaluation.readinessState,
+      updatedAt: isoNow(),
+      updatedBy: actor.id
+    });
     this.audit.record({
       actorId: actor.id,
       action: "phantom.readiness_evaluated",
@@ -798,13 +1107,25 @@ export class PhantomGovernanceService {
 
   listReadinessEvaluations({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_READINESS });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_READINESS
+    });
     return [...this.readinessEvaluations.values()].map((item) => this.#publicReadiness(item));
   }
 
-  runSimulation({ actor, packageId, scenario = "readiness_review", assumptions = [], correlationId }) {
+  runSimulation({
+    actor,
+    packageId,
+    scenario = "readiness_review",
+    assumptions = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_SIMULATION });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_SIMULATION
+    });
     const pkg = this.#requirePackage(packageId);
     const run = {
       id: newId("phantom_simulation"),
@@ -813,7 +1134,11 @@ export class PhantomGovernanceService {
       assumptions: safeArray(assumptions, "assumptions"),
       mode: "simulation_only",
       result: "review_required",
-      findings: ["No live connector invoked", "No operational execution path available", "HUMAN GATE remains mandatory"],
+      findings: [
+        "No live connector invoked",
+        "No operational execution path available",
+        "HUMAN GATE remains mandatory"
+      ],
       humanGateRequired: true,
       sideEffectAllowed: false,
       executionAllowed: false,
@@ -835,13 +1160,19 @@ export class PhantomGovernanceService {
 
   listSimulationRuns({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_SIMULATION });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_SIMULATION
+    });
     return [...this.simulationRuns.values()].map((item) => this.#publicSimulationRun(item));
   }
 
   createAssignmentPlan({ actor, packageId, operatorIds = [], correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_ASSIGNMENT_PLAN });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_ASSIGNMENT_PLAN
+    });
     const pkg = this.#requirePackage(packageId);
     const normalizedOperatorIds = safeArray(operatorIds, "operatorIds");
     const operatorSummaries = normalizedOperatorIds.map((operatorId) => {
@@ -861,7 +1192,9 @@ export class PhantomGovernanceService {
       id: newId("phantom_assignment"),
       packageId: pkg.id,
       operators: operatorSummaries,
-      status: operatorSummaries.every((item) => item.eligible) ? "ready_for_review" : "blocked_by_tier",
+      status: operatorSummaries.every((item) => item.eligible)
+        ? "ready_for_review"
+        : "blocked_by_tier",
       humanGateRequired: true,
       sideEffectAllowed: false,
       executionAllowed: false,
@@ -883,19 +1216,39 @@ export class PhantomGovernanceService {
 
   listAssignmentPlans({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_ASSIGNMENT_PLAN });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_ASSIGNMENT_PLAN
+    });
     return [...this.assignmentPlans.values()].map((item) => this.#publicAssignmentPlan(item));
   }
 
   listReviewBoardItems({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM
+    });
     return [...this.reviewBoardItems.values()].map((item) => this.#publicReviewBoardItem(item));
   }
 
-  createReviewBoardItem({ actor, title, summary, packageId = null, legalOwner, cisoOwner, architectOwner, complianceOwner, evidenceRefs = [], correlationId }) {
+  createReviewBoardItem({
+    actor,
+    title,
+    summary,
+    packageId = null,
+    legalOwner,
+    cisoOwner,
+    architectOwner,
+    complianceOwner,
+    evidenceRefs = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM
+    });
     if (packageId) this.#requirePackage(packageId);
     const item = {
       id: newId("phantom_review"),
@@ -938,7 +1291,11 @@ export class PhantomGovernanceService {
 
   updateReviewBoardStatus({ actor, itemId, status, note = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM, resourceId: itemId });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM,
+      resourceId: itemId
+    });
     const previous = this.reviewBoardItems.get(itemId);
     if (!previous) throw notFound("phantom_review_board_item", itemId);
     const nextStatus = requireEnum(status, REVIEW_BOARD_STATUSES, "status");
@@ -946,16 +1303,22 @@ export class PhantomGovernanceService {
       const acknowledgements = previous.ownerAcknowledgements || {};
       const missing = [...REVIEW_OWNER_KEYS].filter((owner) => acknowledgements[owner] !== true);
       if (missing.length) {
-        throw validationError("PHANTOM review board cannot reach approved_placeholder without all owner acknowledgements", {
-          missing,
-          executionAllowed: false
-        });
+        throw validationError(
+          "PHANTOM review board cannot reach approved_placeholder without all owner acknowledgements",
+          {
+            missing,
+            executionAllowed: false
+          }
+        );
       }
       if (!previous.evidenceRefs?.length) {
-        throw validationError("PHANTOM review board requires evidence references before approved_placeholder", {
-          itemId,
-          executionAllowed: false
-        });
+        throw validationError(
+          "PHANTOM review board requires evidence references before approved_placeholder",
+          {
+            itemId,
+            executionAllowed: false
+          }
+        );
       }
     }
     const next = {
@@ -984,7 +1347,11 @@ export class PhantomGovernanceService {
 
   acknowledgeReviewBoardOwner({ actor, itemId, owner, note = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM, resourceId: itemId });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_REVIEW_BOARD_ITEM,
+      resourceId: itemId
+    });
     const previous = this.reviewBoardItems.get(itemId);
     if (!previous) throw notFound("phantom_review_board_item", itemId);
     const ownerKey = requireEnum(owner, REVIEW_OWNER_KEYS, "owner");
@@ -1017,13 +1384,26 @@ export class PhantomGovernanceService {
 
   listPolicySimulations({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION
+    });
     return [...this.policySimulations.values()].map((item) => this.#publicPolicySimulation(item));
   }
 
-  runPolicySimulation({ actor, packageId = null, scenario = "control_gap", assumptions = [], expectedControls = [], correlationId }) {
+  runPolicySimulation({
+    actor,
+    packageId = null,
+    scenario = "control_gap",
+    assumptions = [],
+    expectedControls = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION
+    });
     const pkg = packageId ? this.#requirePackage(packageId) : null;
     const controls = safeArray(expectedControls, "expectedControls");
     const run = {
@@ -1058,19 +1438,44 @@ export class PhantomGovernanceService {
 
   listExceptions({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_EXCEPTION });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_EXCEPTION
+    });
     return [...this.exceptions.values()].map((item) => this.#publicException(item));
   }
 
-  createException({ actor, scope, justification, legalOwner, cisoOwner, complianceOwner, evidenceRefs = [], status = "legal_review", executionRequested = false, packageId = null, reviewBoardItemId = null, evidenceBundleId = null, expiresAt, correlationId }) {
+  createException({
+    actor,
+    scope,
+    justification,
+    legalOwner,
+    cisoOwner,
+    complianceOwner,
+    evidenceRefs = [],
+    status = "legal_review",
+    executionRequested = false,
+    packageId = null,
+    reviewBoardItemId = null,
+    evidenceBundleId = null,
+    expiresAt,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_EXCEPTION });
+    this.rbac.assert(actor, "phantom.lifecycle.manage_placeholder", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_EXCEPTION
+    });
     if (executionRequested === true) {
-      throw validationError("PHANTOM exceptions cannot request execution", { boundary: "PHANTOM_REVIEW_ONLY" });
+      throw validationError("PHANTOM exceptions cannot request execution", {
+        boundary: "PHANTOM_REVIEW_ONLY"
+      });
     }
     const expiry = Date.parse(expiresAt || "");
     if (!Number.isFinite(expiry)) {
-      throw validationError("PHANTOM exception requires expiresAt revalidation date", { field: "expiresAt" });
+      throw validationError("PHANTOM exception requires expiresAt revalidation date", {
+        field: "expiresAt"
+      });
     }
     if (packageId) this.#requirePackage(packageId);
     if (evidenceBundleId) this.#requireEvidenceBundle(evidenceBundleId);
@@ -1116,22 +1521,33 @@ export class PhantomGovernanceService {
 
   evidenceCoverage({ actor, packageId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_POLICY_SIMULATION
+    });
     const pkg = this.#requirePackage(packageId);
     const template = this.#requirePolicyTemplate(pkg.policyTemplateId);
     const bundles = [...this.evidenceBundles.values()].filter((item) => item.packageId === pkg.id);
-    const approvalPacks = [...this.approvalPacks.values()].filter((item) => item.packageId === pkg.id);
-    const boardItems = [...this.reviewBoardItems.values()].filter((item) => item.packageId === pkg.id);
-    const simulations = [...this.policySimulations.values()].filter((item) => item.packageId === pkg.id);
+    const approvalPacks = [...this.approvalPacks.values()].filter(
+      (item) => item.packageId === pkg.id
+    );
+    const boardItems = [...this.reviewBoardItems.values()].filter(
+      (item) => item.packageId === pkg.id
+    );
+    const simulations = [...this.policySimulations.values()].filter(
+      (item) => item.packageId === pkg.id
+    );
     const exceptions = [...this.exceptions.values()].filter((item) => item.packageId === pkg.id);
     const requiredEvidence = template.requiredEvidenceTypes || [];
     const evidenceRefs = bundles.flatMap((bundle) => bundle.evidenceRefs || []);
     const blockers = [];
-    if (evidenceRefs.length < requiredEvidence.length) blockers.push("required_evidence_refs_missing");
+    if (evidenceRefs.length < requiredEvidence.length)
+      blockers.push("required_evidence_refs_missing");
     if (!approvalPacks.length) blockers.push("approval_pack_missing");
     if (!boardItems.length) blockers.push("review_board_item_missing");
     if (!simulations.length) blockers.push("policy_simulation_missing");
-    if (exceptions.some((item) => Date.parse(item.expiresAt) <= Date.now())) blockers.push("expired_exception_requires_review");
+    if (exceptions.some((item) => Date.parse(item.expiresAt) <= Date.now()))
+      blockers.push("expired_exception_requires_review");
     const checks = [
       evidenceRefs.length >= requiredEvidence.length,
       approvalPacks.length > 0,
@@ -1173,12 +1589,19 @@ export class PhantomGovernanceService {
 
   auditCorrelation({ actor, packageId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "phantom.lifecycle.read", { correlationId: corr, resourceType: RESOURCE_TYPES.PHANTOM_READINESS });
+    this.rbac.assert(actor, "phantom.lifecycle.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PHANTOM_READINESS
+    });
     const packageFilter = optionalId(packageId, "packageId");
     const events = this.audit.list().filter((event) => {
       if (!String(event.action || "").startsWith("phantom.")) return false;
       if (!packageFilter) return true;
-      return event.resourceId === packageFilter || event.newValue?.packageId === packageFilter || event.previousValue?.packageId === packageFilter;
+      return (
+        event.resourceId === packageFilter ||
+        event.newValue?.packageId === packageFilter ||
+        event.previousValue?.packageId === packageFilter
+      );
     });
     const summary = {
       packageId: packageFilter,
@@ -1224,19 +1647,32 @@ export class PhantomGovernanceService {
       correlationId: corr,
       resourceType: RESOURCE_TYPES.PHANTOM_HARDENING_PLAN
     });
-    if (!evidenceRefsByMilestone || typeof evidenceRefsByMilestone !== "object" || Array.isArray(evidenceRefsByMilestone)) {
-      throw validationError("evidenceRefsByMilestone must be an object", { field: "evidenceRefsByMilestone" });
+    if (
+      !evidenceRefsByMilestone ||
+      typeof evidenceRefsByMilestone !== "object" ||
+      Array.isArray(evidenceRefsByMilestone)
+    ) {
+      throw validationError("evidenceRefsByMilestone must be an object", {
+        field: "evidenceRefsByMilestone"
+      });
     }
     const knownIds = new Set(DEFAULT_HARDENING_MILESTONES.map((milestone) => milestone.id));
     for (const key of Object.keys(evidenceRefsByMilestone)) {
       if (!knownIds.has(key)) {
-        throw validationError("Unknown hardening milestone", { field: `evidenceRefsByMilestone.${key}` });
+        throw validationError("Unknown hardening milestone", {
+          field: `evidenceRefsByMilestone.${key}`
+        });
       }
     }
     const evaluations = DEFAULT_HARDENING_MILESTONES.map((milestone) => {
-      const evidenceRefs = safeArray(evidenceRefsByMilestone[milestone.id] || [], `evidenceRefsByMilestone.${milestone.id}`);
+      const evidenceRefs = safeArray(
+        evidenceRefsByMilestone[milestone.id] || [],
+        `evidenceRefsByMilestone.${milestone.id}`
+      );
       const evidenceComplete = evidenceRefs.length >= milestone.requiredEvidenceTypes.length;
-      const blockedByPolicy = milestone.decision === "legal_review_only" || milestone.decision === "lab_only_no_product_executor";
+      const blockedByPolicy =
+        milestone.decision === "legal_review_only" ||
+        milestone.decision === "lab_only_no_product_executor";
       const state = evidenceComplete
         ? "ready_for_human_gate"
         : blockedByPolicy
@@ -1248,7 +1684,9 @@ export class PhantomGovernanceService {
         state,
         evidenceRefs,
         evidenceComplete,
-        missingEvidenceTypes: evidenceComplete ? [] : milestone.requiredEvidenceTypes.slice(evidenceRefs.length),
+        missingEvidenceTypes: evidenceComplete
+          ? []
+          : milestone.requiredEvidenceTypes.slice(evidenceRefs.length),
         blockers: evidenceComplete ? [] : milestone.blockers,
         humanGateRequired: true,
         sideEffectAllowed: false,
@@ -1263,9 +1701,12 @@ export class PhantomGovernanceService {
       evaluations,
       summary: {
         milestones: evaluations.length,
-        readyForHumanGate: evaluations.filter((item) => item.state === "ready_for_human_gate").length,
+        readyForHumanGate: evaluations.filter((item) => item.state === "ready_for_human_gate")
+          .length,
         evidenceRequired: evaluations.filter((item) => item.state === "evidence_required").length,
-        blockedByPolicyPendingEvidence: evaluations.filter((item) => item.state === "blocked_by_policy_pending_evidence").length,
+        blockedByPolicyPendingEvidence: evaluations.filter(
+          (item) => item.state === "blocked_by_policy_pending_evidence"
+        ).length,
         executionAllowed: false,
         productionExecutionAllowed: false
       },
@@ -1309,10 +1750,14 @@ export class PhantomGovernanceService {
         milestones: milestones.length,
         baselineImplementable: milestones.filter((item) => item.allowedInBaseline).length,
         nonBaseline: milestones.filter((item) => !item.allowedInBaseline).length,
-        labOnlyNoProductExecutor: milestones.filter((item) => item.decision === "lab_only_no_product_executor").length,
+        labOnlyNoProductExecutor: milestones.filter(
+          (item) => item.decision === "lab_only_no_product_executor"
+        ).length,
         legalReviewOnly: milestones.filter((item) => item.decision === "legal_review_only").length,
-        roadmapHumanGate: milestones.filter((item) => item.decision === "roadmap_human_gate").length,
-        phantomHumanGate: milestones.filter((item) => item.decision === "phantom_human_gate").length,
+        roadmapHumanGate: milestones.filter((item) => item.decision === "roadmap_human_gate")
+          .length,
+        phantomHumanGate: milestones.filter((item) => item.decision === "phantom_human_gate")
+          .length,
         executionAllowed: false,
         productionExecutionAllowed: false
       },
@@ -1398,7 +1843,11 @@ export class PhantomGovernanceService {
   #seedPolicyTemplates() {
     for (const template of DEFAULT_POLICY_TEMPLATES) {
       if (!this.policyTemplates.get(template.id)) {
-        this.policyTemplates.set(template.id, { ...template, createdAt: null, createdBy: "system" });
+        this.policyTemplates.set(template.id, {
+          ...template,
+          createdAt: null,
+          createdBy: "system"
+        });
       }
     }
   }

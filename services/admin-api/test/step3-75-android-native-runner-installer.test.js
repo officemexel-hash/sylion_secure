@@ -21,6 +21,12 @@ test("Step 3.75 Android native runner installer follows official Waydroid flow a
   assert.match(source, /\/usr\/share\/novnc/);
   assert.match(source, /waydroid init -s VANILLA/);
   assert.match(source, /systemctl enable --now waydroid-container/);
-  assert.match(source, /leave app APK install and account bootstrap to separate approved artifact gate/);
-  assert.equal(pkg.scripts["live:android-native-runner-install"], "node scripts/install-android-native-runner.mjs");
+  assert.match(
+    source,
+    /leave app APK install and account bootstrap to separate approved artifact gate/
+  );
+  assert.equal(
+    pkg.scripts["live:android-native-runner-install"],
+    "node scripts/install-android-native-runner.mjs"
+  );
 });

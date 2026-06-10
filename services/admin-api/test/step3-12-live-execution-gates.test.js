@@ -67,7 +67,12 @@ async function createApprovedBaseline(client) {
     evidenceRefs: ["release://step3-12/live-gate"],
     note: "Approved for gated live smoke test"
   });
-  return { tenant: tenant.tenant, operator: operator.operator, provider: provider.provider, approval: approved.approval };
+  return {
+    tenant: tenant.tenant,
+    operator: operator.operator,
+    provider: provider.provider,
+    approval: approved.approval
+  };
 }
 
 async function assertRejectsWithStatus(operation, status, pattern) {
@@ -101,7 +106,9 @@ test("Step 3.12 live cloud request defaults to blocked without env unlock and ne
 
     const auditJson = JSON.stringify(app.services.audit.list());
     assert.equal(auditJson.includes("test-secret-never-leak-step3-12"), false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "live_cloud.vps_set_blocked"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "live_cloud.vps_set_blocked")
+    );
   } finally {
     await close();
   }
@@ -135,14 +142,15 @@ test("Step 3.12 live cloud gate calls Hetzner adapter only after approval, env a
     const { operator, provider, approval } = await createApprovedBaseline(client);
 
     await assertRejectsWithStatus(
-      () => client.requestHetznerLiveVpsSet({
-        providerId: provider.id,
-        operatorId: operator.id,
-        approvalId: "missing-approval",
-        region: "fsn1",
-        idempotencyKey: "step3-12-missing-approval",
-        liveConfirmed: true
-      }),
+      () =>
+        client.requestHetznerLiveVpsSet({
+          providerId: provider.id,
+          operatorId: operator.id,
+          approvalId: "missing-approval",
+          region: "fsn1",
+          idempotencyKey: "step3-12-missing-approval",
+          liveConfirmed: true
+        }),
       404,
       /provisioning_approval/
     );
@@ -162,7 +170,9 @@ test("Step 3.12 live cloud gate calls Hetzner adapter only after approval, env a
     assert.equal(calls[0].operatorId, operator.id);
     assert.equal(calls[0].region, "fsn1");
     assert.equal(JSON.stringify(executed).includes("test-token-only-in-env"), false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "live_cloud.vps_set_created"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "live_cloud.vps_set_created")
+    );
   } finally {
     await close();
   }
@@ -237,13 +247,21 @@ test("Step 3.12 CPU confidential gate requires TDX or SEV-SNP attestation before
         kernelLockdown: true,
         microcodeCurrent: true
       },
-      attestation: { verified: false, measurementRef: null, verifier: "sylion-attestation-service" },
+      attestation: {
+        verified: false,
+        measurementRef: null,
+        verifier: "sylion-attestation-service"
+      },
       evidenceRefs: ["artifact://cpu/tdx-host-review"]
     });
     assert.equal(blockedTdx.qualification.firecrackerHostApproved, true);
     assert.equal(blockedTdx.qualification.confidentialComputingApproved, false);
     assert.equal(blockedTdx.qualification.secretsReleaseAllowed, false);
-    assert.ok(blockedTdx.qualification.checks.some((check) => check.key === "remote_attestation" && check.status === "blocked"));
+    assert.ok(
+      blockedTdx.qualification.checks.some(
+        (check) => check.key === "remote_attestation" && check.status === "blocked"
+      )
+    );
 
     const readySnp = await client.qualifyCpuConfidentialHost({
       hostId: "amd-snp-host-01",
@@ -269,7 +287,9 @@ test("Step 3.12 CPU confidential gate requires TDX or SEV-SNP attestation before
     assert.equal(readySnp.qualification.confidentialComputingApproved, true);
     assert.equal(readySnp.qualification.secretsReleaseAllowed, true);
     assert.equal(readySnp.qualification.productionExecutionAllowed, false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "cpu_confidential.host_qualified"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "cpu_confidential.host_qualified")
+    );
   } finally {
     await close();
   }

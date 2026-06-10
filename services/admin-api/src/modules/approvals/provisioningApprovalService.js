@@ -80,7 +80,8 @@ function publicApproval(record) {
     evidenceRefs: record.evidenceRefs,
     humanGateRequired: true,
     sideEffectAllowed: false,
-    executionAllowed: record.status === "approved_for_execution" && record.resourceType !== "phantom",
+    executionAllowed:
+      record.status === "approved_for_execution" && record.resourceType !== "phantom",
     destructiveActionAllowed: false,
     note: record.note || null,
     createdAt: record.createdAt,
@@ -111,7 +112,16 @@ function publicLifecycle(record) {
 }
 
 export class ProvisioningApprovalService {
-  constructor({ audit, rbac, tenants, operators, providers, devices, subscriptions, store = null }) {
+  constructor({
+    audit,
+    rbac,
+    tenants,
+    operators,
+    providers,
+    devices,
+    subscriptions,
+    store = null
+  }) {
     this.audit = audit;
     this.rbac = rbac;
     this.tenants = tenants;
@@ -126,15 +136,34 @@ export class ProvisioningApprovalService {
 
   listApprovals({ actor, operatorId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "provisioning.approval.read", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.PROVISIONING_APPROVAL });
+    this.rbac.assert(actor, "provisioning.approval.read", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PROVISIONING_APPROVAL
+    });
     return [...this.approvals.values()]
       .filter((approval) => !operatorId || approval.operatorId === operatorId)
       .map(publicApproval);
   }
 
-  createApproval({ actor, operatorId, planId = null, allocationId = null, resourceType = "provisioning_plan", reasonCode = "provisioning_execution_review", reviewers = [], evidenceRefs = [], blockers = [], correlationId }) {
+  createApproval({
+    actor,
+    operatorId,
+    planId = null,
+    allocationId = null,
+    resourceType = "provisioning_plan",
+    reasonCode = "provisioning_execution_review",
+    reviewers = [],
+    evidenceRefs = [],
+    blockers = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "provisioning.approval.manage", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.PROVISIONING_APPROVAL });
+    this.rbac.assert(actor, "provisioning.approval.manage", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.PROVISIONING_APPROVAL
+    });
     const operator = this.#requireOperator(operatorId);
     if (String(resourceType).toLowerCase().includes("phantom")) {
       throw validationError("PHANTOM resources cannot enter provisioning execution approvals", {
@@ -176,7 +205,15 @@ export class ProvisioningApprovalService {
     return publicApproval(approval);
   }
 
-  updateApprovalStatus({ actor, approvalId, status, note = null, blockers = null, evidenceRefs = null, correlationId }) {
+  updateApprovalStatus({
+    actor,
+    approvalId,
+    status,
+    note = null,
+    blockers = null,
+    evidenceRefs = null,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     const previous = this.approvals.get(approvalId);
     if (!previous) throw notFound("provisioning_approval", approvalId);
@@ -195,7 +232,10 @@ export class ProvisioningApprovalService {
       status: nextStatus,
       note: note ? requireText(note, "note", 1) : previous.note || null,
       blockers: blockers === null ? previous.blockers : safeArray(blockers || [], "blockers"),
-      evidenceRefs: evidenceRefs === null ? previous.evidenceRefs : safeArray(evidenceRefs || [], "evidenceRefs"),
+      evidenceRefs:
+        evidenceRefs === null
+          ? previous.evidenceRefs
+          : safeArray(evidenceRefs || [], "evidenceRefs"),
       humanGateRequired: true,
       sideEffectAllowed: false,
       destructiveActionAllowed: false,
@@ -221,20 +261,35 @@ export class ProvisioningApprovalService {
 
   evaluateOperatorReadiness({ actor, operatorId, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "operator.readiness.read", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.OPERATOR_READINESS });
+    this.rbac.assert(actor, "operator.readiness.read", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.OPERATOR_READINESS
+    });
     const operator = this.#requireOperator(operatorId);
     const devices = this.devices.list({ actor, operatorId, correlationId: corr });
     const providers = this.providers.list({ actor, correlationId: corr });
-    const allocations = this.subscriptions.listAllocations({ actor, operatorId, correlationId: corr });
-    const subscription = this.subscriptions.getTenantSubscription({ actor, tenantId: operator.tenantId, correlationId: corr });
+    const allocations = this.subscriptions.listAllocations({
+      actor,
+      operatorId,
+      correlationId: corr
+    });
+    const subscription = this.subscriptions.getTenantSubscription({
+      actor,
+      tenantId: operator.tenantId,
+      correlationId: corr
+    });
     const blockers = [];
     const warnings = [];
 
     if (operator.baseline?.vpsPerOperator !== 3) blockers.push("operator_requires_3_vps_baseline");
     if (operator.baseline?.cdrMandatory !== true) blockers.push("cdr_mandatory_missing");
-    if (operator.baseline?.router !== "GL.iNet GL-XE3000 Puli AX") blockers.push("puli_ax_router_baseline_missing");
+    if (operator.baseline?.router !== "GL.iNet GL-XE3000 Puli AX")
+      blockers.push("puli_ax_router_baseline_missing");
     for (const type of [DEVICE_TYPES.PIXEL, DEVICE_TYPES.ROUTER, DEVICE_TYPES.FIDO2]) {
-      if (!devices.some((device) => device.type === type && device.assignedOperatorId === operatorId)) {
+      if (
+        !devices.some((device) => device.type === type && device.assignedOperatorId === operatorId)
+      ) {
         blockers.push(`${type}_device_required`);
       }
     }
@@ -275,18 +330,20 @@ export class ProvisioningApprovalService {
       evaluatedBy: actor.id
     };
     readiness.evidenceHash = createHash("sha256")
-      .update(JSON.stringify({
-        tenantId: readiness.tenantId,
-        operatorId: readiness.operatorId,
-        baseline: readiness.baseline,
-        subscription: readiness.subscription,
-        deviceCoverage: readiness.deviceCoverage,
-        providerReferences: readiness.providerReferences,
-        allocationCount: readiness.allocationCount,
-        blockers: readiness.blockers,
-        warnings: readiness.warnings,
-        readyForApproval: readiness.readyForApproval
-      }))
+      .update(
+        JSON.stringify({
+          tenantId: readiness.tenantId,
+          operatorId: readiness.operatorId,
+          baseline: readiness.baseline,
+          subscription: readiness.subscription,
+          deviceCoverage: readiness.deviceCoverage,
+          providerReferences: readiness.providerReferences,
+          allocationCount: readiness.allocationCount,
+          blockers: readiness.blockers,
+          warnings: readiness.warnings,
+          readyForApproval: readiness.readyForApproval
+        })
+      )
       .digest("hex");
     this.readiness.set(readiness.id, readiness);
     this.audit.record({
@@ -306,8 +363,14 @@ export class ProvisioningApprovalService {
 
   listReadiness({ actor, operatorId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "operator.readiness.read", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.OPERATOR_READINESS });
-    return [...this.readiness.values()].filter((item) => !operatorId || item.operatorId === operatorId);
+    this.rbac.assert(actor, "operator.readiness.read", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.OPERATOR_READINESS
+    });
+    return [...this.readiness.values()].filter(
+      (item) => !operatorId || item.operatorId === operatorId
+    );
   }
 
   getReadiness({ actor, readinessId, correlationId }) {
@@ -325,45 +388,124 @@ export class ProvisioningApprovalService {
 
   latestReadinessForOperator({ actor, operatorId, correlationId }) {
     const rows = this.listReadiness({ actor, operatorId, correlationId });
-    return rows.sort((a, b) => String(b.evaluatedAt).localeCompare(String(a.evaluatedAt)))[0] || null;
+    return (
+      rows.sort((a, b) => String(b.evaluatedAt).localeCompare(String(a.evaluatedAt)))[0] || null
+    );
   }
 
   systemStatus({ actor, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "operator.readiness.read", { correlationId: corr, resourceType: RESOURCE_TYPES.OPERATOR_READINESS });
+    this.rbac.assert(actor, "operator.readiness.read", {
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.OPERATOR_READINESS
+    });
     const approvals = [...this.approvals.values()];
     const readiness = [...this.readiness.values()];
     const lifecycle = [...this.workloadLifecycle.values()];
     return {
       ksiega34: [
-        { key: "approval_mandatory", label: "Mandatory orchestrator approval", status: "implemented", nextAction: "Keep all clients on approvalId path" },
-        { key: "readiness_evidence", label: "Persisted operator readiness evidence", status: "implemented", nextAction: "Review blockers before approval" },
-        { key: "puli_ax_gate", label: "Puli AX access router gate", status: "implemented", nextAction: "Add production hardware evidence later" },
-        { key: "cdr_mandatory", label: "CDR mandatory", status: "implemented", nextAction: "Keep CDR in all app/workload policies" },
-        { key: "provider_dry_run", label: "Provider adapter dry-run boundary", status: "implemented", nextAction: "Human gate before real cloud mutation" },
-        { key: "live_cloud_unlock", label: "Live cloud unlock gate", status: "partial", nextAction: "Env allowlist, approval binding and one-VPS-set smoke before production" },
-        { key: "cpu_confidential_qualification", label: "CPU confidential-computing host gate", status: "partial", nextAction: "Qualify Intel TDX / AMD SEV-SNP before releasing workload secrets" },
-        { key: "real_firecracker", label: "Real Firecracker execution", status: "blocked", nextAction: "HUMAN GATE before production execution" }
+        {
+          key: "approval_mandatory",
+          label: "Mandatory orchestrator approval",
+          status: "implemented",
+          nextAction: "Keep all clients on approvalId path"
+        },
+        {
+          key: "readiness_evidence",
+          label: "Persisted operator readiness evidence",
+          status: "implemented",
+          nextAction: "Review blockers before approval"
+        },
+        {
+          key: "puli_ax_gate",
+          label: "Puli AX access router gate",
+          status: "implemented",
+          nextAction: "Add production hardware evidence later"
+        },
+        {
+          key: "cdr_mandatory",
+          label: "CDR mandatory",
+          status: "implemented",
+          nextAction: "Keep CDR in all app/workload policies"
+        },
+        {
+          key: "provider_dry_run",
+          label: "Provider adapter dry-run boundary",
+          status: "implemented",
+          nextAction: "Human gate before real cloud mutation"
+        },
+        {
+          key: "live_cloud_unlock",
+          label: "Live cloud unlock gate",
+          status: "partial",
+          nextAction: "Env allowlist, approval binding and one-VPS-set smoke before production"
+        },
+        {
+          key: "cpu_confidential_qualification",
+          label: "CPU confidential-computing host gate",
+          status: "partial",
+          nextAction: "Qualify Intel TDX / AMD SEV-SNP before releasing workload secrets"
+        },
+        {
+          key: "real_firecracker",
+          label: "Real Firecracker execution",
+          status: "blocked",
+          nextAction: "HUMAN GATE before production execution"
+        }
       ],
       phantom: [
-        { key: "separate_track", label: "PHANTOM separate [A] track", status: "implemented", executionAllowed: false },
-        { key: "review_workflow", label: "Review workflow and owner gates", status: "implemented", executionAllowed: false },
-        { key: "evidence_coverage", label: "Evidence coverage map", status: "implemented", executionAllowed: false },
-        { key: "production_activation", label: "Production PHANTOM activation", status: "blocked", executionAllowed: false }
+        {
+          key: "separate_track",
+          label: "PHANTOM separate [A] track",
+          status: "implemented",
+          executionAllowed: false
+        },
+        {
+          key: "review_workflow",
+          label: "Review workflow and owner gates",
+          status: "implemented",
+          executionAllowed: false
+        },
+        {
+          key: "evidence_coverage",
+          label: "Evidence coverage map",
+          status: "implemented",
+          executionAllowed: false
+        },
+        {
+          key: "production_activation",
+          label: "Production PHANTOM activation",
+          status: "blocked",
+          executionAllowed: false
+        }
       ],
       counters: {
         approvals: approvals.length,
-        approvedForExecution: approvals.filter((item) => item.status === "approved_for_execution").length,
+        approvedForExecution: approvals.filter((item) => item.status === "approved_for_execution")
+          .length,
         readinessSnapshots: readiness.length,
         readyOperators: readiness.filter((item) => item.readyForApproval).length,
         lifecycleTransitions: lifecycle.length
       },
-      humanGateRequiredBefore: ["real_cloud_mutation", "real_firecracker_execution", "phantom_activation", "customer_security_claims"],
+      humanGateRequiredBefore: [
+        "real_cloud_mutation",
+        "real_firecracker_execution",
+        "phantom_activation",
+        "customer_security_claims"
+      ],
       generatedAt: isoNow()
     };
   }
 
-  transitionWorkloadLifecycle({ actor, allocationId, status, approvalId = null, reasonCode = "operator_requested_lifecycle_change", evidenceRefs = [], correlationId }) {
+  transitionWorkloadLifecycle({
+    actor,
+    allocationId,
+    status,
+    approvalId = null,
+    reasonCode = "operator_requested_lifecycle_change",
+    evidenceRefs = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     const allocation = this.#requireAllocation(actor, allocationId, corr);
     this.rbac.assert(actor, "workload.lifecycle.manage", {
@@ -400,7 +542,10 @@ export class ProvisioningApprovalService {
       });
     }
     if (["revoked", "closed"].includes(nextStatus) && !reasonCode) {
-      throw validationError("Destructive lifecycle states require explicit reason code", { allocationId, status: nextStatus });
+      throw validationError("Destructive lifecycle states require explicit reason code", {
+        allocationId,
+        status: nextStatus
+      });
     }
     const next = {
       ...previous,
@@ -409,7 +554,13 @@ export class ProvisioningApprovalService {
       reasonCode: requireText(reasonCode, "reasonCode"),
       approvalId: approval?.id || previous.approvalId || null,
       evidenceRefs: safeArray(evidenceRefs, "evidenceRefs"),
-      humanGateRequired: ["approval_required", "approved_for_activation", "revocation_required", "revoked", "closed"].includes(nextStatus),
+      humanGateRequired: [
+        "approval_required",
+        "approved_for_activation",
+        "revocation_required",
+        "revoked",
+        "closed"
+      ].includes(nextStatus),
       sideEffectAllowed: false,
       changedAt: isoNow(),
       changedBy: actor.id
@@ -431,13 +582,23 @@ export class ProvisioningApprovalService {
 
   listWorkloadLifecycle({ actor, operatorId = null, correlationId }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "workload.allocation.read", { operatorId, correlationId: corr, resourceType: RESOURCE_TYPES.WORKLOAD_LIFECYCLE });
+    this.rbac.assert(actor, "workload.allocation.read", {
+      operatorId,
+      correlationId: corr,
+      resourceType: RESOURCE_TYPES.WORKLOAD_LIFECYCLE
+    });
     return [...this.workloadLifecycle.values()]
       .filter((item) => !operatorId || item.operatorId === operatorId)
       .map(publicLifecycle);
   }
 
-  assertExecutionApproved({ actor, planId = null, approvalId = null, requireApproval = false, correlationId }) {
+  assertExecutionApproved({
+    actor,
+    planId = null,
+    approvalId = null,
+    requireApproval = false,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     if (!approvalId) {
       throw validationError("Provisioning approval is required before orchestrator execution", {
@@ -445,7 +606,14 @@ export class ProvisioningApprovalService {
         approvalRequired: true
       });
     }
-    const approval = this.#requireExecutionApproval({ actor, approvalId, planId, allocationId: null, operatorId: null, correlationId: corr });
+    const approval = this.#requireExecutionApproval({
+      actor,
+      approvalId,
+      planId,
+      allocationId: null,
+      operatorId: null,
+      correlationId: corr
+    });
     this.audit.record({
       actorId: actor.id,
       action: "provisioning.execution_approval_checked",
@@ -461,9 +629,20 @@ export class ProvisioningApprovalService {
     return { required: true, approved: true, approval: publicApproval(approval) };
   }
 
-  #requireExecutionApproval({ actor, approvalId, planId = null, allocationId = null, operatorId = null, correlationId }) {
+  #requireExecutionApproval({
+    actor,
+    approvalId,
+    planId = null,
+    allocationId = null,
+    operatorId = null,
+    correlationId
+  }) {
     if (!approvalId) {
-      throw validationError("Provisioning approval is required", { planId, allocationId, approvalRequired: true });
+      throw validationError("Provisioning approval is required", {
+        planId,
+        allocationId,
+        approvalRequired: true
+      });
     }
     const approval = this.approvals.get(approvalId);
     if (!approval) throw notFound("provisioning_approval", approvalId);
@@ -474,16 +653,29 @@ export class ProvisioningApprovalService {
       resourceId: approvalId
     });
     if (operatorId && approval.operatorId !== operatorId) {
-      throw validationError("Provisioning approval does not match operator", { approvalId, operatorId, approvalOperatorId: approval.operatorId });
+      throw validationError("Provisioning approval does not match operator", {
+        approvalId,
+        operatorId,
+        approvalOperatorId: approval.operatorId
+      });
     }
     if (planId && approval.planId && approval.planId !== planId) {
-      throw validationError("Provisioning approval does not match requested plan", { planId, approvalPlanId: approval.planId });
+      throw validationError("Provisioning approval does not match requested plan", {
+        planId,
+        approvalPlanId: approval.planId
+      });
     }
     if (allocationId && approval.allocationId && approval.allocationId !== allocationId) {
-      throw validationError("Provisioning approval does not match workload allocation", { allocationId, approvalAllocationId: approval.allocationId });
+      throw validationError("Provisioning approval does not match workload allocation", {
+        allocationId,
+        approvalAllocationId: approval.allocationId
+      });
     }
     if (approval.status !== "approved_for_execution") {
-      throw validationError("Provisioning approval is not approved for execution", { approvalId, status: approval.status });
+      throw validationError("Provisioning approval is not approved for execution", {
+        approvalId,
+        status: approval.status
+      });
     }
     if (approval.resourceType === "phantom") {
       throw validationError("PHANTOM approval records cannot unlock execution", { approvalId });

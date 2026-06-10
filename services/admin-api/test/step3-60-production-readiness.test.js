@@ -91,12 +91,16 @@ test("Step 3.60 production readiness exposes operator cost, route evidence and a
     assert.ok(readiness.readiness.summary.productionGatesBlocked >= 8);
     assert.equal(readiness.readiness.sessionBroker.selectedProtocol, "adr_pending");
     assert.ok(readiness.readiness.sessionBroker.blockers.includes("g2_session_broker_adr_pending"));
-    const zangiGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_01_zangi_android_native_functional");
+    const zangiGate = readiness.readiness.productionGates.find(
+      (gate) => gate.id === "gate_01_zangi_android_native_functional"
+    );
     assert.equal(zangiGate.state, "blocked");
     assert.equal(zangiGate.productionExecutionAllowed, false);
     assert.equal(zangiGate.humanGateRequired, true);
     assert.ok(zangiGate.verifyHow.includes("Pixel"));
-    const guacamoleGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_03_guacamole_broker");
+    const guacamoleGate = readiness.readiness.productionGates.find(
+      (gate) => gate.id === "gate_03_guacamole_broker"
+    );
     assert.ok(guacamoleGate.blockers.includes("g2_session_broker_adr_pending"));
     assert.equal(guacamoleGate.title, "3. G2 PHANTOM blind streaming broker");
     const row = readiness.readiness.operators[0];
@@ -166,7 +170,9 @@ test("Step 3.60 production readiness rejects transport-only app evidence", async
 
     const readiness = await client.getProductionReadiness();
     assert.equal(readiness.readiness.productionGates.length, 10);
-    assert.ok(readiness.readiness.productionGates.every((gate) => gate.productionExecutionAllowed === false));
+    assert.ok(
+      readiness.readiness.productionGates.every((gate) => gate.productionExecutionAllowed === false)
+    );
     const row = readiness.readiness.operators[0];
     const duck = row.apps.find((app) => app.key === "duckduckgo_browser");
     assert.equal(duck.httpStatus, 200);
@@ -259,12 +265,30 @@ test("Step 3.60 Guacamole broker stays interim and PHANTOM blind broker is the p
     assert.equal(readiness.readiness.sessionBroker.state, "blocked");
     assert.equal(readiness.readiness.sessionBroker.readyForHumanGate, false);
     assert.equal(readiness.readiness.sessionBroker.humanApprovalRequired, true);
-    assert.equal(readiness.readiness.sessionBroker.phantomReadiness.state, "blocked_until_blind_e2ee");
-    assert.equal(readiness.readiness.sessionBroker.phantomReadiness.currentBrokerCanInspectPlaintext, true);
-    assert.ok(readiness.readiness.sessionBroker.blockers.includes("phantom_blind_broker_e2ee_required"));
-    assert.ok(readiness.readiness.sessionBroker.blockers.includes("guacamole_is_interim_broker_visible_to_plaintext"));
-    assert.ok(readiness.readiness.sessionBroker.approvalBlockers.includes("g2_session_broker_human_approval_missing"));
-    const guacamoleGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_03_guacamole_broker");
+    assert.equal(
+      readiness.readiness.sessionBroker.phantomReadiness.state,
+      "blocked_until_blind_e2ee"
+    );
+    assert.equal(
+      readiness.readiness.sessionBroker.phantomReadiness.currentBrokerCanInspectPlaintext,
+      true
+    );
+    assert.ok(
+      readiness.readiness.sessionBroker.blockers.includes("phantom_blind_broker_e2ee_required")
+    );
+    assert.ok(
+      readiness.readiness.sessionBroker.blockers.includes(
+        "guacamole_is_interim_broker_visible_to_plaintext"
+      )
+    );
+    assert.ok(
+      readiness.readiness.sessionBroker.approvalBlockers.includes(
+        "g2_session_broker_human_approval_missing"
+      )
+    );
+    const guacamoleGate = readiness.readiness.productionGates.find(
+      (gate) => gate.id === "gate_03_guacamole_broker"
+    );
     assert.equal(guacamoleGate.title, "3. G2 PHANTOM blind streaming broker");
     assert.equal(guacamoleGate.state, "blocked");
     assert.ok(guacamoleGate.blockers.includes("phantom_blind_broker_e2ee_required"));
@@ -286,7 +310,10 @@ test("Step 3.60 PHANTOM blind E2EE broker can reach human gate only with encrypt
   const { baseUrl, close } = await startTestServer(env);
   try {
     const client = await loginClient(baseUrl);
-    const tenant = await client.createTenant({ name: "Step 3.60 Blind Broker Tenant", tier: "PRO" });
+    const tenant = await client.createTenant({
+      name: "Step 3.60 Blind Broker Tenant",
+      tier: "PRO"
+    });
     await client.createOperator({
       tenantId: tenant.tenant.id,
       displayName: "Step 3.60 Blind Broker Operator",
@@ -300,9 +327,18 @@ test("Step 3.60 PHANTOM blind E2EE broker can reach human gate only with encrypt
     assert.equal(readiness.readiness.sessionBroker.readyForHumanGate, true);
     assert.equal(readiness.readiness.sessionBroker.phantomReadiness.state, "ready_for_human_gate");
     assert.equal(readiness.readiness.sessionBroker.phantomReadiness.blindBrokerReady, true);
-    assert.equal(readiness.readiness.sessionBroker.phantomReadiness.currentBrokerCanInspectPlaintext, false);
-    assert.ok(readiness.readiness.sessionBroker.approvalBlockers.includes("g2_session_broker_human_approval_missing"));
-    const guacamoleGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_03_guacamole_broker");
+    assert.equal(
+      readiness.readiness.sessionBroker.phantomReadiness.currentBrokerCanInspectPlaintext,
+      false
+    );
+    assert.ok(
+      readiness.readiness.sessionBroker.approvalBlockers.includes(
+        "g2_session_broker_human_approval_missing"
+      )
+    );
+    const guacamoleGate = readiness.readiness.productionGates.find(
+      (gate) => gate.id === "gate_03_guacamole_broker"
+    );
     assert.equal(guacamoleGate.title, "3. G2 PHANTOM blind streaming broker");
     assert.equal(guacamoleGate.state, "ready_for_human_gate");
     assert.equal(guacamoleGate.blockers.length, 0);
@@ -328,10 +364,13 @@ test("Step 3.60 self-service rotate gate uses real operator workload-control evi
     },
     productionExecutionAllowed: false
   });
-  const { app, baseUrl, close } = await startTestServer({
-    SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED: "true",
-    SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE: "native_firecracker"
-  }, liveRunner);
+  const { app, baseUrl, close } = await startTestServer(
+    {
+      SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_ENABLED: "true",
+      SYLION_OPERATOR_LIVE_WORKLOAD_RUNNER_MODE: "native_firecracker"
+    },
+    liveRunner
+  );
   try {
     const client = await loginClient(baseUrl);
     const tenant = await client.createTenant({ name: "Step 3.60 Rotate Tenant", tier: "PRO" });
@@ -378,7 +417,9 @@ test("Step 3.60 self-service rotate gate uses real operator workload-control evi
     assert.equal(completed.privateBindOnlyRequired, true);
 
     const readiness = await client.getProductionReadiness();
-    const rotateGate = readiness.readiness.productionGates.find((gate) => gate.id === "gate_08_self_service_recreate_rotate");
+    const rotateGate = readiness.readiness.productionGates.find(
+      (gate) => gate.id === "gate_08_self_service_recreate_rotate"
+    );
     assert.equal(rotateGate.state, "ready_for_human_gate");
     assert.equal(rotateGate.evidence.workloadControlEvidence.ready, true);
     assert.equal(rotateGate.productionExecutionAllowed, false);

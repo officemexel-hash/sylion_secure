@@ -13,7 +13,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_phantom_step3_5" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_phantom_step3_5" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -96,11 +100,15 @@ test("Step 3.5 PHANTOM capability, approval, and risk records remain placeholder
     assert.equal(approval.payload.approval.status, "legal_review_required");
     assert.equal(approval.payload.approval.sideEffectAllowed, false);
 
-    const approved = await request(baseUrl, `/phantom/approvals/${approval.payload.approval.id}/status`, {
-      method: "POST",
-      token,
-      body: { status: "approved_placeholder", note: "Placeholder approval; no execution" }
-    });
+    const approved = await request(
+      baseUrl,
+      `/phantom/approvals/${approval.payload.approval.id}/status`,
+      {
+        method: "POST",
+        token,
+        body: { status: "approved_placeholder", note: "Placeholder approval; no execution" }
+      }
+    );
     assert.equal(approved.status, 200);
     assert.equal(approved.payload.approval.status, "approved_placeholder");
     assert.equal(approved.payload.approval.executionEnabled, false);

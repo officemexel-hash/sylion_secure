@@ -3,29 +3,42 @@ import { notFound, validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
-const COMMUNICATOR_TEMPLATES = Object.freeze([
-  ["whatsapp", "WhatsApp", 1, 2048, 8192],
-  ["signal", "Signal", 1, 2048, 8192],
-  ["telegram", "Telegram", 1, 1536, 8192],
-  ["threema", "Threema", 1, 1024, 4096],
-  ["zangi", "Zangi", 1, 1024, 4096],
-  ["simplex", "SimpleX Chat", 1, 1536, 8192],
-  ["matrix_client", "Matrix Client", 1, 1536, 8192],
-  ["matrix_server", "Matrix Server", 2, 4096, 32768],
-  ["duckduckgo_browser", "DuckDuckGo Browser", 1, 1536, 8192],
-  ["libreoffice", "LibreOffice", 2, 4096, 16384],
-  ["exodus", "Exodus", 2, 4096, 16384],
-  ["protonmail", "Proton Mail", 1, 1536, 8192]
-].map(([key, name, vcpu, memoryMiB, diskMiB]) => ({
-  key,
-  name,
-  type: key === "matrix_server" ? "server" : key === "libreoffice" ? "office" : key === "duckduckgo_browser" ? "browser" : key === "exodus" ? "wallet" : key === "protonmail" ? "mail" : "messaging",
-  isolation: "firecracker_microvm",
-  cdrRequired: true,
-  defaults: { vcpu, memoryMiB, diskMiB },
-  networkPolicy: { outbound: ["tcp/443"], inbound: [] },
-  storagePolicy: { persistent: false, encryptedEphemeral: true }
-})));
+const COMMUNICATOR_TEMPLATES = Object.freeze(
+  [
+    ["whatsapp", "WhatsApp", 1, 2048, 8192],
+    ["signal", "Signal", 1, 2048, 8192],
+    ["telegram", "Telegram", 1, 1536, 8192],
+    ["threema", "Threema", 1, 1024, 4096],
+    ["zangi", "Zangi", 1, 1024, 4096],
+    ["simplex", "SimpleX Chat", 1, 1536, 8192],
+    ["matrix_client", "Matrix Client", 1, 1536, 8192],
+    ["matrix_server", "Matrix Server", 2, 4096, 32768],
+    ["duckduckgo_browser", "DuckDuckGo Browser", 1, 1536, 8192],
+    ["libreoffice", "LibreOffice", 2, 4096, 16384],
+    ["exodus", "Exodus", 2, 4096, 16384],
+    ["protonmail", "Proton Mail", 1, 1536, 8192]
+  ].map(([key, name, vcpu, memoryMiB, diskMiB]) => ({
+    key,
+    name,
+    type:
+      key === "matrix_server"
+        ? "server"
+        : key === "libreoffice"
+          ? "office"
+          : key === "duckduckgo_browser"
+            ? "browser"
+            : key === "exodus"
+              ? "wallet"
+              : key === "protonmail"
+                ? "mail"
+                : "messaging",
+    isolation: "firecracker_microvm",
+    cdrRequired: true,
+    defaults: { vcpu, memoryMiB, diskMiB },
+    networkPolicy: { outbound: ["tcp/443"], inbound: [] },
+    storagePolicy: { persistent: false, encryptedEphemeral: true }
+  }))
+);
 
 const DEFAULT_TEMPLATE_KEYS = Object.freeze(["whatsapp", "signal", "telegram"]);
 
@@ -36,7 +49,8 @@ function isoNow() {
 function safeArray(value = [], field) {
   if (!Array.isArray(value)) throw validationError(`${field} must be an array`, { field });
   return value.map((item, index) => {
-    if (!item || String(item).trim().length < 1) throw validationError(`${field}.${index} is required`, { field });
+    if (!item || String(item).trim().length < 1)
+      throw validationError(`${field}.${index} is required`, { field });
     return String(item).trim();
   });
 }
@@ -73,7 +87,13 @@ export class OperatorProvisioningPipelineService {
     return COMMUNICATOR_TEMPLATES.map((template) => ({ ...template }));
   }
 
-  createDraft({ actor, operatorId, requestedTemplates = DEFAULT_TEMPLATE_KEYS, autoCreated = false, correlationId }) {
+  createDraft({
+    actor,
+    operatorId,
+    requestedTemplates = DEFAULT_TEMPLATE_KEYS,
+    autoCreated = false,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "operator.provisioning_pipeline.manage", {
       operatorId,
@@ -83,12 +103,17 @@ export class OperatorProvisioningPipelineService {
     const operator = this.operators.get(operatorId);
     if (!operator) throw notFound("operator", operatorId);
     const templateKeys = safeArray(requestedTemplates, "requestedTemplates");
-    const subscription = this.subscriptions.getTenantSubscription({ actor, tenantId: operator.tenantId, correlationId: corr });
+    const subscription = this.subscriptions.getTenantSubscription({
+      actor,
+      tenantId: operator.tenantId,
+      correlationId: corr
+    });
     const maxEnvironments = subscription.effectiveLimits?.maxWorkloadEnvironments || 0;
     const blockers = [];
     if (operator.baseline?.vpsPerOperator !== 3) blockers.push("operator_requires_3_vps_baseline");
     if (operator.baseline?.cdrMandatory !== true) blockers.push("cdr_mandatory_missing");
-    if (templateKeys.length > maxEnvironments) blockers.push("subscription_workload_limit_exceeded");
+    if (templateKeys.length > maxEnvironments)
+      blockers.push("subscription_workload_limit_exceeded");
 
     const workloads = templateKeys.map((key, index) => {
       const template = templateByKey(key);
@@ -126,7 +151,12 @@ export class OperatorProvisioningPipelineService {
       firecrackerPlan: null,
       secretsRelease: {
         allowed: false,
-        blockers: ["approval_required", "fido2_step_up_required", "host_gates_required", "local_lab_only_no_production_secret_release"]
+        blockers: [
+          "approval_required",
+          "fido2_step_up_required",
+          "host_gates_required",
+          "local_lab_only_no_production_secret_release"
+        ]
       },
       blockers,
       humanGateRequired: true,
@@ -252,7 +282,9 @@ export class OperatorProvisioningPipelineService {
     const blockers = [
       ...(pipeline.localLab ? [] : ["local_lab_vps_set_required"]),
       ...(pipeline.firecrackerPlan ? [] : ["firecracker_plan_required"]),
-      ...(pipeline.workloads.every((workload) => workload.cdrRequired === true) ? [] : ["cdr_required_for_all_workloads"]),
+      ...(pipeline.workloads.every((workload) => workload.cdrRequired === true)
+        ? []
+        : ["cdr_required_for_all_workloads"]),
       "approval_required",
       "fresh_fido2_step_up_required",
       "cpu_confidential_or_host_gate_required",

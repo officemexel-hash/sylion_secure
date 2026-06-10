@@ -15,7 +15,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_apps_cdr_test" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_apps_cdr_test" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -50,7 +54,8 @@ function appPayload(name = "Signal Desktop") {
     clipboardPolicy: { mode: "metadata_only", pasteIntoWorkload: false },
     cdrRequired: true,
     templateImage: "image_factory/signal-desktop:approved",
-    operatorResponsibility: "Operator must use app only for assigned tenant workflows and route all file exchange through CDR."
+    operatorResponsibility:
+      "Operator must use app only for assigned tenant workflows and route all file exchange through CDR."
   };
 }
 
@@ -75,7 +80,11 @@ test("M11 app catalog creation and approval are restricted to Global Super Admin
     assert.equal(created.status, 201);
     assert.equal(created.payload.app.status, APP_STATUSES.PENDING_APPROVAL);
     assert.equal(created.payload.app.cdrRequired, true);
-    assert.deepEqual(created.payload.app.allowedTiers, [TIERS.STANDARD, TIERS.PRO, TIERS.SOVEREIGN]);
+    assert.deepEqual(created.payload.app.allowedTiers, [
+      TIERS.STANDARD,
+      TIERS.PRO,
+      TIERS.SOVEREIGN
+    ]);
 
     const approved = await request(baseUrl, `/apps/${created.payload.app.id}/approve`, {
       method: "POST",

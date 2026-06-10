@@ -13,7 +13,11 @@ async function startTestServer(authOptions = {}) {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_step3_4" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_step3_4" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -52,7 +56,11 @@ async function enroll(baseUrl, credentialId = "cred-step3-4") {
   return credentialId;
 }
 
-async function legacyLogin(baseUrl, email = "admin@sylion.local", password = "ChangeMe-LocalOnly-1!") {
+async function legacyLogin(
+  baseUrl,
+  email = "admin@sylion.local",
+  password = "ChangeMe-LocalOnly-1!"
+) {
   const result = await request(baseUrl, "/auth/login", {
     method: "POST",
     body: { email, password, fido2Verified: true }
@@ -99,7 +107,11 @@ test("Step 3.4 exposes auth policy matrix and safe credential metadata", async (
     assert.equal(JSON.stringify(credentials.payload).includes("simulated-public-key"), false);
     assert.equal(JSON.stringify(credentials.payload).includes("private"), false);
 
-    const readonlyToken = await legacyLogin(baseUrl, "readonly@sylion.local", "ReadOnly-LocalOnly-1!");
+    const readonlyToken = await legacyLogin(
+      baseUrl,
+      "readonly@sylion.local",
+      "ReadOnly-LocalOnly-1!"
+    );
     const denied = await request(baseUrl, "/auth/credentials", { token: readonlyToken });
     assert.equal(denied.status, 403);
   } finally {

@@ -119,23 +119,26 @@ test("Step 3.83 route evidence drives gate 7 without anonymity or content claims
     });
 
     const readiness = await client.getProductionReadiness();
-    const gate = readiness.readiness.productionGates.find((item) => item.id === "gate_07_tor_jurisdiction_routing");
+    const gate = readiness.readiness.productionGates.find(
+      (item) => item.id === "gate_07_tor_jurisdiction_routing"
+    );
     assert.equal(gate.state, "ready_for_human_gate");
     assert.equal(gate.evidence.routeEvidence.ready, true);
     assert.equal(gate.productionExecutionAllowed, false);
 
     await assert.rejects(
-      () => client.recordJurisdictionRouteEvidence({
-        tenantId: tenant.id,
-        operatorId: operator.id,
-        tier: "PRO",
-        appKey: "signal",
-        terminalMode: "pixel_grapheneos",
-        routeProfile: "unsafe",
-        egressClass: "tor",
-        result: "blocked",
-        checks: { messageContent: "must-not-store" }
-      }),
+      () =>
+        client.recordJurisdictionRouteEvidence({
+          tenantId: tenant.id,
+          operatorId: operator.id,
+          tier: "PRO",
+          appKey: "signal",
+          terminalMode: "pixel_grapheneos",
+          routeProfile: "unsafe",
+          egressClass: "tor",
+          result: "blocked",
+          checks: { messageContent: "must-not-store" }
+        }),
       /Route evidence must not contain secrets or communication content/
     );
   } finally {
@@ -169,7 +172,9 @@ test("Step 3.83 CPU confidential evidence drives gate 9 only with attestation an
     assert.equal(blocked.qualification.confidentialComputingApproved, false);
 
     let readiness = await client.getProductionReadiness();
-    let gate = readiness.readiness.productionGates.find((item) => item.id === "gate_09_confidential_compute");
+    let gate = readiness.readiness.productionGates.find(
+      (item) => item.id === "gate_09_confidential_compute"
+    );
     assert.equal(gate.state, "blocked");
     assert.ok(gate.evidence.cpuConfidentialEvidence.blockedAx102Observed);
 
@@ -198,7 +203,9 @@ test("Step 3.83 CPU confidential evidence drives gate 9 only with attestation an
     assert.equal(approved.qualification.secretsReleaseAllowed, true);
 
     readiness = await client.getProductionReadiness();
-    gate = readiness.readiness.productionGates.find((item) => item.id === "gate_09_confidential_compute");
+    gate = readiness.readiness.productionGates.find(
+      (item) => item.id === "gate_09_confidential_compute"
+    );
     assert.equal(gate.state, "ready_for_human_gate");
     assert.equal(gate.evidence.cpuConfidentialEvidence.ready, true);
     assert.equal(gate.productionExecutionAllowed, false);
@@ -228,7 +235,9 @@ test("Step 3.83 payment token gate requires live paid token, redemption and pack
     assert.equal(typeof sandbox.redemptionToken, "string");
 
     let readiness = await client.getProductionReadiness();
-    let gate = readiness.readiness.productionGates.find((item) => item.id === "gate_10_payment_token_provisioning");
+    let gate = readiness.readiness.productionGates.find(
+      (item) => item.id === "gate_10_payment_token_provisioning"
+    );
     assert.equal(gate.state, "blocked");
     assert.ok(gate.evidence.paymentTokenEvidence.sandboxIssuedTokenObserved);
     assert.ok(gate.blockers.includes("live_payment_gateway_token_missing"));
@@ -263,7 +272,9 @@ test("Step 3.83 payment token gate requires live paid token, redemption and pack
     assert.equal(Object.prototype.hasOwnProperty.call(listed.tokens[0], "redemptionToken"), false);
 
     readiness = await client.getProductionReadiness();
-    gate = readiness.readiness.productionGates.find((item) => item.id === "gate_10_payment_token_provisioning");
+    gate = readiness.readiness.productionGates.find(
+      (item) => item.id === "gate_10_payment_token_provisioning"
+    );
     assert.equal(gate.state, "ready_for_human_gate");
     assert.equal(gate.evidence.paymentTokenEvidence.ready, true);
     assert.equal(gate.productionExecutionAllowed, false);

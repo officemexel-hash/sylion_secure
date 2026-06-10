@@ -7,10 +7,14 @@ function arg(name, fallback = null) {
   return found ? found.slice(prefix.length) : fallback;
 }
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
-const sshKey = arg("key", process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey);
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
+const sshKey = arg(
+  "key",
+  process.env.SYLION_ADMIN_SSH_KEY || process.env.SYLION_WORKLOAD_SSH_KEY || defaultSshKey
+);
 const host = arg("host", process.env.SYLION_WORKLOAD_SSH_HOST);
 const user = arg("user", process.env.SYLION_WORKLOAD_SSH_USER || "root");
 const target = arg("target", process.env.SYLION_WORKLOAD_SSH || (host ? `${user}@${host}` : null));
@@ -60,22 +64,26 @@ async function ssh(script, timeout = 120_000) {
   if (!target) {
     throw new Error("Missing target. Provide --target=user@host or --host=host");
   }
-  return run("ssh", [
-    "-i",
-    sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "ConnectTimeout=10",
-    "-o",
-    "ServerAliveInterval=10",
-    "-o",
-    "ServerAliveCountMax=2",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    target,
-    "bash -s"
-  ], { input: script, timeout });
+  return run(
+    "ssh",
+    [
+      "-i",
+      sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "ConnectTimeout=10",
+      "-o",
+      "ServerAliveInterval=10",
+      "-o",
+      "ServerAliveCountMax=2",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      target,
+      "bash -s"
+    ],
+    { input: script, timeout }
+  );
 }
 
 function parseFacts(stdout) {
@@ -93,15 +101,22 @@ function parseFacts(stdout) {
     "waydroid_container",
     "images_dir"
   ]);
-  return Object.fromEntries(stdout.split(/\r?\n/).filter(Boolean).flatMap((line) => {
-    const normalized = line.startsWith("SYLION_FACT ") ? line.slice("SYLION_FACT ".length) : line;
-    const [key, ...rest] = normalized.split("=");
-    if (!allowedKeys.has(key)) return [];
-    const value = rest.join("=");
-    if (value === "true") return [[key, true]];
-    if (value === "false") return [[key, false]];
-    return [[key, value]];
-  }));
+  return Object.fromEntries(
+    stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .flatMap((line) => {
+        const normalized = line.startsWith("SYLION_FACT ")
+          ? line.slice("SYLION_FACT ".length)
+          : line;
+        const [key, ...rest] = normalized.split("=");
+        if (!allowedKeys.has(key)) return [];
+        const value = rest.join("=");
+        if (value === "true") return [[key, true]];
+        if (value === "false") return [[key, false]];
+        return [[key, value]];
+      })
+  );
 }
 
 async function plan() {
@@ -125,7 +140,9 @@ printf 'waydroid_container=%s\\n' "$(systemctl is-active waydroid-container 2>/d
     ...(facts.kvm ? [] : ["missing_dev_kvm"]),
     ...(Number(facts.binderfs_mounts || 0) > 0 ? [] : ["missing_binderfs_mount"]),
     ...(facts.apt ? [] : ["missing_apt_get"]),
-    ...(facts.os === "ubuntu" || facts.os === "debian" ? [] : ["unsupported_os_for_official_waydroid_repo_script"])
+    ...(facts.os === "ubuntu" || facts.os === "debian"
+      ? []
+      : ["unsupported_os_for_official_waydroid_repo_script"])
   ];
   return {
     mode: "plan_only",
@@ -197,12 +214,21 @@ printf 'images_dir=%s\\n' "$([ -d /var/lib/waydroid/images ] && echo true || ech
 
 const planResult = await plan();
 const result = await applyInstall(planResult);
-console.log(JSON.stringify({
-  component: "android_native_runner_installer",
-  ...result,
-  checkedAt: new Date().toISOString()
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      component: "android_native_runner_installer",
+      ...result,
+      checkedAt: new Date().toISOString()
+    },
+    null,
+    2
+  )
+);
 
-if ((apply && result.applied !== true) || (!result.readyForApply && process.argv.includes("--require-ready"))) {
+if (
+  (apply && result.applied !== true) ||
+  (!result.readyForApply && process.argv.includes("--require-ready"))
+) {
   process.exitCode = 1;
 }

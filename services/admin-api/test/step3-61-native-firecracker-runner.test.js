@@ -7,16 +7,20 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 async function planFor(appKey) {
-  const { stdout } = await execFileAsync("node", ["scripts/launch-native-firecracker-gui-workload.mjs"], {
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      SYLION_GUI_APP: appKey,
-      SYLION_GUI_RUN_ID: `test-${appKey}`
-    },
-    timeout: 15_000,
-    windowsHide: true
-  });
+  const { stdout } = await execFileAsync(
+    "node",
+    ["scripts/launch-native-firecracker-gui-workload.mjs"],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        SYLION_GUI_APP: appKey,
+        SYLION_GUI_RUN_ID: `test-${appKey}`
+      },
+      timeout: 15_000,
+      windowsHide: true
+    }
+  );
   return JSON.parse(stdout);
 }
 
@@ -75,7 +79,10 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /stream-secrets/);
   assert.match(source, /install -m 0600 "\$stream_secret_file" "\$stream_credential_ref"/);
   assert.match(source, /allow_client_to_override_kasm_server_settings: false/);
-  assert.match(source, /profile\.vncBackend \|\| process\.env\.SYLION_GUI_VNC_BACKEND \|\| "kasmvnc"/);
+  assert.match(
+    source,
+    /profile\.vncBackend \|\| process\.env\.SYLION_GUI_VNC_BACKEND \|\| "kasmvnc"/
+  );
   assert.match(source, /xsetroot -solid '#071014'/);
   assert.match(source, /DISPLAY=:1 XAUTHORITY=\/home\/sylion\/\.Xauthority HOME=\/home\/sylion/);
   assert.match(source, /xhost \+SI:localuser:root/);
@@ -92,13 +99,22 @@ test("Step 3.61 GUI microVM runner requires entropy, VNC banner and visible wind
   assert.match(source, /sylion-xtest-extension=true/);
   assert.match(source, /setxkbmap -model pc105 -layout us/);
   assert.match(source, /xinput test-xi2 --root/);
-  assert.match(source, /x11vnc .* -input KMBCF -allinput -input_eagerly -noxwarppointer -xkb -nomodtweak/);
+  assert.match(
+    source,
+    /x11vnc .* -input KMBCF -allinput -input_eagerly -noxwarppointer -xkb -nomodtweak/
+  );
   assert.match(source, /x11vnc .* -noxdamage -noxfixes -noxrecord -wait 20 -defer 20 -loop/);
   assert.match(source, /vncBannerReady:\$vncBannerReady/);
   assert.match(source, /streamReady:\$streamReady/);
   assert.match(source, /streamAuthRequired:\(\$vncBackend=="kasmvnc" and \$hostCode=="401"\)/);
-  assert.match(source, /ready:\(\$streamReady==true and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true and \$vncBannerReady==true/);
-  assert.doesNotMatch(source, /\[ "\$vnc_backend" = "kasmvnc" \] && \[ "\$app_running" = "true" \][\s\S]{0,120}visible_window=true/);
+  assert.match(
+    source,
+    /ready:\(\$streamReady==true and \$novncMarker==true and \$appRunning==true and \$appCrashed==false and \$visibleWindow==true and \$vncBannerReady==true/
+  );
+  assert.doesNotMatch(
+    source,
+    /\[ "\$vnc_backend" = "kasmvnc" \] && \[ "\$app_running" = "true" \][\s\S]{0,120}visible_window=true/
+  );
   assert.match(source, /vcpu_count": \$\{profile\.vcpuCount \|\| 2\}/);
   assert.match(source, /mem_size_mib": \$\{profile\.memSizeMib \|\| 4096\}/);
   assert.match(source, /defaultExodusDebSha256/);

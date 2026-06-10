@@ -12,7 +12,20 @@ export class MatrixServerService {
     this.servers = new PersistentMap({ store, collection: "matrix_servers" });
   }
 
-  create({ actor, tenantId, operatorId = null, tier, addonEnabled, mode, provider, region, federationEnabled = false, retentionPolicy = "default", backupPolicy = "daily", correlationId }) {
+  create({
+    actor,
+    tenantId,
+    operatorId = null,
+    tier,
+    addonEnabled,
+    mode,
+    provider,
+    region,
+    federationEnabled = false,
+    retentionPolicy = "default",
+    backupPolicy = "daily",
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "matrix.server.create", { tenantId, operatorId, correlationId: corr });
     const limits = this.entitlements.getTier(tier);

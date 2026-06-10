@@ -76,7 +76,10 @@ test("Step 3.86 workload factual matrix defines strict criteria for every requir
     }
     const signal = matrix.find((item) => item.appKey === "signal");
     assert.deepEqual(signal.requiredChecks, ["uiVisible", "accountBootstrap", "sendReceive"]);
-    assert.equal(signal.failIf.some((rule) => /web-link-only/i.test(rule)), true);
+    assert.equal(
+      signal.failIf.some((rule) => /web-link-only/i.test(rule)),
+      true
+    );
     const zangi = matrix.find((item) => item.appKey === "zangi");
     assert.equal(zangi.mandatoryChecks.includes("apkProvenance"), true);
     const simplex = matrix.find((item) => item.appKey === "simplex");
@@ -86,8 +89,16 @@ test("Step 3.86 workload factual matrix defines strict criteria for every requir
     assert.deepEqual(protonmail.requiredChecks, ["uiVisible", "accountLogin", "mailboxVisible"]);
     assert.ok(protonmail.failIf.some((rule) => /subject|sender|recipient|body/i.test(rule)));
     const exodus = matrix.find((item) => item.appKey === "exodus");
-    assert.equal(exodus.passCriteria.some((rule) => /seed\/private key\/wallet data absent/i.test(rule)), true);
-    assert.equal(app.services.audit.list().some((event) => event.action === "release.workload_factual_matrix_read"), false);
+    assert.equal(
+      exodus.passCriteria.some((rule) => /seed\/private key\/wallet data absent/i.test(rule)),
+      true
+    );
+    assert.equal(
+      app.services.audit
+        .list()
+        .some((event) => event.action === "release.workload_factual_matrix_read"),
+      false
+    );
   } finally {
     app.close();
     await close();

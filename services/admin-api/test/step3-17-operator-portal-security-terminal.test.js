@@ -63,7 +63,12 @@ async function operatorRequest(baseUrl, token, path, { method = "GET", body } = 
   return payload;
 }
 
-async function operatorCookieRequest(baseUrl, cookie, path, { method = "GET", body, csrf = true } = {}) {
+async function operatorCookieRequest(
+  baseUrl,
+  cookie,
+  path,
+  { method = "GET", body, csrf = true } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -142,7 +147,9 @@ test("Step 3.17 exposes admin and operator-layer FIDO2/HSM configuration without
     assert.equal(operatorHsm.profile.scope, "operator");
     assert.equal(operatorHsm.profile.physicalHsmDeferred, true);
     assert.equal(JSON.stringify(operatorHsm).includes("private"), false);
-    assert.ok(app.services.audit.list().some((event) => event.action === "security.hsm_profile.updated"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "security.hsm_profile.updated")
+    );
   } finally {
     await close();
   }
@@ -195,11 +202,19 @@ test("Step 3.17 scopes operator portal sessions to Pixel or laptop terminal VPN 
     assert.equal(me.me.operatorId, operatorId);
     assert.equal(me.me.terminalMode, "pixel_grapheneos");
 
-    const devices = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/devices");
+    const devices = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/devices"
+    );
     assert.equal(devices.devices.length, 2);
     assert.ok(devices.devices.every((device) => device.terminalEligible === true));
 
-    const vpn = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/vpn-status");
+    const vpn = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/vpn-status"
+    );
     assert.equal(vpn.vpn.transport, "ipsec_ikev2_planned");
     assert.deepEqual(vpn.vpn.path, [
       "Pixel GrapheneOS terminal",
@@ -210,51 +225,84 @@ test("Step 3.17 scopes operator portal sessions to Pixel or laptop terminal VPN 
     ]);
     assert.equal(vpn.vpn.productionExecutionAllowed, false);
 
-    const vpnInstall = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/vpn-install-package");
+    const vpnInstall = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/vpn-install-package"
+    );
     assert.equal(vpnInstall.package.transport, "ipsec_ikev2_certificate_auth");
     assert.equal(vpnInstall.package.readyForRealInstall, false);
     assert.equal(vpnInstall.package.productionExecutionAllowed, false);
     assert.ok(vpnInstall.package.requires.includes("pixel_live_vpn_evidence"));
 
-    const evidence = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/vpn-evidence", {
-      method: "POST",
-      body: {
-        vpnConnected: true,
-        vpnSession: "SYLION",
-        vpnInterface: "tun1",
-        dnsThroughTunnel: true,
-        certificateTrusted: true,
-        reachableHosts: [
-          "admin.sylion.internal",
-          "operator.sylion.internal",
-          "signal.sylion.internal",
-          "10.42.0.12"
-        ]
+    const evidence = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/vpn-evidence",
+      {
+        method: "POST",
+        body: {
+          vpnConnected: true,
+          vpnSession: "SYLION",
+          vpnInterface: "tun1",
+          dnsThroughTunnel: true,
+          certificateTrusted: true,
+          reachableHosts: [
+            "admin.sylion.internal",
+            "operator.sylion.internal",
+            "signal.sylion.internal",
+            "10.42.0.12"
+          ]
+        }
       }
-    });
+    );
     assert.equal(evidence.evidence.ready, true);
     assert.equal(evidence.evidence.contentInspected, false);
 
-    const activeVpn = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/vpn-status");
+    const activeVpn = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/vpn-status"
+    );
     assert.equal(activeVpn.vpn.state, "live_ipsec_connected");
     assert.equal(activeVpn.vpn.liveEvidence.ready, true);
 
-    const activeInstall = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/vpn-install-package");
+    const activeInstall = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/vpn-install-package"
+    );
     assert.equal(activeInstall.package.installState, "active_live_evidence");
     assert.equal(activeInstall.package.readyForRealInstall, true);
     assert.deepEqual(activeInstall.package.requires, []);
 
-    const stream = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/streaming-profile?width=390&height=844&dpr=3");
+    const stream = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/streaming-profile?width=390&height=844&dpr=3"
+    );
     assert.equal(stream.profile.terminalMode, "pixel_grapheneos");
     assert.equal(stream.profile.stream.operationalDataOnTerminal, false);
     assert.equal(stream.profile.stream.resizePolicy, "server_side_dynamic_resolution");
     assert.equal(stream.profile.stream.targetHeight, 1280);
     assert.ok(stream.profile.stream.targetWidth >= 590);
 
-    const profiles = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/terminal-profiles");
+    const profiles = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/terminal-profiles"
+    );
     assert.equal(profiles.profiles.length, 2);
-    assert.ok(profiles.profiles.some((profile) => profile.mode === "laptop_web_terminal" && profile.browserThinClientSupported));
-    assert.ok(profiles.profiles.some((profile) => profile.mode === "pixel_grapheneos" && profile.adbSupportedForLab));
+    assert.ok(
+      profiles.profiles.some(
+        (profile) => profile.mode === "laptop_web_terminal" && profile.browserThinClientSupported
+      )
+    );
+    assert.ok(
+      profiles.profiles.some(
+        (profile) => profile.mode === "pixel_grapheneos" && profile.adbSupportedForLab
+      )
+    );
   } finally {
     await close();
   }
@@ -264,7 +312,10 @@ test("Step 3.17 binds operator session to HttpOnly cookie for new-tab handoff an
   const { baseUrl, close } = await startTestServer();
   try {
     const client = await loginClient(baseUrl);
-    const tenant = await client.createTenant({ name: "Step 3.17 Cookie Handoff Tenant", tier: "PRO" });
+    const tenant = await client.createTenant({
+      name: "Step 3.17 Cookie Handoff Tenant",
+      tier: "PRO"
+    });
     const created = await client.createOperator({
       tenantId: tenant.tenant.id,
       displayName: "Step 3.17 Cookie Handoff Operator",
@@ -314,24 +365,30 @@ test("Step 3.17 binds operator session to HttpOnly cookie for new-tab handoff an
     assert.equal(me.me.operatorId, created.operator.id);
 
     await assert.rejects(
-      () => operatorCookieRequest(baseUrl, cookie, "/operator-api/workload-control/requests", {
-        method: "POST",
-        csrf: false,
-        body: {
-          action: "scale_to_counts",
-          desiredCounts: { signal: 1 }
-        }
-      }),
+      () =>
+        operatorCookieRequest(baseUrl, cookie, "/operator-api/workload-control/requests", {
+          method: "POST",
+          csrf: false,
+          body: {
+            action: "scale_to_counts",
+            desiredCounts: { signal: 1 }
+          }
+        }),
       (error) => error.status === 403 && error.payload.error.code === "csrf_required"
     );
 
-    const queued = await operatorCookieRequest(baseUrl, cookie, "/operator-api/workload-control/requests", {
-      method: "POST",
-      body: {
-        action: "scale_to_counts",
-        desiredCounts: { signal: 1, whatsapp: 1 }
+    const queued = await operatorCookieRequest(
+      baseUrl,
+      cookie,
+      "/operator-api/workload-control/requests",
+      {
+        method: "POST",
+        body: {
+          action: "scale_to_counts",
+          desiredCounts: { signal: 1, whatsapp: 1 }
+        }
       }
-    });
+    );
     assert.equal(queued.request.operatorId, created.operator.id);
     assert.equal(queued.request.state, "queued_control_plane_update");
   } finally {
@@ -357,35 +414,46 @@ test("Step 3.17 lets operator configure deferred FIDO2/HSM refs but rejects secr
       }
     });
 
-    const fido = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/settings/fido2", {
-      method: "POST",
-      body: {
-        mode: "enrollment_deferred",
-        defaultSessionHours: 12,
-        allowedTransports: ["usb", "nfc"]
+    const fido = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/settings/fido2",
+      {
+        method: "POST",
+        body: {
+          mode: "enrollment_deferred",
+          defaultSessionHours: 12,
+          allowedTransports: ["usb", "nfc"]
+        }
       }
-    });
+    );
     assert.equal(fido.policy.operatorId, created.operator.id);
     assert.equal(fido.policy.actualEnrollmentAllowed, false);
 
-    const hsm = await operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/settings/hsm", {
-      method: "POST",
-      body: {
-        mode: "byo_hsm_deferred",
-        references: ["hsm-ref://operator/deferred-key"],
-        attestationRefs: ["evidence://operator/hsm"]
-      }
-    });
-    assert.equal(hsm.profile.materialStored, false);
-
-    await assert.rejects(
-      () => operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/settings/hsm", {
+    const hsm = await operatorRequest(
+      baseUrl,
+      sessionPayload.session.token,
+      "/operator-api/settings/hsm",
+      {
         method: "POST",
         body: {
           mode: "byo_hsm_deferred",
-          privateKey: "must-not-store"
+          references: ["hsm-ref://operator/deferred-key"],
+          attestationRefs: ["evidence://operator/hsm"]
         }
-      }),
+      }
+    );
+    assert.equal(hsm.profile.materialStored, false);
+
+    await assert.rejects(
+      () =>
+        operatorRequest(baseUrl, sessionPayload.session.token, "/operator-api/settings/hsm", {
+          method: "POST",
+          body: {
+            mode: "byo_hsm_deferred",
+            privateKey: "must-not-store"
+          }
+        }),
       (error) => error.status === 422 && error.payload.error.code === "validation_error"
     );
   } finally {

@@ -25,9 +25,15 @@ body {
   grid-template-columns: 260px 1fr;
   overflow-x: hidden;
   color: var(--ink);
-  background:
-    linear-gradient(180deg, #f9fbfb 0%, var(--bg) 38%, #eef3f4 100%);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: linear-gradient(180deg, #f9fbfb 0%, var(--bg) 38%, #eef3f4 100%);
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 .sidebar {
@@ -325,7 +331,9 @@ label {
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 4px);
-  transition: opacity 120ms ease, transform 120ms ease;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
   z-index: 20;
 }
 

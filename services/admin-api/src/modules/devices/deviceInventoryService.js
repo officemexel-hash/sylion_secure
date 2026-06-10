@@ -20,9 +20,12 @@ function assertNoOperationalData(value, path = "metadata") {
   for (const [key, nested] of Object.entries(value)) {
     const currentPath = `${path}.${key}`;
     if (/message|chat|plaintext|seed|password|private.*key|conversation|fileContents/i.test(key)) {
-      throw validationError("Device inventory must not contain operational data or private secrets", {
-        field: currentPath
-      });
+      throw validationError(
+        "Device inventory must not contain operational data or private secrets",
+        {
+          field: currentPath
+        }
+      );
     }
     assertNoOperationalData(nested, currentPath);
   }
@@ -55,9 +58,15 @@ export class DeviceInventoryService {
     correlationId
   }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "device.register", { operatorId: assignedOperatorId, correlationId: corr });
+    this.rbac.assert(actor, "device.register", {
+      operatorId: assignedOperatorId,
+      correlationId: corr
+    });
     if (!DEVICE_TYPE_VALUES.has(type)) {
-      throw validationError("Unsupported device type", { type, supported: [...DEVICE_TYPE_VALUES] });
+      throw validationError("Unsupported device type", {
+        type,
+        supported: [...DEVICE_TYPE_VALUES]
+      });
     }
     const normalizedSerial = requireText(serial, "serial");
     if (this.serialIndex.has(normalizedSerial)) {
@@ -127,7 +136,14 @@ export class DeviceInventoryService {
     return next;
   }
 
-  updatePosture({ actor, deviceId, posture, status, lastSeenAt = new Date().toISOString(), correlationId }) {
+  updatePosture({
+    actor,
+    deviceId,
+    posture,
+    status,
+    lastSeenAt = new Date().toISOString(),
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     const current = this.#requireDevice(deviceId);
     this.rbac.assert(actor, "device.posture.update", {
@@ -136,7 +152,10 @@ export class DeviceInventoryService {
     });
     assertNoOperationalData({ posture });
     if (status && !DEVICE_STATUS_VALUES.has(status)) {
-      throw validationError("Unsupported device status", { status, supported: [...DEVICE_STATUS_VALUES] });
+      throw validationError("Unsupported device status", {
+        status,
+        supported: [...DEVICE_STATUS_VALUES]
+      });
     }
     const next = {
       ...current,
@@ -189,8 +208,9 @@ export class DeviceInventoryService {
     const corr = requireCorrelationId(correlationId);
     this.rbac.assert(actor, "device.read", { operatorId, correlationId: corr });
     return [...this.devices.values()].filter((device) => {
-      return (!operatorId || device.assignedOperatorId === operatorId)
-        && (!type || device.type === type);
+      return (
+        (!operatorId || device.assignedOperatorId === operatorId) && (!type || device.type === type)
+      );
     });
   }
 

@@ -16,10 +16,13 @@ async function startPersistentServer(dbPath) {
   return {
     app,
     baseUrl: `http://127.0.0.1:${port}`,
-    close: () => new Promise((resolve) => server.close(() => {
-      app.close();
-      resolve();
-    }))
+    close: () =>
+      new Promise((resolve) =>
+        server.close(() => {
+          app.close();
+          resolve();
+        })
+      )
   };
 }
 
@@ -142,7 +145,10 @@ test("V2 persistence foundation keeps admin flow data after restart and SDK can 
     assert.ok(plans.plans.some((plan) => plan.id === planId));
 
     const providers = await client.request("/providers");
-    assert.equal(JSON.stringify(providers).includes("persistent-provider-secret-never-leak"), false);
+    assert.equal(
+      JSON.stringify(providers).includes("persistent-provider-secret-never-leak"),
+      false
+    );
     assert.equal(providers.providers.length, 1);
 
     const devices = await client.request(`/devices?operatorId=${operatorId}`);
@@ -152,12 +158,15 @@ test("V2 persistence foundation keeps admin flow data after restart and SDK can 
     assert.equal(jobs.jobs.length, 1);
     assert.equal(jobs.jobs[0].status, "completed");
 
-    const currentOperatorSessionResponse = await fetch(`${second.baseUrl}/operator-api/sessions/current`, {
-      headers: {
-        authorization: `Bearer ${operatorSessionToken}`,
-        "x-correlation-id": "corr_persistence_operator_session_after_restart"
+    const currentOperatorSessionResponse = await fetch(
+      `${second.baseUrl}/operator-api/sessions/current`,
+      {
+        headers: {
+          authorization: `Bearer ${operatorSessionToken}`,
+          "x-correlation-id": "corr_persistence_operator_session_after_restart"
+        }
       }
-    });
+    );
     const currentOperatorSession = await currentOperatorSessionResponse.json();
     assert.equal(currentOperatorSessionResponse.status, 200);
     assert.equal(currentOperatorSession.session.id, operatorSessionId);

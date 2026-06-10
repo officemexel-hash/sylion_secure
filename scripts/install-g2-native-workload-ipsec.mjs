@@ -6,9 +6,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const defaultSshKey = process.platform === "win32"
-  ? ".deploy\\sylion_hetzner_admin_ed25519"
-  : ".deploy/sylion_hetzner_admin_ed25519";
+const defaultSshKey =
+  process.platform === "win32"
+    ? ".deploy\\sylion_hetzner_admin_ed25519"
+    : ".deploy/sylion_hetzner_admin_ed25519";
 
 const plan = {
   component: "g2_native_workload_ipsec",
@@ -51,27 +52,28 @@ async function run(command, argv, options = {}) {
 }
 
 async function ssh(host, script, options = {}) {
-  return run("ssh", [
-    "-i",
-    plan.sshKey,
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    host,
-    script
-  ], options);
+  return run(
+    "ssh",
+    [
+      "-i",
+      plan.sshKey,
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      host,
+      script
+    ],
+    options
+  );
 }
 
 async function scp(from, to, options = {}) {
-  return run("scp", [
-    "-i",
-    plan.sshKey,
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    from,
-    to
-  ], options);
+  return run(
+    "scp",
+    ["-i", plan.sshKey, "-o", "StrictHostKeyChecking=accept-new", from, to],
+    options
+  );
 }
 
 function shellSingle(value) {
@@ -238,11 +240,17 @@ jq -n \
 async function main() {
   const options = args();
   if (!options.apply) {
-    console.log(JSON.stringify({
-      ...plan,
-      action: "plan_only",
-      note: "Run with --apply to install lab certificate-authenticated IKEv2 between G2 and WORKLOAD_NATIVE."
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          ...plan,
+          action: "plan_only",
+          note: "Run with --apply to install lab certificate-authenticated IKEv2 between G2 and WORKLOAD_NATIVE."
+        },
+        null,
+        2
+      )
+    );
     return;
   }
   const tmp = await mkdtemp(join(tmpdir(), "sylion-g2-native-ipsec-"));
@@ -254,13 +262,21 @@ async function main() {
     await scp(localBundle, `${plan.workload.ssh}:/tmp/sylion-workload-native-ipsec.tgz`);
     await ssh(plan.workload.ssh, installWorkloadScript(), { timeout: 180_000 });
     const verify = await ssh(plan.g2.ssh, verifyScript(), { timeout: 60_000 });
-    const evidence = JSON.parse(verify.stdout.slice(verify.stdout.indexOf("{"), verify.stdout.lastIndexOf("}") + 1));
+    const evidence = JSON.parse(
+      verify.stdout.slice(verify.stdout.indexOf("{"), verify.stdout.lastIndexOf("}") + 1)
+    );
     await ssh(plan.g2.ssh, `rm -f ${shellSingle(remoteBundle)}`);
-    console.log(JSON.stringify({
-      applied: true,
-      evidence,
-      productionExecutionAllowed: false
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          applied: true,
+          evidence,
+          productionExecutionAllowed: false
+        },
+        null,
+        2
+      )
+    );
     if (!evidence.ready) process.exitCode = 1;
   } finally {
     await rm(tmp, { recursive: true, force: true });

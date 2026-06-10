@@ -79,11 +79,9 @@ async function operatorRequest(baseUrl, token, path, { method = "GET", body } = 
 }
 
 async function terminalKeyPair() {
-  const pair = await webcrypto.subtle.generateKey(
-    { name: "ECDH", namedCurve: "P-384" },
-    true,
-    ["deriveKey"]
-  );
+  const pair = await webcrypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-384" }, true, [
+    "deriveKey"
+  ]);
   const publicJwk = await webcrypto.subtle.exportKey("jwk", pair.publicKey);
   return {
     pair,
@@ -99,7 +97,10 @@ async function terminalKeyPair() {
 }
 
 async function seedOperator(client) {
-  const tenant = await client.createTenant({ name: `Step 3.114 Tenant ${crypto.randomUUID()}`, tier: "PRO" });
+  const tenant = await client.createTenant({
+    name: `Step 3.114 Tenant ${crypto.randomUUID()}`,
+    tier: "PRO"
+  });
   const created = await client.createOperator({
     tenantId: tenant.tenant.id,
     displayName: "Step 3.114 Operator",
@@ -131,7 +132,13 @@ async function seedBlindReadiness(baseUrl, token) {
       vpnInterface: "tun1",
       dnsThroughTunnel: true,
       certificateTrusted: true,
-      reachableHosts: ["admin.sylion.internal", "operator.sylion.internal", "signal.sylion.internal", "duckduckgo.sylion.internal", "10.42.0.12"]
+      reachableHosts: [
+        "admin.sylion.internal",
+        "operator.sylion.internal",
+        "signal.sylion.internal",
+        "duckduckgo.sylion.internal",
+        "10.42.0.12"
+      ]
     }
   });
   await operatorRequest(baseUrl, token, "/operator-api/streaming-readiness", {
@@ -198,7 +205,10 @@ test("Step 3.114 workload encoder encrypts image frames that only the terminal k
   assert.notEqual(frame.ciphertextB64, SAMPLE_PNG.toString("base64"));
   assert.equal(JSON.stringify(frame).includes(SAMPLE_PNG.toString("base64")), false);
 
-  const decrypted = await decryptFrameForTest({ frame, terminalPrivateKey: terminal.pair.privateKey });
+  const decrypted = await decryptFrameForTest({
+    frame,
+    terminalPrivateKey: terminal.pair.privateKey
+  });
   assert.deepEqual(decrypted, SAMPLE_PNG);
 });
 
@@ -206,10 +216,7 @@ test("Step 3.114 encoder can build renderable PNG from raw RFB RGBA bytes", () =
   const png = encodePngRgba({
     width: 2,
     height: 1,
-    rgba: Buffer.from([
-      255, 0, 0, 255,
-      0, 128, 255, 255
-    ])
+    rgba: Buffer.from([255, 0, 0, 255, 0, 128, 255, 255])
   });
   assert.equal(png.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
   assert.equal(png.includes(Buffer.from("IHDR")), true);
@@ -239,16 +246,21 @@ test("Step 3.114 blind relay accepts workload encoder envelope and exposes ciphe
     const seeded = await seedOperator(client);
     await seedBlindReadiness(baseUrl, seeded.session.token);
     const terminal = await terminalKeyPair();
-    const blind = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/blind-e2ee/sessions", {
-      method: "POST",
-      body: {
-        templateKey: "duckduckgo_browser",
-        width: 390,
-        height: 844,
-        dpr: 3,
-        terminalPublicKeyJwk: terminal.publicJwk
+    const blind = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/blind-e2ee/sessions",
+      {
+        method: "POST",
+        body: {
+          templateKey: "duckduckgo_browser",
+          width: 390,
+          height: 844,
+          dpr: 3,
+          terminalPublicKeyJwk: terminal.publicJwk
+        }
       }
-    });
+    );
     assert.equal(blind.session.state, "blind_e2ee_session_ready");
 
     const frame = await encryptFrame({
@@ -262,25 +274,39 @@ test("Step 3.114 blind relay accepts workload encoder envelope and exposes ciphe
       height: 844,
       contentType: "image/png"
     });
-    const proof = await operatorRequest(baseUrl, seeded.session.token, blind.session.frameEnvelope.ingestEndpoint, {
-      method: "POST",
-      body: frame
-    });
+    const proof = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      blind.session.frameEnvelope.ingestEndpoint,
+      {
+        method: "POST",
+        body: frame
+      }
+    );
     assert.equal(proof.frame.ciphertextSha256, frame.ciphertextSha256);
     assert.equal(proof.frame.brokerCanDecrypt, false);
     assert.equal(proof.frame.brokerPersistsCiphertextBytes, false);
 
-    const latest = await operatorRequest(baseUrl, seeded.session.token, blind.session.frameEnvelope.latestFrameEndpoint);
+    const latest = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      blind.session.frameEnvelope.latestFrameEndpoint
+    );
     assert.equal(latest.relay.latestFrameAvailable, true);
     assert.equal(latest.relay.frame.ciphertextB64, frame.ciphertextB64);
     assert.equal(latest.relay.frame.contentType, "image/png");
     assert.equal(latest.relay.security.keysAvailableToG2, false);
     assert.equal(latest.relay.security.plaintextIncluded, false);
 
-    const decrypted = await decryptFrameForTest({ frame: latest.relay.frame, terminalPrivateKey: terminal.pair.privateKey });
+    const decrypted = await decryptFrameForTest({
+      frame: latest.relay.frame,
+      terminalPrivateKey: terminal.pair.privateKey
+    });
     assert.deepEqual(decrypted, SAMPLE_PNG);
 
-    const auditText = JSON.stringify(app.services.audit.list().filter((event) => event.action.includes("blind_e2ee")));
+    const auditText = JSON.stringify(
+      app.services.audit.list().filter((event) => event.action.includes("blind_e2ee"))
+    );
     assert.equal(auditText.includes(SAMPLE_PNG.toString("base64")), false);
     assert.equal(auditText.includes(frame.ciphertextB64), false);
   } finally {
@@ -304,48 +330,68 @@ test("Step 3.114 capture-once activates workload encoder runner and publishes de
         SYLION_WORKLOAD_STREAM_SOURCE_READY: "true",
         SYLION_DEFER_PHYSICAL_HSM_FIDO2: "true"
       },
-      blindE2eeFrameCaptureRunner: async ({ session }) => encryptFrame({
-        plaintext: SAMPLE_PNG,
-        terminalPublicKeyJwk: session.keyManagement.terminalPublicKeyJwk,
-        sessionId: session.id,
-        keyId: session.keyManagement.keyId,
-        templateKey: session.templateKey,
-        sequence: 3,
-        width: session.stream.targetWidth,
-        height: session.stream.targetHeight,
-        contentType: "image/png"
-      })
+      blindE2eeFrameCaptureRunner: async ({ session }) =>
+        encryptFrame({
+          plaintext: SAMPLE_PNG,
+          terminalPublicKeyJwk: session.keyManagement.terminalPublicKeyJwk,
+          sessionId: session.id,
+          keyId: session.keyManagement.keyId,
+          templateKey: session.templateKey,
+          sequence: 3,
+          width: session.stream.targetWidth,
+          height: session.stream.targetHeight,
+          contentType: "image/png"
+        })
     }
   });
   try {
     const client = await loginClient(baseUrl);
     const seeded = await seedOperator(client);
     await seedBlindReadiness(baseUrl, seeded.session.token);
-    const blind = await operatorRequest(baseUrl, seeded.session.token, "/operator-api/blind-e2ee/sessions", {
-      method: "POST",
-      body: {
-        templateKey: "duckduckgo_browser",
-        width: 390,
-        height: 844,
-        dpr: 3,
-        terminalPublicKeyJwk: terminal.publicJwk
+    const blind = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      "/operator-api/blind-e2ee/sessions",
+      {
+        method: "POST",
+        body: {
+          templateKey: "duckduckgo_browser",
+          width: 390,
+          height: 844,
+          dpr: 3,
+          terminalPublicKeyJwk: terminal.publicJwk
+        }
       }
-    });
+    );
     assert.equal(blind.session.state, "blind_e2ee_session_ready");
-    const captured = await operatorRequest(baseUrl, seeded.session.token, `${blind.session.frameEnvelope.ingestEndpoint}/capture-once`, {
-      method: "POST",
-      body: {}
-    });
+    const captured = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      `${blind.session.frameEnvelope.ingestEndpoint}/capture-once`,
+      {
+        method: "POST",
+        body: {}
+      }
+    );
     assert.equal(captured.frame.sequence, 3);
     assert.equal(captured.frame.brokerCanDecrypt, false);
     assert.equal(captured.frame.brokerPersistsCiphertextBytes, false);
 
-    const latest = await operatorRequest(baseUrl, seeded.session.token, blind.session.frameEnvelope.latestFrameEndpoint);
+    const latest = await operatorRequest(
+      baseUrl,
+      seeded.session.token,
+      blind.session.frameEnvelope.latestFrameEndpoint
+    );
     assert.equal(latest.relay.latestFrameAvailable, true);
-    const decrypted = await decryptFrameForTest({ frame: latest.relay.frame, terminalPrivateKey: terminal.pair.privateKey });
+    const decrypted = await decryptFrameForTest({
+      frame: latest.relay.frame,
+      terminalPrivateKey: terminal.pair.privateKey
+    });
     assert.deepEqual(decrypted, SAMPLE_PNG);
 
-    const auditText = JSON.stringify(app.services.audit.list().filter((event) => event.action.includes("blind_e2ee")));
+    const auditText = JSON.stringify(
+      app.services.audit.list().filter((event) => event.action.includes("blind_e2ee"))
+    );
     assert.equal(auditText.includes(SAMPLE_PNG.toString("base64")), false);
     assert.equal(auditText.includes(latest.relay.frame.ciphertextB64), false);
   } finally {

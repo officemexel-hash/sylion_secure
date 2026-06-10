@@ -4,8 +4,19 @@ import { validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
 
-const SECRET_BACKEND_TYPES = new Set(["local_reference", "env_runtime", "vault", "cloud_kms", "hsm", "byo_hsm"]);
-const SECRET_BACKEND_MODES = new Set(["reference_only", "runtime_resolver_planned", "runtime_resolver_attested"]);
+const SECRET_BACKEND_TYPES = new Set([
+  "local_reference",
+  "env_runtime",
+  "vault",
+  "cloud_kms",
+  "hsm",
+  "byo_hsm"
+]);
+const SECRET_BACKEND_MODES = new Set([
+  "reference_only",
+  "runtime_resolver_planned",
+  "runtime_resolver_attested"
+]);
 
 function hashSecret(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -24,9 +35,22 @@ export class SecretManagerService {
     this.backends = new PersistentMap({ store, collection: "secret_backends" });
   }
 
-  create({ actor, name, purpose, plaintext, tenantId = null, providerId = null, backendId = null, correlationId }) {
+  create({
+    actor,
+    name,
+    purpose,
+    plaintext,
+    tenantId = null,
+    providerId = null,
+    backendId = null,
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "secret.create", { tenantId, resourceType: RESOURCE_TYPES.SECRET, correlationId: corr });
+    this.rbac.assert(actor, "secret.create", {
+      tenantId,
+      resourceType: RESOURCE_TYPES.SECRET,
+      correlationId: corr
+    });
     this.#assertSecretInput({ name, plaintext });
 
     const now = new Date().toISOString();
@@ -71,7 +95,11 @@ export class SecretManagerService {
     correlationId
   }) {
     const corr = requireCorrelationId(correlationId);
-    this.rbac.assert(actor, "secret.create", { tenantId, resourceType: RESOURCE_TYPES.SECRET, correlationId: corr });
+    this.rbac.assert(actor, "secret.create", {
+      tenantId,
+      resourceType: RESOURCE_TYPES.SECRET,
+      correlationId: corr
+    });
     this.#assertSecretName(name);
     const backend = this.#requireBackend(backendId);
     const safeReference = this.#externalReference(externalReference);
@@ -121,10 +149,13 @@ export class SecretManagerService {
       correlationId: corr
     });
     if (current.custody === "external_reference_only") {
-      throw validationError("External-reference secrets must rotate by replacing the external reference", {
-        secretReference,
-        backendType: current.backendType
-      });
+      throw validationError(
+        "External-reference secrets must rotate by replacing the external reference",
+        {
+          secretReference,
+          backendType: current.backendType
+        }
+      );
     }
     this.#assertSecretInput({ name: current.name, plaintext });
 
@@ -151,13 +182,21 @@ export class SecretManagerService {
     return reference;
   }
 
-  rotateExternalReference({ actor, secretReference, externalReference, evidenceRefs = [], correlationId }) {
+  rotateExternalReference({
+    actor,
+    secretReference,
+    externalReference,
+    evidenceRefs = [],
+    correlationId
+  }) {
     const corr = requireCorrelationId(correlationId);
     const { secretId } = this.#parseReference(secretReference);
     const current = this.secrets.get(secretId);
     if (!current) throw validationError("Secret reference is invalid");
     if (current.custody !== "external_reference_only") {
-      throw validationError("Only external-reference secrets can rotate by external reference", { secretReference });
+      throw validationError("Only external-reference secrets can rotate by external reference", {
+        secretReference
+      });
     }
     this.rbac.assert(actor, "secret.rotate", {
       tenantId: current.tenantId,
@@ -215,7 +254,9 @@ export class SecretManagerService {
       displayName: this.#requiredText(displayName || normalizedType, "displayName"),
       endpointReference: endpointReference ? this.#externalReference(endpointReference) : null,
       keyRingReference: keyRingReference ? this.#externalReference(keyRingReference) : null,
-      hsmPartitionReference: hsmPartitionReference ? this.#externalReference(hsmPartitionReference) : null,
+      hsmPartitionReference: hsmPartitionReference
+        ? this.#externalReference(hsmPartitionReference)
+        : null,
       mode: normalizedMode,
       evidenceRefs: this.#safeArray(evidenceRefs, "evidenceRefs"),
       plaintextRetrievalAllowed: false,
@@ -252,7 +293,9 @@ export class SecretManagerService {
       correlationId: corr
     });
     const backends = this.#backendRecords();
-    const externalReferenceCount = [...this.secrets.values()].filter((secret) => secret.custody === "external_reference_only").length;
+    const externalReferenceCount = [...this.secrets.values()].filter(
+      (secret) => secret.custody === "external_reference_only"
+    ).length;
     return {
       defaultRuntimeSource: "environment",
       envRuntimeConfigured: {
@@ -313,17 +356,25 @@ export class SecretManagerService {
   }
 
   #backendType(value) {
-    const normalized = String(value || "").trim().toLowerCase();
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
     if (!SECRET_BACKEND_TYPES.has(normalized)) {
-      throw validationError("Unsupported secret backend type", { allowed: [...SECRET_BACKEND_TYPES] });
+      throw validationError("Unsupported secret backend type", {
+        allowed: [...SECRET_BACKEND_TYPES]
+      });
     }
     return normalized;
   }
 
   #backendMode(value) {
-    const normalized = String(value || "").trim().toLowerCase();
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
     if (!SECRET_BACKEND_MODES.has(normalized)) {
-      throw validationError("Unsupported secret backend mode", { allowed: [...SECRET_BACKEND_MODES] });
+      throw validationError("Unsupported secret backend mode", {
+        allowed: [...SECRET_BACKEND_MODES]
+      });
     }
     return normalized;
   }
@@ -336,7 +387,9 @@ export class SecretManagerService {
 
   #externalReference(value) {
     const text = this.#requiredText(value, "externalReference");
-    if (/-----BEGIN|private[_ -]?key|password=|token=|api[_ -]?key=|secret=|bearer\s+/i.test(text)) {
+    if (
+      /-----BEGIN|private[_ -]?key|password=|token=|api[_ -]?key=|secret=|bearer\s+/i.test(text)
+    ) {
       throw validationError("External secret reference must not contain secret material", {
         plaintextRejected: true
       });

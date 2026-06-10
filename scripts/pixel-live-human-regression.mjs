@@ -9,10 +9,18 @@ const execFileAsync = promisify(execFile);
 const adbPath = process.env.SYLION_ADB_PATH || "C:\\Users\\razor\\Android\\platform-tools\\adb.exe";
 const sshKey = process.env.SYLION_ADMIN_SSH_KEY || ".deploy\\sylion_hetzner_admin_ed25519";
 const adminSsh = process.env.SYLION_ADMIN_SSH || "root@188.245.227.27";
-const adminInternalBaseUrl = process.env.SYLION_ADMIN_INTERNAL_BASE_URL || "https://admin.sylion.internal";
-const operatorInternalBaseUrl = process.env.SYLION_OPERATOR_INTERNAL_BASE_URL || "https://operator.sylion.internal";
+const adminInternalBaseUrl =
+  process.env.SYLION_ADMIN_INTERNAL_BASE_URL || "https://admin.sylion.internal";
+const operatorInternalBaseUrl =
+  process.env.SYLION_OPERATOR_INTERNAL_BASE_URL || "https://operator.sylion.internal";
 const workloadGatewayIp = process.env.SYLION_WORKLOAD_GATEWAY_IP || "10.42.0.12";
-const outputDir = join(process.cwd(), "docs", "admin-panel-v2", "test-artifacts", "step3-40-pixel-live-human-regression");
+const outputDir = join(
+  process.cwd(),
+  "docs",
+  "admin-panel-v2",
+  "test-artifacts",
+  "step3-40-pixel-live-human-regression"
+);
 const indexHumanEvidence = process.env.SYLION_INDEX_HUMAN_EVIDENCE === "true";
 
 const workloadHosts = [
@@ -36,30 +44,37 @@ const workloadVisualExpectations = {
       /wymaga nazwy użytkownika i hasła|requires a username and password|401/i,
       /Nazwa użytkownika|Hasło|Username|Password/i
     ],
-    blockerMessage: "Signal reaches only the workload auth gate; it does not yet open the Signal Desktop session on Pixel."
+    blockerMessage:
+      "Signal reaches only the workload auth gate; it does not yet open the Signal Desktop session on Pixel."
   },
   whatsapp: {
     pass: [/WhatsApp/i],
     allowCanvasEvidence: true,
     blocker: [/New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
-    blockerMessage: "WhatsApp reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual WhatsApp UI is not verified on Pixel."
+    blockerMessage:
+      "WhatsApp reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual WhatsApp UI is not verified on Pixel."
   },
   telegram: {
     pass: [/Telegram/i],
     allowCanvasEvidence: true,
     blocker: [/New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
-    blockerMessage: "Telegram reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Telegram UI is not verified on Pixel."
+    blockerMessage:
+      "Telegram reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Telegram UI is not verified on Pixel."
   },
   threema: {
     pass: [/Threema/i],
     allowCanvasEvidence: true,
     blocker: [/New Tab|Google|Chromium didn't shut down|AI Mode|Search Google/i],
-    blockerMessage: "Threema reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Threema UI is not verified on Pixel."
+    blockerMessage:
+      "Threema reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Threema UI is not verified on Pixel."
   },
   zangi: {
     pass: [/Zangi/i],
-    blocker: [/SYLION Zangi|zangi\.com\/download|Download Zangi|Cookie Policy|Stack Exchange can store cookies/i],
-    blockerMessage: "Zangi reaches only the generic stream shell or public download page; production Zangi still needs an isolated Android-native workload runner."
+    blocker: [
+      /SYLION Zangi|zangi\.com\/download|Download Zangi|Cookie Policy|Stack Exchange can store cookies/i
+    ],
+    blockerMessage:
+      "Zangi reaches only the generic stream shell or public download page; production Zangi still needs an isolated Android-native workload runner."
   },
   duckduckgo: {
     pass: [/DuckDuckGo/i],
@@ -74,20 +89,25 @@ const workloadVisualExpectations = {
   },
   exodus: {
     pass: [/Exodus/i],
-    blocker: [/SYLION Exodus|exodus\.com\/download|New Tab|Google|Search Google|Web Store|Add shortcut/i],
-    blockerMessage: "Exodus reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Exodus wallet UI is not verified on Pixel."
+    blocker: [
+      /SYLION Exodus|exodus\.com\/download|New Tab|Google|Search Google|Web Store|Add shortcut/i
+    ],
+    blockerMessage:
+      "Exodus reaches only the generic SYLION/Selkies stream shell or browser new tab; the actual Exodus wallet UI is not verified on Pixel."
   },
   simplex: {
     pass: [/SimpleX/i],
     allowCanvasEvidence: true,
     blocker: [/simplex\.chat\/downloads|Download SimpleX|New Tab|Google|Search Google/i],
-    blockerMessage: "SimpleX reaches only a public download page or generic browser shell; an approved isolated SimpleX desktop/Android workload is not verified on Pixel."
+    blockerMessage:
+      "SimpleX reaches only a public download page or generic browser shell; an approved isolated SimpleX desktop/Android workload is not verified on Pixel."
   },
   protonmail: {
     pass: [/Proton Mail|Proton/i],
     allowCanvasEvidence: true,
     blocker: [/New Tab|Google|Search Google|Chromium didn't shut down/i],
-    blockerMessage: "Proton Mail reaches only a generic browser shell; Proton Mail UI is not verified on Pixel."
+    blockerMessage:
+      "Proton Mail reaches only a generic browser shell; Proton Mail UI is not verified on Pixel."
   }
 };
 
@@ -108,14 +128,11 @@ async function adb(args, options = {}) {
 }
 
 async function ssh(script, options = {}) {
-  return runCommand("ssh", [
-    "-i",
-    sshKey,
-    "-o",
-    "StrictHostKeyChecking=accept-new",
-    adminSsh,
-    script
-  ], { timeout: options.timeout ?? 60_000 });
+  return runCommand(
+    "ssh",
+    ["-i", sshKey, "-o", "StrictHostKeyChecking=accept-new", adminSsh, script],
+    { timeout: options.timeout ?? 60_000 }
+  );
 }
 
 function repoRelativePath(path) {
@@ -142,7 +159,7 @@ function parseDeviceList(output) {
 
 function xmlDecode(value) {
   return value
-    .replace(/&quot;/g, "\"")
+    .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -162,7 +179,9 @@ async function requirePixel() {
   const devices = parseDeviceList((await adb(["devices", "-l"])).stdout);
   const unauthorized = devices.find((device) => device.state === "unauthorized");
   if (unauthorized) {
-    throw new Error(`Pixel ${unauthorized.serial} is unauthorized. Confirm USB debugging on the phone.`);
+    throw new Error(
+      `Pixel ${unauthorized.serial} is unauthorized. Confirm USB debugging on the phone.`
+    );
   }
   const pixel = devices.find((device) => device.state === "device");
   if (!pixel) {
@@ -193,19 +212,19 @@ async function dumpUi(serial, name) {
 }
 
 async function openUrl(serial, url, name, delayMs = 3500) {
-  await adb([
-    "-s",
-    serial,
-    "shell",
-    `am start -a android.intent.action.VIEW -d ${shellSingleQuote(url)}`
-  ], { timeout: 20_000 });
+  await adb(
+    ["-s", serial, "shell", `am start -a android.intent.action.VIEW -d ${shellSingleQuote(url)}`],
+    { timeout: 20_000 }
+  );
   await new Promise((resolve) => setTimeout(resolve, delayMs));
   const screenshot = await screencap(serial, name);
   let uiText = "";
   try {
     uiText = await dumpUi(serial, name);
     if (/Restore pages\?|Chromium didn't shut down/i.test(uiText)) {
-      await adb(["-s", serial, "shell", "input", "keyevent", "BACK"], { timeout: 20_000 }).catch(() => {});
+      await adb(["-s", serial, "shell", "input", "keyevent", "BACK"], { timeout: 20_000 }).catch(
+        () => {}
+      );
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await screencap(serial, name);
       uiText = await dumpUi(serial, name);
@@ -217,7 +236,9 @@ async function openUrl(serial, url, name, delayMs = 3500) {
 }
 
 async function resetBrowserSurface(serial) {
-  await adb(["-s", serial, "shell", "am", "force-stop", "app.vanadium.browser"], { timeout: 20_000 }).catch(() => {});
+  await adb(["-s", serial, "shell", "am", "force-stop", "app.vanadium.browser"], {
+    timeout: 20_000
+  }).catch(() => {});
   await new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
@@ -313,16 +334,24 @@ async function maybeIndexHumanEvidenceOnAdmin(humanEvidence) {
   if (!indexHumanEvidence) {
     return {
       skipped: true,
-      reason: "Set SYLION_INDEX_HUMAN_EVIDENCE=true to POST human-evidence.json into Release inventory."
+      reason:
+        "Set SYLION_INDEX_HUMAN_EVIDENCE=true to POST human-evidence.json into Release inventory."
     };
   }
-  const payload = Buffer.from(JSON.stringify({
-    summary: humanEvidence.summary,
-    evidenceArtifactPath: repoRelativePath(humanEvidence.path),
-    linkedModule: "pixel_live_path",
-    ksiegaControlRefs: ["thin_client_terminal", "pixel_g1_g2_workload_path", "metadata_only_monitoring"],
-    phantomBoundaryImpact: "none"
-  }), "utf8").toString("base64");
+  const payload = Buffer.from(
+    JSON.stringify({
+      summary: humanEvidence.summary,
+      evidenceArtifactPath: repoRelativePath(humanEvidence.path),
+      linkedModule: "pixel_live_path",
+      ksiegaControlRefs: [
+        "thin_client_terminal",
+        "pixel_g1_g2_workload_path",
+        "metadata_only_monitoring"
+      ],
+      phantomBoundaryImpact: "none"
+    }),
+    "utf8"
+  ).toString("base64");
   const script = `
 SYLION_HUMAN_EVIDENCE_B64='${payload}' node --input-type=module <<'NODE'
 import { AdminApiClient } from "/opt/sylion-secure/services/admin-api/src/sdk/adminApiClient.js";
@@ -373,34 +402,36 @@ async function fetchInternalCertificate() {
   const cert = result.stdout;
   const localPath = join(outputDir, "sylion-internal-ca.crt");
   await writeFile(localPath, cert + "\n", "ascii");
-  const inspect = await ssh(`openssl s_client -connect ${workloadGatewayIp}:443 -servername signal.sylion.internal </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -fingerprint -sha256 -ext subjectAltName`);
+  const inspect = await ssh(
+    `openssl s_client -connect ${workloadGatewayIp}:443 -servername signal.sylion.internal </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -fingerprint -sha256 -ext subjectAltName`
+  );
   return { localPath, inspect: inspect.stdout };
 }
 
 async function deliverCaToPixel(serial, certPath) {
-  await adb(["-s", serial, "push", certPath, "/sdcard/Download/sylion-internal-ca.crt"], { timeout: 20_000 });
-  const installIntent = await adb([
-    "-s",
-    serial,
-    "shell",
-    "am",
-    "start",
-    "-a",
-    "android.credentials.INSTALL",
-    "-t",
-    "application/x-x509-ca-cert",
-    "-d",
-    "file:///sdcard/Download/sylion-internal-ca.crt"
-  ], { timeout: 20_000 }).catch((error) => ({ stdout: "", stderr: String(error) }));
-  const settingsIntent = await adb([
-    "-s",
-    serial,
-    "shell",
-    "am",
-    "start",
-    "-a",
-    "android.settings.SECURITY_SETTINGS"
-  ], { timeout: 20_000 }).catch((error) => ({ stdout: "", stderr: String(error) }));
+  await adb(["-s", serial, "push", certPath, "/sdcard/Download/sylion-internal-ca.crt"], {
+    timeout: 20_000
+  });
+  const installIntent = await adb(
+    [
+      "-s",
+      serial,
+      "shell",
+      "am",
+      "start",
+      "-a",
+      "android.credentials.INSTALL",
+      "-t",
+      "application/x-x509-ca-cert",
+      "-d",
+      "file:///sdcard/Download/sylion-internal-ca.crt"
+    ],
+    { timeout: 20_000 }
+  ).catch((error) => ({ stdout: "", stderr: String(error) }));
+  const settingsIntent = await adb(
+    ["-s", serial, "shell", "am", "start", "-a", "android.settings.SECURITY_SETTINGS"],
+    { timeout: 20_000 }
+  ).catch((error) => ({ stdout: "", stderr: String(error) }));
   await new Promise((resolve) => setTimeout(resolve, 2500));
   const screenshot = await screencap(serial, "pixel-ca-install-settings");
   return {
@@ -426,12 +457,25 @@ async function deliverCaToPixel(serial, certPath) {
 
 async function collectNetworkEvidence(serial) {
   const props = {};
-  for (const key of ["ro.product.model", "ro.product.device", "ro.build.version.release", "ro.build.version.security_patch", "ro.build.fingerprint"]) {
+  for (const key of [
+    "ro.product.model",
+    "ro.product.device",
+    "ro.build.version.release",
+    "ro.build.version.security_patch",
+    "ro.build.fingerprint"
+  ]) {
     props[key] = (await adb(["-s", serial, "shell", "getprop", key])).stdout;
   }
-  const connectivity = (await adb(["-s", serial, "shell", "dumpsys", "connectivity"], { timeout: 20_000 })).stdout;
+  const connectivity = (
+    await adb(["-s", serial, "shell", "dumpsys", "connectivity"], { timeout: 20_000 })
+  ).stdout;
   const route = (await adb(["-s", serial, "shell", "ip", "route"])).stdout;
-  const tun = (await adb(["-s", serial, "shell", "ip", "addr", "show", "tun1"]).catch((error) => ({ stdout: "", stderr: String(error) }))).stdout;
+  const tun = (
+    await adb(["-s", serial, "shell", "ip", "addr", "show", "tun1"]).catch((error) => ({
+      stdout: "",
+      stderr: String(error)
+    }))
+  ).stdout;
   const pings = {};
   const networkProbeHosts = [
     "admin.sylion.internal",
@@ -442,7 +486,9 @@ async function collectNetworkEvidence(serial) {
     "10.42.0.12"
   ];
   for (const host of [...new Set(networkProbeHosts)]) {
-    const ping = await adb(["-s", serial, "shell", "ping", "-c", "1", "-W", "3", host]).catch((error) => ({ stdout: "", stderr: String(error) }));
+    const ping = await adb(["-s", serial, "shell", "ping", "-c", "1", "-W", "3", host]).catch(
+      (error) => ({ stdout: "", stderr: String(error) })
+    );
     pings[host] = {
       ok: /1 received|bytes from/i.test(ping.stdout),
       output: ping.stdout.split(/\r?\n/).slice(0, 5).join("\n")
@@ -472,18 +518,25 @@ for h in admin operator signal duckduckgo libreoffice zangi whatsapp telegram th
   echo "$h|$code|$title"
 done`;
   const result = await ssh(script, { timeout: 60_000 });
-  return Object.fromEntries(result.stdout.split(/\r?\n/).filter(Boolean).map((line) => {
-    const [host, status, title] = line.split("|");
-    return [host, { status, title }];
-  }));
+  return Object.fromEntries(
+    result.stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((line) => {
+        const [host, status, title] = line.split("|");
+        return [host, { status, title }];
+      })
+  );
 }
 
 function analyze(seed, network, probes, pageResults) {
   const issues = [];
   const knownGates = [];
-  if (!network.vpnConnected) issues.push("Pixel VPN is not reported as connected by Android connectivity service.");
+  if (!network.vpnConnected)
+    issues.push("Pixel VPN is not reported as connected by Android connectivity service.");
   if (network.vpnInterface !== "tun1") issues.push("Pixel VPN interface tun1 was not found.");
-  if (!network.dnsThroughTunnel) issues.push("Pixel DNS through tunnel did not expose 10.42.0.11 in connectivity evidence.");
+  if (!network.dnsThroughTunnel)
+    issues.push("Pixel DNS through tunnel did not expose 10.42.0.11 in connectivity evidence.");
   for (const [host, result] of Object.entries(network.pings)) {
     if (!result.ok) issues.push(`Pixel cannot reach ${host} over current network path.`);
   }
@@ -495,17 +548,32 @@ function analyze(seed, network, probes, pageResults) {
       else issues.push(message);
     }
   }
-  for (const app of ["duckduckgo", "libreoffice", "whatsapp", "telegram", "threema", "signal", "simplex", "protonmail"]) {
+  for (const app of [
+    "duckduckgo",
+    "libreoffice",
+    "whatsapp",
+    "telegram",
+    "threema",
+    "signal",
+    "simplex",
+    "protonmail"
+  ]) {
     if (probes[app]?.status === "200" && /Welcome to nginx/i.test(probes[app]?.title || "")) {
-      issues.push(`${app} currently serves the nginx placeholder, not a verified real application UI.`);
+      issues.push(
+        `${app} currently serves the nginx placeholder, not a verified real application UI.`
+      );
     }
   }
   const vpnInstall = seed.endpoints["/operator-api/vpn-install-package"]?.package;
   if (vpnInstall?.installState !== "ready") {
-    knownGates.push(`Operator VPN install package is ${vpnInstall?.installState}; production install remains gated.`);
+    knownGates.push(
+      `Operator VPN install package is ${vpnInstall?.installState}; production install remains gated.`
+    );
   }
   if (!/Operator Portal|Apps|Operator controls/i.test(probes.operator?.title || "")) {
-    issues.push("operator.sylion.internal/operator probe does not resolve to the operator portal shell.");
+    issues.push(
+      "operator.sylion.internal/operator probe does not resolve to the operator portal shell."
+    );
   }
   const caPackage = seed.endpoints["/operator-api/pixel-ca-provisioning"]?.package;
   if (!caPackage?.validation?.requiresUserPresence) {
@@ -513,7 +581,11 @@ function analyze(seed, network, probes, pageResults) {
   }
   for (const [name, result] of Object.entries(pageResults)) {
     const uiText = visibleUiText(result.uiText || "");
-    if (/NET::ERR_CERT_AUTHORITY_INVALID|Your connection is not private|Privacy error|Połączenie nie jest prywatne|Błąd dotyczący prywatności/i.test(uiText)) {
+    if (
+      /NET::ERR_CERT_AUTHORITY_INVALID|Your connection is not private|Privacy error|Połączenie nie jest prywatne|Błąd dotyczący prywatności/i.test(
+        uiText
+      )
+    ) {
       issues.push(`${name} still shows a certificate trust warning on Pixel.`);
     }
   }
@@ -546,7 +618,9 @@ async function run() {
   // handoff (t0_pixel_to_g1_ipsec / dns_through_tunnel) can pass. Values are the real ones
   // detected from the device (tun1 IKEv2 to G1 + DNS 10.42.0.11) plus reachable hosts from
   // the ping sweep. certificateTrusted reflects the SYLION internal CA installed on the Pixel.
-  const reachableHosts = Object.entries(networkBefore.pings || {}).filter(([, v]) => v?.ok).map(([host]) => host);
+  const reachableHosts = Object.entries(networkBefore.pings || {})
+    .filter(([, v]) => v?.ok)
+    .map(([host]) => host);
   let vpnEvidenceStatus = null;
   try {
     // The operator session lives on the admin-api at 127.0.0.1:8099 ON THE ADMIN SERVER
@@ -580,7 +654,11 @@ async function run() {
 
   const pageResults = {};
   pageResults.__vpnEvidenceStatus = vpnEvidenceStatus;
-  pageResults.admin = await openUrl(pixel.serial, `${adminInternalBaseUrl}/admin`, "pixel-admin-panel");
+  pageResults.admin = await openUrl(
+    pixel.serial,
+    `${adminInternalBaseUrl}/admin`,
+    "pixel-admin-panel"
+  );
   pageResults.operator = await openUrl(
     pixel.serial,
     `${operatorInternalBaseUrl}/operator#app-switcher&op_token=${encodeURIComponent(seed.operatorSession.token)}`,
@@ -601,9 +679,15 @@ async function run() {
   const probes = await probeWorkloadsFromAdmin();
   const networkAfter = await collectNetworkEvidence(pixel.serial);
   const analysis = analyze(seed, networkAfter, probes, pageResults);
-  const screenshots = Object.fromEntries(Object.entries(pageResults).map(([key, value]) => [key, value.screenshot]));
+  const screenshots = Object.fromEntries(
+    Object.entries(pageResults).map(([key, value]) => [key, value.screenshot])
+  );
   const summary = {
-    status: analysis.issues.length ? "failed_with_findings" : analysis.knownGates.length ? "passed_with_known_gates" : "passed",
+    status: analysis.issues.length
+      ? "failed_with_findings"
+      : analysis.knownGates.length
+        ? "passed_with_known_gates"
+        : "passed",
     adbSerial: pixel.serial,
     adminPanelUrl: `${adminInternalBaseUrl}/admin`,
     operatorPanelUrl: `${operatorInternalBaseUrl}/operator#app-switcher`,
@@ -623,61 +707,70 @@ async function run() {
     knownGates: analysis.knownGates,
     checkedAt: new Date().toISOString()
   };
-  const strictResult = analysis.issues.length ? "FAIL" : analysis.knownGates.length ? "BLOCKED" : "PASS";
-  const humanEvidence = await writeHumanEvidenceSummary(outputDir, {
-    testId: "step3-40-pixel-live-human-regression",
-    testVersion: "step3.86",
-    tester: "Codex Pixel ADB live harness",
-    environment: {
-      mode: "live_metadata_and_human_ui",
-      adminVps: "sylion-admin-api",
-      g1g2WorkloadPath: "Pixel -> VPN -> G1 -> VPN -> G2 -> VPN -> WORKLOAD",
-      workloadGateway: workloadGatewayIp,
-      productionMutationAllowed: false
+  const strictResult = analysis.issues.length
+    ? "FAIL"
+    : analysis.knownGates.length
+      ? "BLOCKED"
+      : "PASS";
+  const humanEvidence = await writeHumanEvidenceSummary(
+    outputDir,
+    {
+      testId: "step3-40-pixel-live-human-regression",
+      testVersion: "step3.86",
+      tester: "Codex Pixel ADB live harness",
+      environment: {
+        mode: "live_metadata_and_human_ui",
+        adminVps: "sylion-admin-api",
+        g1g2WorkloadPath: "Pixel -> VPN -> G1 -> VPN -> G2 -> VPN -> WORKLOAD",
+        workloadGateway: workloadGatewayIp,
+        productionMutationAllowed: false
+      },
+      terminal: {
+        type: "pixel_grapheneos",
+        adbAuthorized: true,
+        caInstallRequiresUserPresence: caDelivery.requiresUserPresence,
+        operationalDataOnTerminal: false
+      },
+      pathTested: "Pixel GrapheneOS -> VPN -> G1 -> VPN -> G2 -> VPN -> WORKLOAD -> app workloads",
+      expectedBehavior:
+        "The Pixel opens the admin panel, operator panel and each workload stream only through the live G1/G2 path, with metadata-only evidence and no terminal-side operational data.",
+      preconditions: [
+        "Pixel is attached over authorized ADB.",
+        "Admin VPS can seed a live operator session.",
+        "Internal SYLION CA package is delivered for user-present installation.",
+        "Live workload hostnames resolve through the G2 workload gateway."
+      ],
+      actions: [
+        "Collect Pixel network metadata before live app traversal.",
+        "Deliver internal CA package and open GrapheneOS certificate settings.",
+        "Open admin panel on Pixel.",
+        "Open operator app switcher on Pixel.",
+        "Open each workload hostname on Pixel.",
+        "Probe workload hostnames from the admin side.",
+        "Collect Pixel network metadata after traversal."
+      ],
+      evidenceRefs: [
+        "summary.json",
+        ...Object.entries(screenshots).map(([name, path]) => `screenshot:${name}:${path}`),
+        "metadata:networkBefore",
+        "metadata:networkAfter",
+        "metadata:serverSideWorkloadProbes"
+      ],
+      result: strictResult,
+      blockers: [...analysis.issues, ...analysis.knownGates],
+      residualRisk: [
+        "Puli AX physical router path remains blocked until hardware arrives.",
+        "HSM/FIDO2 physical enrollment remains blocked until hardware/backend is present.",
+        "A screenshot or HTTP 200 is not sufficient by itself to prove a communicator is usable."
+      ],
+      nextRequiredAction: analysis.issues.length
+        ? "Repair the first failed blocker, then rerun this exact live Pixel regression."
+        : analysis.knownGates.length
+          ? "Resolve known gates, then rerun this exact live Pixel regression."
+          : "Freeze evidence and continue with laptop-terminal parity regression."
     },
-    terminal: {
-      type: "pixel_grapheneos",
-      adbAuthorized: true,
-      caInstallRequiresUserPresence: caDelivery.requiresUserPresence,
-      operationalDataOnTerminal: false
-    },
-    pathTested: "Pixel GrapheneOS -> VPN -> G1 -> VPN -> G2 -> VPN -> WORKLOAD -> app workloads",
-    expectedBehavior: "The Pixel opens the admin panel, operator panel and each workload stream only through the live G1/G2 path, with metadata-only evidence and no terminal-side operational data.",
-    preconditions: [
-      "Pixel is attached over authorized ADB.",
-      "Admin VPS can seed a live operator session.",
-      "Internal SYLION CA package is delivered for user-present installation.",
-      "Live workload hostnames resolve through the G2 workload gateway."
-    ],
-    actions: [
-      "Collect Pixel network metadata before live app traversal.",
-      "Deliver internal CA package and open GrapheneOS certificate settings.",
-      "Open admin panel on Pixel.",
-      "Open operator app switcher on Pixel.",
-      "Open each workload hostname on Pixel.",
-      "Probe workload hostnames from the admin side.",
-      "Collect Pixel network metadata after traversal."
-    ],
-    evidenceRefs: [
-      "summary.json",
-      ...Object.entries(screenshots).map(([name, path]) => `screenshot:${name}:${path}`),
-      "metadata:networkBefore",
-      "metadata:networkAfter",
-      "metadata:serverSideWorkloadProbes"
-    ],
-    result: strictResult,
-    blockers: [...analysis.issues, ...analysis.knownGates],
-    residualRisk: [
-      "Puli AX physical router path remains blocked until hardware arrives.",
-      "HSM/FIDO2 physical enrollment remains blocked until hardware/backend is present.",
-      "A screenshot or HTTP 200 is not sufficient by itself to prove a communicator is usable."
-    ],
-    nextRequiredAction: analysis.issues.length
-      ? "Repair the first failed blocker, then rerun this exact live Pixel regression."
-      : analysis.knownGates.length
-        ? "Resolve known gates, then rerun this exact live Pixel regression."
-        : "Freeze evidence and continue with laptop-terminal parity regression."
-  }, { fileName: "human-evidence.json" });
+    { fileName: "human-evidence.json" }
+  );
   summary.humanEvidencePath = humanEvidence.path;
   summary.humanEvidenceIndexed = await maybeIndexHumanEvidenceOnAdmin(humanEvidence);
   await writeFile(join(outputDir, "summary.json"), JSON.stringify(summary, null, 2));

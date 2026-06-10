@@ -70,7 +70,9 @@ test("Step 3.21 records a full human Playwright run and updates build assessment
     assert.equal(assessment.assessment.phantom.certificationClaim, false);
     assert.equal(assessment.assessment.testing.latestRun.id, run.run.id);
     assert.ok(assessment.assessment.księga34.blocked >= 1);
-    assert.ok(app.services.audit.list().some((event) => event.action === "release.human_test_run_recorded"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "release.human_test_run_recorded")
+    );
   } finally {
     app.close();
     await close();
@@ -87,14 +89,30 @@ test("Step 3.21 creates release problems for failed or blocked scenario results"
       environment: "local_admin_api",
       results: [
         { scenarioId: "test_overview", view: "dashboard", status: "passed", note: "OK" },
-        { scenarioId: "test_phantom", view: "phantom", status: "failed", note: "Needs visual review" },
-        { scenarioId: "test_mobile", view: "ui", status: "blocked", note: "Mobile viewport blocked" }
+        {
+          scenarioId: "test_phantom",
+          view: "phantom",
+          status: "failed",
+          note: "Needs visual review"
+        },
+        {
+          scenarioId: "test_mobile",
+          view: "ui",
+          status: "blocked",
+          note: "Mobile viewport blocked"
+        }
       ]
     });
     assert.equal(run.run.status, "needs_human_review");
     const problems = await client.listReleaseProblems();
-    assert.ok(problems.problems.some((problem) => problem.moduleKey === "phantom" && problem.status === "open"));
-    assert.ok(problems.problems.some((problem) => problem.moduleKey === "ui" && problem.status === "open"));
+    assert.ok(
+      problems.problems.some(
+        (problem) => problem.moduleKey === "phantom" && problem.status === "open"
+      )
+    );
+    assert.ok(
+      problems.problems.some((problem) => problem.moduleKey === "ui" && problem.status === "open")
+    );
     const assessment = await client.getReleaseBuildAssessment();
     assert.equal(assessment.assessment.testing.failedOrBlockedScenarios.length, 2);
     assert.equal(assessment.assessment.productionExecutionAllowed, false);
@@ -109,14 +127,20 @@ test("Step 3.21 rejects human test run notes with prohibited operational content
   try {
     const client = await loginClient(baseUrl);
     await assert.rejects(
-      () => client.recordHumanTestRun({
-        mode: "manual_human",
-        title: "Unsafe note test",
-        environment: "local_admin_api",
-        results: [
-          { scenarioId: "test_audit", view: "audit", status: "failed", note: "bypass lawful review" }
-        ]
-      }),
+      () =>
+        client.recordHumanTestRun({
+          mode: "manual_human",
+          title: "Unsafe note test",
+          environment: "local_admin_api",
+          results: [
+            {
+              scenarioId: "test_audit",
+              view: "audit",
+              status: "failed",
+              note: "bypass lawful review"
+            }
+          ]
+        }),
       /prohibited/
     );
     assert.equal(JSON.stringify(app.services.audit.list()).includes("bypass lawful review"), false);

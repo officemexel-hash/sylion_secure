@@ -1,5 +1,9 @@
 export class AdminApiClient {
-  constructor({ baseUrl, token = null, correlationIdFactory = () => `corr_${crypto.randomUUID()}` }) {
+  constructor({
+    baseUrl,
+    token = null,
+    correlationIdFactory = () => `corr_${crypto.randomUUID()}`
+  }) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = token;
     this.correlationIdFactory = correlationIdFactory;
@@ -68,7 +72,9 @@ export class AdminApiClient {
   }
 
   listOperatorProvisioningPipelines(operatorId = null) {
-    return this.request(`/operator-provisioning/pipelines${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+    return this.request(
+      `/operator-provisioning/pipelines${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`
+    );
   }
 
   createOperatorProvisioningDraft(operatorId, body = {}) {
@@ -76,15 +82,21 @@ export class AdminApiClient {
   }
 
   createLocalLabVpsSet(pipelineId) {
-    return this.request(`/operator-provisioning/pipelines/${pipelineId}/local-lab-vps`, { method: "POST" });
+    return this.request(`/operator-provisioning/pipelines/${pipelineId}/local-lab-vps`, {
+      method: "POST"
+    });
   }
 
   checkPipelineSecretsRelease(pipelineId) {
-    return this.request(`/operator-provisioning/pipelines/${pipelineId}/secrets-release-check`, { method: "POST" });
+    return this.request(`/operator-provisioning/pipelines/${pipelineId}/secrets-release-check`, {
+      method: "POST"
+    });
   }
 
   listOperatorEnvironments(operatorId = null) {
-    return this.request(`/operator-environments${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+    return this.request(
+      `/operator-environments${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`
+    );
   }
 
   getOperatorEnvironment(environmentId) {
@@ -96,15 +108,21 @@ export class AdminApiClient {
   }
 
   createLocalOperatorEnvironment(pipelineId) {
-    return this.request(`/operator-provisioning/pipelines/${pipelineId}/local-environment`, { method: "POST" });
+    return this.request(`/operator-provisioning/pipelines/${pipelineId}/local-environment`, {
+      method: "POST"
+    });
   }
 
   getOperatorConnectionPath(operatorId, terminalMode = "pixel_grapheneos") {
-    return this.request(`/operators/${operatorId}/connection-path?terminalMode=${encodeURIComponent(terminalMode)}`);
+    return this.request(
+      `/operators/${operatorId}/connection-path?terminalMode=${encodeURIComponent(terminalMode)}`
+    );
   }
 
   listRouterPackages(operatorId = null) {
-    return this.request(`/router/packages${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+    return this.request(
+      `/router/packages${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`
+    );
   }
 
   generateRouterPackage(operatorId, body = {}) {
@@ -112,7 +130,9 @@ export class AdminApiClient {
   }
 
   listRouterPostures(operatorId = null) {
-    return this.request(`/router/postures${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+    return this.request(
+      `/router/postures${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`
+    );
   }
 
   validateRouterPosture(operatorId, body = {}) {
@@ -124,15 +144,23 @@ export class AdminApiClient {
   }
 
   injectOperatorEnvironmentFailure(environmentId, body) {
-    return this.request(`/operator-environments/${environmentId}/failures`, { method: "POST", body });
+    return this.request(`/operator-environments/${environmentId}/failures`, {
+      method: "POST",
+      body
+    });
   }
 
   rollbackOperatorEnvironment(environmentId, body = {}) {
-    return this.request(`/operator-environments/${environmentId}/rollback`, { method: "POST", body });
+    return this.request(`/operator-environments/${environmentId}/rollback`, {
+      method: "POST",
+      body
+    });
   }
 
   checkOperatorEnvironmentSecretsRelease(environmentId) {
-    return this.request(`/operator-environments/${environmentId}/secrets-release-check`, { method: "POST" });
+    return this.request(`/operator-environments/${environmentId}/secrets-release-check`, {
+      method: "POST"
+    });
   }
 
   getReleaseSummary() {
@@ -253,7 +281,10 @@ export class AdminApiClient {
   }
 
   createHetznerRobotDedicatedWorkloadOrder(body) {
-    return this.request("/live-execution/dedicated-workload/hetzner-robot/order", { method: "POST", body });
+    return this.request("/live-execution/dedicated-workload/hetzner-robot/order", {
+      method: "POST",
+      body
+    });
   }
 
   reconcileProviderLiveVpsSet(providerKey, body) {
@@ -261,7 +292,10 @@ export class AdminApiClient {
   }
 
   executeLiveRollbackPlan(planId, body = {}) {
-    return this.request(`/live-execution/cloud/rollback-plans/${planId}/execute`, { method: "POST", body });
+    return this.request(`/live-execution/cloud/rollback-plans/${planId}/execute`, {
+      method: "POST",
+      body
+    });
   }
 
   requestProviderLiveVpsSet(providerKey, body, idempotencyKey = body.idempotencyKey) {
@@ -272,7 +306,12 @@ export class AdminApiClient {
     });
   }
 
-  promoteOperatorBaselineToLive(operatorId, providerKey, body, idempotencyKey = body.idempotencyKey) {
+  promoteOperatorBaselineToLive(
+    operatorId,
+    providerKey,
+    body,
+    idempotencyKey = body.idempotencyKey
+  ) {
     return this.request(`/operators/${operatorId}/live-promotions/${providerKey}`, {
       method: "POST",
       headers: { "idempotency-key": idempotencyKey },
@@ -513,7 +552,9 @@ export class AdminApiClient {
   }
 
   getPhantomAuditCorrelation(packageId = null) {
-    return this.request(`/phantom/audit-correlation${packageId ? `?packageId=${encodeURIComponent(packageId)}` : ""}`);
+    return this.request(
+      `/phantom/audit-correlation${packageId ? `?packageId=${encodeURIComponent(packageId)}` : ""}`
+    );
   }
 
   listSubscriptionPlans() {
@@ -553,7 +594,10 @@ export class AdminApiClient {
   }
 
   quoteWorkloadAllocation(operatorId, body) {
-    return this.request(`/operators/${operatorId}/workload-allocations/quote`, { method: "POST", body });
+    return this.request(`/operators/${operatorId}/workload-allocations/quote`, {
+      method: "POST",
+      body
+    });
   }
 
   createWorkloadAllocation(operatorId, body) {
@@ -565,7 +609,10 @@ export class AdminApiClient {
   }
 
   createMicroVmPlacementPlan(operatorId, body) {
-    return this.request(`/operators/${operatorId}/microvm-placement-plan`, { method: "POST", body });
+    return this.request(`/operators/${operatorId}/microvm-placement-plan`, {
+      method: "POST",
+      body
+    });
   }
 
   listQuotaDecisions() {
@@ -573,7 +620,9 @@ export class AdminApiClient {
   }
 
   listJurisdictionRouteEvidence(operatorId = null) {
-    return this.request(`/jurisdiction/route-evidence${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+    return this.request(
+      `/jurisdiction/route-evidence${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`
+    );
   }
 
   recordJurisdictionRouteEvidence(body) {
@@ -581,7 +630,9 @@ export class AdminApiClient {
   }
 
   listProvisioningApprovals(operatorId = null) {
-    return this.request(`/provisioning/approvals${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+    return this.request(
+      `/provisioning/approvals${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`
+    );
   }
 
   createProvisioningApproval(body) {
@@ -609,11 +660,16 @@ export class AdminApiClient {
   }
 
   listWorkloadLifecycle(operatorId = null) {
-    return this.request(`/workload/lifecycle${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+    return this.request(
+      `/workload/lifecycle${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`
+    );
   }
 
   transitionWorkloadLifecycle(allocationId, body) {
-    return this.request(`/workload/allocations/${allocationId}/lifecycle`, { method: "POST", body });
+    return this.request(`/workload/allocations/${allocationId}/lifecycle`, {
+      method: "POST",
+      body
+    });
   }
 
   isStepUpRequired(error) {
@@ -653,15 +709,23 @@ export class AdminApiClient {
   }
 
   listDisposableTeardownPlans(operatorId = null) {
-    return this.request(`/operators/disposable-teardown-plans${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+    return this.request(
+      `/operators/disposable-teardown-plans${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`
+    );
   }
 
   createDisposableTeardownPlan(operatorId, body = {}) {
-    return this.request(`/operators/${operatorId}/disposable-teardown-plan`, { method: "POST", body });
+    return this.request(`/operators/${operatorId}/disposable-teardown-plan`, {
+      method: "POST",
+      body
+    });
   }
 
   executeDisposableTeardown(operatorId, body = {}) {
-    return this.request(`/operators/${operatorId}/disposable-teardown-execute`, { method: "POST", body });
+    return this.request(`/operators/${operatorId}/disposable-teardown-execute`, {
+      method: "POST",
+      body
+    });
   }
 
   createProvider(body) {
@@ -685,7 +749,9 @@ export class AdminApiClient {
   }
 
   listProviderDryRunPlans(operatorId = null) {
-    return this.request(`/providers/dry-run/vps-plans${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`);
+    return this.request(
+      `/providers/dry-run/vps-plans${operatorId ? `?operatorId=${encodeURIComponent(operatorId)}` : ""}`
+    );
   }
 
   createProviderDryRunVpsPlan(body) {

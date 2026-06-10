@@ -31,7 +31,10 @@ import { PhantomGovernanceService } from "./modules/phantom/phantomGovernanceSer
 import { ProvisioningApprovalService } from "./modules/approvals/provisioningApprovalService.js";
 import { ReleaseControlService } from "./modules/release/releaseControlService.js";
 import { LiveExecutionService } from "./modules/live/liveExecutionService.js";
-import { buildLiveBaselineUserData, liveBaselineArtifactSummary } from "./modules/live/liveBaselineArtifacts.js";
+import {
+  buildLiveBaselineUserData,
+  liveBaselineArtifactSummary
+} from "./modules/live/liveBaselineArtifacts.js";
 import { SecurityProfileService } from "./modules/security/securityProfileService.js";
 import { OperatorPortalService } from "./modules/operatorPortal/operatorPortalService.js";
 import { RouterReadinessService } from "./modules/router/routerReadinessService.js";
@@ -94,10 +97,22 @@ function portalProvisionerActor() {
 
 function portalTemplatePlan(appEnvironments) {
   const count = Math.max(1, Math.min(Number(appEnvironments) || 1, 60));
-  return Array.from({ length: count }, (_, index) => PORTAL_BOOTSTRAP_TEMPLATE_SEQUENCE[index % PORTAL_BOOTSTRAP_TEMPLATE_SEQUENCE.length]);
+  return Array.from(
+    { length: count },
+    (_, index) =>
+      PORTAL_BOOTSTRAP_TEMPLATE_SEQUENCE[index % PORTAL_BOOTSTRAP_TEMPLATE_SEQUENCE.length]
+  );
 }
 
-function portalDownloadPackages({ activation, tenant, operator, provisioningDraft, routerPackage, pixelPackage, laptopPackage }) {
+function portalDownloadPackages({
+  activation,
+  tenant,
+  operator,
+  provisioningDraft,
+  routerPackage,
+  pixelPackage,
+  laptopPackage
+}) {
   const packageRefs = {
     pixel: `portal-pixel-package://${operator.id}/${activation.token.id}`,
     puliAx: `portal-puli-ax-package://${operator.id}/${activation.token.id}`,
@@ -111,7 +126,12 @@ function portalDownloadPackages({ activation, tenant, operator, provisioningDraf
       operatorId: operator.id,
       tenantId: tenant.id,
       tier: operator.tier,
-      internalHosts: ["admin.sylion.internal", "operator.sylion.internal", "portal.sylion.internal", "session.sylion.internal"],
+      internalHosts: [
+        "admin.sylion.internal",
+        "operator.sylion.internal",
+        "portal.sylion.internal",
+        "session.sylion.internal"
+      ],
       caCertificateRef: pixelPackage.caCertificateRef,
       caFingerprintSha256: pixelPackage.caFingerprintSha256 || null,
       caCertificatePem: pixelPackage.caCertificatePem || null,
@@ -191,23 +211,32 @@ function operatorTokenSource(req) {
 
 function parseCookies(req) {
   const raw = req.headers.cookie || "";
-  return Object.fromEntries(raw.split(";").map((part) => {
-    const [key, ...rest] = part.trim().split("=");
-    if (!key) return null;
-    try {
-      return [key, decodeURIComponent(rest.join("=") || "")];
-    } catch {
-      return [key, ""];
-    }
-  }).filter(Boolean));
+  return Object.fromEntries(
+    raw
+      .split(";")
+      .map((part) => {
+        const [key, ...rest] = part.trim().split("=");
+        if (!key) return null;
+        try {
+          return [key, decodeURIComponent(rest.join("=") || "")];
+        } catch {
+          return [key, ""];
+        }
+      })
+      .filter(Boolean)
+  );
 }
 
 function isSecureRequest(req) {
-  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim();
   const host = String(req.headers.host || "");
-  return req.socket?.encrypted === true
-    || forwardedProto === "https"
-    || host.endsWith(".sylion.internal");
+  return (
+    req.socket?.encrypted === true ||
+    forwardedProto === "https" ||
+    host.endsWith(".sylion.internal")
+  );
 }
 
 function operatorSessionCookie(req, session) {
@@ -220,7 +249,9 @@ function operatorSessionCookie(req, session) {
     "SameSite=Strict",
     `Max-Age=${seconds}`,
     secure.trim()
-  ].filter(Boolean).join("; ");
+  ]
+    .filter(Boolean)
+    .join("; ");
 }
 
 function clearOperatorSessionCookie(req) {
@@ -232,13 +263,19 @@ function clearOperatorSessionCookie(req) {
     "SameSite=Strict",
     "Max-Age=0",
     secure.trim()
-  ].filter(Boolean).join("; ");
+  ]
+    .filter(Boolean)
+    .join("; ");
 }
 
 function assertCookieMutationCsrf(req, source) {
   if (source !== "cookie" || ["GET", "HEAD", "OPTIONS"].includes(req.method)) return;
   if (req.headers["x-sylion-operator-csrf"] === "same-origin-ui") return;
-  throw new AppError("csrf_required", "Cookie-bound operator session requires same-origin CSRF header for mutations", 403);
+  throw new AppError(
+    "csrf_required",
+    "Cookie-bound operator session requires same-origin CSRF header for mutations",
+    403
+  );
 }
 
 function constantTimeStringEqual(left, right) {
@@ -253,32 +290,116 @@ function assertPublicPortalProxy(req, env) {
   if (!expected) return;
   const provided = req.headers["x-sylion-public-portal-secret"];
   if (constantTimeStringEqual(provided, expected)) return;
-  throw new AppError("portal_proxy_required", "Public portal mutations must arrive through the approved portal edge", 403);
+  throw new AppError(
+    "portal_proxy_required",
+    "Public portal mutations must arrive through the approved portal edge",
+    403
+  );
 }
 
 function latestPromotableLocalBaseline(pipelines = []) {
-  return pipelines.find((pipeline) => (
-    pipeline.status === "local_lab_ready"
-    && pipeline.localLab?.vps?.length === 3
-    && pipeline.firecrackerPlan?.workloads?.length > 0
-    && pipeline.productionExecutionAllowed === false
-  ));
+  return pipelines.find(
+    (pipeline) =>
+      pipeline.status === "local_lab_ready" &&
+      pipeline.localLab?.vps?.length === 3 &&
+      pipeline.firecrackerPlan?.workloads?.length > 0 &&
+      pipeline.productionExecutionAllowed === false
+  );
 }
 
 const PRODUCTION_READINESS_APPS = Object.freeze([
-  { key: "duckduckgo_browser", label: "DuckDuckGo", host: "duckduckgo.sylion.internal", path: "/vnc.html", envAlias: "DUCKDUCKGO", expected: "firecracker_gui" },
-  { key: "libreoffice", label: "LibreOffice", host: "libreoffice.sylion.internal", path: "/", envAlias: "LIBREOFFICE", expected: "firecracker_gui" },
-  { key: "whatsapp", label: "WhatsApp", host: "whatsapp.sylion.internal", path: "/", envAlias: "WHATSAPP", expected: "firecracker_web" },
-  { key: "telegram", label: "Telegram", host: "telegram.sylion.internal", path: "/", envAlias: "TELEGRAM", expected: "firecracker_web" },
-  { key: "threema", label: "Threema", host: "threema.sylion.internal", path: "/", envAlias: "THREEMA", expected: "firecracker_web" },
-  { key: "signal", label: "Signal", host: "signal.sylion.internal", path: "/", envAlias: "SIGNAL", expected: "firecracker_desktop" },
-  { key: "zangi", label: "Zangi", host: "zangi.sylion.internal", path: "/", envAlias: "ZANGI", expected: "android_native" },
-  { key: "exodus", label: "Exodus", host: "exodus.sylion.internal", path: "/", envAlias: "EXODUS", expected: "dedicated_wallet_workload" },
-  { key: "protonmail", label: "Proton Mail", host: "protonmail.sylion.internal", path: "/", envAlias: "PROTONMAIL", expected: "firecracker_webmail" },
-  { key: "simplex", label: "SimpleX Chat", host: "simplex.sylion.internal", path: "/", envAlias: "SIMPLEX", expected: "desktop_or_android_native_required" }
+  {
+    key: "duckduckgo_browser",
+    label: "DuckDuckGo",
+    host: "duckduckgo.sylion.internal",
+    path: "/vnc.html",
+    envAlias: "DUCKDUCKGO",
+    expected: "firecracker_gui"
+  },
+  {
+    key: "libreoffice",
+    label: "LibreOffice",
+    host: "libreoffice.sylion.internal",
+    path: "/",
+    envAlias: "LIBREOFFICE",
+    expected: "firecracker_gui"
+  },
+  {
+    key: "whatsapp",
+    label: "WhatsApp",
+    host: "whatsapp.sylion.internal",
+    path: "/",
+    envAlias: "WHATSAPP",
+    expected: "firecracker_web"
+  },
+  {
+    key: "telegram",
+    label: "Telegram",
+    host: "telegram.sylion.internal",
+    path: "/",
+    envAlias: "TELEGRAM",
+    expected: "firecracker_web"
+  },
+  {
+    key: "threema",
+    label: "Threema",
+    host: "threema.sylion.internal",
+    path: "/",
+    envAlias: "THREEMA",
+    expected: "firecracker_web"
+  },
+  {
+    key: "signal",
+    label: "Signal",
+    host: "signal.sylion.internal",
+    path: "/",
+    envAlias: "SIGNAL",
+    expected: "firecracker_desktop"
+  },
+  {
+    key: "zangi",
+    label: "Zangi",
+    host: "zangi.sylion.internal",
+    path: "/",
+    envAlias: "ZANGI",
+    expected: "android_native"
+  },
+  {
+    key: "exodus",
+    label: "Exodus",
+    host: "exodus.sylion.internal",
+    path: "/",
+    envAlias: "EXODUS",
+    expected: "dedicated_wallet_workload"
+  },
+  {
+    key: "protonmail",
+    label: "Proton Mail",
+    host: "protonmail.sylion.internal",
+    path: "/",
+    envAlias: "PROTONMAIL",
+    expected: "firecracker_webmail"
+  },
+  {
+    key: "simplex",
+    label: "SimpleX Chat",
+    host: "simplex.sylion.internal",
+    path: "/",
+    envAlias: "SIMPLEX",
+    expected: "desktop_or_android_native_required"
+  }
 ]);
 
-const FACTUAL_RECORD_REQUIRED_APPS = new Set(["whatsapp", "telegram", "threema", "signal", "zangi", "exodus", "protonmail", "simplex"]);
+const FACTUAL_RECORD_REQUIRED_APPS = new Set([
+  "whatsapp",
+  "telegram",
+  "threema",
+  "signal",
+  "zangi",
+  "exodus",
+  "protonmail",
+  "simplex"
+]);
 
 const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
   {
@@ -287,9 +408,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "workload-app",
     severity: "critical",
     blockers: ["zangi_android_native_account_flow_not_proven"],
-    acceptance: "Zangi opens from Pixel and laptop thin client, reaches its own Android-native workload, and has a recorded account bootstrap or functional-app test without storing operational data on the terminal.",
-    verifyHow: "Run Pixel/laptop human regression, record approved APK provenance, then promote a Zangi factual workload test only after UI plus account bootstrap evidence passes.",
-    repairAction: "Finish approved Zangi APK provenance, install into the Android-native workload, launch it through the broker, and capture a content-safe factual test record."
+    acceptance:
+      "Zangi opens from Pixel and laptop thin client, reaches its own Android-native workload, and has a recorded account bootstrap or functional-app test without storing operational data on the terminal.",
+    verifyHow:
+      "Run Pixel/laptop human regression, record approved APK provenance, then promote a Zangi factual workload test only after UI plus account bootstrap evidence passes.",
+    repairAction:
+      "Finish approved Zangi APK provenance, install into the Android-native workload, launch it through the broker, and capture a content-safe factual test record."
   },
   {
     id: "gate_02_exodus_pixel_functional",
@@ -297,9 +421,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "workload-app",
     severity: "critical",
     blockers: ["exodus_pixel_visual_not_proven"],
-    acceptance: "Exodus renders through the Pixel thin client and laptop thin client, its wallet workflow is verified with non-secret evidence, and no seed, wallet data, or file contents are logged.",
-    verifyHow: "Run Exodus human regression with screenshot metadata only, confirm visible nonblank stream and wallet-risk checks, and record a factual test without secrets.",
-    repairAction: "Fix the blank/white Pixel stream path for Exodus, re-run the visual stats probe, then record the wallet workflow factual test."
+    acceptance:
+      "Exodus renders through the Pixel thin client and laptop thin client, its wallet workflow is verified with non-secret evidence, and no seed, wallet data, or file contents are logged.",
+    verifyHow:
+      "Run Exodus human regression with screenshot metadata only, confirm visible nonblank stream and wallet-risk checks, and record a factual test without secrets.",
+    repairAction:
+      "Fix the blank/white Pixel stream path for Exodus, re-run the visual stats probe, then record the wallet workflow factual test."
   },
   {
     id: "gate_03_guacamole_broker",
@@ -307,9 +434,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "g2-broker",
     severity: "critical",
     blockers: ["phantom_blind_broker_e2ee_required"],
-    acceptance: "G2 relays only encrypted pixel frames, cannot inspect plaintext stream content, enforces per-user limits, records metadata-only audit events, and no Guacamole/noVNC-only production claim is accepted for PHANTOM.",
-    verifyHow: "Check blind E2EE stream proof, SFrame or approved equivalent validation, key separation evidence, broker negative-visibility test, connection limits, and metadata-only audit entries.",
-    repairAction: "Keep Guacamole as an interim compatibility broker, implement the approved blind E2EE streaming backend behind an ADR/human gate, then re-run Pixel and laptop human regression."
+    acceptance:
+      "G2 relays only encrypted pixel frames, cannot inspect plaintext stream content, enforces per-user limits, records metadata-only audit events, and no Guacamole/noVNC-only production claim is accepted for PHANTOM.",
+    verifyHow:
+      "Check blind E2EE stream proof, SFrame or approved equivalent validation, key separation evidence, broker negative-visibility test, connection limits, and metadata-only audit entries.",
+    repairAction:
+      "Keep Guacamole as an interim compatibility broker, implement the approved blind E2EE streaming backend behind an ADR/human gate, then re-run Pixel and laptop human regression."
   },
   {
     id: "gate_04_communicator_functional_tests",
@@ -317,9 +447,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "workload-app",
     severity: "critical",
     blockers: ["communicator_account_send_receive_not_proven"],
-    acceptance: "WhatsApp, Telegram, Threema, Signal and Zangi each have factual records showing UI, account bootstrap, and send/receive or equivalent safe functional proof.",
-    verifyHow: "Run communicator factual tests that reject transport-only evidence and require bootstrap plus send/receive metadata without message content.",
-    repairAction: "Complete one communicator at a time, starting with Signal, and do not mark ready from HTTP 200 or RFB reachability alone."
+    acceptance:
+      "WhatsApp, Telegram, Threema, Signal and Zangi each have factual records showing UI, account bootstrap, and send/receive or equivalent safe functional proof.",
+    verifyHow:
+      "Run communicator factual tests that reject transport-only evidence and require bootstrap plus send/receive metadata without message content.",
+    repairAction:
+      "Complete one communicator at a time, starting with Signal, and do not mark ready from HTTP 200 or RFB reachability alone."
   },
   {
     id: "gate_05_android_native_workloads",
@@ -327,9 +460,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "workload-runtime",
     severity: "high",
     blockers: ["android_native_mode_incomplete"],
-    acceptance: "Operator can select desktop/web or Android-native per communicator, and Android-native launch/install/status is controlled from the operator panel.",
-    verifyHow: "Use operator panel app settings, launch Android-native session, confirm workload status, and verify Pixel display scaling.",
-    repairAction: "Wire Android-native app mode into workload lifecycle controls and add per-app install, launch, stop, reset and evidence collection."
+    acceptance:
+      "Operator can select desktop/web or Android-native per communicator, and Android-native launch/install/status is controlled from the operator panel.",
+    verifyHow:
+      "Use operator panel app settings, launch Android-native session, confirm workload status, and verify Pixel display scaling.",
+    repairAction:
+      "Wire Android-native app mode into workload lifecycle controls and add per-app install, launch, stop, reset and evidence collection."
   },
   {
     id: "gate_06_cdr_end_to_end",
@@ -337,9 +473,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "cdr",
     severity: "critical",
     blockers: ["cdr_file_workflow_not_end_to_end_proven"],
-    acceptance: "Every file ingress/egress path for operator workloads requires CDR, records non-content audit metadata, and blocks bypass paths.",
-    verifyHow: "Run file upload/download tests through the operator portal and workload broker, confirm CDR decision, audit hash, and denied bypass attempt.",
-    repairAction: "Complete CDR broker integration for workload file transfer and add negative tests for direct file movement."
+    acceptance:
+      "Every file ingress/egress path for operator workloads requires CDR, records non-content audit metadata, and blocks bypass paths.",
+    verifyHow:
+      "Run file upload/download tests through the operator portal and workload broker, confirm CDR decision, audit hash, and denied bypass attempt.",
+    repairAction:
+      "Complete CDR broker integration for workload file transfer and add negative tests for direct file movement."
   },
   {
     id: "gate_07_tor_jurisdiction_routing",
@@ -347,9 +486,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "routing",
     severity: "high",
     blockers: ["tor_jurisdiction_route_not_end_to_end_proven"],
-    acceptance: "Operator tier controls whether Tor/jurisdiction routing is available; selected routes show evidence without claiming anonymity.",
-    verifyHow: "Run route probes from workload apps, record egress class/country metadata, and verify blocked access when the tier lacks entitlement.",
-    repairAction: "Implement route policy enforcement, evidence capture, and tier-gated operator controls for Tor/jurisdiction profiles."
+    acceptance:
+      "Operator tier controls whether Tor/jurisdiction routing is available; selected routes show evidence without claiming anonymity.",
+    verifyHow:
+      "Run route probes from workload apps, record egress class/country metadata, and verify blocked access when the tier lacks entitlement.",
+    repairAction:
+      "Implement route policy enforcement, evidence capture, and tier-gated operator controls for Tor/jurisdiction profiles."
   },
   {
     id: "gate_08_self_service_recreate_rotate",
@@ -357,9 +499,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "operator-lifecycle",
     severity: "high",
     blockers: ["environment_recreate_rotate_still_human_gated"],
-    acceptance: "Operator can request allowed reset/recreate/rotation actions from the panel, with tier policy, audit, and destructive human gates where required.",
-    verifyHow: "Create a disposable operator, trigger allowed reset/rotation, verify audit events and that forbidden/destructive actions require approval.",
-    repairAction: "Connect operator panel lifecycle actions to the provisioning pipeline with dry-run, approval, execution and rollback states."
+    acceptance:
+      "Operator can request allowed reset/recreate/rotation actions from the panel, with tier policy, audit, and destructive human gates where required.",
+    verifyHow:
+      "Create a disposable operator, trigger allowed reset/rotation, verify audit events and that forbidden/destructive actions require approval.",
+    repairAction:
+      "Connect operator panel lifecycle actions to the provisioning pipeline with dry-run, approval, execution and rollback states."
   },
   {
     id: "gate_09_confidential_compute",
@@ -367,9 +512,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "hardware-security",
     severity: "high",
     blockers: ["amd_sev_snp_or_intel_tdx_not_active"],
-    acceptance: "Higher tiers can require AMD SEV-SNP or Intel TDX provider capability, with attestation evidence before production claim.",
-    verifyHow: "Record provider/server capability, kernel support, attestation evidence, and tier placement decision.",
-    repairAction: "Add provider capability checks and attestation records; keep current AX102 KVM/Firecracker separate from confidential-compute claims."
+    acceptance:
+      "Higher tiers can require AMD SEV-SNP or Intel TDX provider capability, with attestation evidence before production claim.",
+    verifyHow:
+      "Record provider/server capability, kernel support, attestation evidence, and tier placement decision.",
+    repairAction:
+      "Add provider capability checks and attestation records; keep current AX102 KVM/Firecracker separate from confidential-compute claims."
   },
   {
     id: "gate_10_payment_token_provisioning",
@@ -377,9 +525,12 @@ const PRODUCTION_GATE_DEFINITIONS = Object.freeze([
     area: "subscription",
     severity: "high",
     blockers: ["public_payment_token_provisioning_not_live"],
-    acceptance: "Public subscription payment issues a token, token redemption creates an operator package, and admin panel shows cost, tier and minimum 6-month subscription state.",
-    verifyHow: "Run payment sandbox, token redemption, operator creation, package generation and subscription ledger checks.",
-    repairAction: "Implement payment provider sandbox, token lifecycle, redemption endpoint, and package-generation handoff into admin provisioning."
+    acceptance:
+      "Public subscription payment issues a token, token redemption creates an operator package, and admin panel shows cost, tier and minimum 6-month subscription state.",
+    verifyHow:
+      "Run payment sandbox, token redemption, operator creation, package generation and subscription ledger checks.",
+    repairAction:
+      "Implement payment provider sandbox, token lifecycle, redemption endpoint, and package-generation handoff into admin provisioning."
   }
 ]);
 
@@ -392,45 +543,58 @@ function readinessHttpStatus(env, app) {
 
 function readinessAppState(env, app, factualRecord = null) {
   const httpStatus = readinessHttpStatus(env, app);
-  const evidenceReady = env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "true"
-    || env[`SYLION_${app.envAlias}_NATIVE_EVIDENCE_READY`] === "true";
-  const envFactualStateVerified = env[`SYLION_${app.key.toUpperCase()}_FACTUAL_STATE_VERIFIED`] === "true"
-    || env[`SYLION_${app.envAlias}_FACTUAL_STATE_VERIFIED`] === "true";
+  const evidenceReady =
+    env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "true" ||
+    env[`SYLION_${app.envAlias}_NATIVE_EVIDENCE_READY`] === "true";
+  const envFactualStateVerified =
+    env[`SYLION_${app.key.toUpperCase()}_FACTUAL_STATE_VERIFIED`] === "true" ||
+    env[`SYLION_${app.envAlias}_FACTUAL_STATE_VERIFIED`] === "true";
   const factualStateVerified = factualRecord
     ? factualRecord.factualStateVerified === true
-    : FACTUAL_RECORD_REQUIRED_APPS.has(app.key) ? false : envFactualStateVerified;
+    : FACTUAL_RECORD_REQUIRED_APPS.has(app.key)
+      ? false
+      : envFactualStateVerified;
   const transportReady = httpStatus === 200 || evidenceReady;
   const ready = transportReady && factualStateVerified;
-  const notBuilt = httpStatus === 502 || env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "false";
-  const androidRuntimeSatisfied = app.expected !== "android_native"
-    || evidenceReady
-    || factualRecord?.runtimeMode === "android_native";
-  const factualBlockers = factualRecord && factualRecord.factualStateVerified !== true
-    ? factualRecord.blockers || ["factual_state_not_verified"]
-    : [];
+  const notBuilt =
+    httpStatus === 502 || env[`SYLION_${app.key.toUpperCase()}_NATIVE_EVIDENCE_READY`] === "false";
+  const androidRuntimeSatisfied =
+    app.expected !== "android_native" ||
+    evidenceReady ||
+    factualRecord?.runtimeMode === "android_native";
+  const factualBlockers =
+    factualRecord && factualRecord.factualStateVerified !== true
+      ? factualRecord.blockers || ["factual_state_not_verified"]
+      : [];
   return {
     ...app,
     url: `https://${app.host}${app.path}`,
     httpStatus,
     evidenceReady,
     factualStateVerified,
-    latestFactualTest: factualRecord ? {
-      id: factualRecord.id,
-      result: factualRecord.result,
-      terminalMode: factualRecord.terminalMode,
-      runtimeMode: factualRecord.runtimeMode,
-      requiredChecks: factualRecord.requiredChecks,
-      blockers: factualRecord.blockers,
-      createdAt: factualRecord.createdAt,
-      linkedProblemId: factualRecord.linkedProblemId || null
-    } : null,
+    latestFactualTest: factualRecord
+      ? {
+          id: factualRecord.id,
+          result: factualRecord.result,
+          terminalMode: factualRecord.terminalMode,
+          runtimeMode: factualRecord.runtimeMode,
+          requiredChecks: factualRecord.requiredChecks,
+          blockers: factualRecord.blockers,
+          createdAt: factualRecord.createdAt,
+          linkedProblemId: factualRecord.linkedProblemId || null
+        }
+      : null,
     state: ready ? "ready" : notBuilt ? "not_built" : "unknown_or_blocked",
-    blockers: ready ? [] : [
-      ...(notBuilt ? [`${app.key}_native_workload_not_built`] : []),
-      ...(!notBuilt && !transportReady ? [`${app.key}_live_route_not_verified`] : []),
-      ...(transportReady && !factualStateVerified ? ["factual_state_not_verified", ...factualBlockers] : []),
-      ...(androidRuntimeSatisfied ? [] : ["android_native_runtime_required"])
-    ],
+    blockers: ready
+      ? []
+      : [
+          ...(notBuilt ? [`${app.key}_native_workload_not_built`] : []),
+          ...(!notBuilt && !transportReady ? [`${app.key}_live_route_not_verified`] : []),
+          ...(transportReady && !factualStateVerified
+            ? ["factual_state_not_verified", ...factualBlockers]
+            : []),
+          ...(androidRuntimeSatisfied ? [] : ["android_native_runtime_required"])
+        ],
     cdrRequired: true,
     terminalDataStored: false,
     privateRouteRequired: true,
@@ -440,11 +604,36 @@ function readinessAppState(env, app, factualRecord = null) {
 
 function tierCostModel(tier) {
   const models = {
-    PILOT: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 260, monthlyCustomerPricePln: 430, workloadTenancy: "shared_dedicated_pool_allowed" },
-    STANDARD: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 420, monthlyCustomerPricePln: 1200, workloadTenancy: "shared_dedicated_pool_allowed" },
-    PRO: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 760, monthlyCustomerPricePln: 2500, workloadTenancy: "shared_dedicated_pool_allowed" },
-    PHANTOM: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 1300, monthlyCustomerPricePln: 4300, workloadTenancy: "dedicated_or_strongly_isolated_review" },
-    SOVEREIGN: { minimumSubscriptionMonths: 6, monthlyInfraCostPln: 1800, monthlyCustomerPricePln: 6500, workloadTenancy: "dedicated_operator_only" }
+    PILOT: {
+      minimumSubscriptionMonths: 6,
+      monthlyInfraCostPln: 260,
+      monthlyCustomerPricePln: 430,
+      workloadTenancy: "shared_dedicated_pool_allowed"
+    },
+    STANDARD: {
+      minimumSubscriptionMonths: 6,
+      monthlyInfraCostPln: 420,
+      monthlyCustomerPricePln: 1200,
+      workloadTenancy: "shared_dedicated_pool_allowed"
+    },
+    PRO: {
+      minimumSubscriptionMonths: 6,
+      monthlyInfraCostPln: 760,
+      monthlyCustomerPricePln: 2500,
+      workloadTenancy: "shared_dedicated_pool_allowed"
+    },
+    PHANTOM: {
+      minimumSubscriptionMonths: 6,
+      monthlyInfraCostPln: 1300,
+      monthlyCustomerPricePln: 4300,
+      workloadTenancy: "dedicated_or_strongly_isolated_review"
+    },
+    SOVEREIGN: {
+      minimumSubscriptionMonths: 6,
+      monthlyInfraCostPln: 1800,
+      monthlyCustomerPricePln: 6500,
+      workloadTenancy: "dedicated_operator_only"
+    }
   };
   const model = models[tier] || models.PRO;
   return {
@@ -454,11 +643,36 @@ function tierCostModel(tier) {
 }
 
 const OPERATOR_COMMERCIAL_TIER_MODEL = Object.freeze({
-  [TIERS.PILOT]: { monthlyPriceEur: 99, annualCommitmentEur: 1188, minimumMonths: 12, appEnvironments: 6 },
-  [TIERS.STANDARD]: { monthlyPriceEur: 199, annualCommitmentEur: 2388, minimumMonths: 12, appEnvironments: 10 },
-  [TIERS.PRO]: { monthlyPriceEur: 499, annualCommitmentEur: 5988, minimumMonths: 12, appEnvironments: 20 },
-  [TIERS.PHANTOM]: { monthlyPriceEur: 1000, annualCommitmentEur: 12000, minimumMonths: 12, appEnvironments: 40 },
-  [TIERS.SOVEREIGN]: { monthlyPriceEur: 2999, annualCommitmentEur: 35988, minimumMonths: 12, appEnvironments: 60 }
+  [TIERS.PILOT]: {
+    monthlyPriceEur: 99,
+    annualCommitmentEur: 1188,
+    minimumMonths: 12,
+    appEnvironments: 6
+  },
+  [TIERS.STANDARD]: {
+    monthlyPriceEur: 199,
+    annualCommitmentEur: 2388,
+    minimumMonths: 12,
+    appEnvironments: 10
+  },
+  [TIERS.PRO]: {
+    monthlyPriceEur: 499,
+    annualCommitmentEur: 5988,
+    minimumMonths: 12,
+    appEnvironments: 20
+  },
+  [TIERS.PHANTOM]: {
+    monthlyPriceEur: 1000,
+    annualCommitmentEur: 12000,
+    minimumMonths: 12,
+    appEnvironments: 40
+  },
+  [TIERS.SOVEREIGN]: {
+    monthlyPriceEur: 2999,
+    annualCommitmentEur: 35988,
+    minimumMonths: 12,
+    appEnvironments: 60
+  }
 });
 
 function parseTime(value) {
@@ -486,10 +700,12 @@ function moneyNumber(value) {
 }
 
 function commercialPurchaseMethod({ activation, checkout, subscriptionToken }) {
-  if (activation?.activationProfile?.fulfillmentMode === "reseller_preconfigured_hardware") return "reseller";
+  if (activation?.activationProfile?.fulfillmentMode === "reseller_preconfigured_hardware")
+    return "reseller";
   if (activation?.activationProfile?.resellerReference) return "reseller";
   if (checkout?.provider === "coingate") return "self_service_crypto";
-  if (checkout?.provider === "stripe" || checkout?.provider === "mollie") return "self_service_fiat";
+  if (checkout?.provider === "stripe" || checkout?.provider === "mollie")
+    return "self_service_fiat";
   if (subscriptionToken?.providerMode === "crypto_gateway_live") return "self_service_crypto";
   if (subscriptionToken?.providerMode === "card_gateway_live") return "self_service_fiat";
   if (subscriptionToken?.providerMode === "sandbox") return "sandbox_token";
@@ -498,8 +714,13 @@ function commercialPurchaseMethod({ activation, checkout, subscriptionToken }) {
 
 function commercialAccountType({ purchaseMethod, activation, checkout, subscriptionToken }) {
   if (purchaseMethod === "reseller") return "business";
-  if (activation?.activationProfile?.companyName || checkout?.companyProfile?.companyName) return "business";
-  if (checkout?.provider === "coingate" || subscriptionToken?.providerMode === "crypto_gateway_live") return "anonymous";
+  if (activation?.activationProfile?.companyName || checkout?.companyProfile?.companyName)
+    return "business";
+  if (
+    checkout?.provider === "coingate" ||
+    subscriptionToken?.providerMode === "crypto_gateway_live"
+  )
+    return "anonymous";
   if (purchaseMethod === "manual_admin") return "manual_admin";
   return "unknown";
 }
@@ -520,51 +741,76 @@ function buildOperatorCommercialSummary({ actor, services, correlationId }) {
   const subscriptionLedger = services.subscriptions.listPaymentTokens({ actor, correlationId });
   const checkoutById = new Map(portalCheckouts.map((checkout) => [checkout.id, checkout]));
   const portalTokenById = new Map(portalTokens.map((token) => [token.id, token]));
-  const activationByOperatorId = new Map(portalActivations
-    .filter((activation) => activation.provisionedOperatorId)
-    .map((activation) => [activation.provisionedOperatorId, activation]));
-  const subscriptionRedemptionByOperatorId = new Map((subscriptionLedger.redemptions || [])
-    .filter((redemption) => redemption.operatorId)
-    .map((redemption) => [redemption.operatorId, redemption]));
-  const subscriptionTokenById = new Map((subscriptionLedger.tokens || []).map((token) => [token.id, token]));
+  const activationByOperatorId = new Map(
+    portalActivations
+      .filter((activation) => activation.provisionedOperatorId)
+      .map((activation) => [activation.provisionedOperatorId, activation])
+  );
+  const subscriptionRedemptionByOperatorId = new Map(
+    (subscriptionLedger.redemptions || [])
+      .filter((redemption) => redemption.operatorId)
+      .map((redemption) => [redemption.operatorId, redemption])
+  );
+  const subscriptionTokenById = new Map(
+    (subscriptionLedger.tokens || []).map((token) => [token.id, token])
+  );
   const now = Date.now();
 
   const rows = operatorsList.map((operator) => {
-    const activation = activationByOperatorId.get(operator.id)
-      || portalActivations.find((item) => (
-        item.activationProfile?.operatorDisplayName === operator.displayName
-        && item.operatorTier === operator.tier
-      ))
-      || null;
+    const activation =
+      activationByOperatorId.get(operator.id) ||
+      portalActivations.find(
+        (item) =>
+          item.activationProfile?.operatorDisplayName === operator.displayName &&
+          item.operatorTier === operator.tier
+      ) ||
+      null;
     const checkout = activation ? checkoutById.get(activation.checkoutId) || null : null;
     const portalToken = activation ? portalTokenById.get(activation.tokenId) || null : null;
     const subscriptionRedemption = subscriptionRedemptionByOperatorId.get(operator.id) || null;
-    const subscriptionToken = subscriptionRedemption ? subscriptionTokenById.get(subscriptionRedemption.tokenId) || null : null;
+    const subscriptionToken = subscriptionRedemption
+      ? subscriptionTokenById.get(subscriptionRedemption.tokenId) || null
+      : null;
     const subscription = services.subscriptions.getTenantSubscription({
       actor,
       tenantId: operator.tenantId,
       correlationId
     });
     const cost = tierCostModel(operator.tier);
-    const commercialModel = OPERATOR_COMMERCIAL_TIER_MODEL[operator.tier] || OPERATOR_COMMERCIAL_TIER_MODEL[TIERS.PRO];
-    const activationDate = activation?.provisionedAt
-      || subscriptionRedemption?.redeemedAt
-      || subscription.activatedAt
-      || operator.createdAt
-      || null;
-    const minimumMonths = Number(checkout?.minimumMonths
-      || portalToken?.minimumMonths
-      || subscriptionRedemption?.minimumMonths
-      || commercialModel.minimumMonths);
+    const commercialModel =
+      OPERATOR_COMMERCIAL_TIER_MODEL[operator.tier] || OPERATOR_COMMERCIAL_TIER_MODEL[TIERS.PRO];
+    const activationDate =
+      activation?.provisionedAt ||
+      subscriptionRedemption?.redeemedAt ||
+      subscription.activatedAt ||
+      operator.createdAt ||
+      null;
+    const minimumMonths = Number(
+      checkout?.minimumMonths ||
+        portalToken?.minimumMonths ||
+        subscriptionRedemption?.minimumMonths ||
+        commercialModel.minimumMonths
+    );
     const subscriptionEndAt = addMonthsIso(activationDate, minimumMonths);
     const remainingDays = daysUntil(subscriptionEndAt, now);
     const purchaseMethod = commercialPurchaseMethod({ activation, checkout, subscriptionToken });
-    const accountType = commercialAccountType({ purchaseMethod, activation, checkout, subscriptionToken });
-    const soldAmountEur = checkout?.status === "paid"
-      || portalToken?.status === "provisioned"
-      || subscriptionToken?.state === "redeemed"
-      ? moneyNumber(checkout?.amountEur || portalToken?.amountEur || subscriptionToken?.amount || commercialModel.annualCommitmentEur)
-      : 0;
+    const accountType = commercialAccountType({
+      purchaseMethod,
+      activation,
+      checkout,
+      subscriptionToken
+    });
+    const soldAmountEur =
+      checkout?.status === "paid" ||
+      portalToken?.status === "provisioned" ||
+      subscriptionToken?.state === "redeemed"
+        ? moneyNumber(
+            checkout?.amountEur ||
+              portalToken?.amountEur ||
+              subscriptionToken?.amount ||
+              commercialModel.annualCommitmentEur
+          )
+        : 0;
     return {
       operatorId: operator.id,
       tenantId: operator.tenantId,
@@ -584,20 +830,32 @@ function buildOperatorCommercialSummary({ actor, services, correlationId }) {
       purchase: {
         method: purchaseMethod,
         accountType,
-        provider: checkout?.provider || portalToken?.provider || subscriptionToken?.providerMode || "manual",
-        source: activation ? "portal_operator_bootstrap" : subscriptionRedemption ? "subscription_payment_token" : "manual_admin",
+        provider:
+          checkout?.provider ||
+          portalToken?.provider ||
+          subscriptionToken?.providerMode ||
+          "manual",
+        source: activation
+          ? "portal_operator_bootstrap"
+          : subscriptionRedemption
+            ? "subscription_payment_token"
+            : "manual_admin",
         checkoutId: checkout?.id || null,
         serviceTokenId: portalToken?.id || null,
         subscriptionTokenId: subscriptionToken?.id || null,
         resellerReference: activation?.activationProfile?.resellerReference || null,
         fulfillmentMode: activation?.activationProfile?.fulfillmentMode || null,
-        companyNameTracked: Boolean(activation?.activationProfile?.companyName || checkout?.companyProfile?.companyName)
+        companyNameTracked: Boolean(
+          activation?.activationProfile?.companyName || checkout?.companyProfile?.companyName
+        )
       },
       commercial: {
         soldSeatTracked: soldAmountEur > 0,
         soldAmountEur,
         monthlyPriceEur: moneyNumber(checkout?.monthlyPriceEur || commercialModel.monthlyPriceEur),
-        annualCommitmentEur: moneyNumber(checkout?.amountEur || portalToken?.amountEur || commercialModel.annualCommitmentEur),
+        annualCommitmentEur: moneyNumber(
+          checkout?.amountEur || portalToken?.amountEur || commercialModel.annualCommitmentEur
+        ),
         currency: "EUR",
         source: soldAmountEur > 0 ? "payment_ledger" : "not_tracked"
       },
@@ -615,13 +873,26 @@ function buildOperatorCommercialSummary({ actor, services, correlationId }) {
   });
 
   const paidCheckouts = portalCheckouts.filter((checkout) => checkout.status === "paid");
-  const soldSeatsByPayment = paidCheckouts.reduce((acc, checkout) => {
-    const accountType = checkout.companyProfile?.companyName ? "business" : checkout.provider === "coingate" ? "anonymous" : "unknown";
-    acc[accountType] ||= { seats: 0, amountEur: 0 };
-    acc[accountType].seats += 1;
-    acc[accountType].amountEur = moneyNumber(acc[accountType].amountEur + Number(checkout.amountEur || 0));
-    return acc;
-  }, { business: { seats: 0, amountEur: 0 }, anonymous: { seats: 0, amountEur: 0 }, unknown: { seats: 0, amountEur: 0 } });
+  const soldSeatsByPayment = paidCheckouts.reduce(
+    (acc, checkout) => {
+      const accountType = checkout.companyProfile?.companyName
+        ? "business"
+        : checkout.provider === "coingate"
+          ? "anonymous"
+          : "unknown";
+      acc[accountType] ||= { seats: 0, amountEur: 0 };
+      acc[accountType].seats += 1;
+      acc[accountType].amountEur = moneyNumber(
+        acc[accountType].amountEur + Number(checkout.amountEur || 0)
+      );
+      return acc;
+    },
+    {
+      business: { seats: 0, amountEur: 0 },
+      anonymous: { seats: 0, amountEur: 0 },
+      unknown: { seats: 0, amountEur: 0 }
+    }
+  );
 
   return {
     generatedAt: new Date().toISOString(),
@@ -633,13 +904,21 @@ function buildOperatorCommercialSummary({ actor, services, correlationId }) {
         acc[tier] = rows.filter((row) => row.tier === tier).length;
         return acc;
       }, {}),
-      purchaseMethodCounts: summarizeBy(rows.map((row) => row.purchase), "method"),
-      accountTypeCounts: summarizeBy(rows.map((row) => row.purchase), "accountType"),
+      purchaseMethodCounts: summarizeBy(
+        rows.map((row) => row.purchase),
+        "method"
+      ),
+      accountTypeCounts: summarizeBy(
+        rows.map((row) => row.purchase),
+        "accountType"
+      ),
       monthlyInfraCostPln: rows.reduce((sum, row) => sum + row.cost.monthlyInfraCostPln, 0),
       monthlyCustomerPricePln: rows.reduce((sum, row) => sum + row.cost.monthlyCustomerPricePln, 0),
       grossMarginPln: rows.reduce((sum, row) => sum + row.cost.grossMarginPln, 0),
       soldSeats: paidCheckouts.length,
-      soldAmountEur: moneyNumber(paidCheckouts.reduce((sum, checkout) => sum + Number(checkout.amountEur || 0), 0)),
+      soldAmountEur: moneyNumber(
+        paidCheckouts.reduce((sum, checkout) => sum + Number(checkout.amountEur || 0), 0)
+      ),
       soldByAccountType: soldSeatsByPayment
     },
     evidence: {
@@ -660,48 +939,96 @@ function buildOperatorCommercialSummary({ actor, services, correlationId }) {
 function sessionBrokerReadiness(env) {
   const selected = String(env.SYLION_G2_SESSION_BROKER || "adr_pending").toLowerCase();
   const guacamoleReady = env.SYLION_GUACAMOLE_BROKER_READY === "true";
-  const webrtcReady = env.SYLION_SELKIES_GATEWAY_READY === "true" || env.SYLION_G2_STREAM_GATEWAY_READY === "true";
+  const webrtcReady =
+    env.SYLION_SELKIES_GATEWAY_READY === "true" || env.SYLION_G2_STREAM_GATEWAY_READY === "true";
   const novncLabReady = env.SYLION_NOVNC_LAB_READY === "true";
-  const blindE2eeReady = env.SYLION_BLIND_E2EE_STREAM_READY === "true"
-    && env.SYLION_BLIND_E2EE_SFRAME_VALIDATED === "true"
-    && env.SYLION_BLIND_E2EE_KEY_SEPARATION_VERIFIED === "true"
-    && env.SYLION_G2_STREAM_KEYS_HELD_BY_BROKER !== "true";
-  const normalized = selected === "guac" || selected === "apache_guacamole"
-    ? "guacamole"
-    : selected === "selkies" || selected === "webrtc" || selected === "selkies_webrtc"
-      ? "webrtc_selkies"
-      : selected === "blind" || selected === "phantom_blind" || selected === "sframe" || selected === "sframe_e2ee" || selected === "e2ee_stream"
-        ? "blind_e2ee"
-      : selected === "novnc" || selected === "novnc_websockify"
-        ? "novnc_lab"
-        : selected;
+  const blindE2eeReady =
+    env.SYLION_BLIND_E2EE_STREAM_READY === "true" &&
+    env.SYLION_BLIND_E2EE_SFRAME_VALIDATED === "true" &&
+    env.SYLION_BLIND_E2EE_KEY_SEPARATION_VERIFIED === "true" &&
+    env.SYLION_G2_STREAM_KEYS_HELD_BY_BROKER !== "true";
+  const normalized =
+    selected === "guac" || selected === "apache_guacamole"
+      ? "guacamole"
+      : selected === "selkies" || selected === "webrtc" || selected === "selkies_webrtc"
+        ? "webrtc_selkies"
+        : selected === "blind" ||
+            selected === "phantom_blind" ||
+            selected === "sframe" ||
+            selected === "sframe_e2ee" ||
+            selected === "e2ee_stream"
+          ? "blind_e2ee"
+          : selected === "novnc" || selected === "novnc_websockify"
+            ? "novnc_lab"
+            : selected;
   const productionCandidateReady = normalized === "blind_e2ee" && blindE2eeReady;
   const technicalBlockers = [
     ...(normalized === "adr_pending" ? ["g2_session_broker_adr_pending"] : []),
     ...(normalized === "novnc_lab" ? ["novnc_lab_only_not_approved_for_production_broker"] : []),
     ...(normalized === "guacamole" && !guacamoleReady ? ["guacamole_broker_poc_not_ready"] : []),
-    ...(normalized === "guacamole" ? ["phantom_blind_broker_e2ee_required", "guacamole_is_interim_broker_visible_to_plaintext"] : []),
-    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") && !webrtcReady ? ["webrtc_selkies_broker_poc_not_ready"] : []),
-    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") ? ["phantom_blind_broker_e2ee_required", "webrtc_selkies_is_interim_until_key_separation_proof"] : []),
-    ...(normalized === "blind_e2ee" && !blindE2eeReady ? [
-      "blind_e2ee_stream_poc_not_ready",
-      "frame_encryption_proof_required",
-      "stream_key_separation_required",
-      "broker_visibility_negative_test_required"
-    ] : [])
+    ...(normalized === "guacamole"
+      ? ["phantom_blind_broker_e2ee_required", "guacamole_is_interim_broker_visible_to_plaintext"]
+      : []),
+    ...((normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies") && !webrtcReady
+      ? ["webrtc_selkies_broker_poc_not_ready"]
+      : []),
+    ...(normalized === "webrtc_selkies" || normalized === "webrtc_or_selkies"
+      ? [
+          "phantom_blind_broker_e2ee_required",
+          "webrtc_selkies_is_interim_until_key_separation_proof"
+        ]
+      : []),
+    ...(normalized === "blind_e2ee" && !blindE2eeReady
+      ? [
+          "blind_e2ee_stream_poc_not_ready",
+          "frame_encryption_proof_required",
+          "stream_key_separation_required",
+          "broker_visibility_negative_test_required"
+        ]
+      : [])
   ];
   const approvalBlockers = [
-    ...(env.SYLION_G2_SESSION_BROKER_APPROVED === "true" ? [] : ["g2_session_broker_human_approval_missing"])
+    ...(env.SYLION_G2_SESSION_BROKER_APPROVED === "true"
+      ? []
+      : ["g2_session_broker_human_approval_missing"])
   ];
   const technicalReadyForHumanGate = technicalBlockers.length === 0 && productionCandidateReady;
   return {
     selectedProtocol: normalized,
     targetProtocol: "blind_e2ee",
     candidates: [
-      { protocol: "guacamole", ready: guacamoleReady, productionCandidate: false, interimOnly: true, labOnly: false, brokerVisibility: "broker_can_access_plaintext_pixel_stream" },
-      { protocol: "webrtc_selkies", ready: webrtcReady, productionCandidate: false, interimOnly: true, labOnly: false, brokerVisibility: "broker_visibility_unproven_without_e2ee_key_separation" },
-      { protocol: "blind_e2ee", ready: blindE2eeReady, productionCandidate: true, interimOnly: false, labOnly: false, brokerVisibility: "broker_relays_encrypted_frames_only" },
-      { protocol: "novnc_lab", ready: novncLabReady, productionCandidate: false, interimOnly: false, labOnly: true, brokerVisibility: "lab_plain_websocket_not_approved" }
+      {
+        protocol: "guacamole",
+        ready: guacamoleReady,
+        productionCandidate: false,
+        interimOnly: true,
+        labOnly: false,
+        brokerVisibility: "broker_can_access_plaintext_pixel_stream"
+      },
+      {
+        protocol: "webrtc_selkies",
+        ready: webrtcReady,
+        productionCandidate: false,
+        interimOnly: true,
+        labOnly: false,
+        brokerVisibility: "broker_visibility_unproven_without_e2ee_key_separation"
+      },
+      {
+        protocol: "blind_e2ee",
+        ready: blindE2eeReady,
+        productionCandidate: true,
+        interimOnly: false,
+        labOnly: false,
+        brokerVisibility: "broker_relays_encrypted_frames_only"
+      },
+      {
+        protocol: "novnc_lab",
+        ready: novncLabReady,
+        productionCandidate: false,
+        interimOnly: false,
+        labOnly: true,
+        brokerVisibility: "lab_plain_websocket_not_approved"
+      }
     ],
     state: technicalReadyForHumanGate ? "ready_for_human_gate" : "blocked",
     readyForHumanGate: technicalReadyForHumanGate,
@@ -760,31 +1087,42 @@ function cdrEvidenceSummary(cdr) {
     denyOrQuarantineObserved: hasDenyDecision,
     allowedTransferObserved: hasAllowedTransfer,
     deniedTransferObserved: hasDeniedTransfer,
-    ready: directions.has("ingress")
-      && directions.has("egress")
-      && decisionValues.has("allow_reconstructed")
-      && hasDenyDecision
-      && hasAllowedTransfer
-      && hasDeniedTransfer
+    ready:
+      directions.has("ingress") &&
+      directions.has("egress") &&
+      decisionValues.has("allow_reconstructed") &&
+      hasDenyDecision &&
+      hasAllowedTransfer &&
+      hasDeniedTransfer
   };
 }
 
 function androidNativeEvidenceSummary({ rows = [], hosts = [], manifests = [] } = {}) {
-  const androidManifests = manifests.filter((manifest) => manifest.runtimeKind === "android_native_workload");
-  const passedAndroidFactualTests = rows.flatMap((row) => row.apps || [])
-    .filter((app) => app.latestFactualTest?.runtimeMode === "android_native" && app.factualStateVerified === true);
+  const androidManifests = manifests.filter(
+    (manifest) => manifest.runtimeKind === "android_native_workload"
+  );
+  const passedAndroidFactualTests = rows
+    .flatMap((row) => row.apps || [])
+    .filter(
+      (app) =>
+        app.latestFactualTest?.runtimeMode === "android_native" && app.factualStateVerified === true
+    );
   const androidHostObserved = hosts.some((host) => host.readyForLabWorkloads === true);
-  const androidManifestReadyObserved = androidManifests.some((manifest) => manifest.readyForLabLaunch === true);
+  const androidManifestReadyObserved = androidManifests.some(
+    (manifest) => manifest.readyForLabLaunch === true
+  );
   const androidFactualObserved = passedAndroidFactualTests.length > 0;
-  const operatorModeSelectableObserved = androidManifests.some((manifest) => (
-    manifest.appKey === "zangi"
-    || manifest.launchManifest?.operatorSelectableMode === true
-    || manifest.buildEvidence?.operatorSelectableMode === true
-  ));
-  const ready = androidHostObserved
-    && androidManifestReadyObserved
-    && androidFactualObserved
-    && operatorModeSelectableObserved;
+  const operatorModeSelectableObserved = androidManifests.some(
+    (manifest) =>
+      manifest.appKey === "zangi" ||
+      manifest.launchManifest?.operatorSelectableMode === true ||
+      manifest.buildEvidence?.operatorSelectableMode === true
+  );
+  const ready =
+    androidHostObserved &&
+    androidManifestReadyObserved &&
+    androidFactualObserved &&
+    operatorModeSelectableObserved;
   return {
     androidHosts: hosts.length,
     androidManifests: androidManifests.length,
@@ -794,12 +1132,14 @@ function androidNativeEvidenceSummary({ rows = [], hosts = [], manifests = [] } 
     androidFactualObserved,
     operatorModeSelectableObserved,
     ready,
-    blockers: ready ? [] : [
-      ...(androidHostObserved ? [] : ["android_workload_host_missing"]),
-      ...(androidManifestReadyObserved ? [] : ["android_native_manifest_missing"]),
-      ...(androidFactualObserved ? [] : ["android_native_factual_test_missing"]),
-      ...(operatorModeSelectableObserved ? [] : ["operator_app_mode_selection_missing"])
-    ],
+    blockers: ready
+      ? []
+      : [
+          ...(androidHostObserved ? [] : ["android_workload_host_missing"]),
+          ...(androidManifestReadyObserved ? [] : ["android_native_manifest_missing"]),
+          ...(androidFactualObserved ? [] : ["android_native_factual_test_missing"]),
+          ...(operatorModeSelectableObserved ? [] : ["operator_app_mode_selection_missing"])
+        ],
     productionExecutionAllowed: false
   };
 }
@@ -818,14 +1158,22 @@ function buildProductionGates({
   const facts = {
     zangiReady: appReady(rows, "zangi"),
     exodusReady: appReady(rows, "exodus") && envFlag(env, "SYLION_EXODUS_PIXEL_VISUAL_VERIFIED"),
-    blindBrokerReady: sessionBroker.selectedProtocol === "blind_e2ee" && sessionBroker.readyForHumanGate === true,
+    blindBrokerReady:
+      sessionBroker.selectedProtocol === "blind_e2ee" && sessionBroker.readyForHumanGate === true,
     communicatorsReady: appsReady(rows, ["whatsapp", "telegram", "threema", "signal", "zangi"]),
-    androidNativeReady: envFlag(env, "SYLION_ANDROID_NATIVE_MODE_READY") || androidNativeEvidence?.ready === true,
+    androidNativeReady:
+      envFlag(env, "SYLION_ANDROID_NATIVE_MODE_READY") || androidNativeEvidence?.ready === true,
     cdrReady: envFlag(env, "SYLION_CDR_END_TO_END_READY") || cdrEvidence?.ready === true,
-    torJurisdictionReady: envFlag(env, "SYLION_TOR_JURISDICTION_READY") || routeEvidence?.ready === true,
-    recreateRotateReady: envFlag(env, "SYLION_SELF_SERVICE_ROTATE_READY") || workloadControlEvidence?.ready === true,
-    confidentialComputeReady: envFlag(env, "SYLION_CONFIDENTIAL_COMPUTE_ATTESTED") || cpuConfidentialEvidence?.ready === true,
-    paymentTokenReady: envFlag(env, "SYLION_PAYMENT_TOKEN_PROVISIONING_READY") || paymentTokenEvidence?.ready === true
+    torJurisdictionReady:
+      envFlag(env, "SYLION_TOR_JURISDICTION_READY") || routeEvidence?.ready === true,
+    recreateRotateReady:
+      envFlag(env, "SYLION_SELF_SERVICE_ROTATE_READY") || workloadControlEvidence?.ready === true,
+    confidentialComputeReady:
+      envFlag(env, "SYLION_CONFIDENTIAL_COMPUTE_ATTESTED") ||
+      cpuConfidentialEvidence?.ready === true,
+    paymentTokenReady:
+      envFlag(env, "SYLION_PAYMENT_TOKEN_PROVISIONING_READY") ||
+      paymentTokenEvidence?.ready === true
   };
   const readinessByGate = {
     gate_01_zangi_android_native_functional: facts.zangiReady,
@@ -840,21 +1188,31 @@ function buildProductionGates({
     gate_10_payment_token_provisioning: facts.paymentTokenReady
   };
   const blockersByGate = {
-    gate_03_guacamole_broker: facts.blindBrokerReady ? [] : sessionBroker.blockers.length
-      ? sessionBroker.blockers
-      : ["phantom_blind_broker_e2ee_required"],
-    gate_05_android_native_workloads: facts.androidNativeReady ? [] : androidNativeEvidence?.blockers?.length
-      ? androidNativeEvidence.blockers
-      : ["android_native_mode_incomplete"],
-    gate_07_tor_jurisdiction_routing: facts.torJurisdictionReady ? [] : routeEvidence?.blockers?.length
-      ? routeEvidence.blockers
-      : ["tor_jurisdiction_route_not_end_to_end_proven"],
-    gate_09_confidential_compute: facts.confidentialComputeReady ? [] : cpuConfidentialEvidence?.blockers?.length
-      ? cpuConfidentialEvidence.blockers
-      : ["amd_sev_snp_or_intel_tdx_not_active"],
-    gate_10_payment_token_provisioning: facts.paymentTokenReady ? [] : paymentTokenEvidence?.blockers?.length
-      ? paymentTokenEvidence.blockers
-      : ["public_payment_token_provisioning_not_live"]
+    gate_03_guacamole_broker: facts.blindBrokerReady
+      ? []
+      : sessionBroker.blockers.length
+        ? sessionBroker.blockers
+        : ["phantom_blind_broker_e2ee_required"],
+    gate_05_android_native_workloads: facts.androidNativeReady
+      ? []
+      : androidNativeEvidence?.blockers?.length
+        ? androidNativeEvidence.blockers
+        : ["android_native_mode_incomplete"],
+    gate_07_tor_jurisdiction_routing: facts.torJurisdictionReady
+      ? []
+      : routeEvidence?.blockers?.length
+        ? routeEvidence.blockers
+        : ["tor_jurisdiction_route_not_end_to_end_proven"],
+    gate_09_confidential_compute: facts.confidentialComputeReady
+      ? []
+      : cpuConfidentialEvidence?.blockers?.length
+        ? cpuConfidentialEvidence.blockers
+        : ["amd_sev_snp_or_intel_tdx_not_active"],
+    gate_10_payment_token_provisioning: facts.paymentTokenReady
+      ? []
+      : paymentTokenEvidence?.blockers?.length
+        ? paymentTokenEvidence.blockers
+        : ["public_payment_token_provisioning_not_live"]
   };
   return PRODUCTION_GATE_DEFINITIONS.map((definition) => {
     const isReady = readinessByGate[definition.id] === true;
@@ -871,7 +1229,9 @@ function buildProductionGates({
         ...(definition.id === "gate_05_android_native_workloads" ? { androidNativeEvidence } : {}),
         ...(definition.id === "gate_06_cdr_end_to_end" ? { cdrEvidence } : {}),
         ...(definition.id === "gate_07_tor_jurisdiction_routing" ? { routeEvidence } : {}),
-        ...(definition.id === "gate_08_self_service_recreate_rotate" ? { workloadControlEvidence } : {}),
+        ...(definition.id === "gate_08_self_service_recreate_rotate"
+          ? { workloadControlEvidence }
+          : {}),
         ...(definition.id === "gate_09_confidential_compute" ? { cpuConfidentialEvidence } : {}),
         ...(definition.id === "gate_10_payment_token_provisioning" ? { paymentTokenEvidence } : {}),
         terminalDataStored: false,
@@ -884,20 +1244,33 @@ function buildProductionGates({
 function buildProductionReadiness({ actor, services, env, correlationId }) {
   const productionOperatorId = env.SYLION_PRODUCTION_OPERATOR_ID || null;
   const sessionBroker = sessionBrokerReadiness(env);
-  const operatorsList = services.operators.list({ actor, correlationId })
+  const operatorsList = services.operators
+    .list({ actor, correlationId })
     .filter((operator) => !productionOperatorId || operator.id === productionOperatorId);
   const hosts = services.liveExecution.listWorkloadNativeHosts({ actor, correlationId });
   const manifests = services.liveExecution.listWorkloadImageManifests({ actor, correlationId });
   const nativeHost = hosts[0] || null;
   const rows = operatorsList.map((operator) => {
-    const subscription = services.subscriptions.getTenantSubscription({ actor, tenantId: operator.tenantId, correlationId });
+    const subscription = services.subscriptions.getTenantSubscription({
+      actor,
+      tenantId: operator.tenantId,
+      correlationId
+    });
     const cost = tierCostModel(operator.tier);
-    const factualByApp = services.release.latestWorkloadFactualTestsByApp({ actor, operatorId: operator.id, correlationId });
-    const apps = PRODUCTION_READINESS_APPS.map((app) => readinessAppState(env, app, factualByApp[app.key] || null));
+    const factualByApp = services.release.latestWorkloadFactualTestsByApp({
+      actor,
+      operatorId: operator.id,
+      correlationId
+    });
+    const apps = PRODUCTION_READINESS_APPS.map((app) =>
+      readinessAppState(env, app, factualByApp[app.key] || null)
+    );
     const criticalBlockers = [
       ...(env.SYLION_PIXEL_G1_READY === "true" ? [] : ["pixel_to_g1_evidence_missing_or_stale"]),
       ...(env.SYLION_G1_G2_READY === "true" ? [] : ["g1_to_g2_evidence_missing_or_stale"]),
-      ...(env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true" ? [] : ["g2_to_ax102_evidence_missing_or_stale"]),
+      ...(env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true"
+        ? []
+        : ["g2_to_ax102_evidence_missing_or_stale"]),
       ...(nativeHost ? [] : ["workload_native_host_not_registered"]),
       ...sessionBroker.blockers,
       ...apps.flatMap((app) => app.blockers.map((blocker) => `${app.key}:${blocker}`))
@@ -919,19 +1292,24 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
       infrastructure: {
         g1: env.SYLION_G1_PUBLIC_IP || "178.105.200.112",
         g2: env.SYLION_G2_PUBLIC_IP || "178.105.203.31",
-        workloadNative: nativeHost ? {
-          hostId: nativeHost.hostId,
-          serverNumber: nativeHost.serverNumber,
-          region: nativeHost.region,
-          lifecycleState: nativeHost.lifecycleState,
-          readyForLabWorkloads: nativeHost.readyForLabWorkloads === true
-        } : null
+        workloadNative: nativeHost
+          ? {
+              hostId: nativeHost.hostId,
+              serverNumber: nativeHost.serverNumber,
+              region: nativeHost.region,
+              lifecycleState: nativeHost.lifecycleState,
+              readyForLabWorkloads: nativeHost.readyForLabWorkloads === true
+            }
+          : null
       },
       path: {
         pixel: env.SYLION_PIXEL_G1_READY === "true" ? "ready" : "evidence_required",
         laptop: env.SYLION_LAPTOP_G1_READY === "true" ? "ready" : "not_configured",
         g1g2: env.SYLION_G1_G2_READY === "true" ? "ready" : "evidence_required",
-        g2Workload: env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true" ? "ready" : "evidence_required"
+        g2Workload:
+          env.SYLION_G2_AX102_READY === "true" || env.SYLION_G2_WORKLOAD_NATIVE_READY === "true"
+            ? "ready"
+            : "evidence_required"
       },
       sessionBroker,
       apps,
@@ -981,7 +1359,9 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
       readyForHumanGate: rows.filter((row) => row.status === "ready_for_human_gate").length,
       blocked: rows.filter((row) => row.status === "blocked").length,
       productionGates: productionGates.length,
-      productionGatesReadyForHumanGate: productionGates.filter((gate) => gate.state === "ready_for_human_gate").length,
+      productionGatesReadyForHumanGate: productionGates.filter(
+        (gate) => gate.state === "ready_for_human_gate"
+      ).length,
       productionGatesBlocked: productionGates.filter((gate) => gate.state === "blocked").length,
       productionExecutionAllowed: false
     }
@@ -989,8 +1369,12 @@ function buildProductionReadiness({ actor, services, env, correlationId }) {
 }
 
 const WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/admin-web/", import.meta.url)));
-const OPERATOR_WEB_ROOT = resolve(fileURLToPath(new URL("../../../apps/operator-web/", import.meta.url)));
-const CUSTOMER_PORTAL_ROOT = resolve(fileURLToPath(new URL("../../../apps/customer-portal/", import.meta.url)));
+const OPERATOR_WEB_ROOT = resolve(
+  fileURLToPath(new URL("../../../apps/operator-web/", import.meta.url))
+);
+const CUSTOMER_PORTAL_ROOT = resolve(
+  fileURLToPath(new URL("../../../apps/customer-portal/", import.meta.url))
+);
 const STATIC_TYPES = Object.freeze({
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -999,12 +1383,17 @@ const STATIC_TYPES = Object.freeze({
 });
 
 async function serveAdminWeb(url, res) {
-  const pathname = url.pathname === "/" || url.pathname === "/admin"
-    ? "/index.html"
-    : url.pathname.replace(/^\/admin/, "");
+  const pathname =
+    url.pathname === "/" || url.pathname === "/admin"
+      ? "/index.html"
+      : url.pathname.replace(/^\/admin/, "");
   const filePath = resolve(WEB_ROOT, `.${decodeURIComponent(pathname)}`);
   const relativePath = relative(WEB_ROOT, filePath);
-  if (relativePath.startsWith("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+  if (
+    relativePath.startsWith("..") ||
+    relativePath.startsWith("/") ||
+    relativePath.startsWith("\\")
+  ) {
     return false;
   }
   const ext = extname(filePath);
@@ -1023,12 +1412,15 @@ async function serveAdminWeb(url, res) {
 // Per ADR-terminal-modes-001: operator portal served under /operator/*.
 // Separate static root from admin-web. API stubs live under /operator-api/*.
 async function serveOperatorWeb(url, res) {
-  const pathname = url.pathname === "/operator"
-    ? "/index.html"
-    : url.pathname.replace(/^\/operator/, "");
+  const pathname =
+    url.pathname === "/operator" ? "/index.html" : url.pathname.replace(/^\/operator/, "");
   const filePath = resolve(OPERATOR_WEB_ROOT, `.${decodeURIComponent(pathname)}`);
   const relativePath = relative(OPERATOR_WEB_ROOT, filePath);
-  if (relativePath.startsWith("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+  if (
+    relativePath.startsWith("..") ||
+    relativePath.startsWith("/") ||
+    relativePath.startsWith("\\")
+  ) {
     return false;
   }
   const ext = extname(filePath);
@@ -1045,12 +1437,15 @@ async function serveOperatorWeb(url, res) {
 }
 
 async function serveCustomerPortal(url, res) {
-  const pathname = url.pathname === "/portal"
-    ? "/index.html"
-    : url.pathname.replace(/^\/portal/, "");
+  const pathname =
+    url.pathname === "/portal" ? "/index.html" : url.pathname.replace(/^\/portal/, "");
   const filePath = resolve(CUSTOMER_PORTAL_ROOT, `.${decodeURIComponent(pathname)}`);
   const relativePath = relative(CUSTOMER_PORTAL_ROOT, filePath);
-  if (relativePath.startsWith("..") || relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+  if (
+    relativePath.startsWith("..") ||
+    relativePath.startsWith("/") ||
+    relativePath.startsWith("\\")
+  ) {
     return false;
   }
   const ext = extname(filePath);
@@ -1066,7 +1461,12 @@ async function serveCustomerPortal(url, res) {
   }
 }
 
-export function createApp({ store = null, authOptions = {}, liveExecutionOptions = {}, billingOptions = {} } = {}) {
+export function createApp({
+  store = null,
+  authOptions = {},
+  liveExecutionOptions = {},
+  billingOptions = {}
+} = {}) {
   const runtimeEnv = liveExecutionOptions.env || process.env;
   const audit = new AuditService({ store });
   const auth = new AuthService({ audit, store, ...authOptions });
@@ -1074,9 +1474,22 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
   const entitlements = new EntitlementService({ audit });
   const tenants = new TenantService({ audit, rbac, entitlements, store });
   const operators = new OperatorService({ audit, rbac, entitlements, tenants, store });
-  const provisioningPlans = new ProvisioningPlanService({ audit, rbac, entitlements, operators, store });
+  const provisioningPlans = new ProvisioningPlanService({
+    audit,
+    rbac,
+    entitlements,
+    operators,
+    store
+  });
   const appCatalog = new AppCatalogService({ audit, rbac, store });
-  const subscriptions = new SubscriptionService({ audit, rbac, tenants, operators, appCatalog, store });
+  const subscriptions = new SubscriptionService({
+    audit,
+    rbac,
+    tenants,
+    operators,
+    appCatalog,
+    store
+  });
   const cdr = new CdrService({ audit, appCatalog, store });
   const monitoring = new MonitoringService({ audit, rbac, store });
   const incidents = new IncidentService({ audit, rbac, monitoring, store });
@@ -1089,7 +1502,14 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
   const matrix = new MatrixServerService({ audit, rbac, entitlements, store });
   const devices = new DeviceInventoryService({ audit, rbac, operators, store });
   const imageFactory = new ImageFactoryService({ audit, rbac, devices, appCatalog, store });
-  const phantom = new PhantomGovernanceService({ audit, rbac, entitlements, operators, monitoring, store });
+  const phantom = new PhantomGovernanceService({
+    audit,
+    rbac,
+    entitlements,
+    operators,
+    monitoring,
+    store
+  });
   const approvals = new ProvisioningApprovalService({
     audit,
     rbac,
@@ -1180,7 +1600,8 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
     liveWorkloadStatusProvider: liveExecutionOptions.liveWorkloadStatusProvider,
     workloadInputRunner: liveExecutionOptions.workloadInputRunner,
     blindE2eeFrameCaptureRunner: liveExecutionOptions.blindE2eeFrameCaptureRunner,
-    workloadImageManifestResolver: (appKey) => liveExecution.latestReadyWorkloadImageManifestForApp(appKey)
+    workloadImageManifestResolver: (appKey) =>
+      liveExecution.latestReadyWorkloadImageManifestForApp(appKey)
   });
   const billingPortal = new BillingPortalService({
     audit,
@@ -1236,20 +1657,29 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       const url = new URL(req.url, "http://localhost");
       const correlationId = req.headers["x-correlation-id"];
 
-      if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/admin" || url.pathname.startsWith("/admin/"))) {
+      if (
+        req.method === "GET" &&
+        (url.pathname === "/" || url.pathname === "/admin" || url.pathname.startsWith("/admin/"))
+      ) {
         if (await serveAdminWeb(url, res)) {
           return;
         }
       }
 
       // Per ADR-terminal-modes-001: operator portal static + stub API.
-      if (req.method === "GET" && (url.pathname === "/operator" || url.pathname.startsWith("/operator/"))) {
+      if (
+        req.method === "GET" &&
+        (url.pathname === "/operator" || url.pathname.startsWith("/operator/"))
+      ) {
         if (await serveOperatorWeb(url, res)) {
           return;
         }
       }
 
-      if (req.method === "GET" && (url.pathname === "/portal" || url.pathname.startsWith("/portal/"))) {
+      if (
+        req.method === "GET" &&
+        (url.pathname === "/portal" || url.pathname.startsWith("/portal/"))
+      ) {
         if (await serveCustomerPortal(url, res)) {
           return;
         }
@@ -1274,7 +1704,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { checkout });
       }
 
-      const portalClaimMatch = url.pathname.match(/^\/portal-api\/checkouts\/([^/]+)\/claim-token$/);
+      const portalClaimMatch = url.pathname.match(
+        /^\/portal-api\/checkouts\/([^/]+)\/claim-token$/
+      );
       if (req.method === "POST" && portalClaimMatch) {
         assertPublicPortalProxy(req, runtimeEnv);
         const body = await readJson(req);
@@ -1297,8 +1729,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           correlationId
         });
         const actor = portalProvisionerActor();
-        const tenantName = preflight.activationProfile.companyName
-          || `${preflight.activationProfile.operatorDisplayName} Tenant`;
+        const tenantName =
+          preflight.activationProfile.companyName ||
+          `${preflight.activationProfile.operatorDisplayName} Tenant`;
         const tenant = tenants.create({
           actor,
           name: tenantName,
@@ -1313,7 +1746,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           tier: preflight.tier.operatorTier,
           labels: [
             "PORTAL_TOKEN_BOOTSTRAP",
-            preflight.activationProfile.fulfillmentMode === "reseller_preconfigured_hardware" ? "RESELLER_KIT" : "SELF_SERVICE_KIT"
+            preflight.activationProfile.fulfillmentMode === "reseller_preconfigured_hardware"
+              ? "RESELLER_KIT"
+              : "SELF_SERVICE_KIT"
           ],
           correlationId
         });
@@ -1394,26 +1829,31 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             sessionTokenStoredInAudit: false
           }
         });
-        return send(res, 201, {
-          activation: {
-            status: "operator_created",
-            token: activation.token,
-            fulfillmentMode: preflight.activationProfile.fulfillmentMode
+        return send(
+          res,
+          201,
+          {
+            activation: {
+              status: "operator_created",
+              token: activation.token,
+              fulfillmentMode: preflight.activationProfile.fulfillmentMode
+            },
+            tenant,
+            subscription,
+            operator,
+            provisioningDraft,
+            downloadPackages,
+            firstSession: {
+              id: firstSession.id,
+              terminalMode: firstSession.terminalMode,
+              expiresAt: firstSession.expiresAt,
+              operatorPortalUrl: `/operator?op_token=${encodeURIComponent(firstSession.token)}#overview`,
+              tokenMaterialReturnedOnce: true,
+              tokenStoredInAudit: false
+            }
           },
-          tenant,
-          subscription,
-          operator,
-          provisioningDraft,
-          downloadPackages,
-          firstSession: {
-            id: firstSession.id,
-            terminalMode: firstSession.terminalMode,
-            expiresAt: firstSession.expiresAt,
-            operatorPortalUrl: `/operator?op_token=${encodeURIComponent(firstSession.token)}#overview`,
-            tokenMaterialReturnedOnce: true,
-            tokenStoredInAudit: false
-          }
-        }, { "set-cookie": operatorSessionCookie(req, firstSession) });
+          { "set-cookie": operatorSessionCookie(req, firstSession) }
+        );
       }
 
       const portalWebhookMatch = url.pathname.match(/^\/portal-api\/webhooks\/([^/]+)$/);
@@ -1452,23 +1892,35 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "POST" && url.pathname === "/operator-api/sessions/attach") {
         const token = bearerToken(req);
         const session = operatorPortal.sessionFromToken(token, { includeToken: true });
-        return send(res, 200, {
-          session: operatorPortal.sessionFromToken(token, { includeToken: false }),
-          cookieBound: true
-        }, {
-          "set-cookie": operatorSessionCookie(req, session)
-        });
+        return send(
+          res,
+          200,
+          {
+            session: operatorPortal.sessionFromToken(token, { includeToken: false }),
+            cookieBound: true
+          },
+          {
+            "set-cookie": operatorSessionCookie(req, session)
+          }
+        );
       }
 
       if (req.method === "GET" && url.pathname === "/operator-api/sessions/current") {
         const { token } = operatorTokenSource(req);
-        return send(res, 200, { session: operatorPortal.sessionFromToken(token, { includeToken: false }) });
+        return send(res, 200, {
+          session: operatorPortal.sessionFromToken(token, { includeToken: false })
+        });
       }
 
       if (req.method === "POST" && url.pathname === "/operator-api/sessions/detach") {
-        return send(res, 200, { detached: true }, {
-          "set-cookie": clearOperatorSessionCookie(req)
-        });
+        return send(
+          res,
+          200,
+          { detached: true },
+          {
+            "set-cookie": clearOperatorSessionCookie(req)
+          }
+        );
       }
 
       if (req.method === "GET" && url.pathname === "/operator-api/me") {
@@ -1477,26 +1929,38 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       }
       if (req.method === "GET" && url.pathname === "/operator-api/devices") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { devices: operatorPortal.devicesForOperator({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          devices: operatorPortal.devicesForOperator({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/workloads") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { workloads: operatorPortal.workloads({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          workloads: operatorPortal.workloads({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/workload-control") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { control: operatorPortal.workloadControl({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          control: operatorPortal.workloadControl({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/live-workload-status") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { status: await operatorPortal.liveWorkloadStatus({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          status: await operatorPortal.liveWorkloadStatus({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/workload-control/requests") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, { request: operatorPortal.requestWorkloadControl({ operatorActor, body, correlationId }) });
+        return send(res, 201, {
+          request: operatorPortal.requestWorkloadControl({ operatorActor, body, correlationId })
+        });
       }
-      const workloadControlExecuteMatch = url.pathname.match(/^\/operator-api\/workload-control\/requests\/([^/]+)\/execute$/);
+      const workloadControlExecuteMatch = url.pathname.match(
+        /^\/operator-api\/workload-control\/requests\/([^/]+)\/execute$/
+      );
       if (req.method === "POST" && workloadControlExecuteMatch) {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
@@ -1516,45 +1980,75 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "POST" && url.pathname === "/operator-api/vpn-evidence") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, { evidence: operatorPortal.recordVpnEvidence({ operatorActor, body, correlationId }) });
+        return send(res, 201, {
+          evidence: operatorPortal.recordVpnEvidence({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/traffic-monitoring") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { monitoring: operatorPortal.trafficMonitoring({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          monitoring: operatorPortal.trafficMonitoring({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/terminal-attribution-risk") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { assessment: operatorPortal.terminalAttributionRisk({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          assessment: operatorPortal.terminalAttributionRisk({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/traffic-monitoring/evidence") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, { evidence: operatorPortal.recordTrafficEvidence({ operatorActor, body, correlationId }) });
+        return send(res, 201, {
+          evidence: operatorPortal.recordTrafficEvidence({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/connection-path") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { path: operatorPortal.connectionPath({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          path: operatorPortal.connectionPath({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/workload-execution/signal") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { execution: operatorPortal.workloadExecution({ operatorActor, templateKey: "signal", correlationId }) });
+        return send(res, 200, {
+          execution: operatorPortal.workloadExecution({
+            operatorActor,
+            templateKey: "signal",
+            correlationId
+          })
+        });
       }
-      if (req.method === "GET" && url.pathname.startsWith("/operator-api/workload-execution/") && !url.pathname.endsWith("/start")) {
+      if (
+        req.method === "GET" &&
+        url.pathname.startsWith("/operator-api/workload-execution/") &&
+        !url.pathname.endsWith("/start")
+      ) {
         const operatorActor = operatorActorFromRequest(req);
         const templateKey = decodeURIComponent(url.pathname.split("/").at(-1) || "signal");
-        return send(res, 200, { execution: operatorPortal.workloadExecution({ operatorActor, templateKey, correlationId }) });
+        return send(res, 200, {
+          execution: operatorPortal.workloadExecution({ operatorActor, templateKey, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/account-bootstrap") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { bootstrap: operatorPortal.accountBootstrap({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          bootstrap: operatorPortal.accountBootstrap({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/account-bootstrap/sessions") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        const session = operatorPortal.requestAccountBootstrap({ operatorActor, body, correlationId });
+        const session = operatorPortal.requestAccountBootstrap({
+          operatorActor,
+          body,
+          correlationId
+        });
         return send(res, 201, { session });
       }
-      const accountBootstrapEvidenceMatch = url.pathname.match(/^\/operator-api\/account-bootstrap\/sessions\/([^/]+)\/evidence$/);
+      const accountBootstrapEvidenceMatch = url.pathname.match(
+        /^\/operator-api\/account-bootstrap\/sessions\/([^/]+)\/evidence$/
+      );
       if (req.method === "POST" && accountBootstrapEvidenceMatch) {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
@@ -1566,35 +2060,71 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
         return send(res, 200, { session });
       }
-      if (req.method === "POST" && url.pathname === "/operator-api/workload-execution/signal/start") {
+      if (
+        req.method === "POST" &&
+        url.pathname === "/operator-api/workload-execution/signal/start"
+      ) {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { request: operatorPortal.startWorkloadExecution({ operatorActor, templateKey: "signal", correlationId }) });
+        return send(res, 200, {
+          request: operatorPortal.startWorkloadExecution({
+            operatorActor,
+            templateKey: "signal",
+            correlationId
+          })
+        });
       }
-      if (req.method === "POST" && url.pathname.startsWith("/operator-api/workload-execution/") && url.pathname.endsWith("/start")) {
+      if (
+        req.method === "POST" &&
+        url.pathname.startsWith("/operator-api/workload-execution/") &&
+        url.pathname.endsWith("/start")
+      ) {
         const operatorActor = operatorActorFromRequest(req);
         const templateKey = decodeURIComponent(url.pathname.split("/").at(-2) || "signal");
-        return send(res, 200, { request: operatorPortal.startWorkloadExecution({ operatorActor, templateKey, correlationId }) });
+        return send(res, 200, {
+          request: operatorPortal.startWorkloadExecution({
+            operatorActor,
+            templateKey,
+            correlationId
+          })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/vpn-install-package") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { package: operatorPortal.vpnInstallPackage({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          package: operatorPortal.vpnInstallPackage({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/pixel-ca-provisioning") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { package: operatorPortal.pixelCaProvisioning({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          package: operatorPortal.pixelCaProvisioning({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/laptop-access-package") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { package: operatorPortal.laptopAccessPackage({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          package: operatorPortal.laptopAccessPackage({ operatorActor, correlationId })
+        });
       }
-      if (req.method === "GET" && url.pathname.startsWith("/operator-api/workload-session-broker/")) {
+      if (
+        req.method === "GET" &&
+        url.pathname.startsWith("/operator-api/workload-session-broker/")
+      ) {
         const operatorActor = operatorActorFromRequest(req);
         const templateKey = decodeURIComponent(url.pathname.split("/").at(-1) || "signal");
-        return send(res, 200, { broker: operatorPortal.workloadSessionBroker({ operatorActor, templateKey, correlationId }) });
+        return send(res, 200, {
+          broker: operatorPortal.workloadSessionBroker({
+            operatorActor,
+            templateKey,
+            correlationId
+          })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/live-access-foundation") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { foundation: operatorPortal.liveAccessFoundation({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          foundation: operatorPortal.liveAccessFoundation({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/streaming-profile") {
         const operatorActor = operatorActorFromRequest(req);
@@ -1611,169 +2141,260 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "POST" && url.pathname === "/operator-api/streaming-sessions") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, { session: operatorPortal.requestStreamingSession({ operatorActor, body, correlationId }) });
+        return send(res, 201, {
+          session: operatorPortal.requestStreamingSession({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/guacamole-handoff") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, {
-          handoff: operatorPortal.createGuacamoleHandoff({ operatorActor, body, correlationId })
-        }, {
-          "cache-control": "no-store"
-        });
+        return send(
+          res,
+          201,
+          {
+            handoff: operatorPortal.createGuacamoleHandoff({ operatorActor, body, correlationId })
+          },
+          {
+            "cache-control": "no-store"
+          }
+        );
       }
       if (req.method === "POST" && url.pathname === "/operator-api/blind-e2ee/sessions") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, {
-          session: operatorPortal.createBlindE2eeSession({ operatorActor, body, correlationId })
-        }, {
-          "cache-control": "no-store"
-        });
+        return send(
+          res,
+          201,
+          {
+            session: operatorPortal.createBlindE2eeSession({ operatorActor, body, correlationId })
+          },
+          {
+            "cache-control": "no-store"
+          }
+        );
       }
-      const blindE2eeSessionMatch = url.pathname.match(/^\/operator-api\/blind-e2ee\/sessions\/([^/]+)$/);
+      const blindE2eeSessionMatch = url.pathname.match(
+        /^\/operator-api\/blind-e2ee\/sessions\/([^/]+)$/
+      );
       if (req.method === "GET" && blindE2eeSessionMatch) {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, {
-          session: operatorPortal.blindE2eeSession({ operatorActor, sessionId: blindE2eeSessionMatch[1], correlationId })
-        }, {
-          "cache-control": "no-store"
-        });
+        return send(
+          res,
+          200,
+          {
+            session: operatorPortal.blindE2eeSession({
+              operatorActor,
+              sessionId: blindE2eeSessionMatch[1],
+              correlationId
+            })
+          },
+          {
+            "cache-control": "no-store"
+          }
+        );
       }
-      const blindE2eeFrameMatch = url.pathname.match(/^\/operator-api\/blind-e2ee\/sessions\/([^/]+)\/frames$/);
+      const blindE2eeFrameMatch = url.pathname.match(
+        /^\/operator-api\/blind-e2ee\/sessions\/([^/]+)\/frames$/
+      );
       if (req.method === "POST" && blindE2eeFrameMatch) {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, {
-          frame: operatorPortal.recordBlindE2eeFrameProof({
-            operatorActor,
-            sessionId: blindE2eeFrameMatch[1],
-            body,
-            correlationId
-          })
-        }, {
-          "cache-control": "no-store"
-        });
+        return send(
+          res,
+          201,
+          {
+            frame: operatorPortal.recordBlindE2eeFrameProof({
+              operatorActor,
+              sessionId: blindE2eeFrameMatch[1],
+              body,
+              correlationId
+            })
+          },
+          {
+            "cache-control": "no-store"
+          }
+        );
       }
-      const blindE2eeCaptureOnceMatch = url.pathname.match(/^\/operator-api\/blind-e2ee\/sessions\/([^/]+)\/frames\/capture-once$/);
+      const blindE2eeCaptureOnceMatch = url.pathname.match(
+        /^\/operator-api\/blind-e2ee\/sessions\/([^/]+)\/frames\/capture-once$/
+      );
       if (req.method === "POST" && blindE2eeCaptureOnceMatch) {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 201, {
-          frame: await operatorPortal.captureBlindE2eeFrameOnce({
-            operatorActor,
-            sessionId: blindE2eeCaptureOnceMatch[1],
-            correlationId
-          })
-        }, {
-          "cache-control": "no-store"
-        });
+        return send(
+          res,
+          201,
+          {
+            frame: await operatorPortal.captureBlindE2eeFrameOnce({
+              operatorActor,
+              sessionId: blindE2eeCaptureOnceMatch[1],
+              correlationId
+            })
+          },
+          {
+            "cache-control": "no-store"
+          }
+        );
       }
-      const blindE2eeLatestFrameMatch = url.pathname.match(/^\/operator-api\/blind-e2ee\/sessions\/([^/]+)\/frames\/latest$/);
+      const blindE2eeLatestFrameMatch = url.pathname.match(
+        /^\/operator-api\/blind-e2ee\/sessions\/([^/]+)\/frames\/latest$/
+      );
       if (req.method === "GET" && blindE2eeLatestFrameMatch) {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, {
-          relay: operatorPortal.latestBlindE2eeFrame({
-            operatorActor,
-            sessionId: blindE2eeLatestFrameMatch[1],
-            correlationId
-          })
-        }, {
-          "cache-control": "no-store"
-        });
+        return send(
+          res,
+          200,
+          {
+            relay: operatorPortal.latestBlindE2eeFrame({
+              operatorActor,
+              sessionId: blindE2eeLatestFrameMatch[1],
+              correlationId
+            })
+          },
+          {
+            "cache-control": "no-store"
+          }
+        );
       }
       if (req.method === "POST" && url.pathname === "/operator-api/workload-input") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, {
-          input: await operatorPortal.sendWorkloadInput({ operatorActor, body, correlationId })
-        }, {
-          "cache-control": "no-store"
-        });
+        return send(
+          res,
+          201,
+          {
+            input: await operatorPortal.sendWorkloadInput({ operatorActor, body, correlationId })
+          },
+          {
+            "cache-control": "no-store"
+          }
+        );
       }
       if (req.method === "POST" && url.pathname === "/operator-api/streaming-readiness") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, { evidence: operatorPortal.recordStreamingReadiness({ operatorActor, body, correlationId }) });
+        return send(res, 201, {
+          evidence: operatorPortal.recordStreamingReadiness({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/streaming-runtime-manifest") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, { manifest: operatorPortal.recordStreamingRuntimeManifest({ operatorActor, body, correlationId }) });
+        return send(res, 201, {
+          manifest: operatorPortal.recordStreamingRuntimeManifest({
+            operatorActor,
+            body,
+            correlationId
+          })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/audit") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { events: operatorPortal.auditEvents({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          events: operatorPortal.auditEvents({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/settings/fido2") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { policy: operatorPortal.fido2Policy({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          policy: operatorPortal.fido2Policy({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/settings/fido2") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 200, { policy: operatorPortal.updateFido2Policy({ operatorActor, body, correlationId }) });
+        return send(res, 200, {
+          policy: operatorPortal.updateFido2Policy({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/settings/hsm") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { profile: operatorPortal.hsmProfile({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          profile: operatorPortal.hsmProfile({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/settings/hsm") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 200, { profile: operatorPortal.updateHsmProfile({ operatorActor, body, correlationId }) });
+        return send(res, 200, {
+          profile: operatorPortal.updateHsmProfile({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/settings/unlock") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { policy: operatorPortal.unlockPolicy({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          policy: operatorPortal.unlockPolicy({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/settings/unlock") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 200, { policy: operatorPortal.updateUnlockPolicy({ operatorActor, body, correlationId }) });
+        return send(res, 200, {
+          policy: operatorPortal.updateUnlockPolicy({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/settings/safety") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { policy: operatorPortal.safetyPolicy({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          policy: operatorPortal.safetyPolicy({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/settings/safety") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 200, { policy: operatorPortal.updateSafetyPolicy({ operatorActor, body, correlationId }) });
+        return send(res, 200, {
+          policy: operatorPortal.updateSafetyPolicy({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/settings/jurisdiction") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { policy: operatorPortal.jurisdictionPolicy({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          policy: operatorPortal.jurisdictionPolicy({ operatorActor, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/settings/jurisdiction/options") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { options: operatorPortal.jurisdictionOptions({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          options: operatorPortal.jurisdictionOptions({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/settings/jurisdiction") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 200, { policy: operatorPortal.updateJurisdictionPolicy({ operatorActor, body, correlationId }) });
+        return send(res, 200, {
+          policy: operatorPortal.updateJurisdictionPolicy({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/matrix-server") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { matrix: operatorPortal.matrixServer({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          matrix: operatorPortal.matrixServer({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/matrix-server/requests") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, { request: operatorPortal.requestMatrixServer({ operatorActor, body, correlationId }) });
+        return send(res, 201, {
+          request: operatorPortal.requestMatrixServer({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/subscription") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { subscription: operatorPortal.subscription({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          subscription: operatorPortal.subscription({ operatorActor, correlationId })
+        });
       }
       if (req.method === "POST" && url.pathname === "/operator-api/subscription/requests") {
         const operatorActor = operatorActorFromRequest(req);
         const body = await readJson(req);
-        return send(res, 201, { request: operatorPortal.requestSubscriptionChange({ operatorActor, body, correlationId }) });
+        return send(res, 201, {
+          request: operatorPortal.requestSubscriptionChange({ operatorActor, body, correlationId })
+        });
       }
       if (req.method === "GET" && url.pathname === "/operator-api/terminal-profiles") {
         const operatorActor = operatorActorFromRequest(req);
-        return send(res, 200, { profiles: operatorPortal.terminalProfiles({ operatorActor, correlationId }) });
+        return send(res, 200, {
+          profiles: operatorPortal.terminalProfiles({ operatorActor, correlationId })
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/health") {
@@ -1868,7 +2489,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { problem });
       }
 
-      const releaseProblemStatusMatch = url.pathname.match(/^\/release\/problems\/([^/]+)\/status$/);
+      const releaseProblemStatusMatch = url.pathname.match(
+        /^\/release\/problems\/([^/]+)\/status$/
+      );
       if (req.method === "POST" && releaseProblemStatusMatch) {
         const body = await readJson(req);
         const problem = release.updateProblemStatus({
@@ -1937,7 +2560,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
-      const accountBootstrapPromoteMatch = url.pathname.match(/^\/release\/account-bootstrap-evidence\/([^/]+)\/promote$/);
+      const accountBootstrapPromoteMatch = url.pathname.match(
+        /^\/release\/account-bootstrap-evidence\/([^/]+)\/promote$/
+      );
       if (req.method === "POST" && accountBootstrapPromoteMatch) {
         const body = await readJson(req);
         const session = operatorPortal.getAccountBootstrapEvidenceForAdmin({
@@ -1946,10 +2571,13 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           correlationId
         });
         if (session.factualCandidate !== true) {
-          throw validationError("Only complete account bootstrap evidence can be promoted to factual test", {
-            sessionId: session.id,
-            blockers: session.blockers || []
-          });
+          throw validationError(
+            "Only complete account bootstrap evidence can be promoted to factual test",
+            {
+              sessionId: session.id,
+              blockers: session.blockers || []
+            }
+          );
         }
         const test = release.recordWorkloadFactualTest({
           actor,
@@ -1979,7 +2607,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { test });
       }
 
-      const releaseTestStatusMatch = url.pathname.match(/^\/release\/human-tests\/([^/]+)\/status$/);
+      const releaseTestStatusMatch = url.pathname.match(
+        /^\/release\/human-tests\/([^/]+)\/status$/
+      );
       if (req.method === "POST" && releaseTestStatusMatch) {
         const body = await readJson(req);
         const scenario = release.updateTestStatus({
@@ -2014,19 +2644,27 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       }
 
       if (req.method === "GET" && url.pathname === "/live-execution/cloud/rehearsals") {
-        return send(res, 200, { rehearsals: liveExecution.listProviderRehearsals({ actor, correlationId }) });
+        return send(res, 200, {
+          rehearsals: liveExecution.listProviderRehearsals({ actor, correlationId })
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/live-execution/dedicated-workload/orders") {
-        return send(res, 200, { orders: liveExecution.listDedicatedWorkloadOrders({ actor, correlationId }) });
+        return send(res, 200, {
+          orders: liveExecution.listDedicatedWorkloadOrders({ actor, correlationId })
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/live-execution/workload-native/hosts") {
-        return send(res, 200, { hosts: liveExecution.listWorkloadNativeHosts({ actor, correlationId }) });
+        return send(res, 200, {
+          hosts: liveExecution.listWorkloadNativeHosts({ actor, correlationId })
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/live-execution/workload-images/manifests") {
-        return send(res, 200, { manifests: liveExecution.listWorkloadImageManifests({ actor, correlationId }) });
+        return send(res, 200, {
+          manifests: liveExecution.listWorkloadImageManifests({ actor, correlationId })
+        });
       }
 
       if (req.method === "POST" && url.pathname === "/live-execution/workload-native/hosts") {
@@ -2057,7 +2695,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { manifest });
       }
 
-      if (req.method === "POST" && url.pathname === "/live-execution/dedicated-workload/hetzner-robot/order") {
+      if (
+        req.method === "POST" &&
+        url.pathname === "/live-execution/dedicated-workload/hetzner-robot/order"
+      ) {
         auth.requireFreshStepUp(actor, "dedicated_workload.hetzner_robot.order", {
           correlationId,
           resourceType: "dedicated_workload_order"
@@ -2071,7 +2712,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { order });
       }
 
-      const providerReconcileMatch = url.pathname.match(/^\/live-execution\/cloud\/([^/]+)\/reconcile$/);
+      const providerReconcileMatch = url.pathname.match(
+        /^\/live-execution\/cloud\/([^/]+)\/reconcile$/
+      );
       if (req.method === "POST" && providerReconcileMatch) {
         const body = await readJson(req);
         const reconciliation = await liveExecution.reconcileProviderVpsSet({
@@ -2083,7 +2726,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { reconciliation });
       }
 
-      const providerRehearsalMatch = url.pathname.match(/^\/live-execution\/cloud\/([^/]+)\/rehearsal$/);
+      const providerRehearsalMatch = url.pathname.match(
+        /^\/live-execution\/cloud\/([^/]+)\/rehearsal$/
+      );
       if (req.method === "POST" && providerRehearsalMatch) {
         auth.requireFreshStepUp(actor, `live_cloud.${providerRehearsalMatch[1]}.rehearsal`, {
           correlationId,
@@ -2100,7 +2745,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { rehearsal });
       }
 
-      const rollbackExecuteMatch = url.pathname.match(/^\/live-execution\/cloud\/rollback-plans\/([^/]+)\/execute$/);
+      const rollbackExecuteMatch = url.pathname.match(
+        /^\/live-execution\/cloud\/rollback-plans\/([^/]+)\/execute$/
+      );
       if (req.method === "POST" && rollbackExecuteMatch) {
         auth.requireFreshStepUp(actor, "live_cloud.rollback_execute", {
           correlationId,
@@ -2149,7 +2796,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { request });
       }
 
-      const operatorLivePromotionMatch = url.pathname.match(/^\/operators\/([^/]+)\/live-promotions\/([^/]+)$/);
+      const operatorLivePromotionMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/live-promotions\/([^/]+)$/
+      );
       if (req.method === "POST" && operatorLivePromotionMatch) {
         const operatorId = operatorLivePromotionMatch[1];
         const providerKey = operatorLivePromotionMatch[2];
@@ -2161,11 +2810,14 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const pipelines = operatorProvisioning.listPipelines({ actor, operatorId, correlationId });
         const localBaseline = latestPromotableLocalBaseline(pipelines);
         if (!localBaseline) {
-          throw validationError("Operator must have an automatic local G1/G2/WORKLOAD baseline before live promotion", {
-            operatorId,
-            requiredStatus: "local_lab_ready",
-            requiredRoles: ["G1", "G2", "WORKLOAD"]
-          });
+          throw validationError(
+            "Operator must have an automatic local G1/G2/WORKLOAD baseline before live promotion",
+            {
+              operatorId,
+              requiredStatus: "local_lab_ready",
+              requiredRoles: ["G1", "G2", "WORKLOAD"]
+            }
+          );
         }
         const body = await readJson(req);
         const request = await liveExecution.createProviderVpsSet({
@@ -2185,7 +2837,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             localLabId: localBaseline.localLab.id,
             firecrackerPlanId: localBaseline.firecrackerPlan.id,
             requestedRoles: localBaseline.localLab.vps.map((vps) => vps.role),
-            requestedWorkloads: localBaseline.firecrackerPlan.workloads.map((workload) => workload.templateKey),
+            requestedWorkloads: localBaseline.firecrackerPlan.workloads.map(
+              (workload) => workload.templateKey
+            ),
             humanGateRequired: true,
             productionExecutionAllowed: false
           },
@@ -2193,54 +2847,88 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
-      if (req.method === "GET" && url.pathname === "/live-execution/firecracker/host-qualifications") {
-        return send(res, 200, { qualifications: liveExecution.listFirecrackerQualifications({ actor, correlationId }) });
+      if (
+        req.method === "GET" &&
+        url.pathname === "/live-execution/firecracker/host-qualifications"
+      ) {
+        return send(res, 200, {
+          qualifications: liveExecution.listFirecrackerQualifications({ actor, correlationId })
+        });
       }
 
-      if (req.method === "GET" && url.pathname === "/live-execution/firecracker/launch-rehearsals") {
+      if (
+        req.method === "GET" &&
+        url.pathname === "/live-execution/firecracker/launch-rehearsals"
+      ) {
         return send(res, 200, {
           rehearsals: liveExecution.listFirecrackerLaunchRehearsals({ actor, correlationId })
         });
       }
 
-      if (req.method === "POST" && url.pathname === "/live-execution/firecracker/host-qualification") {
+      if (
+        req.method === "POST" &&
+        url.pathname === "/live-execution/firecracker/host-qualification"
+      ) {
         auth.requireFreshStepUp(actor, "firecracker.host_qualification", {
           correlationId,
           resourceType: "firecracker_host_qualification"
         });
         const body = await readJson(req);
-        const qualification = liveExecution.qualifyFirecrackerHost({ actor, ...body, correlationId });
+        const qualification = liveExecution.qualifyFirecrackerHost({
+          actor,
+          ...body,
+          correlationId
+        });
         return send(res, 201, { qualification });
       }
 
-      if (req.method === "POST" && url.pathname === "/live-execution/firecracker/launch-rehearsal") {
+      if (
+        req.method === "POST" &&
+        url.pathname === "/live-execution/firecracker/launch-rehearsal"
+      ) {
         auth.requireFreshStepUp(actor, "firecracker.launch_rehearsal", {
           correlationId,
           resourceType: "firecracker_launch_rehearsal"
         });
         const body = await readJson(req);
-        const rehearsal = liveExecution.runFirecrackerLaunchRehearsal({ actor, ...body, correlationId });
+        const rehearsal = liveExecution.runFirecrackerLaunchRehearsal({
+          actor,
+          ...body,
+          correlationId
+        });
         return send(res, 201, { rehearsal });
       }
 
-      if (req.method === "GET" && url.pathname === "/live-execution/cpu-confidential/qualifications") {
+      if (
+        req.method === "GET" &&
+        url.pathname === "/live-execution/cpu-confidential/qualifications"
+      ) {
         return send(res, 200, {
           qualifications: liveExecution.listCpuConfidentialQualifications({ actor, correlationId })
         });
       }
 
-      if (req.method === "POST" && url.pathname === "/live-execution/cpu-confidential/qualification") {
+      if (
+        req.method === "POST" &&
+        url.pathname === "/live-execution/cpu-confidential/qualification"
+      ) {
         auth.requireFreshStepUp(actor, "cpu_confidential.host_qualification", {
           correlationId,
           resourceType: "cpu_confidential_qualification"
         });
         const body = await readJson(req);
-        const qualification = liveExecution.qualifyCpuConfidentialHost({ actor, ...body, correlationId });
+        const qualification = liveExecution.qualifyCpuConfidentialHost({
+          actor,
+          ...body,
+          correlationId
+        });
         return send(res, 201, { qualification });
       }
 
       if (req.method === "GET" && url.pathname === "/live-execution/phantom/requests") {
-        return send(res, 200, { requests: liveExecution.listPhantomExecutionRequests({ actor, correlationId }) });
+        return send(res, 200, {
+          requests: liveExecution.listPhantomExecutionRequests({ actor, correlationId })
+        });
       }
 
       if (req.method === "POST" && url.pathname === "/live-execution/phantom/request") {
@@ -2249,7 +2937,11 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
           resourceType: "phantom_execution_request"
         });
         const body = await readJson(req);
-        const request = liveExecution.createPhantomExecutionRequest({ actor, ...body, correlationId });
+        const request = liveExecution.createPhantomExecutionRequest({
+          actor,
+          ...body,
+          correlationId
+        });
         return send(res, 201, { request });
       }
 
@@ -2258,7 +2950,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       }
 
       if (req.method === "GET" && url.pathname === "/operator-provisioning/templates") {
-        return send(res, 200, { templates: operatorProvisioning.listTemplates({ actor, correlationId }) });
+        return send(res, 200, {
+          templates: operatorProvisioning.listTemplates({ actor, correlationId })
+        });
       }
 
       if (req.method === "GET" && url.pathname === "/operator-provisioning/pipelines") {
@@ -2271,7 +2965,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
-      const operatorPipelineMatch = url.pathname.match(/^\/operators\/([^/]+)\/provisioning-pipeline$/);
+      const operatorPipelineMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/provisioning-pipeline$/
+      );
       if (req.method === "POST" && operatorPipelineMatch) {
         const body = await readJson(req);
         const pipeline = operatorProvisioning.createDraft({
@@ -2283,7 +2979,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { pipeline });
       }
 
-      const localLabPipelineMatch = url.pathname.match(/^\/operator-provisioning\/pipelines\/([^/]+)\/local-lab-vps$/);
+      const localLabPipelineMatch = url.pathname.match(
+        /^\/operator-provisioning\/pipelines\/([^/]+)\/local-lab-vps$/
+      );
       if (req.method === "POST" && localLabPipelineMatch) {
         const pipeline = operatorProvisioning.createLocalLabVpsSet({
           actor,
@@ -2293,7 +2991,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { pipeline });
       }
 
-      const secretsCheckMatch = url.pathname.match(/^\/operator-provisioning\/pipelines\/([^/]+)\/secrets-release-check$/);
+      const secretsCheckMatch = url.pathname.match(
+        /^\/operator-provisioning\/pipelines\/([^/]+)\/secrets-release-check$/
+      );
       if (req.method === "POST" && secretsCheckMatch) {
         const check = operatorProvisioning.checkSecretsRelease({
           actor,
@@ -2323,7 +3023,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { environment });
       }
 
-      const environmentEventsMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/events$/);
+      const environmentEventsMatch = url.pathname.match(
+        /^\/operator-environments\/([^/]+)\/events$/
+      );
       if (req.method === "GET" && environmentEventsMatch) {
         const events = operatorEnvironments.listEvents({
           actor,
@@ -2333,7 +3035,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { events });
       }
 
-      const localEnvironmentMatch = url.pathname.match(/^\/operator-provisioning\/pipelines\/([^/]+)\/local-environment$/);
+      const localEnvironmentMatch = url.pathname.match(
+        /^\/operator-provisioning\/pipelines\/([^/]+)\/local-environment$/
+      );
       if (req.method === "POST" && localEnvironmentMatch) {
         const environment = operatorEnvironments.createFromPipeline({
           actor,
@@ -2343,7 +3047,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { environment });
       }
 
-      const startEnvironmentMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/start-local$/);
+      const startEnvironmentMatch = url.pathname.match(
+        /^\/operator-environments\/([^/]+)\/start-local$/
+      );
       if (req.method === "POST" && startEnvironmentMatch) {
         const environment = operatorEnvironments.startLocal({
           actor,
@@ -2353,7 +3059,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { environment });
       }
 
-      const environmentFailureMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/failures$/);
+      const environmentFailureMatch = url.pathname.match(
+        /^\/operator-environments\/([^/]+)\/failures$/
+      );
       if (req.method === "POST" && environmentFailureMatch) {
         const body = await readJson(req);
         const environment = operatorEnvironments.injectFailure({
@@ -2365,7 +3073,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { environment });
       }
 
-      const rollbackEnvironmentMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/rollback$/);
+      const rollbackEnvironmentMatch = url.pathname.match(
+        /^\/operator-environments\/([^/]+)\/rollback$/
+      );
       if (req.method === "POST" && rollbackEnvironmentMatch) {
         const body = await readJson(req);
         const environment = operatorEnvironments.rollback({
@@ -2377,7 +3087,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { environment });
       }
 
-      const environmentSecretsMatch = url.pathname.match(/^\/operator-environments\/([^/]+)\/secrets-release-check$/);
+      const environmentSecretsMatch = url.pathname.match(
+        /^\/operator-environments\/([^/]+)\/secrets-release-check$/
+      );
       if (req.method === "POST" && environmentSecretsMatch) {
         const check = operatorEnvironments.checkSecretsRelease({
           actor,
@@ -2416,7 +3128,12 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "POST" && url.pathname === "/security/admin/fido2-policy") {
         const body = await readJson(req);
         return send(res, 200, {
-          policy: securityProfiles.updateFido2Policy({ actor, scope: "admin", ...body, correlationId })
+          policy: securityProfiles.updateFido2Policy({
+            actor,
+            scope: "admin",
+            ...body,
+            correlationId
+          })
         });
       }
 
@@ -2429,11 +3146,18 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       if (req.method === "POST" && url.pathname === "/security/admin/hsm-profile") {
         const body = await readJson(req);
         return send(res, 200, {
-          profile: securityProfiles.updateHsmProfile({ actor, scope: "admin", ...body, correlationId })
+          profile: securityProfiles.updateHsmProfile({
+            actor,
+            scope: "admin",
+            ...body,
+            correlationId
+          })
         });
       }
 
-      const operatorFido2ProfileMatch = url.pathname.match(/^\/operators\/([^/]+)\/security\/fido2-policy$/);
+      const operatorFido2ProfileMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/security\/fido2-policy$/
+      );
       if (req.method === "GET" && operatorFido2ProfileMatch) {
         return send(res, 200, {
           policy: securityProfiles.getFido2Policy({
@@ -2458,7 +3182,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
-      const operatorHsmProfileMatch = url.pathname.match(/^\/operators\/([^/]+)\/security\/hsm-profile$/);
+      const operatorHsmProfileMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/security\/hsm-profile$/
+      );
       if (req.method === "GET" && operatorHsmProfileMatch) {
         return send(res, 200, {
           profile: securityProfiles.getHsmProfile({
@@ -2532,7 +3258,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { requests: auth.listRecoveryRequests() });
       }
 
-      const recoveryStatusMatch = url.pathname.match(/^\/auth\/recovery\/requests\/([^/]+)\/status$/);
+      const recoveryStatusMatch = url.pathname.match(
+        /^\/auth\/recovery\/requests\/([^/]+)\/status$/
+      );
       if (req.method === "POST" && recoveryStatusMatch) {
         rbac.assert(actor, "auth.recovery.manage_placeholder", {
           correlationId,
@@ -2615,7 +3343,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { capability });
       }
 
-      const phantomCapabilityStatusMatch = url.pathname.match(/^\/phantom\/capabilities\/([^/]+)\/status$/);
+      const phantomCapabilityStatusMatch = url.pathname.match(
+        /^\/phantom\/capabilities\/([^/]+)\/status$/
+      );
       if (req.method === "POST" && phantomCapabilityStatusMatch) {
         const body = await readJson(req);
         const capability = phantom.updateCapabilityStatus({
@@ -2637,7 +3367,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { approval });
       }
 
-      const phantomApprovalStatusMatch = url.pathname.match(/^\/phantom\/approvals\/([^/]+)\/status$/);
+      const phantomApprovalStatusMatch = url.pathname.match(
+        /^\/phantom\/approvals\/([^/]+)\/status$/
+      );
       if (req.method === "POST" && phantomApprovalStatusMatch) {
         const body = await readJson(req);
         const approval = phantom.updateApprovalStatus({
@@ -2724,7 +3456,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       }
 
       if (req.method === "GET" && url.pathname === "/phantom/readiness") {
-        return send(res, 200, { evaluations: phantom.listReadinessEvaluations({ actor, correlationId }) });
+        return send(res, 200, {
+          evaluations: phantom.listReadinessEvaluations({ actor, correlationId })
+        });
       }
 
       if (req.method === "POST" && url.pathname === "/phantom/readiness/evaluate") {
@@ -2763,7 +3497,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { item });
       }
 
-      const phantomReviewBoardStatusMatch = url.pathname.match(/^\/phantom\/review-board\/([^/]+)\/status$/);
+      const phantomReviewBoardStatusMatch = url.pathname.match(
+        /^\/phantom\/review-board\/([^/]+)\/status$/
+      );
       if (req.method === "POST" && phantomReviewBoardStatusMatch) {
         const body = await readJson(req);
         const item = phantom.updateReviewBoardStatus({
@@ -2775,7 +3511,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { item });
       }
 
-      const phantomReviewBoardAckMatch = url.pathname.match(/^\/phantom\/review-board\/([^/]+)\/ack$/);
+      const phantomReviewBoardAckMatch = url.pathname.match(
+        /^\/phantom\/review-board\/([^/]+)\/ack$/
+      );
       if (req.method === "POST" && phantomReviewBoardAckMatch) {
         const body = await readJson(req);
         const item = phantom.acknowledgeReviewBoardOwner({
@@ -2787,7 +3525,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { item });
       }
 
-      const phantomCoverageMatch = url.pathname.match(/^\/phantom\/packages\/([^/]+)\/evidence-coverage$/);
+      const phantomCoverageMatch = url.pathname.match(
+        /^\/phantom\/packages\/([^/]+)\/evidence-coverage$/
+      );
       if (req.method === "GET" && phantomCoverageMatch) {
         const coverage = phantom.evidenceCoverage({
           actor,
@@ -2798,7 +3538,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       }
 
       if (req.method === "GET" && url.pathname === "/phantom/policy-simulations") {
-        return send(res, 200, { simulations: phantom.listPolicySimulations({ actor, correlationId }) });
+        return send(res, 200, {
+          simulations: phantom.listPolicySimulations({ actor, correlationId })
+        });
       }
 
       if (req.method === "POST" && url.pathname === "/phantom/policy-simulations") {
@@ -3000,7 +3742,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             userDataByRole: body.liveBaseline.userDataByRole || {},
             gatewayOptions: body.liveBaseline.gatewayOptions || {}
           });
-          const artifactSummary = liveBaselineArtifactSummary(body.liveBaseline.gatewayOptions || {});
+          const artifactSummary = liveBaselineArtifactSummary(
+            body.liveBaseline.gatewayOptions || {}
+          );
           const approval = approvals.createApproval({
             actor,
             operatorId: operator.id,
@@ -3025,7 +3769,10 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
             operatorId: operator.id,
             region: body.liveBaseline.region || "fsn1",
             approvalId: approved.id,
-            idempotencyKey: req.headers["idempotency-key"] || body.liveBaseline.idempotencyKey || `operator-live-${operator.id}`,
+            idempotencyKey:
+              req.headers["idempotency-key"] ||
+              body.liveBaseline.idempotencyKey ||
+              `operator-live-${operator.id}`,
             liveConfirmed: body.liveBaseline.liveConfirmed === true,
             serverType: body.liveBaseline.serverType || "cx22",
             serverTypesByRole: body.liveBaseline.serverTypesByRole || {},
@@ -3096,7 +3843,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
-      const disposableTeardownPlanMatch = url.pathname.match(/^\/operators\/([^/]+)\/disposable-teardown-plan$/);
+      const disposableTeardownPlanMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/disposable-teardown-plan$/
+      );
       if (req.method === "POST" && disposableTeardownPlanMatch) {
         const body = await readJson(req);
         const plan = operators.createDisposableTeardownPlan({
@@ -3110,7 +3859,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { plan });
       }
 
-      const disposableTeardownExecuteMatch = url.pathname.match(/^\/operators\/([^/]+)\/disposable-teardown-execute$/);
+      const disposableTeardownExecuteMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/disposable-teardown-execute$/
+      );
       if (req.method === "POST" && disposableTeardownExecuteMatch) {
         const body = await readJson(req);
         const job = operators.executeDisposableTeardown({
@@ -3125,7 +3876,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { job });
       }
 
-      const operatorConnectionPathMatch = url.pathname.match(/^\/operators\/([^/]+)\/connection-path$/);
+      const operatorConnectionPathMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/connection-path$/
+      );
       if (req.method === "GET" && operatorConnectionPathMatch) {
         return send(res, 200, {
           path: operatorPortal.adminConnectionPath({
@@ -3191,7 +3944,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
-      const cellularInventoryMatch = url.pathname.match(/^\/operators\/([^/]+)\/cellular-inventory$/);
+      const cellularInventoryMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/cellular-inventory$/
+      );
       if (req.method === "POST" && cellularInventoryMatch) {
         const body = await readJson(req);
         const inventory = terminalAdmission.recordCellularInventory({
@@ -3223,7 +3978,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
-      const terminalAdmissionMatch = url.pathname.match(/^\/operators\/([^/]+)\/terminal-admission\/evaluate$/);
+      const terminalAdmissionMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/terminal-admission\/evaluate$/
+      );
       if (req.method === "POST" && terminalAdmissionMatch) {
         const body = await readJson(req);
         const admission = terminalAdmission.evaluateTerminalAdmission({
@@ -3267,7 +4024,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
-      const rfLabApproveMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)\/approve$/);
+      const rfLabApproveMatch = url.pathname.match(
+        /^\/rf-lab\/imei-change-tests\/([^/]+)\/approve$/
+      );
       if (req.method === "POST" && rfLabApproveMatch) {
         const body = await readJson(req);
         const labTest = rfLab.approve({
@@ -3279,7 +4038,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { test: labTest });
       }
 
-      const rfLabEvidenceMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)\/evidence$/);
+      const rfLabEvidenceMatch = url.pathname.match(
+        /^\/rf-lab\/imei-change-tests\/([^/]+)\/evidence$/
+      );
       if (req.method === "POST" && rfLabEvidenceMatch) {
         const body = await readJson(req);
         const labTest = rfLab.recordEvidence({
@@ -3291,7 +4052,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { test: labTest });
       }
 
-      const rfLabRouterPreflightMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)\/router-preflight$/);
+      const rfLabRouterPreflightMatch = url.pathname.match(
+        /^\/rf-lab\/imei-change-tests\/([^/]+)\/router-preflight$/
+      );
       if (req.method === "POST" && rfLabRouterPreflightMatch) {
         const body = await readJson(req);
         const labTest = rfLab.recordRouterSoftwarePreflight({
@@ -3303,7 +4066,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { test: labTest });
       }
 
-      const rfLabProductExecutionMatch = url.pathname.match(/^\/rf-lab\/imei-change-tests\/([^/]+)\/execute-product-runtime$/);
+      const rfLabProductExecutionMatch = url.pathname.match(
+        /^\/rf-lab\/imei-change-tests\/([^/]+)\/execute-product-runtime$/
+      );
       if (req.method === "POST" && rfLabProductExecutionMatch) {
         const labTest = rfLab.assertNoProductExecution({
           actor,
@@ -3423,21 +4188,23 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         const body = await readJson(req);
         const provider = body.externalSecretReference
           ? providers.rotateExternalSecretReference({
-            actor,
-            providerId: providerSecretMatch[1],
-            ...body,
-            correlationId
-          })
+              actor,
+              providerId: providerSecretMatch[1],
+              ...body,
+              correlationId
+            })
           : providers.rotateSecret({
-          actor,
-          providerId: providerSecretMatch[1],
-          ...body,
-          correlationId
-        });
+              actor,
+              providerId: providerSecretMatch[1],
+              ...body,
+              correlationId
+            });
         return send(res, 200, { provider });
       }
 
-      const operatorInventoryMatch = url.pathname.match(/^\/operators\/([^/]+)\/infrastructure-sets$/);
+      const operatorInventoryMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/infrastructure-sets$/
+      );
       if (req.method === "GET" && operatorInventoryMatch) {
         const sets = inventory.listForOperator({
           actor,
@@ -3453,7 +4220,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { infrastructureSet });
       }
 
-      const infraTransitionMatch = url.pathname.match(/^\/infrastructure\/vps-sets\/([^/]+)\/lifecycle$/);
+      const infraTransitionMatch = url.pathname.match(
+        /^\/infrastructure\/vps-sets\/([^/]+)\/lifecycle$/
+      );
       if (req.method === "POST" && infraTransitionMatch) {
         const body = await readJson(req);
         const infrastructureSet = inventory.transitionLifecycle({
@@ -3570,7 +4339,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { evidence });
       }
 
-      const jurisdictionRotationMatch = url.pathname.match(/^\/jurisdiction\/policies\/([^/]+)\/rotation-plan$/);
+      const jurisdictionRotationMatch = url.pathname.match(
+        /^\/jurisdiction\/policies\/([^/]+)\/rotation-plan$/
+      );
       if (req.method === "POST" && jurisdictionRotationMatch) {
         const body = await readJson(req);
         const rotationPlan = jurisdiction.planRotation({
@@ -3584,10 +4355,12 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
 
       if (req.method === "POST" && url.pathname === "/matrix/servers") {
         const body = await readJson(req);
-        const addonEnabled = body.addonEnabled === true || subscriptions.canUseAddon({
-          tenantId: body.tenantId,
-          addon: "matrix_custom_server"
-        });
+        const addonEnabled =
+          body.addonEnabled === true ||
+          subscriptions.canUseAddon({
+            tenantId: body.tenantId,
+            addon: "matrix_custom_server"
+          });
         const server = matrix.create({ actor, ...body, addonEnabled, correlationId });
         return send(res, 201, { server });
       }
@@ -3624,7 +4397,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { approval });
       }
 
-      const approvalStatusMatch = url.pathname.match(/^\/provisioning\/approvals\/([^/]+)\/status$/);
+      const approvalStatusMatch = url.pathname.match(
+        /^\/provisioning\/approvals\/([^/]+)\/status$/
+      );
       if (req.method === "POST" && approvalStatusMatch) {
         const body = await readJson(req);
         const approval = approvals.updateApprovalStatus({
@@ -3646,7 +4421,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 200, { readiness });
       }
 
-      const operatorReadinessHistoryMatch = url.pathname.match(/^\/operators\/([^/]+)\/readiness\/history$/);
+      const operatorReadinessHistoryMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/readiness\/history$/
+      );
       if (req.method === "GET" && operatorReadinessHistoryMatch) {
         const readiness = approvals.listReadiness({
           actor,
@@ -3680,7 +4457,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         });
       }
 
-      const workloadLifecycleMatch = url.pathname.match(/^\/workload\/allocations\/([^/]+)\/lifecycle$/);
+      const workloadLifecycleMatch = url.pathname.match(
+        /^\/workload\/allocations\/([^/]+)\/lifecycle$/
+      );
       if (req.method === "POST" && workloadLifecycleMatch) {
         const body = await readJson(req);
         const lifecycle = approvals.transitionWorkloadLifecycle({
@@ -3738,7 +4517,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { plan });
       }
 
-      const workloadAllocationsMatch = url.pathname.match(/^\/operators\/([^/]+)\/workload-allocations$/);
+      const workloadAllocationsMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/workload-allocations$/
+      );
       if (req.method === "GET" && workloadAllocationsMatch) {
         const allocations = subscriptions.listAllocations({
           actor,
@@ -3759,7 +4540,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { allocation });
       }
 
-      const workloadQuoteMatch = url.pathname.match(/^\/operators\/([^/]+)\/workload-allocations\/quote$/);
+      const workloadQuoteMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/workload-allocations\/quote$/
+      );
       if (req.method === "POST" && workloadQuoteMatch) {
         const body = await readJson(req);
         const decision = subscriptions.quoteAllocation({
@@ -3771,7 +4554,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
         return send(res, 201, { decision });
       }
 
-      const placementPlanMatch = url.pathname.match(/^\/operators\/([^/]+)\/microvm-placement-plan$/);
+      const placementPlanMatch = url.pathname.match(
+        /^\/operators\/([^/]+)\/microvm-placement-plan$/
+      );
       if (req.method === "POST" && placementPlanMatch) {
         const body = await readJson(req);
         const placementPlan = subscriptions.planPlacement({
@@ -3784,7 +4569,9 @@ export function createApp({ store = null, authOptions = {}, liveExecutionOptions
       }
 
       if (req.method === "GET" && url.pathname === "/subscription/quota-decisions") {
-        return send(res, 200, { decisions: subscriptions.listQuotaDecisions({ actor, correlationId }) });
+        return send(res, 200, {
+          decisions: subscriptions.listQuotaDecisions({ actor, correlationId })
+        });
       }
 
       if (req.method === "GET" && planMatch) {

@@ -14,7 +14,11 @@ async function startTestServer() {
   };
 }
 
-async function request(baseUrl, path, { method = "GET", token, body, correlationId = "corr_step3_9" } = {}) {
+async function request(
+  baseUrl,
+  path,
+  { method = "GET", token, body, correlationId = "corr_step3_9" } = {}
+) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
@@ -73,7 +77,11 @@ async function createOperatorProviderAndDevices(baseUrl, token) {
   const operator = await request(baseUrl, "/operators", {
     method: "POST",
     token,
-    body: { tenantId: tenant.payload.tenant.id, displayName: `Step 3.9 Operator ${suffix}`, tier: TIERS.PRO }
+    body: {
+      tenantId: tenant.payload.tenant.id,
+      displayName: `Step 3.9 Operator ${suffix}`,
+      tier: TIERS.PRO
+    }
   });
   assert.equal(operator.status, 201);
   const provider = await request(baseUrl, "/providers", {
@@ -96,11 +104,20 @@ async function createOperatorProviderAndDevices(baseUrl, token) {
     const device = await request(baseUrl, "/devices", {
       method: "POST",
       token,
-      body: { type, serial: `${type}-step3-9-${suffix}`, model, assignedOperatorId: operator.payload.operator.id }
+      body: {
+        type,
+        serial: `${type}-step3-9-${suffix}`,
+        model,
+        assignedOperatorId: operator.payload.operator.id
+      }
     });
     assert.equal(device.status, 201);
   }
-  return { tenant: tenant.payload.tenant, operator: operator.payload.operator, provider: provider.payload.provider };
+  return {
+    tenant: tenant.payload.tenant,
+    operator: operator.payload.operator,
+    provider: provider.payload.provider
+  };
 }
 
 async function createPhantomPackage(baseUrl, token) {
@@ -143,22 +160,39 @@ test("Step 3.9 persists readiness history and exposes Księga 3.4 / PHANTOM stat
     assert.match(readiness.payload.readiness.evidenceHash, /^[a-f0-9]{64}$/);
     assert.equal(readiness.payload.readiness.sideEffectAllowed, false);
 
-    const history = await request(baseUrl, `/operators/${operator.id}/readiness/history`, { token });
+    const history = await request(baseUrl, `/operators/${operator.id}/readiness/history`, {
+      token
+    });
     assert.equal(history.status, 200);
     assert.ok(history.payload.readiness.some((item) => item.id === readiness.payload.readiness.id));
 
-    const record = await request(baseUrl, `/readiness/${readiness.payload.readiness.id}`, { token });
+    const record = await request(baseUrl, `/readiness/${readiness.payload.readiness.id}`, {
+      token
+    });
     assert.equal(record.status, 200);
     assert.equal(record.payload.readiness.evidenceHash, readiness.payload.readiness.evidenceHash);
-    assert.equal(JSON.stringify(record.payload).includes("step-3-9-provider-secret-never-leak"), false);
+    assert.equal(
+      JSON.stringify(record.payload).includes("step-3-9-provider-secret-never-leak"),
+      false
+    );
 
     const status = await request(baseUrl, "/system/status", { token });
     assert.equal(status.status, 200);
-    assert.ok(status.payload.status.ksiega34.some((item) => item.key === "approval_mandatory" && item.status === "implemented"));
-    assert.ok(status.payload.status.ksiega34.some((item) => item.key === "real_firecracker" && item.status === "blocked"));
+    assert.ok(
+      status.payload.status.ksiega34.some(
+        (item) => item.key === "approval_mandatory" && item.status === "implemented"
+      )
+    );
+    assert.ok(
+      status.payload.status.ksiega34.some(
+        (item) => item.key === "real_firecracker" && item.status === "blocked"
+      )
+    );
     assert.ok(status.payload.status.phantom.every((item) => item.executionAllowed === false));
     assert.ok(status.payload.status.humanGateRequiredBefore.includes("real_cloud_mutation"));
-    assert.ok(app.services.audit.list().some((event) => event.action === "operator.readiness_evaluated"));
+    assert.ok(
+      app.services.audit.list().some((event) => event.action === "operator.readiness_evaluated")
+    );
   } finally {
     await close();
   }
@@ -199,8 +233,14 @@ test("Step 3.9 provider adapter remains dry-run only and preserves 3 VPS baselin
     assert.equal(plan.payload.plan.plannedActions.length, 3);
     assert.equal(plan.payload.plan.sideEffectAllowed, false);
     assert.equal(plan.payload.plan.executionAllowed, false);
-    assert.equal(plan.payload.plan.plannedActions.every((action) => action.shared === false), true);
-    assert.equal(JSON.stringify(plan.payload).includes("step-3-9-provider-secret-never-leak"), false);
+    assert.equal(
+      plan.payload.plan.plannedActions.every((action) => action.shared === false),
+      true
+    );
+    assert.equal(
+      JSON.stringify(plan.payload).includes("step-3-9-provider-secret-never-leak"),
+      false
+    );
   } finally {
     await close();
   }
@@ -275,13 +315,19 @@ test("Step 3.9 PHANTOM coverage is evidence-only and blocked by expired exceptio
     assert.equal(exception.status, 201);
     assert.equal(exception.payload.exception.expired, true);
 
-    const coverage = await request(baseUrl, `/phantom/packages/${pkg.id}/evidence-coverage`, { token });
+    const coverage = await request(baseUrl, `/phantom/packages/${pkg.id}/evidence-coverage`, {
+      token
+    });
     assert.equal(coverage.status, 200);
     assert.equal(coverage.payload.coverage.executionAllowed, false);
     assert.equal(coverage.payload.coverage.certificationClaim, false);
     assert.equal(coverage.payload.coverage.status, "blocked");
     assert.ok(coverage.payload.coverage.blockers.includes("expired_exception_requires_review"));
-    assert.ok(app.services.audit.list().some((event) => event.action === "phantom.evidence_coverage_evaluated"));
+    assert.ok(
+      app.services.audit
+        .list()
+        .some((event) => event.action === "phantom.evidence_coverage_evaluated")
+    );
   } finally {
     await close();
   }

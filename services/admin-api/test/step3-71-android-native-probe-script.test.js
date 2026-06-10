@@ -18,7 +18,10 @@ test("Step 3.71 Android-native probe targets live hosts explicitly and does not 
 });
 
 test("Step 3.71 Android-native probe separates host readiness from approved Zangi provenance", () => {
-  assert.match(source, /const binderReady = facts\.binder_device \|\| facts\.binderfs_supported \|\| Number\(facts\.binderfs_mounts \|\| 0\) > 0/);
+  assert.match(
+    source,
+    /const binderReady =\s*facts\.binder_device \|\|\s*facts\.binderfs_supported \|\|\s*Number\(facts\.binderfs_mounts \|\| 0\) > 0/
+  );
   assert.match(source, /const hostBlockers = \[/);
   assert.match(source, /const provenanceBlockers = \[/);
   assert.match(source, /hostReady: hostBlockers\.length === 0/);
