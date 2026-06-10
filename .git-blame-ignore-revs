@@ -1,0 +1,5 @@
+# Commity czysto formatujace — pomijane w git blame.
+# Uzycie: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: mass-reformat prettierem (2026-06-10)
+99d0d336fc8e3d71f73d4551d560720c83c16f0b
