@@ -3,6 +3,8 @@ import { RESOURCE_TYPES } from "../../domain/constants.js";
 import { validationError } from "../../lib/errors.js";
 import { newId, requireCorrelationId } from "../../lib/id.js";
 import { PersistentMap } from "../../storage/persistentMap.js";
+import { EnvSecretProvider } from "./envSecretProvider.js";
+import { VaultSecretProvider } from "./vaultSecretProvider.js";
 
 const SECRET_BACKEND_TYPES = new Set([
   "local_reference",
@@ -17,6 +19,42 @@ const SECRET_BACKEND_MODES = new Set([
   "runtime_resolver_planned",
   "runtime_resolver_attested"
 ]);
+
+// F-25 (ADR-vault-adapter-001) — runtime secret backend selector.
+// DEFAULT "env" keeps the current EnvSecretProvider behaviour. "vault" returns
+// the not-yet-integrated VaultSecretProvider skeleton (fails closed). With the
+// flag unset / "env" the behaviour is byte-for-byte identical to today.
+const SECRET_BACKENDS = new Set(["env", "vault"]);
+const DEFAULT_SECRET_BACKEND = "env";
+
+// F-34 (ADR-vault-adapter-001 §4, F4) — token rotation policy thresholds.
+// Evaluated against time-to-expiry (expiresAt - now). Additive metadata only:
+// secrets without a rotation policy evaluate to status "not_configured" and the
+// historical behaviour is unchanged.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ROTATION_THRESHOLDS_MS = {
+  warn: 14 * DAY_MS,
+  high: 7 * DAY_MS,
+  critical: 1 * DAY_MS
+};
+
+export function resolveSecretBackend(env = process.env) {
+  const requested = String(env.SYLION_SECRET_BACKEND || DEFAULT_SECRET_BACKEND)
+    .trim()
+    .toLowerCase();
+  return SECRET_BACKENDS.has(requested) ? requested : DEFAULT_SECRET_BACKEND;
+}
+
+// Returns the active runtime secret provider for the configured backend.
+// Flag OFF / "env" => EnvSecretProvider (current behaviour). "vault" =>
+// VaultSecretProvider skeleton (not integrated; fails closed, no plaintext).
+export function selectSecretProvider({ env = process.env, config = {} } = {}) {
+  const backend = resolveSecretBackend(env);
+  if (backend === "vault") {
+    return new VaultSecretProvider({ env, config });
+  }
+  return new EnvSecretProvider({ env });
+}
 
 function hashSecret(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -43,6 +81,7 @@ export class SecretManagerService {
     tenantId = null,
     providerId = null,
     backendId = null,
+    rotationPolicy = null,
     correlationId
   }) {
     const corr = requireCorrelationId(correlationId);
@@ -66,7 +105,9 @@ export class SecretManagerService {
       version: 1,
       valueHash: hashSecret(plaintext),
       createdAt: now,
-      rotatedAt: now
+      rotatedAt: now,
+      lastRotatedAt: now,
+      rotationPolicy: this.#normalizeRotationPolicy(rotationPolicy, now)
     };
     this.secrets.set(secret.id, secret);
 
@@ -160,11 +201,14 @@ export class SecretManagerService {
     this.#assertSecretInput({ name: current.name, plaintext });
 
     const previousReference = this.#toReference(current);
+    const now = new Date().toISOString();
     const rotated = {
       ...current,
       version: current.version + 1,
       valueHash: hashSecret(plaintext),
-      rotatedAt: new Date().toISOString()
+      rotatedAt: now,
+      lastRotatedAt: now,
+      rotationPolicy: this.#rollRotationPolicy(current.rotationPolicy, now)
     };
     this.secrets.set(secretId, rotated);
     const reference = this.#toReference(rotated);
@@ -177,7 +221,14 @@ export class SecretManagerService {
       tenantId: rotated.tenantId,
       correlationId: corr,
       previousValue: previousReference,
-      newValue: reference
+      newValue: reference,
+      // F-34 — manual rotation provenance (metadata only, no secret material).
+      rotation: {
+        mode: "manual",
+        lastRotatedAt: now,
+        rotationTtlMs: rotated.rotationPolicy ? rotated.rotationPolicy.rotationTtlMs : null,
+        expiresAt: rotated.rotationPolicy ? rotated.rotationPolicy.expiresAt : null
+      }
     });
     return reference;
   }
@@ -322,6 +373,57 @@ export class SecretManagerService {
     return this.#toReference(secret);
   }
 
+  // F-34 — evaluate rotation status against the per-secret policy.
+  // Pure read/evaluation: NO external calls, NO rotation triggered, NO secret
+  // material touched. Secrets without a policy return status "not_configured"
+  // so historical behaviour is unchanged. Accepts either a secret reference
+  // (resolved from store) or an inline policy object (for evaluation/testing).
+  // `now` is injectable for deterministic threshold checks.
+  evaluateRotation(input, { now = Date.now() } = {}) {
+    const nowMs = typeof now === "number" ? now : new Date(now).getTime();
+    const policy = this.#resolveRotationPolicyInput(input);
+    if (!policy || !policy.expiresAt) {
+      return {
+        status: "not_configured",
+        configured: false,
+        actionRequired: false,
+        lastRotatedAt: policy ? policy.lastRotatedAt || null : null,
+        rotationTtlMs: policy ? policy.rotationTtlMs || null : null,
+        expiresAt: policy ? policy.expiresAt || null : null,
+        msUntilExpiry: null,
+        thresholds: { ...ROTATION_THRESHOLDS_MS }
+      };
+    }
+
+    const expiresAtMs = new Date(policy.expiresAt).getTime();
+    const msUntilExpiry = expiresAtMs - nowMs;
+    let status;
+    if (msUntilExpiry <= 0) {
+      // already expired
+      status = "overdue";
+    } else if (msUntilExpiry <= ROTATION_THRESHOLDS_MS.high) {
+      // HIGH (7d) and CRITICAL (1d) windows both mean "rotate now"
+      status = "due";
+    } else if (msUntilExpiry <= ROTATION_THRESHOLDS_MS.warn) {
+      // WARN (14d) window
+      status = "warn";
+    } else {
+      status = "ok";
+    }
+
+    return {
+      status,
+      configured: true,
+      actionRequired: status === "due" || status === "overdue",
+      severity: this.#rotationSeverity(msUntilExpiry),
+      lastRotatedAt: policy.lastRotatedAt || null,
+      rotationTtlMs: policy.rotationTtlMs || null,
+      expiresAt: policy.expiresAt,
+      msUntilExpiry,
+      thresholds: { ...ROTATION_THRESHOLDS_MS }
+    };
+  }
+
   #assertSecretInput({ name, plaintext }) {
     this.#assertSecretName(name);
     if (!plaintext || typeof plaintext !== "string") {
@@ -340,10 +442,13 @@ export class SecretManagerService {
       secretReference: makeReference(secret.id, secret.version),
       version: secret.version,
       rotatedAt: secret.rotatedAt,
+      lastRotatedAt: secret.lastRotatedAt || secret.rotatedAt,
       backendId: secret.backendId || "local_reference",
       backendType: secret.backendType || "local_reference",
       custody: secret.custody || "hash_only_no_plaintext_retrieval",
-      externalReference: secret.externalReference || undefined
+      externalReference: secret.externalReference || undefined,
+      // F-34 — rotation policy metadata only (ttl/expiry), never secret material.
+      rotationPolicy: secret.rotationPolicy || undefined
     };
   }
 
@@ -400,6 +505,87 @@ export class SecretManagerService {
   #safeArray(value = [], field) {
     if (!Array.isArray(value)) throw validationError(`${field} must be an array`, { field });
     return value.map((item, index) => this.#requiredText(item, `${field}.${index}`));
+  }
+
+  // F-34 — normalize an optional rotation policy at create time.
+  // Returns null when no policy is supplied (=> status "not_configured"). When a
+  // rotationTtlMs is provided, expiresAt is derived as lastRotatedAt + ttl
+  // unless an explicit expiresAt is given.
+  #normalizeRotationPolicy(rotationPolicy, lastRotatedAt) {
+    if (!rotationPolicy || typeof rotationPolicy !== "object") {
+      return null;
+    }
+    const ttl = this.#rotationTtlMs(rotationPolicy.rotationTtlMs);
+    const last = rotationPolicy.lastRotatedAt
+      ? this.#isoTimestamp(rotationPolicy.lastRotatedAt, "rotationPolicy.lastRotatedAt")
+      : lastRotatedAt;
+    let expiresAt = null;
+    if (rotationPolicy.expiresAt) {
+      expiresAt = this.#isoTimestamp(rotationPolicy.expiresAt, "rotationPolicy.expiresAt");
+    } else if (ttl !== null) {
+      expiresAt = new Date(new Date(last).getTime() + ttl).toISOString();
+    }
+    if (ttl === null && expiresAt === null) {
+      return null;
+    }
+    return { rotationTtlMs: ttl, lastRotatedAt: last, expiresAt };
+  }
+
+  // Recompute expiresAt on rotation while preserving the configured ttl.
+  #rollRotationPolicy(currentPolicy, rotatedAt) {
+    if (!currentPolicy) return null;
+    const ttl = this.#rotationTtlMs(currentPolicy.rotationTtlMs);
+    const expiresAt =
+      ttl !== null
+        ? new Date(new Date(rotatedAt).getTime() + ttl).toISOString()
+        : currentPolicy.expiresAt || null;
+    return { rotationTtlMs: ttl, lastRotatedAt: rotatedAt, expiresAt };
+  }
+
+  // Accepts a stored secret reference, a stored policy object, or an inline
+  // policy literal and returns a normalized policy (or null).
+  #resolveRotationPolicyInput(input) {
+    if (!input) return null;
+    if (typeof input === "string") {
+      const { secretId } = this.#parseReference(input);
+      const secret = this.secrets.get(secretId);
+      if (!secret) throw validationError("Secret reference is invalid");
+      return secret.rotationPolicy || null;
+    }
+    if (typeof input === "object") {
+      if (input.rotationPolicy !== undefined) {
+        return input.rotationPolicy || null;
+      }
+      return this.#normalizeRotationPolicy(input, input.lastRotatedAt || new Date().toISOString());
+    }
+    return null;
+  }
+
+  #rotationSeverity(msUntilExpiry) {
+    if (msUntilExpiry <= 0) return "critical";
+    if (msUntilExpiry <= ROTATION_THRESHOLDS_MS.critical) return "critical";
+    if (msUntilExpiry <= ROTATION_THRESHOLDS_MS.high) return "high";
+    if (msUntilExpiry <= ROTATION_THRESHOLDS_MS.warn) return "warn";
+    return "ok";
+  }
+
+  #rotationTtlMs(value) {
+    if (value === null || value === undefined) return null;
+    const ttl = Number(value);
+    if (!Number.isFinite(ttl) || ttl <= 0) {
+      throw validationError("rotationTtlMs must be a positive number of milliseconds", {
+        field: "rotationTtlMs"
+      });
+    }
+    return ttl;
+  }
+
+  #isoTimestamp(value, field) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw validationError(`${field} must be a valid timestamp`, { field });
+    }
+    return date.toISOString();
   }
 
   #backendRecords() {

@@ -7,7 +7,7 @@ import { PersistentMap } from "../../storage/persistentMap.js";
 import { HetznerLiveAdapter } from "./hetznerLiveAdapter.js";
 import { HetznerRobotAdapter } from "./hetznerRobotAdapter.js";
 import { OvhLiveAdapter } from "./ovhLiveAdapter.js";
-import { EnvSecretProvider } from "../secrets/envSecretProvider.js";
+import { selectSecretProvider } from "../secrets/secretManagerService.js";
 
 function splitEnvList(value) {
   return String(value || "")
@@ -232,7 +232,9 @@ export class LiveExecutionService {
     this.operators = operators;
     this.approvals = approvals;
     this.env = env;
-    this.secretProvider = secretProvider || new EnvSecretProvider({ env });
+    // F-25 — backend selected via SYLION_SECRET_BACKEND (DEFAULT "env").
+    // Flag OFF / "env" => EnvSecretProvider, identical to prior behaviour.
+    this.secretProvider = secretProvider || selectSecretProvider({ env });
     this.adapterFactory =
       adapterFactory ||
       ((providerKey) => {
