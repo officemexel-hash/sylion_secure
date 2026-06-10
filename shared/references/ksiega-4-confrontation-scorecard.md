@@ -23,12 +23,13 @@
 | Panel admin blue-team / panel operatora (KS-ADMIN-1, KS-OPERATOR-1) | ✅ | admin-web + operator-web, 334 testów |
 | Audit hash chain integrity (KS-AUDIT-TRANSFERS-1) | 🟢 | F-20 bug naprawiony (chain obejmuje pełną treść); F-19 HMAC za flagą; **WORM pending** (Vault transit, nie HSM) |
 | Rotacja kluczy/tokenów progi (KS-KEYROT-5) | 🟢 | F-34: `evaluateRotation` WARN 14d/HIGH 7d/CRITICAL 1d — **zgodne z Księgą**; scheduler realny pending |
-| Secret backend Vault (KS-VAULT-6) | 🟢/🔒 | F-25 skeleton `VaultSecretProvider` (not_integrated); realny Vault OSS = Faza 1; **sealing przez HSM = ostatni krok** |
+| Secret backend Vault (KS-VAULT-6) | 🟢/🔒 | **F-25: realny adapter HTTP** (KV v2 + Transit HMAC + AppRole), flagged `SYLION_SECRET_BACKEND=vault`, test na mock-serwerze; brakuje uruchomionego Vault OSS + async-wiring live path; **sealing HSM = ostatni krok** |
 | Workload Firecracker microVM (KS-WKL-1, KS-WORKLOAD-ISOLATION-4) | 🟡 | realny microVM uruchamiany (skrypty); **per-tier (Podman/FC/SEV-SNP) + gate enforcement** niepełne |
 | CDR realny (KS-CDR-*: AV+magic-bytes+mat2+disarm) | 🔴 | `cdrService` to polityka/metadata; brak ClamAV/DocBleach/OPSWAT — duża luka |
 | Matrix homeserver E2EE + federacja (KS-MATRIX-*) | 🔴 | `matrixServerService` 60 LOC metadata; komunikatory jako workloady, nie Matrix — brak Synapse/Dendrite |
-| OPA/Rego policy engine (KS-G2-2, API-OPA-30) | 🔴 | brak; obecnie custom RBAC (działa, ale nie OPA) |
-| OIDC + mTLS service mesh (API-OAUTH2-25, API-MTLS-27) | 🔴 | WebAuthn-sim + custom auth; brak OIDC providera / Envoy mesh |
+| OPA/Rego policy engine (KS-G2-2, API-OPA-30) | 🟢 | **adapter `opaPolicyProvider` + `sylion-authz.rego`** flagged `SYLION_AUTHZ_ENGINE` (default rbac); brakuje uruchomionego OPA + pełnego portu ROLE_PERMISSIONS do Rego + enforcement (HUMAN GATE) |
+| OIDC (API-OIDC-26, API-JWT-28) | 🟢 | **`oidcTokenVerifier`** (JWKS, RS/PS/ES/EdDSA, anty alg:none/key-confusion) flagged `SYLION_AUTH_OIDC` (default off); brakuje realnego IdP + wiring login path |
+| mTLS service mesh (API-MTLS-27) | 🔴 | brak Envoy/SPIFFE mesh — wymaga deploymentu |
 | Immutable infra / IaC, no-SSH-to-prod (KS-INFRA-1) | 🟡 | `infrastructure/terraform` częściowo; pełny destroy-rebuild niepełny |
 | Confidential computing SEV-SNP/TDX + attestation (KS-WORKLOAD-ISOLATION-5) | 🔴/🔒 | tier STATE; attestation niezintegrowana |
 | Router firmware signing Ed25519 + OpenWrt 23.05+ (KS-ROUTER-3,4) | 🔴/🔒 | **F-36: router na OpenWrt 21.02** (<23.05); pipeline signing brak |
