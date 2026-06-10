@@ -1,7 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
-import { extname, relative, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AuditService } from "./modules/audit/auditService.js";
 import { AuthService } from "./modules/auth/authService.js";
@@ -43,33 +42,8 @@ import { RfLabService } from "./modules/rfLab/rfLabService.js";
 import { BillingPortalService } from "./modules/billingPortal/billingPortalService.js";
 import { ROLES, TIERS } from "./domain/constants.js";
 import { AppError, validationError } from "./lib/errors.js";
-
-async function readJson(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-  const raw = Buffer.concat(chunks).toString("utf8");
-  return raw ? JSON.parse(raw) : {};
-}
-
-async function readRaw(req) {
-  const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-
-function send(res, status, payload, headers = {}) {
-  res.writeHead(status, { "content-type": "application/json", ...headers });
-  res.end(JSON.stringify(payload));
-}
-
-function sendRaw(res, status, contentType, payload) {
-  res.writeHead(status, { "content-type": contentType });
-  res.end(payload);
-}
+import { readJson, readRaw, send } from "./lib/httpHelpers.js";
+import { createStaticFileServer } from "./lib/staticFileServe.js";
 
 const PORTAL_BOOTSTRAP_TEMPLATE_SEQUENCE = Object.freeze([
   "whatsapp",
@@ -1376,84 +1350,28 @@ const STATIC_TYPES = Object.freeze({
   ".svg": "image/svg+xml"
 });
 
-async function serveAdminWeb(url, res) {
-  const pathname =
+const serveAdminWeb = createStaticFileServer(
+  WEB_ROOT,
+  (url) =>
     url.pathname === "/" || url.pathname === "/admin"
       ? "/index.html"
-      : url.pathname.replace(/^\/admin/, "");
-  const filePath = resolve(WEB_ROOT, `.${decodeURIComponent(pathname)}`);
-  const relativePath = relative(WEB_ROOT, filePath);
-  if (
-    relativePath.startsWith("..") ||
-    relativePath.startsWith("/") ||
-    relativePath.startsWith("\\")
-  ) {
-    return false;
-  }
-  const ext = extname(filePath);
-  if (!STATIC_TYPES[ext]) {
-    return false;
-  }
-  try {
-    const file = await readFile(filePath);
-    sendRaw(res, 200, STATIC_TYPES[ext], file);
-    return true;
-  } catch {
-    return false;
-  }
-}
+      : url.pathname.replace(/^\/admin/, ""),
+  STATIC_TYPES
+);
 
 // Per ADR-terminal-modes-001: operator portal served under /operator/*.
 // Separate static root from admin-web. API stubs live under /operator-api/*.
-async function serveOperatorWeb(url, res) {
-  const pathname =
-    url.pathname === "/operator" ? "/index.html" : url.pathname.replace(/^\/operator/, "");
-  const filePath = resolve(OPERATOR_WEB_ROOT, `.${decodeURIComponent(pathname)}`);
-  const relativePath = relative(OPERATOR_WEB_ROOT, filePath);
-  if (
-    relativePath.startsWith("..") ||
-    relativePath.startsWith("/") ||
-    relativePath.startsWith("\\")
-  ) {
-    return false;
-  }
-  const ext = extname(filePath);
-  if (!STATIC_TYPES[ext]) {
-    return false;
-  }
-  try {
-    const file = await readFile(filePath);
-    sendRaw(res, 200, STATIC_TYPES[ext], file);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const serveOperatorWeb = createStaticFileServer(
+  OPERATOR_WEB_ROOT,
+  (url) => (url.pathname === "/operator" ? "/index.html" : url.pathname.replace(/^\/operator/, "")),
+  STATIC_TYPES
+);
 
-async function serveCustomerPortal(url, res) {
-  const pathname =
-    url.pathname === "/portal" ? "/index.html" : url.pathname.replace(/^\/portal/, "");
-  const filePath = resolve(CUSTOMER_PORTAL_ROOT, `.${decodeURIComponent(pathname)}`);
-  const relativePath = relative(CUSTOMER_PORTAL_ROOT, filePath);
-  if (
-    relativePath.startsWith("..") ||
-    relativePath.startsWith("/") ||
-    relativePath.startsWith("\\")
-  ) {
-    return false;
-  }
-  const ext = extname(filePath);
-  if (!STATIC_TYPES[ext]) {
-    return false;
-  }
-  try {
-    const file = await readFile(filePath);
-    sendRaw(res, 200, STATIC_TYPES[ext], file);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const serveCustomerPortal = createStaticFileServer(
+  CUSTOMER_PORTAL_ROOT,
+  (url) => (url.pathname === "/portal" ? "/index.html" : url.pathname.replace(/^\/portal/, "")),
+  STATIC_TYPES
+);
 
 export function createApp({
   store = null,
