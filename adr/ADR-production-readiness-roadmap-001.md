@@ -48,6 +48,22 @@ To oznacza, że „dojście do produkcji" jest **programem inżyniersko-complian
 
 Faza dobrana pod **tier STANDARD** (minimalny certyfikowalny baseline). PRO/STATE (HSM per-operator, SEV-SNP/TDX, PQC CNSA 2.0, bare-metal, rezydencja) to nadbudowa po STANDARD.
 
+### 3.0 Decyzja o sekwencjonowaniu (owner, 2026-06-10) — HSM + YubiKey NA SAM KONIEC
+
+Właściciel zdecydował: **integracja HSM i fizyczny enrollment YubiKey/FIDO2 są absolutnie ostatnim krokiem**;
+cała reszta ma być doprowadzona do gotowości przed nimi. Konsekwencje dla fazowania:
+
+- **Krypto bez HSM najpierw (Faza 1):** F-19 (audit HMAC) i F-25 (secret backend) realizowane przez
+  **HashiCorp Vault OSS / transit engine**, NIE przez HSM. To zamyka software'ową część F-19/F-25/F-34
+  bez czekania na sprzęt. HSM wchodzi później wyłącznie jako upgrade *custody/sealing* (Vault auto-unseal
+  przez HSM) + PKI root signing — patrz Faza 5.
+- **FIDO2 najpierw konfiguracyjnie:** polityki FIDO2, panel, tryby enrollment-ready są gotowe software'owo;
+  **fizyczny YubiKey enrollment** (klucze sprzętowe operatorów/adminów) odkładamy na koniec razem z HSM.
+- **„Reszta gotowa":** Vault+rotacja, OPA/OIDC/mTLS, CDR realny, Firecracker per-tier, router firmware
+  signing, GrapheneOS image pipeline, Matrix homeserver, immutable infra, compliance/SML-3 — wszystko
+  przed HSM+YubiKey.
+- HSM/YubiKey pozostają HUMAN GATE (Security) i są warunkiem `gate_pki_hsm` → ostatecznego unlocku.
+
 ### Faza 0 — Fundament governance + reconcile *(w toku / częściowo zrobione)*
 - ✅ Control-plane, panele, release gates, audyt, factual test harness
 - ✅ Higiena repo, ESLint/Prettier/CI lint, gitleaks (sprint optymalizacji)
