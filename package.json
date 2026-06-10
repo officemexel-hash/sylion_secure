@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "start:admin-api": "node services/admin-api/src/server.js",
     "start:admin-api:persistent": "node --experimental-sqlite services/admin-api/src/server.js",
